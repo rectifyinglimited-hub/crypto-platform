@@ -59,31 +59,69 @@ const themeTokens = (theme) => {
   const dark = theme === "dark";
   return {
     theme,
-    bg: dark ? "#0b0e11" : "#ffffff",
-    bgAlt: dark ? "#0f1319" : "#f8fafc",
-    card: dark ? "#12161c" : "#ffffff",
-    cardAlt: dark ? "#0f1319" : "#f8fafc",
-    border: dark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.10)",
-    borderStrong: dark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.16)",
-    divider: dark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.06)",
-    text: dark ? "#e2e8f0" : "#0f172a",
-    textStrong: dark ? "#f8fafc" : "#020617",
-    textMuted: dark ? "#94a3b8" : "#475569",
-    textFaint: dark ? "#64748b" : "#94a3b8",
-    inputBg: dark ? "#1e2329" : "#ffffff",
-    inputBorder: dark ? "#334155" : "#cbd5e1",
-    hover: dark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.04)",
-    hoverStrong: dark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+
+    // ---------------------------------------------------------------------
+    // Global surfaces
+    // ---------------------------------------------------------------------
+    //  DARK  → #0c0d10  (deep rich trading black)
+    //  LIGHT → #f0f2f5  (soft metallic slate — NEVER pure white)
+    // ---------------------------------------------------------------------
+    bg: dark ? "#0c0d10" : "#f0f2f5",
+    bgAlt: dark ? "#101216" : "#e8ebf0",
+
+    // ---------------------------------------------------------------------
+    // Cards & panels
+    //  DARK  → #16181e panels on crisp #262931 borders
+    //  LIGHT → #ffffff cards riding on the slate #f0f2f5 backdrop
+    // ---------------------------------------------------------------------
+    card: dark ? "#16181e" : "#ffffff",
+    cardAlt: dark ? "#101216" : "#f8f9fb",
+    border: dark ? "#262931" : "#e0e3eb",
+    borderStrong: dark ? "#333844" : "#c9cdd8",
+    divider: dark ? "#20232a" : "#eaecef",
+
+    // ---------------------------------------------------------------------
+    // Typography
+    //  DARK  → main #eaecef  ·  sub #848e9c
+    //  LIGHT → main #1e2329  ·  sub #707a8a
+    // ---------------------------------------------------------------------
+    text: dark ? "#eaecef" : "#1e2329",
+    textStrong: dark ? "#ffffff" : "#0c0d10",
+    textMuted: dark ? "#848e9c" : "#707a8a",
+    textFaint: dark ? "#5e6673" : "#8a94a4",
+
+    // ---------------------------------------------------------------------
+    // Inputs
+    //  DARK  → bg #1e222b · border #2d333f · focus emerald-500 #10b981
+    //  LIGHT → bg #f8f9fb · border #d2d6e1 · focus emerald-600 #059669
+    // ---------------------------------------------------------------------
+    inputBg: dark ? "#1e222b" : "#f8f9fb",
+    inputBorder: dark ? "#2d333f" : "#d2d6e1",
+    inputFocus: dark ? "#10b981" : "#059669",
+
+    // ---------------------------------------------------------------------
+    // Interaction / hover overlays
+    // ---------------------------------------------------------------------
+    hover: dark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+    hoverStrong: dark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+
+    // ---------------------------------------------------------------------
+    // Semantic accent colours — shared across both themes
+    // ---------------------------------------------------------------------
     green: "#02c076",
-    greenSoft: dark ? "rgba(2,192,118,0.14)" : "rgba(2,192,118,0.12)",
+    greenSoft: dark ? "rgba(2,192,118,0.14)" : "rgba(2,192,118,0.10)",
     red: "#f6465d",
-    redSoft: dark ? "rgba(246,70,93,0.14)" : "rgba(246,70,93,0.12)",
-    amber: "#f59e0b",
-    amberSoft: dark ? "rgba(245,158,11,0.14)" : "rgba(245,158,11,0.12)",
-    indigo: "#6366f1",
+    redSoft: dark ? "rgba(246,70,93,0.14)" : "rgba(246,70,93,0.10)",
+    amber: dark ? "#f59e0b" : "#c2760a",
+    amberSoft: dark ? "rgba(245,158,11,0.14)" : "rgba(194,118,10,0.14)",
+    indigo: dark ? "#6366f1" : "#4f46e5",
+
+    // ---------------------------------------------------------------------
+    // Composite effects
+    // ---------------------------------------------------------------------
     overlayGrad: dark
-      ? "linear-gradient(180deg, rgba(11,14,17,0.55) 0%, rgba(11,14,17,0.92) 100%)"
-      : "linear-gradient(180deg, rgba(248,250,252,0.55) 0%, rgba(248,250,252,0.92) 100%)",
+      ? "linear-gradient(180deg, rgba(12,13,16,0.55) 0%, rgba(12,13,16,0.92) 100%)"
+      : "linear-gradient(180deg, rgba(240,242,245,0.55) 0%, rgba(240,242,245,0.92) 100%)",
     priceStripe: dark
       ? "linear-gradient(90deg, rgba(2,192,118,0.15) 0%, rgba(0,0,0,0) 50%, rgba(246,70,93,0.15) 100%)"
       : "linear-gradient(90deg, rgba(2,192,118,0.10) 0%, rgba(0,0,0,0) 50%, rgba(246,70,93,0.10) 100%)",
@@ -207,7 +245,7 @@ const TopNav = ({ onSignIn, onSignUp, authed, t, theme, onToggleTheme }) => (
   <div
     className="relative z-30 border-b backdrop-blur"
     style={{
-      backgroundColor: theme === "dark" ? "rgba(11,14,17,0.95)" : "rgba(255,255,255,0.95)",
+      backgroundColor: theme === "dark" ? "rgba(12,13,16,0.95)" : "rgba(255,255,255,0.95)",
       borderColor: t.border,
       color: t.text,
     }}
@@ -288,7 +326,7 @@ const TopNav = ({ onSignIn, onSignUp, authed, t, theme, onToggleTheme }) => (
           <button
             onClick={onSignUp}
             className="rounded-md px-3 py-1.5 text-[11px] font-bold"
-            style={{ backgroundColor: t.green, color: "#0b0e11" }}
+            style={{ backgroundColor: t.green, color: "#0c0d10" }}
           >
             Sign up
           </button>
@@ -1278,7 +1316,7 @@ const TradeExecution = ({ price, t }) => {
           className="flex flex-col items-center rounded-md py-2.5 text-sm font-bold"
           style={{
             backgroundColor: t.green,
-            color: "#0b0e11",
+            color: "#0c0d10",
             boxShadow: t.ctaShadow,
           }}
         >
@@ -1592,7 +1630,7 @@ const SignInForm = ({
         className="mt-2 flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-bold disabled:opacity-70"
         style={{
           backgroundColor: t.green,
-          color: "#0b0e11",
+          color: "#0c0d10",
           boxShadow: t.ctaShadow,
         }}
       >
@@ -1818,7 +1856,7 @@ const SignUpForm = ({
         className="mt-1 flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-bold disabled:opacity-70"
         style={{
           backgroundColor: t.green,
-          color: "#0b0e11",
+          color: "#0c0d10",
           boxShadow: t.ctaShadow,
         }}
       >
@@ -1917,7 +1955,7 @@ const AuthOverlay = ({
           className="w-full rounded-md py-2 text-xs font-bold"
           style={{
             backgroundColor: t.green,
-            color: "#0b0e11",
+            color: "#0c0d10",
             boxShadow: t.ctaShadow,
           }}
         >
