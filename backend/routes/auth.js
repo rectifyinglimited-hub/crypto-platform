@@ -3,16 +3,26 @@
  *  NEXUS BACKEND — routes/auth.js
  * =============================================================================
  *  Auth endpoints:
- *    POST   /api/auth/register     Create account (all Nexus profile fields)
+ *    POST   /api/auth/register     Create account · REQUIRES active invite code
  *    POST   /api/auth/login        Sign in
  *    GET    /api/auth/me           Current user (bearer required)
  *    POST   /api/auth/logout       Stateless logout
  *    POST   /api/auth/kyc          Submit KYC verification package
  *    GET    /api/auth/ping         Module heartbeat
  *
- *  On success, /register and /login return { success, token, user } — the
- *  frontend stores `token` in localStorage("nexus_token") and immediately
- *  transitions to the dashboard.
+ *  Registration control
+ *  --------------------
+ *  From this build forward the register endpoint STRICTLY requires a valid
+ *  invite code that maps to an `active` document in the `InviteCode`
+ *  collection (created by an administrator).  Missing, empty, or unmatched
+ *  codes trigger an immediate 403 with a precise operator-facing message:
+ *
+ *      { "message": "Registration Denied: A verified admin invitation
+ *                    code is strictly required." }
+ *
+ *  When the code is accepted the redeeming user is appended to the code's
+ *  `usedBy` array and inherits the role stamped on the code (`user` by
+ *  default, `admin` for internal keys).
  * =============================================================================
  */
 
@@ -23,6 +33,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
 import User from "../models/User.js";
+import InviteCode from "../models/InviteCode.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -34,6 +45,9 @@ const JWT_SECRET =
   process.env.JWT_SECRET || "nexus-dev-secret-change-me-in-production";
 const JWT_TTL = process.env.JWT_TTL || "7d";
 const BCRYPT_ROUNDS = 12;
+
+const INVITE_REQUIRED_MESSAGE =
+  "Registration Denied: A verified admin invitation code is strictly required.";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,6 +97,24 @@ const sanitizeUser = (user) => {
   return obj;
 };
 
+/**
+ * Look up a candidate invite code and validate that it is redeemable.
+ * Returns the code document on success, or throws an object shaped like
+ *   { status, message } which the caller can convert to an HTTP response.
+ */
+const requireActiveInviteCode = async (raw) => {
+  const denial = { status: 403, message: INVITE_REQUIRED_MESSAGE };
+  if (typeof raw !== "string" || !raw.trim()) throw denial;
+
+  const code = await InviteCode.findOne({ code: raw.trim().toUpperCase() });
+  if (!code) throw denial;
+  if (!code.active) throw denial;
+  if (code.expiresAt && new Date(code.expiresAt) < new Date()) throw denial;
+  if ((code.usedBy?.length || 0) >= (code.maxUses || 1)) throw denial;
+
+  return code;
+};
+
 // ---------------------------------------------------------------------------
 // Validation chains
 // ---------------------------------------------------------------------------
@@ -120,10 +152,12 @@ const registerValidators = [
     .isLength({ min: 2, max: 60 })
     .withMessage("Country must be a short string."),
   body("inviteCode")
-    .optional({ nullable: true, checkFalsy: true })
+    .exists({ checkNull: true, checkFalsy: true })
+    .withMessage(INVITE_REQUIRED_MESSAGE)
+    .bail()
     .isString()
     .isLength({ min: 2, max: 32 })
-    .withMessage("Invite code looks invalid."),
+    .withMessage(INVITE_REQUIRED_MESSAGE),
 ];
 
 const loginValidators = [
@@ -147,12 +181,38 @@ router.post(
   registerValidators,
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return sendValidationError(res, errors);
+    if (!errors.isEmpty()) {
+      // Invite-code specific validation errors should return the strict 403
+      // shape the frontend banner is looking for.
+      const inviteErr = errors
+        .array()
+        .find((e) => (e.path || e.param) === "inviteCode");
+      if (inviteErr) {
+        return res.status(403).json({
+          success: false,
+          error: "ForbiddenError",
+          message: INVITE_REQUIRED_MESSAGE,
+        });
+      }
+      return sendValidationError(res, errors);
+    }
 
     const { fullName, username, email, password, phone, country, inviteCode } =
       req.body;
 
-    // Uniqueness check on both email + username
+    // 1) Enforce invite code BEFORE anything else — no leaking uniqueness
+    let inviteDoc;
+    try {
+      inviteDoc = await requireActiveInviteCode(inviteCode);
+    } catch (denial) {
+      return res.status(denial.status).json({
+        success: false,
+        error: "ForbiddenError",
+        message: denial.message,
+      });
+    }
+
+    // 2) Uniqueness (email + username)
     const clash = await User.findOne({
       $or: [{ email }, { username: username.toLowerCase() }],
     }).lean();
@@ -165,6 +225,7 @@ router.post(
       });
     }
 
+    // 3) Create account with role from invite code
     const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const user = await User.create({
       fullName,
@@ -173,12 +234,18 @@ router.post(
       password: hashed,
       phone: phone || null,
       country: country || null,
-      inviteCode: inviteCode ? inviteCode.toUpperCase() : null,
+      inviteCode: inviteDoc.code,
+      role: inviteDoc.role || "user",
     });
 
+    // 4) Consume the invite code (audit trail)
+    inviteDoc.usedBy = inviteDoc.usedBy || [];
+    inviteDoc.usedBy.push({ user: user._id, at: new Date() });
+    await inviteDoc.save();
+
+    // 5) Mark first login + sign JWT
     user.lastLoginAt = new Date();
     await user.save();
-
     const token = signToken(user);
 
     return res.status(201).json({
@@ -296,7 +363,8 @@ router.post(
       return res.status(422).json({
         success: false,
         error: "ValidationError",
-        message: "Document type must be one of CNIC, Passport, ID, DriversLicense.",
+        message:
+          "Document type must be one of CNIC, Passport, ID, DriversLicense.",
       });
     }
     if (docNumber.length < 4 || docNumber.length > 40) {

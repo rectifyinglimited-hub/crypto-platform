@@ -2,26 +2,13 @@
  * =============================================================================
  *  NEXUS FRONTEND — src/components/MainPlatform.jsx
  * =============================================================================
- *  Bitget-style pro trading masterpiece landing.
- *
- *    ┌───────────────────────────────────────────────────────────┐
- *    │  TopNav  (brand · search · notifications · session CTAs)  │
- *    ├───────────────────────────────────────────────────────────┤
- *    │  InstrumentBar  (BTC/USDT Perp · live · 24h High/Low/Vol) │
- *    ├───────────────────────────────────┬───────────────────────┤
- *    │  Candlestick Chart │ Order Book   │  Trade Execution      │
- *    │  (2/3 of 75%)      │ (1/3 of 75%) │  (right 25%)          │
- *    │                    │              │                       │
- *    │                    │              │  ┌─ Auth overlay ─┐   │
- *    │                    │              │  │  (when logged  │   │
- *    │                    │              │  │   out — flip   │   │
- *    │                    │              │  │   morphs into  │   │
- *    │                    │              │  │   Sign In /Up) │   │
- *    │                    │              │  └────────────────┘   │
- *    ├───────────────────────────────────┤                       │
- *    │  Bottom Data Center               │                       │
- *    │  [Positions|Trades|Orders|Wallet] │                       │
- *    └───────────────────────────────────┴───────────────────────┘
+ *  Bitget-style pro trading masterpiece landing with:
+ *    • Universal Dark / Light theme toggle (Sun/Moon spin) in the top nav
+ *      AND duplicated inside the Sign In / Create Account panels so users
+ *      can swap lighting while entering credentials.
+ *    • Strict registration control — invite code is required and validated
+ *      against /api/auth/register, with a beautiful in-form alert banner
+ *      that surfaces the backend's 403 payload.
  * =============================================================================
  */
 
@@ -29,8 +16,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
-  TrendingUp,
-  TrendingDown,
   ArrowUpRight,
   ArrowDownRight,
   Search,
@@ -58,23 +43,59 @@ import {
   Activity,
   Ticket,
   BookOpen,
+  Sun,
+  Moon,
+  ShieldAlert,
 } from "lucide-react";
 
 import { AuthAPI, setToken } from "../lib/api.js";
 
 // ---------------------------------------------------------------------------
-// Colour tokens — mirror Bitget-style palette
+// Theme tokens — single source of truth for the dark / light palettes
 // ---------------------------------------------------------------------------
-const COLORS = {
-  bg: "#0b0e11",
-  card: "#12161c",
-  border: "rgba(255,255,255,0.06)",
-  greenSolid: "#02c076",
-  greenSoft: "rgba(2, 192, 118, 0.12)",
-  redSolid: "#f6465d",
-  redSoft: "rgba(246, 70, 93, 0.12)",
+const THEME_STORAGE_KEY = "nexus_theme";
+
+const themeTokens = (theme) => {
+  const dark = theme === "dark";
+  return {
+    theme,
+    bg: dark ? "#0b0e11" : "#ffffff",
+    bgAlt: dark ? "#0f1319" : "#f8fafc",
+    card: dark ? "#12161c" : "#ffffff",
+    cardAlt: dark ? "#0f1319" : "#f8fafc",
+    border: dark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.10)",
+    borderStrong: dark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.16)",
+    divider: dark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.06)",
+    text: dark ? "#e2e8f0" : "#0f172a",
+    textStrong: dark ? "#f8fafc" : "#020617",
+    textMuted: dark ? "#94a3b8" : "#475569",
+    textFaint: dark ? "#64748b" : "#94a3b8",
+    inputBg: dark ? "#1e2329" : "#ffffff",
+    inputBorder: dark ? "#334155" : "#cbd5e1",
+    hover: dark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.04)",
+    hoverStrong: dark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+    green: "#02c076",
+    greenSoft: dark ? "rgba(2,192,118,0.14)" : "rgba(2,192,118,0.12)",
+    red: "#f6465d",
+    redSoft: dark ? "rgba(246,70,93,0.14)" : "rgba(246,70,93,0.12)",
+    amber: "#f59e0b",
+    amberSoft: dark ? "rgba(245,158,11,0.14)" : "rgba(245,158,11,0.12)",
+    indigo: "#6366f1",
+    overlayGrad: dark
+      ? "linear-gradient(180deg, rgba(11,14,17,0.55) 0%, rgba(11,14,17,0.92) 100%)"
+      : "linear-gradient(180deg, rgba(248,250,252,0.55) 0%, rgba(248,250,252,0.92) 100%)",
+    priceStripe: dark
+      ? "linear-gradient(90deg, rgba(2,192,118,0.15) 0%, rgba(0,0,0,0) 50%, rgba(246,70,93,0.15) 100%)"
+      : "linear-gradient(90deg, rgba(2,192,118,0.10) 0%, rgba(0,0,0,0) 50%, rgba(246,70,93,0.10) 100%)",
+    ctaShadow: dark
+      ? "0 10px 24px -12px rgba(2,192,118,0.55)"
+      : "0 10px 24px -12px rgba(2,192,118,0.35)",
+  };
 };
 
+// ---------------------------------------------------------------------------
+// Format helpers
+// ---------------------------------------------------------------------------
 const fmtUSD = (n, d = 2) =>
   Number(n).toLocaleString(undefined, {
     style: "currency",
@@ -85,7 +106,7 @@ const fmtNum = (n, d = 2) =>
   Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
 
 // ---------------------------------------------------------------------------
-// Candlestick seed & live-tick generation
+// Candlestick seed & live tick
 // ---------------------------------------------------------------------------
 const CANDLE_COUNT = 68;
 
@@ -99,7 +120,13 @@ const seedCandles = (basePrice = 68240) => {
     const spread = Math.random() * 0.006 * last + 5;
     const high = Math.max(open, close) + Math.random() * spread;
     const low = Math.min(open, close) - Math.random() * spread;
-    arr.push({ open, close, high, low, ts: Date.now() - (CANDLE_COUNT - i) * 60_000 });
+    arr.push({
+      open,
+      close,
+      high,
+      low,
+      ts: Date.now() - (CANDLE_COUNT - i) * 60_000,
+    });
     last = close;
   }
   return arr;
@@ -117,7 +144,7 @@ const nextCandle = (prev) => {
 };
 
 // ---------------------------------------------------------------------------
-// Order book seed & tick
+// Order book seed
 // ---------------------------------------------------------------------------
 const seedBook = (mid) => {
   const asks = [];
@@ -132,48 +159,116 @@ const seedBook = (mid) => {
 };
 
 // ---------------------------------------------------------------------------
-// TopNav — full-width brand + session actions
+// ThemeToggle — Sun/Moon with rotate transition
 // ---------------------------------------------------------------------------
-const TopNav = ({ onSignIn, onSignUp, authed }) => (
-  <div className="relative z-30 border-b border-white/5 bg-[#0b0e11]/95 backdrop-blur">
+const ThemeToggle = ({ theme, onToggle, t, compact = false }) => (
+  <motion.button
+    onClick={onToggle}
+    whileTap={{ scale: 0.9 }}
+    whileHover={{ scale: 1.05 }}
+    aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+    className="relative overflow-hidden rounded-md border transition"
+    style={{
+      backgroundColor: theme === "dark" ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.04)",
+      borderColor: t.border,
+      padding: compact ? 4 : 6,
+    }}
+    title={theme === "dark" ? "Light mode" : "Dark mode"}
+  >
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.span
+        key={theme}
+        initial={{ rotate: -180, opacity: 0, scale: 0.6 }}
+        animate={{ rotate: 0, opacity: 1, scale: 1 }}
+        exit={{ rotate: 180, opacity: 0, scale: 0.6 }}
+        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+        className="block"
+      >
+        {theme === "dark" ? (
+          <Sun
+            className={compact ? "h-3.5 w-3.5" : "h-4 w-4"}
+            style={{ color: t.amber }}
+          />
+        ) : (
+          <Moon
+            className={compact ? "h-3.5 w-3.5" : "h-4 w-4"}
+            style={{ color: t.indigo }}
+          />
+        )}
+      </motion.span>
+    </AnimatePresence>
+  </motion.button>
+);
+
+// ---------------------------------------------------------------------------
+// TopNav — brand + search + session CTAs + theme toggle
+// ---------------------------------------------------------------------------
+const TopNav = ({ onSignIn, onSignUp, authed, t, theme, onToggleTheme }) => (
+  <div
+    className="relative z-30 border-b backdrop-blur"
+    style={{
+      backgroundColor: theme === "dark" ? "rgba(11,14,17,0.95)" : "rgba(255,255,255,0.95)",
+      borderColor: t.border,
+      color: t.text,
+    }}
+  >
     <div className="flex h-12 items-center gap-4 px-4">
       <div className="flex items-center gap-2">
         <div className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-indigo-500 to-emerald-400 shadow-md shadow-indigo-500/25">
           <Sparkles className="h-3.5 w-3.5 text-white" />
         </div>
         <span className="text-sm font-bold tracking-tight">Nexus</span>
-        <span className="hidden text-[10px] font-medium uppercase tracking-widest text-slate-500 sm:inline">
+        <span
+          className="hidden text-[10px] font-medium uppercase tracking-widest sm:inline"
+          style={{ color: t.textFaint }}
+        >
           Pro Trading
         </span>
       </div>
 
       <nav className="hidden items-center gap-4 md:flex">
-        {["Derivatives", "Spot", "Copy Trade", "Earn", "P2P"].map((t, i) => (
+        {["Derivatives", "Spot", "Copy Trade", "Earn", "P2P"].map((label, i) => (
           <button
-            key={t}
-            className={`text-[11px] font-semibold ${
-              i === 0
-                ? "text-emerald-300"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
+            key={label}
+            className="text-[11px] font-semibold transition"
+            style={{ color: i === 0 ? t.green : t.textMuted }}
           >
-            {t}
+            {label}
           </button>
         ))}
       </nav>
 
-      <div className="mx-4 hidden flex-1 items-center gap-2 rounded-md border border-white/5 bg-white/[0.02] px-2 py-1 md:flex">
-        <Search className="h-3 w-3 text-slate-500" />
+      <div
+        className="mx-4 hidden flex-1 items-center gap-2 rounded-md border px-2 py-1 md:flex"
+        style={{
+          backgroundColor: theme === "dark" ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.03)",
+          borderColor: t.border,
+        }}
+      >
+        <Search className="h-3 w-3" style={{ color: t.textFaint }} />
         <input
           placeholder="Search markets…"
-          className="w-full bg-transparent text-[11px] text-slate-200 outline-none placeholder:text-slate-600"
+          className="w-full bg-transparent text-[11px] outline-none"
+          style={{ color: t.text }}
         />
-        <kbd className="rounded border border-white/10 px-1 text-[9px] text-slate-500">
+        <kbd
+          className="rounded border px-1 text-[9px]"
+          style={{ borderColor: t.border, color: t.textFaint }}
+        >
           /
         </kbd>
       </div>
 
-      <button className="rounded-md border border-white/5 bg-white/[0.02] p-1.5 text-slate-400 hover:bg-white/[0.05]">
+      <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t} />
+
+      <button
+        className="rounded-md border p-1.5 transition"
+        style={{
+          backgroundColor: theme === "dark" ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.04)",
+          borderColor: t.border,
+          color: t.textMuted,
+        }}
+      >
         <Bell className="h-3.5 w-3.5" />
       </button>
 
@@ -181,14 +276,19 @@ const TopNav = ({ onSignIn, onSignUp, authed }) => (
         <>
           <button
             onClick={onSignIn}
-            className="rounded-md border border-white/5 bg-white/[0.02] px-3 py-1.5 text-[11px] font-semibold text-slate-200 hover:bg-white/[0.05]"
+            className="rounded-md border px-3 py-1.5 text-[11px] font-semibold transition"
+            style={{
+              backgroundColor: theme === "dark" ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.04)",
+              borderColor: t.border,
+              color: t.textStrong,
+            }}
           >
             Sign in
           </button>
           <button
             onClick={onSignUp}
-            className="rounded-md px-3 py-1.5 text-[11px] font-bold text-black"
-            style={{ backgroundColor: COLORS.greenSolid }}
+            className="rounded-md px-3 py-1.5 text-[11px] font-bold"
+            style={{ backgroundColor: t.green, color: "#0b0e11" }}
           >
             Sign up
           </button>
@@ -199,15 +299,40 @@ const TopNav = ({ onSignIn, onSignUp, authed }) => (
 );
 
 // ---------------------------------------------------------------------------
-// InstrumentBar — BTC/USDT Perp + 24h vitals
+// InstrumentBar
 // ---------------------------------------------------------------------------
-const InstrumentBar = ({ price, change, high, low, volume, funding }) => {
+const Metric = ({ label, value, t }) => (
+  <div className="flex flex-col">
+    <div
+      className="text-[9px] uppercase tracking-widest"
+      style={{ color: t.textFaint }}
+    >
+      {label}
+    </div>
+    <div
+      className="text-xs font-semibold tabular-nums leading-tight"
+      style={{ color: t.text }}
+    >
+      {value}
+    </div>
+  </div>
+);
+
+const InstrumentBar = ({ price, change, high, low, volume, t, theme }) => {
   const positive = change >= 0;
   return (
-    <div className="border-b border-white/5 bg-[#0b0e11]">
+    <div
+      className="border-b"
+      style={{ backgroundColor: t.bg, borderColor: t.border, color: t.text }}
+    >
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5">
-        {/* Instrument */}
-        <button className="flex items-center gap-2 rounded-md border border-white/5 bg-white/[0.02] px-2.5 py-1 hover:bg-white/[0.05]">
+        <button
+          className="flex items-center gap-2 rounded-md border px-2.5 py-1 transition"
+          style={{
+            backgroundColor: theme === "dark" ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.03)",
+            borderColor: t.border,
+          }}
+        >
           <div
             className="grid h-6 w-6 place-items-center rounded-full text-[9px] font-bold text-white"
             style={{ backgroundColor: "#f7931a" }}
@@ -215,89 +340,105 @@ const InstrumentBar = ({ price, change, high, low, volume, funding }) => {
             ₿
           </div>
           <div className="text-left">
-            <div className="text-xs font-bold">
+            <div className="text-xs font-bold" style={{ color: t.textStrong }}>
               BTC/USDT{" "}
-              <span className="text-[9px] font-semibold text-slate-500">
+              <span
+                className="text-[9px] font-semibold"
+                style={{ color: t.textFaint }}
+              >
                 PERP
               </span>
             </div>
-            <div className="text-[9px] text-slate-500">Perpetual · 125× Max</div>
+            <div className="text-[9px]" style={{ color: t.textFaint }}>
+              Perpetual · 125× Max
+            </div>
           </div>
-          <ChevronDown className="ml-1 h-3 w-3 text-slate-500" />
+          <ChevronDown
+            className="ml-1 h-3 w-3"
+            style={{ color: t.textFaint }}
+          />
         </button>
 
-        {/* Live price */}
         <div className="flex flex-col">
           <div
             className="text-lg font-bold tabular-nums leading-none"
-            style={{ color: positive ? COLORS.greenSolid : COLORS.redSolid }}
+            style={{ color: positive ? t.green : t.red }}
           >
             {fmtNum(price)}
           </div>
-          <div className="mt-0.5 text-[9px] text-slate-500">
+          <div className="mt-0.5 text-[9px]" style={{ color: t.textFaint }}>
             ≈ {fmtUSD(price)}
           </div>
         </div>
 
-        {/* 24h change */}
         <Metric
+          t={t}
           label="24h Change"
           value={
-            <span
-              style={{
-                color: positive ? COLORS.greenSolid : COLORS.redSolid,
-              }}
-            >
+            <span style={{ color: positive ? t.green : t.red }}>
               {positive ? "+" : ""}
               {change.toFixed(2)}%
             </span>
           }
         />
-
         <Metric
+          t={t}
           label="24h High"
-          value={<span style={{ color: COLORS.greenSolid }}>{fmtNum(high)}</span>}
+          value={<span style={{ color: t.green }}>{fmtNum(high)}</span>}
         />
         <Metric
+          t={t}
           label="24h Low"
-          value={<span style={{ color: COLORS.redSolid }}>{fmtNum(low)}</span>}
+          value={<span style={{ color: t.red }}>{fmtNum(low)}</span>}
         />
         <Metric
+          t={t}
           label="24h Volume (BTC)"
-          value={<span className="text-slate-200">{fmtNum(volume, 3)}</span>}
+          value={<span style={{ color: t.text }}>{fmtNum(volume, 3)}</span>}
         />
         <Metric
+          t={t}
           label="Funding / Countdown"
           value={
-            <span className="text-emerald-300">
-              +0.0089% <span className="text-slate-500">· 04:12:33</span>
+            <span style={{ color: t.green }}>
+              +0.0089%{" "}
+              <span style={{ color: t.textFaint }}>· 04:12:33</span>
             </span>
           }
         />
         <Metric
+          t={t}
           label="Open Interest"
-          value={<span className="text-slate-200">$4.28B</span>}
+          value={<span style={{ color: t.text }}>$4.28B</span>}
         />
       </div>
     </div>
   );
 };
 
-const Metric = ({ label, value }) => (
-  <div className="flex flex-col">
-    <div className="text-[9px] uppercase tracking-widest text-slate-500">
-      {label}
-    </div>
-    <div className="text-xs font-semibold tabular-nums leading-tight">
+// ---------------------------------------------------------------------------
+// CandleChart
+// ---------------------------------------------------------------------------
+const ReadOut = ({ label, value, tone, t }) => (
+  <div className="flex items-center gap-1 tabular-nums">
+    <span style={{ color: t.textFaint }}>{label}</span>
+    <span
+      className="font-semibold"
+      style={{
+        color:
+          tone === "green"
+            ? t.green
+            : tone === "red"
+            ? t.red
+            : t.text,
+      }}
+    >
       {value}
-    </div>
+    </span>
   </div>
 );
 
-// ---------------------------------------------------------------------------
-// CandleChart — SVG candlesticks with wicks, grid, latest-price line
-// ---------------------------------------------------------------------------
-const CandleChart = ({ candles, timeframe, onTimeframe }) => {
+const CandleChart = ({ candles, timeframe, onTimeframe, t }) => {
   const W = 900;
   const H = 340;
   const pad = { top: 12, right: 60, bottom: 22, left: 4 };
@@ -314,7 +455,6 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
   const cw = innerW / candles.length;
   const bodyW = Math.max(2, cw * 0.65);
 
-  // Y grid labels (6 tiers)
   const yLabels = [];
   for (let i = 0; i <= 5; i++) {
     const value = maxP - (range / 5) * i;
@@ -323,42 +463,49 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
 
   const last = candles[candles.length - 1];
   const positive = last.close >= last.open;
+  const gridStroke = t.theme === "dark" ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.05)";
+  const dashStroke = t.theme === "dark" ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.06)";
+  const labelColor = t.textFaint;
 
   return (
     <div
-      className="flex h-full flex-col rounded-md border border-white/5 bg-[#0f1319]"
-      style={{ backgroundColor: COLORS.card }}
+      className="flex h-full flex-col rounded-md border"
+      style={{ backgroundColor: t.card, borderColor: t.border }}
     >
-      {/* Toolbar */}
-      <div className="flex items-center gap-1 border-b border-white/5 px-2 py-1.5">
+      <div
+        className="flex items-center gap-1 border-b px-2 py-1.5"
+        style={{ borderColor: t.border }}
+      >
         {["1m", "5m", "15m", "1h", "4h", "1d"].map((tf) => (
           <button
             key={tf}
             onClick={() => onTimeframe(tf)}
-            className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
-              timeframe === tf
-                ? "bg-white/10 text-slate-100"
-                : "text-slate-500 hover:text-slate-200"
-            }`}
+            className="rounded px-2 py-0.5 text-[10px] font-semibold transition"
+            style={{
+              backgroundColor: timeframe === tf ? t.hoverStrong : "transparent",
+              color: timeframe === tf ? t.textStrong : t.textFaint,
+            }}
           >
             {tf}
           </button>
         ))}
-        <div className="mx-2 h-4 w-px bg-white/5" />
-        {["Indicators", "MA(7)", "MA(25)", "EMA(99)"].map((t, i) => (
+        <div className="mx-2 h-4 w-px" style={{ backgroundColor: t.border }} />
+        {["Indicators", "MA(7)", "MA(25)", "EMA(99)"].map((label, i) => (
           <button
-            key={t}
-            className={`rounded px-2 py-0.5 text-[10px] font-medium ${
-              i === 0 ? "text-slate-300" : "text-slate-500 hover:text-slate-300"
-            }`}
+            key={label}
+            className="rounded px-2 py-0.5 text-[10px] font-medium"
+            style={{ color: i === 0 ? t.text : t.textFaint }}
           >
-            {t}
+            {label}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500">
+        <div
+          className="ml-auto flex items-center gap-2 text-[10px] uppercase tracking-widest"
+          style={{ color: t.textFaint }}
+        >
           <motion.span
             className="h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: COLORS.greenSolid }}
+            style={{ backgroundColor: t.green }}
             animate={{ opacity: [1, 0.3, 1] }}
             transition={{ duration: 1.2, repeat: Infinity }}
           />
@@ -366,12 +513,11 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
         </div>
       </div>
 
-      {/* Chart */}
       <div className="relative flex-1">
         <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full">
           <defs>
             <pattern
-              id="cchart-grid"
+              id={`cchart-grid-${t.theme}`}
               width="60"
               height={innerH / 5}
               patternUnits="userSpaceOnUse"
@@ -379,20 +525,17 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
               <path
                 d={`M 60 0 L 0 0 0 ${innerH / 5}`}
                 fill="none"
-                stroke="rgba(255,255,255,0.03)"
+                stroke={gridStroke}
               />
             </pattern>
           </defs>
-
           <rect
             x={pad.left}
             y={pad.top}
             width={innerW}
             height={innerH}
-            fill="url(#cchart-grid)"
+            fill={`url(#cchart-grid-${t.theme})`}
           />
-
-          {/* Y grid + labels */}
           {yLabels.map((yl, i) => (
             <g key={i}>
               <line
@@ -400,13 +543,13 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
                 y1={yl.y}
                 x2={pad.left + innerW}
                 y2={yl.y}
-                stroke="rgba(255,255,255,0.04)"
+                stroke={dashStroke}
                 strokeDasharray="2 3"
               />
               <text
                 x={pad.left + innerW + 6}
                 y={yl.y + 3}
-                fill="#64748b"
+                fill={labelColor}
                 fontSize="9"
                 fontFamily="ui-monospace, monospace"
               >
@@ -415,11 +558,10 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
             </g>
           ))}
 
-          {/* Candles */}
           {candles.map((c, i) => {
             const cx = pad.left + i * cw + cw / 2;
             const green = c.close >= c.open;
-            const color = green ? COLORS.greenSolid : COLORS.redSolid;
+            const color = green ? t.green : t.red;
             const bodyTop = y(Math.max(c.open, c.close));
             const bodyBot = y(Math.min(c.open, c.close));
             const bodyH = Math.max(1, bodyBot - bodyTop);
@@ -445,14 +587,13 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
             );
           })}
 
-          {/* Last-price line + label */}
           <g>
             <line
               x1={pad.left}
               y1={y(last.close)}
               x2={pad.left + innerW}
               y2={y(last.close)}
-              stroke={positive ? COLORS.greenSolid : COLORS.redSolid}
+              stroke={positive ? t.green : t.red}
               strokeDasharray="4 4"
               strokeOpacity="0.6"
               strokeWidth="1"
@@ -462,7 +603,7 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
               y={y(last.close) - 8}
               width={54}
               height={16}
-              fill={positive ? COLORS.greenSolid : COLORS.redSolid}
+              fill={positive ? t.green : t.red}
               rx="2"
             />
             <text
@@ -480,12 +621,15 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
         </svg>
       </div>
 
-      {/* Below-chart volume placeholder / OHLC readout */}
-      <div className="grid grid-cols-4 gap-2 border-t border-white/5 px-2 py-1 text-[10px]">
-        <ReadOut label="O" value={fmtNum(last.open)} />
-        <ReadOut label="H" value={fmtNum(last.high)} tone="green" />
-        <ReadOut label="L" value={fmtNum(last.low)} tone="red" />
+      <div
+        className="grid grid-cols-4 gap-2 border-t px-2 py-1 text-[10px]"
+        style={{ borderColor: t.border }}
+      >
+        <ReadOut t={t} label="O" value={fmtNum(last.open)} />
+        <ReadOut t={t} label="H" value={fmtNum(last.high)} tone="green" />
+        <ReadOut t={t} label="L" value={fmtNum(last.low)} tone="red" />
         <ReadOut
+          t={t}
           label="C"
           value={fmtNum(last.close)}
           tone={positive ? "green" : "red"}
@@ -495,29 +639,10 @@ const CandleChart = ({ candles, timeframe, onTimeframe }) => {
   );
 };
 
-const ReadOut = ({ label, value, tone }) => (
-  <div className="flex items-center gap-1 tabular-nums">
-    <span className="text-slate-500">{label}</span>
-    <span
-      className="font-semibold"
-      style={{
-        color:
-          tone === "green"
-            ? COLORS.greenSolid
-            : tone === "red"
-            ? COLORS.redSolid
-            : "#e2e8f0",
-      }}
-    >
-      {value}
-    </span>
-  </div>
-);
-
 // ---------------------------------------------------------------------------
-// OrderBook — asks (top, red) · glowing mark price · bids (bottom, green)
+// OrderBook
 // ---------------------------------------------------------------------------
-const OrderBook = ({ mid }) => {
+const OrderBook = ({ mid, t }) => {
   const [book, setBook] = useState(() => seedBook(mid));
 
   useEffect(() => {
@@ -533,8 +658,8 @@ const OrderBook = ({ mid }) => {
   const Row = ({ side, r }) => {
     const pct = (r.size / maxSize) * 100;
     const positive = side === "bid";
-    const color = positive ? COLORS.greenSolid : COLORS.redSolid;
-    const bg = positive ? COLORS.greenSoft : COLORS.redSoft;
+    const color = positive ? t.green : t.red;
+    const bg = positive ? t.greenSoft : t.redSoft;
     return (
       <motion.div
         layout
@@ -547,16 +672,13 @@ const OrderBook = ({ mid }) => {
           className="pointer-events-none absolute inset-y-0 right-0"
           style={{ width: `${pct}%`, backgroundColor: bg }}
         />
-        <span
-          className="relative font-semibold"
-          style={{ color }}
-        >
+        <span className="relative font-semibold" style={{ color }}>
           {r.price.toFixed(2)}
         </span>
-        <span className="relative text-right text-slate-300">
+        <span className="relative text-right" style={{ color: t.text }}>
           {r.size.toFixed(3)}
         </span>
-        <span className="relative text-right text-slate-500">
+        <span className="relative text-right" style={{ color: t.textFaint }}>
           {(r.price * r.size).toFixed(0)}
         </span>
       </motion.div>
@@ -565,24 +687,41 @@ const OrderBook = ({ mid }) => {
 
   return (
     <div
-      className="flex h-full flex-col rounded-md border border-white/5"
-      style={{ backgroundColor: COLORS.card }}
+      className="flex h-full flex-col rounded-md border"
+      style={{ backgroundColor: t.card, borderColor: t.border }}
     >
-      <div className="flex items-center justify-between border-b border-white/5 px-2 py-1.5">
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-          <Layers className="h-3 w-3 text-slate-400" /> Order Book
+      <div
+        className="flex items-center justify-between border-b px-2 py-1.5"
+        style={{ borderColor: t.border }}
+      >
+        <div
+          className="flex items-center gap-1.5 text-[11px] font-semibold"
+          style={{ color: t.text }}
+        >
+          <Layers className="h-3 w-3" style={{ color: t.textMuted }} /> Order
+          Book
         </div>
         <div className="flex items-center gap-1">
-          <button className="rounded border border-white/5 bg-white/[0.02] px-1.5 py-0.5 text-[9px] font-semibold text-slate-400 hover:bg-white/[0.05]">
-            0.01
-          </button>
-          <button className="rounded border border-white/5 bg-white/[0.02] px-1.5 py-0.5 text-[9px] font-semibold text-slate-400 hover:bg-white/[0.05]">
-            0.1
-          </button>
+          {["0.01", "0.1"].map((g) => (
+            <button
+              key={g}
+              className="rounded border px-1.5 py-0.5 text-[9px] font-semibold transition"
+              style={{
+                backgroundColor: t.theme === "dark" ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.04)",
+                borderColor: t.border,
+                color: t.textMuted,
+              }}
+            >
+              {g}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 px-2 py-1 text-[9px] font-semibold uppercase tracking-widest text-slate-500">
+      <div
+        className="grid grid-cols-3 gap-2 px-2 py-1 text-[9px] font-semibold uppercase tracking-widest"
+        style={{ color: t.textFaint }}
+      >
         <div>Price (USDT)</div>
         <div className="text-right">Size (BTC)</div>
         <div className="text-right">Total</div>
@@ -601,26 +740,28 @@ const OrderBook = ({ mid }) => {
         </div>
       </div>
 
-      {/* Mark-price stripe */}
       <div
-        className="border-y border-white/5 px-2 py-2"
-        style={{
-          background:
-            "linear-gradient(90deg, rgba(2,192,118,0.15) 0%, rgba(0,0,0,0) 50%, rgba(246,70,93,0.15) 100%)",
-        }}
+        className="border-y px-2 py-2"
+        style={{ borderColor: t.border, background: t.priceStripe }}
       >
         <div className="flex items-center justify-between">
           <div
             className="text-lg font-bold tabular-nums"
-            style={{ color: COLORS.greenSolid }}
+            style={{ color: t.green }}
           >
             {mid.toFixed(2)}
           </div>
           <div className="text-right">
-            <div className="text-[9px] uppercase tracking-widest text-slate-500">
+            <div
+              className="text-[9px] uppercase tracking-widest"
+              style={{ color: t.textFaint }}
+            >
               Index
             </div>
-            <div className="text-[10px] font-semibold text-slate-200 tabular-nums">
+            <div
+              className="text-[10px] font-semibold tabular-nums"
+              style={{ color: t.text }}
+            >
               {(mid * 0.9998).toFixed(2)}
             </div>
           </div>
@@ -641,7 +782,7 @@ const OrderBook = ({ mid }) => {
 };
 
 // ---------------------------------------------------------------------------
-// BottomTabs — Positions / Trades / Orders / Wallet
+// BottomTabs
 // ---------------------------------------------------------------------------
 const TAB_MOCK = {
   positions: [
@@ -668,7 +809,42 @@ const TAB_MOCK = {
   ],
 };
 
-const BottomTabs = () => {
+const Th = ({ children, t, className = "" }) => (
+  <th
+    className={`px-3 py-1.5 text-left font-semibold ${className}`}
+    style={{ color: t.textFaint }}
+  >
+    {children}
+  </th>
+);
+
+const Td = ({ children, className = "", style }) => (
+  <td className={`px-3 py-1.5 ${className}`} style={style}>
+    {children}
+  </td>
+);
+
+const SideBadge = ({ side, t }) => {
+  const positive = side === "long" || side === "buy";
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+      style={{
+        color: positive ? t.green : t.red,
+        backgroundColor: positive ? t.greenSoft : t.redSoft,
+      }}
+    >
+      {positive ? (
+        <ArrowUpRight className="h-2 w-2" />
+      ) : (
+        <ArrowDownRight className="h-2 w-2" />
+      )}
+      {side}
+    </span>
+  );
+};
+
+const BottomTabs = ({ t }) => {
   const [tab, setTab] = useState("positions");
   const tabs = [
     { key: "positions", label: "Open Positions (3)", icon: Activity },
@@ -677,26 +853,30 @@ const BottomTabs = () => {
     { key: "wallet", label: "Asset Wallet", icon: Wallet },
   ];
 
+  const rowBorder = t.divider;
+
   return (
     <div
-      className="rounded-md border border-white/5"
-      style={{ backgroundColor: COLORS.card }}
+      className="rounded-md border"
+      style={{ backgroundColor: t.card, borderColor: t.border }}
     >
-      <div className="flex items-center gap-4 border-b border-white/5 px-3 py-1.5">
-        {tabs.map((t) => (
+      <div
+        className="flex items-center gap-4 border-b px-3 py-1.5"
+        style={{ borderColor: t.border }}
+      >
+        {tabs.map((tb) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`relative flex items-center gap-1.5 py-1 text-[11px] font-semibold ${
-              tab === t.key ? "text-slate-100" : "text-slate-500 hover:text-slate-300"
-            }`}
+            key={tb.key}
+            onClick={() => setTab(tb.key)}
+            className="relative flex items-center gap-1.5 py-1 text-[11px] font-semibold transition"
+            style={{ color: tab === tb.key ? t.textStrong : t.textFaint }}
           >
-            <t.icon className="h-3 w-3" /> {t.label}
-            {tab === t.key && (
+            <tb.icon className="h-3 w-3" /> {tb.label}
+            {tab === tb.key && (
               <motion.span
                 layoutId="bottom-tab-underline"
                 className="absolute -bottom-1.5 left-0 right-0 h-0.5"
-                style={{ backgroundColor: COLORS.greenSolid }}
+                style={{ backgroundColor: t.green }}
               />
             )}
           </button>
@@ -712,29 +892,30 @@ const BottomTabs = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="w-full text-[10px] tabular-nums"
+              style={{ color: t.text }}
             >
-              <thead className="text-[9px] uppercase tracking-widest text-slate-500">
+              <thead
+                className="text-[9px] uppercase tracking-widest"
+                style={{ color: t.textFaint }}
+              >
                 <tr>
-                  <Th>Contract</Th>
-                  <Th>Side</Th>
-                  <Th>Size</Th>
-                  <Th>Entry</Th>
-                  <Th>Mark</Th>
-                  <Th>Leverage</Th>
-                  <Th className="text-right">PnL (USDT)</Th>
+                  <Th t={t}>Contract</Th>
+                  <Th t={t}>Side</Th>
+                  <Th t={t}>Size</Th>
+                  <Th t={t}>Entry</Th>
+                  <Th t={t}>Mark</Th>
+                  <Th t={t}>Leverage</Th>
+                  <Th t={t} className="text-right">PnL (USDT)</Th>
                 </tr>
               </thead>
               <tbody>
                 {TAB_MOCK.positions.map((p, i) => {
                   const positive = p.pnl >= 0;
                   return (
-                    <tr
-                      key={i}
-                      className="border-t border-white/[0.03] hover:bg-white/[0.02]"
-                    >
+                    <tr key={i} style={{ borderTop: `1px solid ${rowBorder}` }}>
                       <Td className="font-semibold">{p.pair}</Td>
                       <Td>
-                        <SideBadge side={p.side} />
+                        <SideBadge side={p.side} t={t} />
                       </Td>
                       <Td>{p.size} BTC</Td>
                       <Td>{fmtNum(p.entry)}</Td>
@@ -742,9 +923,7 @@ const BottomTabs = () => {
                       <Td>{p.lev}×</Td>
                       <Td
                         className="text-right font-semibold"
-                        style={{
-                          color: positive ? COLORS.greenSolid : COLORS.redSolid,
-                        }}
+                        style={{ color: positive ? t.green : t.red }}
                       >
                         {positive ? "+" : ""}
                         {p.pnl.toFixed(2)}
@@ -763,29 +942,30 @@ const BottomTabs = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="w-full text-[10px] tabular-nums"
+              style={{ color: t.text }}
             >
-              <thead className="text-[9px] uppercase tracking-widest text-slate-500">
+              <thead
+                className="text-[9px] uppercase tracking-widest"
+                style={{ color: t.textFaint }}
+              >
                 <tr>
-                  <Th>Time</Th>
-                  <Th>Contract</Th>
-                  <Th>Side</Th>
-                  <Th>Price</Th>
-                  <Th className="text-right">Filled</Th>
+                  <Th t={t}>Time</Th>
+                  <Th t={t}>Contract</Th>
+                  <Th t={t}>Side</Th>
+                  <Th t={t}>Price</Th>
+                  <Th t={t} className="text-right">Filled</Th>
                 </tr>
               </thead>
               <tbody>
-                {TAB_MOCK.trades.map((t, i) => (
-                  <tr
-                    key={i}
-                    className="border-t border-white/[0.03] hover:bg-white/[0.02]"
-                  >
-                    <Td className="text-slate-400">{t.ts}</Td>
-                    <Td className="font-semibold">{t.pair}</Td>
+                {TAB_MOCK.trades.map((tr, i) => (
+                  <tr key={i} style={{ borderTop: `1px solid ${rowBorder}` }}>
+                    <Td style={{ color: t.textMuted }}>{tr.ts}</Td>
+                    <Td className="font-semibold">{tr.pair}</Td>
                     <Td>
-                      <SideBadge side={t.side === "buy" ? "long" : "short"} />
+                      <SideBadge side={tr.side === "buy" ? "long" : "short"} t={t} />
                     </Td>
-                    <Td>{fmtNum(t.price)}</Td>
-                    <Td className="text-right">{t.size}</Td>
+                    <Td>{fmtNum(tr.price)}</Td>
+                    <Td className="text-right">{tr.size}</Td>
                   </tr>
                 ))}
               </tbody>
@@ -799,33 +979,39 @@ const BottomTabs = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="w-full text-[10px] tabular-nums"
+              style={{ color: t.text }}
             >
-              <thead className="text-[9px] uppercase tracking-widest text-slate-500">
+              <thead
+                className="text-[9px] uppercase tracking-widest"
+                style={{ color: t.textFaint }}
+              >
                 <tr>
-                  <Th>Contract</Th>
-                  <Th>Type</Th>
-                  <Th>Side</Th>
-                  <Th>Price</Th>
-                  <Th>Size</Th>
-                  <Th>Filled</Th>
-                  <Th className="text-right">Status</Th>
+                  <Th t={t}>Contract</Th>
+                  <Th t={t}>Type</Th>
+                  <Th t={t}>Side</Th>
+                  <Th t={t}>Price</Th>
+                  <Th t={t}>Size</Th>
+                  <Th t={t}>Filled</Th>
+                  <Th t={t} className="text-right">Status</Th>
                 </tr>
               </thead>
               <tbody>
                 {TAB_MOCK.orders.map((o, i) => (
-                  <tr
-                    key={i}
-                    className="border-t border-white/[0.03] hover:bg-white/[0.02]"
-                  >
+                  <tr key={i} style={{ borderTop: `1px solid ${rowBorder}` }}>
                     <Td className="font-semibold">{o.pair}</Td>
                     <Td>{o.type}</Td>
                     <Td>
-                      <SideBadge side={o.side === "buy" ? "long" : "short"} />
+                      <SideBadge side={o.side === "buy" ? "long" : "short"} t={t} />
                     </Td>
                     <Td>{fmtNum(o.price)}</Td>
                     <Td>{o.size}</Td>
                     <Td>{o.filled}</Td>
-                    <Td className="text-right text-slate-300">{o.status}</Td>
+                    <Td
+                      className="text-right"
+                      style={{ color: t.textMuted }}
+                    >
+                      {o.status}
+                    </Td>
                   </tr>
                 ))}
               </tbody>
@@ -839,21 +1025,22 @@ const BottomTabs = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="w-full text-[10px] tabular-nums"
+              style={{ color: t.text }}
             >
-              <thead className="text-[9px] uppercase tracking-widest text-slate-500">
+              <thead
+                className="text-[9px] uppercase tracking-widest"
+                style={{ color: t.textFaint }}
+              >
                 <tr>
-                  <Th>Asset</Th>
-                  <Th>Total Balance</Th>
-                  <Th>Available</Th>
-                  <Th className="text-right">≈ USD</Th>
+                  <Th t={t}>Asset</Th>
+                  <Th t={t}>Total Balance</Th>
+                  <Th t={t}>Available</Th>
+                  <Th t={t} className="text-right">≈ USD</Th>
                 </tr>
               </thead>
               <tbody>
                 {TAB_MOCK.wallet.map((w, i) => (
-                  <tr
-                    key={i}
-                    className="border-t border-white/[0.03] hover:bg-white/[0.02]"
-                  >
+                  <tr key={i} style={{ borderTop: `1px solid ${rowBorder}` }}>
                     <Td className="font-semibold">{w.asset}</Td>
                     <Td>{w.balance}</Td>
                     <Td>{w.avail}</Td>
@@ -869,44 +1056,69 @@ const BottomTabs = () => {
   );
 };
 
-const Th = ({ children, className = "" }) => (
-  <th
-    className={`px-3 py-1.5 text-left font-semibold ${className}`}
+// ---------------------------------------------------------------------------
+// TradeExecution
+// ---------------------------------------------------------------------------
+const InputRow = ({ label, value, onChange, suffix, readOnly, compact, t }) => (
+  <div
+    className="flex items-center justify-between rounded-md border px-2"
+    style={{
+      backgroundColor: t.inputBg,
+      borderColor: t.inputBorder,
+      paddingTop: compact ? 4 : 6,
+      paddingBottom: compact ? 4 : 6,
+    }}
   >
-    {children}
-  </th>
-);
-
-const Td = ({ children, className = "", style }) => (
-  <td className={`px-3 py-1.5 ${className}`} style={style}>
-    {children}
-  </td>
-);
-
-const SideBadge = ({ side }) => {
-  const positive = side === "long" || side === "buy";
-  return (
     <span
-      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+      className="text-[10px] uppercase tracking-widest"
+      style={{ color: t.textFaint }}
+    >
+      {label}
+    </span>
+    <input
+      value={value}
+      onChange={onChange}
+      readOnly={readOnly}
+      placeholder="0.00"
+      className="w-full bg-transparent text-right text-[11px] font-semibold outline-none"
+      style={{ color: t.text }}
+    />
+    {suffix && (
+      <span
+        className="ml-1 text-[9px] uppercase tracking-widest"
+        style={{ color: t.textFaint }}
+      >
+        {suffix}
+      </span>
+    )}
+  </div>
+);
+
+const MetaCell = ({ label, value, tone, t }) => (
+  <div>
+    <div
+      className="text-[9px] uppercase tracking-widest"
+      style={{ color: t.textFaint }}
+    >
+      {label}
+    </div>
+    <div
+      className="text-[11px] font-semibold tabular-nums"
       style={{
-        color: positive ? COLORS.greenSolid : COLORS.redSolid,
-        backgroundColor: positive ? COLORS.greenSoft : COLORS.redSoft,
+        color:
+          tone === "red"
+            ? t.red
+            : tone === "green"
+            ? t.green
+            : t.text,
       }}
     >
-      {positive ? (
-        <ArrowUpRight className="h-2 w-2" />
-      ) : (
-        <ArrowDownRight className="h-2 w-2" />
-      )}
-      {side}
-    </span>
-  );
-};
+      {value}
+    </div>
+  </div>
+);
 
-// ---------------------------------------------------------------------------
-// TradeExecution — full right panel body (Long/Short + leverage + size)
-// ---------------------------------------------------------------------------
-const TradeExecution = ({ price }) => {
+const TradeExecution = ({ price, t }) => {
   const [type, setType] = useState("market");
   const [side, setSide] = useState("long");
   const [leverage, setLeverage] = useState(25);
@@ -915,32 +1127,45 @@ const TradeExecution = ({ price }) => {
   const [tp, setTp] = useState("");
   const [sl, setSl] = useState("");
 
-  useEffect(() => {
-    // Keep limit price roughly in sync with market until user edits
-    setLimitPrice((prev) => (prev === "" ? "" : prev));
-  }, [price]);
-
   const notional = (parseFloat(amount) || 0) * price;
   const cost = notional / (leverage || 1);
-  const liq = side === "long" ? price * (1 - 1 / leverage) : price * (1 + 1 / leverage);
+  const liq =
+    side === "long"
+      ? price * (1 - 1 / leverage)
+      : price * (1 + 1 / leverage);
 
   return (
     <div className="flex h-full flex-col gap-3">
-      {/* Cross / Isolated tabs */}
-      <div className="grid grid-cols-2 rounded-md border border-white/5 bg-white/[0.02] text-[10px] font-semibold">
-        <button className="rounded-md py-1.5 text-slate-200" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
+      <div
+        className="grid grid-cols-2 rounded-md border text-[10px] font-semibold"
+        style={{
+          backgroundColor: t.theme === "dark" ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.03)",
+          borderColor: t.border,
+        }}
+      >
+        <button
+          className="rounded-md py-1.5"
+          style={{
+            backgroundColor: t.hoverStrong,
+            color: t.textStrong,
+          }}
+        >
           Cross
         </button>
-        <button className="py-1.5 text-slate-500 hover:text-slate-300">Isolated</button>
+        <button className="py-1.5" style={{ color: t.textFaint }}>
+          Isolated
+        </button>
       </div>
 
-      {/* Leverage */}
       <div>
-        <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-500">
+        <div
+          className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-widest"
+          style={{ color: t.textFaint }}
+        >
           <span className="flex items-center gap-1">
             <Zap className="h-2.5 w-2.5" /> Leverage
           </span>
-          <span className="font-bold text-slate-100 tabular-nums">
+          <span className="font-bold tabular-nums" style={{ color: t.textStrong }}>
             {leverage}×
           </span>
         </div>
@@ -952,7 +1177,10 @@ const TradeExecution = ({ price }) => {
           onChange={(e) => setLeverage(Number(e.target.value))}
           className="w-full accent-emerald-400"
         />
-        <div className="mt-1 flex justify-between text-[9px] text-slate-500">
+        <div
+          className="mt-1 flex justify-between text-[9px]"
+          style={{ color: t.textFaint }}
+        >
           <span>1×</span>
           <span>25×</span>
           <span>50×</span>
@@ -962,27 +1190,32 @@ const TradeExecution = ({ price }) => {
         </div>
       </div>
 
-      {/* Limit / Market */}
-      <div className="grid grid-cols-3 gap-1 rounded-md border border-white/5 bg-white/[0.02] p-0.5 text-[10px] font-semibold">
-        {["limit", "market", "trigger"].map((t) => (
+      <div
+        className="grid grid-cols-3 gap-1 rounded-md border p-0.5 text-[10px] font-semibold"
+        style={{
+          backgroundColor: t.theme === "dark" ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.03)",
+          borderColor: t.border,
+        }}
+      >
+        {["limit", "market", "trigger"].map((tp) => (
           <button
-            key={t}
-            onClick={() => setType(t)}
-            className={`rounded py-1 uppercase tracking-wider ${
-              type === t
-                ? "bg-white/[0.06] text-slate-100"
-                : "text-slate-500 hover:text-slate-300"
-            }`}
+            key={tp}
+            onClick={() => setType(tp)}
+            className="rounded py-1 uppercase tracking-wider"
+            style={{
+              backgroundColor: type === tp ? t.hoverStrong : "transparent",
+              color: type === tp ? t.textStrong : t.textFaint,
+            }}
           >
-            {t}
+            {tp}
           </button>
         ))}
       </div>
 
-      {/* Price + Amount */}
       <div className="space-y-2">
         {type !== "market" && (
           <InputRow
+            t={t}
             label="Price"
             value={limitPrice}
             onChange={(e) => setLimitPrice(e.target.value)}
@@ -990,6 +1223,7 @@ const TradeExecution = ({ price }) => {
           />
         )}
         <InputRow
+          t={t}
           label={type === "market" ? "Market" : "Amount"}
           value={type === "market" ? price.toFixed(2) : amount}
           onChange={(e) => setAmount(e.target.value)}
@@ -998,57 +1232,54 @@ const TradeExecution = ({ price }) => {
         />
       </div>
 
-      {/* Percentage selectors */}
       <div className="grid grid-cols-4 gap-1">
         {[25, 50, 75, 100].map((p) => (
           <button
             key={p}
             onClick={() => {
-              // fake buying power = leverage * some USDT
               const bp = 5000 * leverage;
               const btc = ((bp * (p / 100)) / price).toFixed(4);
               setAmount(btc);
             }}
-            className="rounded border border-white/5 bg-white/[0.02] py-1 text-[10px] font-semibold text-slate-400 hover:bg-white/[0.05] hover:text-slate-200"
+            className="rounded border py-1 text-[10px] font-semibold transition"
+            style={{
+              backgroundColor: t.theme === "dark" ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.03)",
+              borderColor: t.border,
+              color: t.textMuted,
+            }}
           >
             {p}%
           </button>
         ))}
       </div>
 
-      {/* TP / SL */}
       <div className="grid grid-cols-2 gap-2">
-        <InputRow
-          label="TP"
-          value={tp}
-          onChange={(e) => setTp(e.target.value)}
-          compact
-        />
-        <InputRow
-          label="SL"
-          value={sl}
-          onChange={(e) => setSl(e.target.value)}
-          compact
-        />
+        <InputRow t={t} label="TP" value={tp} onChange={(e) => setTp(e.target.value)} compact />
+        <InputRow t={t} label="SL" value={sl} onChange={(e) => setSl(e.target.value)} compact />
       </div>
 
-      {/* Meta */}
-      <div className="grid grid-cols-3 gap-1 rounded-md border border-white/5 bg-white/[0.02] p-2 text-[10px]">
-        <MetaCell label="Cost" value={fmtUSD(cost || 0)} />
-        <MetaCell label="Notional" value={fmtUSD(notional || 0)} />
-        <MetaCell label="Est. Liq" value={fmtUSD(liq)} tone="red" />
+      <div
+        className="grid grid-cols-3 gap-1 rounded-md border p-2 text-[10px]"
+        style={{
+          backgroundColor: t.theme === "dark" ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.03)",
+          borderColor: t.border,
+        }}
+      >
+        <MetaCell t={t} label="Cost" value={fmtUSD(cost || 0)} />
+        <MetaCell t={t} label="Notional" value={fmtUSD(notional || 0)} />
+        <MetaCell t={t} label="Est. Liq" value={fmtUSD(liq)} tone="red" />
       </div>
 
-      {/* Buy / Sell */}
       <div className="mt-auto grid grid-cols-2 gap-2">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setSide("long")}
-          className="flex flex-col items-center rounded-md py-2.5 text-sm font-bold text-black shadow-lg"
+          className="flex flex-col items-center rounded-md py-2.5 text-sm font-bold"
           style={{
-            backgroundColor: COLORS.greenSolid,
-            boxShadow: "0 10px 24px -12px rgba(2,192,118,0.55)",
+            backgroundColor: t.green,
+            color: "#0b0e11",
+            boxShadow: t.ctaShadow,
           }}
         >
           <span>Buy / Long</span>
@@ -1060,9 +1291,9 @@ const TradeExecution = ({ price }) => {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setSide("short")}
-          className="flex flex-col items-center rounded-md py-2.5 text-sm font-bold text-white shadow-lg"
+          className="flex flex-col items-center rounded-md py-2.5 text-sm font-bold text-white"
           style={{
-            backgroundColor: COLORS.redSolid,
+            backgroundColor: t.red,
             boxShadow: "0 10px 24px -12px rgba(246,70,93,0.55)",
           }}
         >
@@ -1076,53 +1307,8 @@ const TradeExecution = ({ price }) => {
   );
 };
 
-const InputRow = ({ label, value, onChange, suffix, readOnly, compact }) => (
-  <div
-    className={`flex items-center justify-between rounded-md border border-white/5 bg-white/[0.02] px-2 ${
-      compact ? "py-1" : "py-1.5"
-    }`}
-  >
-    <span className="text-[10px] uppercase tracking-widest text-slate-500">
-      {label}
-    </span>
-    <input
-      value={value}
-      onChange={onChange}
-      readOnly={readOnly}
-      placeholder="0.00"
-      className="w-full bg-transparent text-right text-[11px] font-semibold text-slate-100 outline-none placeholder:text-slate-600"
-    />
-    {suffix && (
-      <span className="ml-1 text-[9px] uppercase tracking-widest text-slate-500">
-        {suffix}
-      </span>
-    )}
-  </div>
-);
-
-const MetaCell = ({ label, value, tone }) => (
-  <div>
-    <div className="text-[9px] uppercase tracking-widest text-slate-500">
-      {label}
-    </div>
-    <div
-      className="text-[11px] font-semibold tabular-nums"
-      style={{
-        color:
-          tone === "red"
-            ? COLORS.redSolid
-            : tone === "green"
-            ? COLORS.greenSolid
-            : "#e2e8f0",
-      }}
-    >
-      {value}
-    </div>
-  </div>
-);
-
 // ---------------------------------------------------------------------------
-// Compact input primitive (auth forms)
+// Compact input (auth forms)
 // ---------------------------------------------------------------------------
 const CompactInput = ({
   label,
@@ -1134,15 +1320,21 @@ const CompactInput = ({
   rightSlot,
   autoComplete,
   accent = "emerald",
+  required,
+  t,
 }) => {
   const [focused, setFocused] = useState(false);
   const focusColor =
     accent === "emerald"
       ? "rgba(2,192,118,0.75)"
+      : accent === "amber"
+      ? "rgba(245,158,11,0.75)"
       : "rgba(99, 102, 241, 0.75)";
   const focusRing =
     accent === "emerald"
       ? "0 0 0 3px rgba(2,192,118,0.16)"
+      : accent === "amber"
+      ? "0 0 0 3px rgba(245,158,11,0.20)"
       : "0 0 0 3px rgba(99, 102, 241, 0.16)";
 
   return (
@@ -1154,27 +1346,40 @@ const CompactInput = ({
             ? "rgba(246, 70, 93, 0.6)"
             : focused
             ? focusColor
-            : "rgba(255,255,255,0.06)",
+            : accent === "amber"
+            ? "rgba(245,158,11,0.35)"
+            : t.inputBorder,
           boxShadow: focused ? focusRing : "0 0 0 0 rgba(0,0,0,0)",
         }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
-        className="flex items-center rounded-md border bg-white/[0.03] px-2.5 py-2"
+        className="flex items-center rounded-md border px-2.5 py-2"
+        style={{ backgroundColor: t.inputBg }}
       >
         {Icon && (
           <Icon
             className="mr-2 h-3.5 w-3.5 shrink-0"
             style={{
               color: error
-                ? COLORS.redSolid
+                ? t.red
                 : focused
-                ? COLORS.greenSolid
-                : "#64748b",
+                ? accent === "amber"
+                  ? t.amber
+                  : t.green
+                : t.textFaint,
             }}
           />
         )}
         <div className="flex-1">
-          <div className="text-[9px] uppercase tracking-widest text-slate-500">
+          <div
+            className="text-[9px] uppercase tracking-widest"
+            style={{ color: accent === "amber" ? t.amber : t.textFaint }}
+          >
             {label}
+            {required && (
+              <span className="ml-1 font-bold" style={{ color: t.red }}>
+                *
+              </span>
+            )}
           </div>
           <input
             type={type}
@@ -1183,7 +1388,8 @@ const CompactInput = ({
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             autoComplete={autoComplete}
-            className="w-full bg-transparent text-[12px] font-semibold text-slate-100 outline-none"
+            className="w-full bg-transparent text-[12px] font-semibold outline-none"
+            style={{ color: t.text }}
           />
         </div>
         {rightSlot && <div className="ml-1">{rightSlot}</div>}
@@ -1191,7 +1397,7 @@ const CompactInput = ({
       {error && (
         <div
           className="mt-1 flex items-center gap-1 pl-0.5 text-[10px]"
-          style={{ color: COLORS.redSolid }}
+          style={{ color: t.red }}
         >
           <AlertTriangle className="h-2.5 w-2.5" /> {error}
         </div>
@@ -1201,19 +1407,107 @@ const CompactInput = ({
 };
 
 // ---------------------------------------------------------------------------
+// AlertBanner — used to surface backend/403 messages nicely
+// ---------------------------------------------------------------------------
+const AlertBanner = ({ kind = "error", message, onClose, t }) => (
+  <AnimatePresence>
+    {message && (
+      <motion.div
+        initial={{ opacity: 0, y: -8, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -6, scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 320, damping: 26 }}
+        className="flex items-start gap-2 rounded-md border px-3 py-2 text-[11px]"
+        style={{
+          backgroundColor:
+            kind === "error"
+              ? t.redSoft
+              : kind === "warning"
+              ? t.amberSoft
+              : t.greenSoft,
+          borderColor:
+            kind === "error"
+              ? "rgba(246,70,93,0.35)"
+              : kind === "warning"
+              ? "rgba(245,158,11,0.35)"
+              : "rgba(2,192,118,0.35)",
+          color:
+            kind === "error" ? t.red : kind === "warning" ? t.amber : t.green,
+        }}
+      >
+        {kind === "warning" ? (
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        ) : (
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        )}
+        <span className="flex-1 font-semibold leading-snug">{message}</span>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="rounded p-0.5 opacity-70 hover:opacity-100"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
+// ---------------------------------------------------------------------------
+// Panel header — shared by SignIn / SignUp; includes the theme toggle
+// so users can flip lighting from inside the auth panel too.
+// ---------------------------------------------------------------------------
+const PanelHeader = ({ icon: Icon, title, onBack, t, theme, onToggleTheme }) => (
+  <div className="mb-2 flex items-center justify-between">
+    <div
+      className="flex items-center gap-2 text-sm font-bold"
+      style={{ color: t.textStrong }}
+    >
+      <Icon className="h-4 w-4" style={{ color: t.green }} /> {title}
+    </div>
+    <div className="flex items-center gap-1.5">
+      <ThemeToggle
+        theme={theme}
+        onToggle={onToggleTheme}
+        t={t}
+        compact
+      />
+      <button
+        onClick={onBack}
+        className="rounded p-1 transition"
+        style={{ color: t.textMuted }}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
 // SignInForm
 // ---------------------------------------------------------------------------
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const usernameRegex = /^[a-zA-Z0-9_.-]{3,24}$/;
 
-const SignInForm = ({ onSuccess, onSwitchToSignUp, onBack, notify }) => {
+const SignInForm = ({
+  onSuccess,
+  onSwitchToSignUp,
+  onBack,
+  notify,
+  t,
+  theme,
+  onToggleTheme,
+}) => {
   const [values, setValues] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [banner, setBanner] = useState("");
 
   const submit = async (e) => {
     e.preventDefault();
+    setBanner("");
     const errs = {};
     if (!emailRegex.test(values.email)) errs.email = "Valid email required.";
     if (!values.password) errs.password = "Password required.";
@@ -1231,29 +1525,32 @@ const SignInForm = ({ onSuccess, onSwitchToSignUp, onBack, notify }) => {
       notify("success", `Welcome back, ${res.user.fullName?.split(" ")[0]}`);
       setTimeout(() => onSuccess(res.user), 400);
     } catch (err) {
-      notify("error", err?.message || "Sign in failed.");
+      setBanner(err?.message || "Sign in failed.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={submit} className="flex h-full flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-bold">
-          <LogIn className="h-4 w-4" style={{ color: COLORS.greenSolid }} />
-          Sign in
-        </div>
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
+    <form onSubmit={submit} className="flex h-full flex-col gap-2.5">
+      <PanelHeader
+        icon={LogIn}
+        title="Sign in"
+        onBack={onBack}
+        t={t}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
+
+      <AlertBanner
+        kind="error"
+        message={banner}
+        onClose={() => setBanner("")}
+        t={t}
+      />
 
       <CompactInput
+        t={t}
         label="Email"
         icon={Mail}
         type="email"
@@ -1263,6 +1560,7 @@ const SignInForm = ({ onSuccess, onSwitchToSignUp, onBack, notify }) => {
         error={errors.email}
       />
       <CompactInput
+        t={t}
         label="Password"
         icon={Lock}
         type={showPw ? "text" : "password"}
@@ -1274,7 +1572,8 @@ const SignInForm = ({ onSuccess, onSwitchToSignUp, onBack, notify }) => {
           <button
             type="button"
             onClick={() => setShowPw((s) => !s)}
-            className="rounded p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            className="rounded p-1"
+            style={{ color: t.textMuted }}
           >
             {showPw ? (
               <EyeOff className="h-3 w-3" />
@@ -1290,10 +1589,11 @@ const SignInForm = ({ onSuccess, onSwitchToSignUp, onBack, notify }) => {
         disabled={submitting}
         whileHover={!submitting ? { scale: 1.01 } : undefined}
         whileTap={!submitting ? { scale: 0.99 } : undefined}
-        className="mt-2 flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-bold text-black disabled:opacity-70"
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-bold disabled:opacity-70"
         style={{
-          backgroundColor: COLORS.greenSolid,
-          boxShadow: "0 10px 24px -12px rgba(2,192,118,0.55)",
+          backgroundColor: t.green,
+          color: "#0b0e11",
+          boxShadow: t.ctaShadow,
         }}
       >
         {submitting ? (
@@ -1307,12 +1607,16 @@ const SignInForm = ({ onSuccess, onSwitchToSignUp, onBack, notify }) => {
         )}
       </motion.button>
 
-      <div className="mt-auto text-center text-[10px] text-slate-500">
+      <div
+        className="mt-auto text-center text-[10px]"
+        style={{ color: t.textFaint }}
+      >
         New here?{" "}
         <button
           type="button"
           onClick={onSwitchToSignUp}
-          className="font-bold text-emerald-300 hover:text-emerald-200"
+          className="font-bold"
+          style={{ color: t.green }}
         >
           Create account →
         </button>
@@ -1322,9 +1626,17 @@ const SignInForm = ({ onSuccess, onSwitchToSignUp, onBack, notify }) => {
 };
 
 // ---------------------------------------------------------------------------
-// SignUpForm
+// SignUpForm — invite code is REQUIRED with alert styling
 // ---------------------------------------------------------------------------
-const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
+const SignUpForm = ({
+  onSuccess,
+  onSwitchToSignIn,
+  onBack,
+  notify,
+  t,
+  theme,
+  onToggleTheme,
+}) => {
   const [values, setValues] = useState({
     fullName: "",
     username: "",
@@ -1335,6 +1647,7 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
   const [errors, setErrors] = useState({});
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [banner, setBanner] = useState("");
 
   const validate = () => {
     const e = {};
@@ -1348,11 +1661,14 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
     else if (!/[a-z]/.test(values.password))
       e.password = "Add a lowercase letter.";
     else if (!/\d/.test(values.password)) e.password = "Add a number.";
+    if (!values.inviteCode.trim())
+      e.inviteCode = "* Required to create account";
     return e;
   };
 
   const submit = async (e) => {
     e.preventDefault();
+    setBanner("");
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length || submitting) return;
@@ -1364,7 +1680,7 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
         username: values.username.trim().toLowerCase(),
         email: values.email.trim().toLowerCase(),
         password: values.password,
-        inviteCode: values.inviteCode || null,
+        inviteCode: values.inviteCode.trim().toUpperCase(),
       });
       if (!res?.token || !res?.user) throw { message: "Malformed response." };
       setToken(res.token);
@@ -1374,34 +1690,49 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
       );
       setTimeout(() => onSuccess(res.user), 400);
     } catch (err) {
-      notify(
-        "error",
+      const msg =
         err?.message ||
-          (Array.isArray(err?.details) && err.details[0]?.message) ||
-          "Registration failed."
-      );
+        (Array.isArray(err?.details) && err.details[0]?.message) ||
+        "Registration failed.";
+      setBanner(msg);
+      // Highlight invite-code field on 403 denials
+      if (
+        typeof msg === "string" &&
+        msg.toLowerCase().includes("invitation code")
+      ) {
+        setErrors((prev) => ({
+          ...prev,
+          inviteCode: "* Required to create account",
+        }));
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={submit} className="flex h-full flex-col gap-2.5 overflow-y-auto pr-1">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-bold">
-          <UserPlus className="h-4 w-4" style={{ color: COLORS.greenSolid }} />
-          Create Account
-        </div>
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
+    <form
+      onSubmit={submit}
+      className="flex h-full flex-col gap-2.5 overflow-y-auto pr-1"
+    >
+      <PanelHeader
+        icon={UserPlus}
+        title="Create Account"
+        onBack={onBack}
+        t={t}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
+
+      <AlertBanner
+        kind={banner?.toLowerCase().includes("invitation") ? "warning" : "error"}
+        message={banner}
+        onClose={() => setBanner("")}
+        t={t}
+      />
 
       <CompactInput
+        t={t}
         label="Full name"
         icon={UserIcon}
         autoComplete="name"
@@ -1410,6 +1741,7 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
         error={errors.fullName}
       />
       <CompactInput
+        t={t}
         label="Username"
         icon={AtSign}
         autoComplete="username"
@@ -1418,6 +1750,7 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
         error={errors.username}
       />
       <CompactInput
+        t={t}
         label="Email"
         icon={Mail}
         type="email"
@@ -1427,6 +1760,7 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
         error={errors.email}
       />
       <CompactInput
+        t={t}
         label="Password"
         icon={Lock}
         type={showPw ? "text" : "password"}
@@ -1438,7 +1772,8 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
           <button
             type="button"
             onClick={() => setShowPw((s) => !s)}
-            className="rounded p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            className="rounded p-1"
+            style={{ color: t.textMuted }}
           >
             {showPw ? (
               <EyeOff className="h-3 w-3" />
@@ -1448,24 +1783,43 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
           </button>
         }
       />
-      <CompactInput
-        label="Invite code (optional)"
-        icon={Ticket}
-        value={values.inviteCode}
-        onChange={(e) =>
-          setValues((v) => ({ ...v, inviteCode: e.target.value.toUpperCase() }))
-        }
-      />
+
+      {/* Invite code — required, amber alert accent */}
+      <div>
+        <CompactInput
+          t={t}
+          label="Invite Code"
+          icon={Ticket}
+          required
+          accent="amber"
+          value={values.inviteCode}
+          onChange={(e) =>
+            setValues((v) => ({
+              ...v,
+              inviteCode: e.target.value.toUpperCase(),
+            }))
+          }
+          error={errors.inviteCode}
+        />
+        <div
+          className="mt-1 flex items-center gap-1 pl-0.5 text-[10px] font-semibold"
+          style={{ color: t.amber }}
+        >
+          <ShieldAlert className="h-2.5 w-2.5" />
+          <span>* Required to create account — provided by an administrator</span>
+        </div>
+      </div>
 
       <motion.button
         type="submit"
         disabled={submitting}
         whileHover={!submitting ? { scale: 1.01 } : undefined}
         whileTap={!submitting ? { scale: 0.99 } : undefined}
-        className="mt-1 flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-bold text-black disabled:opacity-70"
+        className="mt-1 flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-bold disabled:opacity-70"
         style={{
-          backgroundColor: COLORS.greenSolid,
-          boxShadow: "0 10px 24px -12px rgba(2,192,118,0.55)",
+          backgroundColor: t.green,
+          color: "#0b0e11",
+          boxShadow: t.ctaShadow,
         }}
       >
         {submitting ? (
@@ -1479,17 +1833,21 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
         )}
       </motion.button>
 
-      <div className="text-center text-[10px] text-slate-500">
+      <div
+        className="text-center text-[10px]"
+        style={{ color: t.textFaint }}
+      >
         Already registered?{" "}
         <button
           type="button"
           onClick={onSwitchToSignIn}
-          className="font-bold text-emerald-300 hover:text-emerald-200"
+          className="font-bold"
+          style={{ color: t.green }}
         >
           Sign in →
         </button>
       </div>
-      <p className="text-center text-[9px] text-slate-600">
+      <p className="text-center text-[9px]" style={{ color: t.textFaint }}>
         By continuing you agree to the Nexus Terms.
       </p>
     </form>
@@ -1497,47 +1855,70 @@ const SignUpForm = ({ onSuccess, onSwitchToSignIn, onBack, notify }) => {
 };
 
 // ---------------------------------------------------------------------------
-// AuthOverlay — blurred glass card sitting over the trade panel
+// AuthOverlay — blurred glass over the trade panel
 // ---------------------------------------------------------------------------
-const AuthOverlay = ({ onSignIn, onSignUp }) => (
+const AuthOverlay = ({
+  onSignIn,
+  onSignUp,
+  t,
+  theme,
+  onToggleTheme,
+}) => (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
     className="absolute inset-0 z-10 flex items-center justify-center rounded-md p-4"
     style={{
-      background:
-        "linear-gradient(180deg, rgba(11,14,17,0.55) 0%, rgba(11,14,17,0.9) 100%)",
+      background: t.overlayGrad,
       backdropFilter: "blur(14px)",
       WebkitBackdropFilter: "blur(14px)",
     }}
   >
-    <div className="w-full rounded-lg border border-white/10 bg-white/[0.03] p-5 text-center shadow-2xl">
+    <div className="absolute right-3 top-3 z-20">
+      <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t} compact />
+    </div>
+
+    <div
+      className="w-full rounded-lg border p-5 text-center shadow-2xl"
+      style={{
+        backgroundColor: t.card,
+        borderColor: t.borderStrong,
+        color: t.text,
+      }}
+    >
       <div
         className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-xl"
         style={{
-          backgroundColor: COLORS.greenSoft,
+          backgroundColor: t.greenSoft,
           boxShadow: "0 6px 20px -8px rgba(2,192,118,0.6)",
         }}
       >
-        <ShieldCheck className="h-5 w-5" style={{ color: COLORS.greenSolid }} />
+        <ShieldCheck className="h-5 w-5" style={{ color: t.green }} />
       </div>
-      <h3 className="text-sm font-bold tracking-tight">
+      <h3
+        className="text-sm font-bold tracking-tight"
+        style={{ color: t.textStrong }}
+      >
         Sign in or register an account
       </h3>
-      <p className="mx-auto mt-1 max-w-[240px] text-[11px] text-slate-400">
-        Create your Nexus account to interact with this platform and place
-        real perpetual futures orders.
+      <p
+        className="mx-auto mt-1 max-w-[240px] text-[11px]"
+        style={{ color: t.textMuted }}
+      >
+        Create your Nexus account to interact with this platform and place real
+        perpetual futures orders.
       </p>
       <div className="mt-4 grid gap-2">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onSignIn}
-          className="w-full rounded-md py-2 text-xs font-bold text-black"
+          className="w-full rounded-md py-2 text-xs font-bold"
           style={{
-            backgroundColor: COLORS.greenSolid,
-            boxShadow: "0 8px 20px -10px rgba(2,192,118,0.55)",
+            backgroundColor: t.green,
+            color: "#0b0e11",
+            boxShadow: t.ctaShadow,
           }}
         >
           Sign in
@@ -1546,12 +1927,20 @@ const AuthOverlay = ({ onSignIn, onSignUp }) => (
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onSignUp}
-          className="w-full rounded-md border border-white/10 bg-white/[0.03] py-2 text-xs font-bold text-slate-100 hover:bg-white/[0.06]"
+          className="w-full rounded-md border py-2 text-xs font-bold"
+          style={{
+            backgroundColor: t.hover,
+            borderColor: t.borderStrong,
+            color: t.textStrong,
+          }}
         >
           Register an account
         </motion.button>
       </div>
-      <div className="mt-4 flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-widest text-slate-500">
+      <div
+        className="mt-4 flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-widest"
+        style={{ color: t.textFaint }}
+      >
         <BookOpen className="h-2.5 w-2.5" />
         Learn more about Nexus Pro
       </div>
@@ -1562,7 +1951,7 @@ const AuthOverlay = ({ onSignIn, onSignUp }) => (
 // ---------------------------------------------------------------------------
 // Toast
 // ---------------------------------------------------------------------------
-const Toast = ({ kind, message, onClose }) => (
+const Toast = ({ kind, message, onClose, t }) => (
   <AnimatePresence>
     {message && (
       <motion.div
@@ -1572,15 +1961,12 @@ const Toast = ({ kind, message, onClose }) => (
         transition={{ type: "spring", stiffness: 320, damping: 24 }}
         className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-md border px-3 py-2 shadow-2xl backdrop-blur-xl"
         style={{
-          backgroundColor:
-            kind === "success"
-              ? "rgba(2,192,118,0.12)"
-              : "rgba(246,70,93,0.12)",
+          backgroundColor: kind === "success" ? t.greenSoft : t.redSoft,
           borderColor:
             kind === "success"
               ? "rgba(2,192,118,0.35)"
               : "rgba(246,70,93,0.35)",
-          color: kind === "success" ? COLORS.greenSolid : COLORS.redSolid,
+          color: kind === "success" ? t.green : t.red,
         }}
       >
         <div className="flex items-center gap-2 text-xs font-semibold">
@@ -1590,7 +1976,10 @@ const Toast = ({ kind, message, onClose }) => (
             <AlertTriangle className="h-3.5 w-3.5" />
           )}
           <span>{message}</span>
-          <button onClick={onClose} className="ml-1 opacity-70 hover:opacity-100">
+          <button
+            onClick={onClose}
+            className="ml-1 opacity-70 hover:opacity-100"
+          >
             <X className="h-3 w-3" />
           </button>
         </div>
@@ -1603,9 +1992,32 @@ const Toast = ({ kind, message, onClose }) => (
 // Main export
 // ---------------------------------------------------------------------------
 export default function MainPlatform({ onAuthSuccess }) {
+  // Theme — persisted per browser
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved === "dark" || saved === "light") return saved;
+    } catch {
+      /* ignore */
+    }
+    return "dark";
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
+
+  const t = useMemo(() => themeTokens(theme), [theme]);
+  const toggleTheme = () =>
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+
   const [candles, setCandles] = useState(seedCandles);
   const [timeframe, setTimeframe] = useState("15m");
-  const [mode, setMode] = useState("trade"); // "trade" | "signin" | "signup"
+  const [mode, setMode] = useState("trade"); // trade | signin | signup
   const [toast, setToast] = useState({ kind: null, message: "" });
 
   const notify = (kind, message) => {
@@ -1613,11 +2025,9 @@ export default function MainPlatform({ onAuthSuccess }) {
     setTimeout(() => setToast({ kind: null, message: "" }), 2600);
   };
 
-  // Live candle updates
   useEffect(() => {
     const id = setInterval(() => {
       setCandles((prev) => {
-        // 50% chance: extend the last candle; else create a new one.
         if (Math.random() > 0.5) {
           const arr = [...prev];
           const last = { ...arr[arr.length - 1] };
@@ -1649,18 +2059,23 @@ export default function MainPlatform({ onAuthSuccess }) {
 
   return (
     <div
-      className="min-h-screen w-full text-slate-100"
-      style={{ backgroundColor: COLORS.bg }}
+      className="min-h-screen w-full transition-colors duration-300"
+      style={{ backgroundColor: t.bg, color: t.text }}
+      data-theme={theme}
     >
       <Toast
         kind={toast.kind}
         message={toast.message}
         onClose={() => setToast({ kind: null, message: "" })}
+        t={t}
       />
 
       <TopNav
         onSignIn={() => setMode("signin")}
         onSignUp={() => setMode("signup")}
+        t={t}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       <InstrumentBar
         price={price}
@@ -1668,35 +2083,35 @@ export default function MainPlatform({ onAuthSuccess }) {
         high={high24h}
         low={low24h}
         volume={volume}
+        t={t}
+        theme={theme}
       />
 
-      {/* Body grid — left 75%, right 25% */}
-      <div className="flex gap-2 p-2 lg:flex-row flex-col">
+      <div className="flex flex-col gap-2 p-2 lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-2 lg:w-3/4">
-          {/* Chart + Order Book */}
           <div className="grid gap-2 lg:grid-cols-3" style={{ minHeight: 380 }}>
             <div className="lg:col-span-2">
               <CandleChart
                 candles={candles}
                 timeframe={timeframe}
                 onTimeframe={setTimeframe}
+                t={t}
               />
             </div>
             <div>
-              <OrderBook mid={price} />
+              <OrderBook mid={price} t={t} />
             </div>
           </div>
-
-          {/* Bottom data center */}
-          <BottomTabs />
+          <BottomTabs t={t} />
         </div>
 
-        {/* Right 25% — Execution + Auth overlay morph */}
+        {/* Right 25% — Execution + Auth panel morph */}
         <div className="lg:w-[340px] lg:shrink-0">
           <div
-            className="relative overflow-hidden rounded-md border border-white/5 p-3"
+            className="relative overflow-hidden rounded-md border p-3"
             style={{
-              backgroundColor: COLORS.card,
+              backgroundColor: t.card,
+              borderColor: t.border,
               minHeight: 620,
               perspective: 1200,
             }}
@@ -1712,16 +2127,15 @@ export default function MainPlatform({ onAuthSuccess }) {
                   className="relative h-full min-h-[600px]"
                   style={{ transformStyle: "preserve-3d" }}
                 >
-                  <div className="pointer-events-none">
-                    {/* Behind the overlay we still render the (fake) execution
-                        panel so users see what's about to unlock. */}
-                    <div className="pointer-events-auto">
-                      <TradeExecution price={price} />
-                    </div>
+                  <div className="pointer-events-auto">
+                    <TradeExecution price={price} t={t} />
                   </div>
                   <AuthOverlay
                     onSignIn={() => setMode("signin")}
                     onSignUp={() => setMode("signup")}
+                    t={t}
+                    theme={theme}
+                    onToggleTheme={toggleTheme}
                   />
                 </motion.div>
               ) : mode === "signin" ? (
@@ -1739,6 +2153,9 @@ export default function MainPlatform({ onAuthSuccess }) {
                     onSuccess={onAuthSuccess}
                     onSwitchToSignUp={() => setMode("signup")}
                     onBack={() => setMode("trade")}
+                    t={t}
+                    theme={theme}
+                    onToggleTheme={toggleTheme}
                   />
                 </motion.div>
               ) : (
@@ -1756,6 +2173,9 @@ export default function MainPlatform({ onAuthSuccess }) {
                     onSuccess={onAuthSuccess}
                     onSwitchToSignIn={() => setMode("signin")}
                     onBack={() => setMode("trade")}
+                    t={t}
+                    theme={theme}
+                    onToggleTheme={toggleTheme}
                   />
                 </motion.div>
               )}
@@ -1765,8 +2185,12 @@ export default function MainPlatform({ onAuthSuccess }) {
       </div>
 
       <footer
-        className="border-t border-white/5 py-2 text-center text-[9px] uppercase tracking-widest text-slate-600"
-        style={{ backgroundColor: COLORS.bg }}
+        className="border-t py-2 text-center text-[9px] uppercase tracking-widest"
+        style={{
+          backgroundColor: t.bg,
+          borderColor: t.border,
+          color: t.textFaint,
+        }}
       >
         Nexus Pro · Institutional-grade perpetual futures · Live simulation
       </footer>
