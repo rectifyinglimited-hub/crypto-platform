@@ -9,7 +9,16 @@
 import axios from "axios";
 
 export const TOKEN_STORAGE_KEY = "nexus_token";
-const FALLBACK_BASE_URL = "http://localhost:5001/api";
+
+// Production backend on Render (hardcoded so deploys work even if the
+// Vercel VITE_API_BASE_URL env var isn't picked up at build time).
+// Local dev overrides via `frontend/.env` → VITE_API_BASE_URL=http://localhost:5001/api
+const PRODUCTION_BASE_URL = "https://nexus-api-mxcz.onrender.com/api";
+const FALLBACK_BASE_URL =
+  typeof window !== "undefined" &&
+  /^(localhost|127\.0\.0\.1)/.test(window.location.hostname)
+    ? "http://localhost:5001/api"
+    : PRODUCTION_BASE_URL;
 
 const BASE_URL =
   (typeof import.meta !== "undefined" &&
