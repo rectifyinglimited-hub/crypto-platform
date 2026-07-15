@@ -1,0 +1,13 @@
+{
+  "name": "crypto-platform",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Crypto platform — Railway deploys the Express API from /backend.",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "npm --prefix backend start",
+    "install:backend": "npm --prefix backend ci --omit=dev"
+  }
+}
