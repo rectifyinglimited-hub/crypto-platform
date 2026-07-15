@@ -24,7 +24,7 @@ import gatewayRoutes from "./routes/gateway.js";
 
 dotenv.config();
 
-const PORT = Number.parseInt(process.env.PORT, 10) || 5001;
+const PORT = process.env.PORT || 5001;
 const MONGO_URI =
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/nexus_dev";
 const NODE_ENV = process.env.NODE_ENV || "development";
@@ -127,9 +127,9 @@ const connectDatabase = async () => {
   }
 };
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(
-    `\x1b[36m[api]\x1b[0m Nexus server listening on http://localhost:${PORT}`
+    `\x1b[36m[api]\x1b[0m Nexus server listening on http://0.0.0.0:${PORT}`
   );
   console.log(`\x1b[36m[api]\x1b[0m Environment: ${NODE_ENV}`);
   connectDatabase();
