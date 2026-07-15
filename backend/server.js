@@ -21,6 +21,9 @@ import tradeRoutes from "./routes/trade.js";
 import walletRoutes from "./routes/wallet.js";
 import stakingRoutes from "./routes/staking.js";
 import gatewayRoutes from "./routes/gateway.js";
+import secondsTradeRoutes, {
+  settleExpiredTrades,
+} from "./routes/secondsTrade.js";
 
 dotenv.config();
 
@@ -77,6 +80,7 @@ app.use("/api/trade", tradeRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/staking", stakingRoutes);
 app.use("/api/gateway", gatewayRoutes);
+app.use("/api/seconds-trade", secondsTradeRoutes);
 
 // 404
 app.use((req, res) => {
@@ -134,6 +138,12 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`\x1b[36m[api]\x1b[0m Environment: ${NODE_ENV}`);
   connectDatabase();
 });
+
+// Settle expired seconds trades every 3s
+const settler = setInterval(() => {
+  settleExpiredTrades().catch(() => {});
+}, 3000);
+settler.unref?.();
 
 process.on("unhandledRejection", (reason) => {
   console.error("\x1b[31m[unhandledRejection]\x1b[0m", reason);

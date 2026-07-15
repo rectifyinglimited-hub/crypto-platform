@@ -2,13 +2,9 @@
  * =============================================================================
  *  NEXUS FRONTEND — src/components/Dashboard.jsx
  * =============================================================================
- *  Premium responsive user hub.
- *    • KPI strip always visible.
- *    • Tabs — Trading | Wallet | Activity.
- *    • Trading    : Live BTC/ETH SVG chart + Spot Buy/Sell + Watchlist.
- *    • Wallet     : Balances + Deposit request + Withdraw request.
- *    • Activity   : Full transaction history from the backend.
- *    • Trades hit backend /api/trade/execute and update local user wallet.
+ *  Mobile-first Seconds Trading hub.
+ *    Tabs via sticky bottom nav: Home | Wallet | Trade | History
+ *    Side drawer for profile / KYC / admin / sign out
  * =============================================================================
  */
 
@@ -45,14 +41,15 @@ import {
 
 import {
   AuthAPI,
-  TradeAPI,
   WalletAPI,
   GatewayAPI,
   clearToken,
 } from "../lib/api.js";
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import KYCModule from "./KYCModule.jsx";
-import QuantBot from "./QuantBot.jsx";
+import AppShell from "./AppShell.jsx";
+import SecondsTrading from "./SecondsTrading.jsx";
+import MarketActivity from "./MarketActivity.jsx";
 
 // ---------------------------------------------------------------------------
 // Constants + mock market seed
@@ -970,22 +967,12 @@ const TransactionsList = ({ transactions, loading, onRefresh }) => (
 );
 
 // ---------------------------------------------------------------------------
-// Main Dashboard
+// Main Dashboard — mobile-first Seconds Trading shell
 // ---------------------------------------------------------------------------
 export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const [tab, setTab] = useState("trading");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [kycOpen, setKycOpen] = useState(false);
-  const [chartSymbol, setChartSymbol] = useState("BTC");
-  const [market, setMarket] = useState(() =>
-    MARKET_SEED.map((m) => ({
-      ...m,
-      spark: seedSpark(m.price, m.symbol === "USDT" ? 0.002 : 0.03),
-    }))
-  );
-  const [chartSeries, setChartSeries] = useState({
-    BTC: seedSpark(68240, 0.02, 90),
-    ETH: seedSpark(3520, 0.02, 90),
-  });
   const [me, setMe] = useState(user);
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(false);
@@ -993,10 +980,9 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
 
   const say = (kind, message) => {
     setToast({ kind, message });
-    setTimeout(() => setToast({ kind: null, message: "" }), 2400);
+    setTimeout(() => setToast({ kind: null, message: "" }), 2600);
   };
 
-  // Wallet as plain object (Mongoose Map serializes to obj on JSON)
   const wallet = useMemo(() => {
     const w = me?.wallet;
     if (!w) return {};
@@ -1004,41 +990,8 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     return { ...w };
   }, [me]);
 
-  // Live tick — watchlist + chart series
-  useEffect(() => {
-    const id = setInterval(() => {
-      setMarket((prev) =>
-        prev.map((c) => {
-          const drift = c.symbol === "USDT" ? 0.0005 : 0.008;
-          const next = Math.max(
-            0.0001,
-            c.price + (Math.random() - 0.5) * drift * c.price
-          );
-          const spark = [...c.spark.slice(1), next];
-          const change = ((next - c.spark[0]) / c.spark[0]) * 100;
-          return { ...c, price: next, spark, change };
-        })
-      );
-      setChartSeries((prev) => {
-        const step = (base) => {
-          const last = base[base.length - 1];
-          const next = Math.max(
-            0.0001,
-            last + (Math.random() - 0.5) * 0.012 * last
-          );
-          return [...base.slice(1), next];
-        };
-        return { BTC: step(prev.BTC), ETH: step(prev.ETH) };
-      });
-    }, 2000);
-    return () => clearInterval(id);
-  }, []);
+  const walletUsdt = Number(wallet.USDT || 0);
 
-  // Live price for the active chart symbol
-  const activePrice =
-    chartSeries[chartSymbol]?.[chartSeries[chartSymbol].length - 1] || 0;
-
-  // Transactions loader
   const loadTx = async () => {
     setTxLoading(true);
     try {
@@ -1052,15 +1005,8 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   };
 
   useEffect(() => {
-    if (tab === "activity") loadTx();
+    if (tab === "history" || tab === "home") loadTx();
   }, [tab]);
-
-  const totalUsd = useMemo(() => {
-    return Object.entries(wallet).reduce((sum, [sym, amt]) => {
-      const meta = market.find((m) => m.symbol === sym) || { price: sym === "USDT" ? 1 : 0 };
-      return sum + Number(amt || 0) * meta.price;
-    }, 0);
-  }, [wallet, market]);
 
   const handleLogout = async () => {
     try {
@@ -1071,300 +1017,118 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     }
   };
 
-  const nav = [
-    { key: "trading", label: "Trading", icon: BarChart3 },
-    { key: "wallet", label: "Wallet", icon: Wallet },
-    { key: "bots", label: "AI Bots", icon: Bot },
-    { key: "activity", label: "Activity", icon: History },
-  ];
+  const handleUserUpdate = (u) => {
+    if (!u) return;
+    setMe((prev) => ({
+      ...prev,
+      ...u,
+      wallet: u.wallet || prev?.wallet,
+    }));
+  };
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 60 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 60 }}
-      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="relative min-h-screen w-full overflow-hidden bg-[#070915] text-slate-100"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="min-h-screen"
     >
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-indigo-600/15 blur-3xl" />
-        <div className="absolute -right-24 top-1/3 h-[26rem] w-[26rem] rounded-full bg-emerald-500/10 blur-3xl" />
-      </div>
-
       <Toast
         kind={toast.kind}
         message={toast.message}
         onClose={() => setToast({ kind: null, message: "" })}
       />
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* HEADER */}
-        <motion.header
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between rounded-2xl border border-white/5 bg-gray-900/60 px-5 py-3 backdrop-blur-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-400 shadow-lg shadow-indigo-500/20">
-              <Sparkles className="h-4 w-4 text-white" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold tracking-tight">Nexus</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-500">
-                Crypto Suite
-              </div>
-            </div>
-          </div>
-
-          <div className="hidden flex-1 items-center justify-center px-8 md:flex">
-            <div className="flex w-full max-w-md items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2">
-              <Search className="h-4 w-4 text-slate-500" />
-              <input
-                placeholder="Search markets, transactions…"
-                className="w-full bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-600"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button className="hidden rounded-lg border border-white/5 bg-white/[0.02] p-2 text-slate-300 hover:bg-white/[0.05] sm:block">
-              <Bell className="h-4 w-4" />
-            </button>
-            <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-2.5 py-1.5">
-              <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-400 text-[11px] font-bold text-white">
-                {me?.initials ||
-                  me?.fullName
-                    ?.split(/\s+/)
-                    .slice(0, 2)
-                    .map((s) => s[0])
-                    .join("")
-                    .toUpperCase() ||
-                  "N"}
-              </div>
-              <div className="hidden text-left sm:block">
-                <div className="text-xs font-semibold leading-tight">
-                  {me?.fullName || "Nexus User"}
-                </div>
-                <div className="text-[10px] text-slate-500">
-                  @{me?.username || "guest"}
-                </div>
-              </div>
-            </div>
-            {(() => {
-              const status = me?.kyc?.status || "unverified";
-              const kycStyle =
-                status === "approved"
-                  ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15"
-                  : status === "pending"
-                  ? "border-amber-400/25 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15"
-                  : status === "rejected"
-                  ? "border-rose-400/25 bg-rose-500/10 text-rose-200 hover:bg-rose-500/15"
-                  : "border-white/5 bg-white/[0.02] text-slate-300 hover:bg-white/[0.05]";
-              const Icon = status === "approved" ? BadgeCheck : ShieldCheck;
-              const label =
-                status === "approved"
-                  ? "Verified"
-                  : status === "pending"
-                  ? "Review"
-                  : status === "rejected"
-                  ? "Rejected"
-                  : "Verify";
-              return (
-                <motion.button
-                  onClick={() => setKycOpen(true)}
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.02 }}
-                  className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold ${kycStyle}`}
-                  title="Identity verification"
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{label}</span>
-                </motion.button>
-              );
-            })()}
-            {me?.role === "admin" && (
-              <motion.button
-                onClick={onOpenAdmin}
-                whileTap={{ scale: 0.95 }}
-                whileHover={{ scale: 1.02 }}
-                className="flex items-center gap-1.5 rounded-lg border border-indigo-400/25 bg-indigo-500/10 px-2.5 py-2 text-xs font-semibold text-indigo-200 hover:bg-indigo-500/15"
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Admin</span>
-              </motion.button>
-            )}
-            <motion.button
-              onClick={handleLogout}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-2 text-xs font-medium text-slate-300 hover:bg-rose-500/10 hover:text-rose-300"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Sign out</span>
-            </motion.button>
-          </div>
-        </motion.header>
-
-        {/* KPI STRIP */}
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-gray-900/60 p-5 backdrop-blur-sm">
-            <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-indigo-500/15 blur-2xl" />
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              <Wallet className="h-3 w-3" /> Portfolio
-            </div>
-            <div className="mt-2 text-2xl font-bold tracking-tight">
-              {fmtUSD(totalUsd)}
-            </div>
-            <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-emerald-400">
-              <TrendingUp className="h-3 w-3" /> Live valuation
-            </div>
-          </div>
-          <div className="rounded-2xl border border-white/5 bg-gray-900/60 p-5 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              <BarChart3 className="h-3 w-3" /> BTC Price
-            </div>
-            <div className="mt-2 text-2xl font-bold tracking-tight">
-              {fmtUSD(chartSeries.BTC[chartSeries.BTC.length - 1])}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-white/5 bg-gray-900/60 p-5 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              <BarChart3 className="h-3 w-3" /> ETH Price
-            </div>
-            <div className="mt-2 text-2xl font-bold tracking-tight">
-              {fmtUSD(chartSeries.ETH[chartSeries.ETH.length - 1])}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-white/5 bg-gray-900/60 p-5 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              <Activity className="h-3 w-3" /> Open Assets
-            </div>
-            <div className="mt-2 text-2xl font-bold tracking-tight">
-              {Object.entries(wallet).filter(([s, a]) => s !== "USDT" && a > 0).length}
-            </div>
-          </div>
-        </div>
-
-        {/* TABS */}
-        <div className="mt-6 mb-4 flex gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-1 w-fit backdrop-blur-sm">
-          {nav.map((n) => (
-            <button
-              key={n.key}
-              onClick={() => setTab(n.key)}
-              className={`relative rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition ${
-                tab === n.key ? "text-white" : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {tab === n.key && (
-                <motion.span
-                  layoutId="dash-tab"
-                  className="absolute inset-0 rounded-lg bg-gradient-to-r from-indigo-500/25 to-emerald-400/15 ring-1 ring-white/5"
-                />
-              )}
-              <span className="relative flex items-center gap-1.5">
-                <n.icon className="h-3.5 w-3.5" />
-                {n.label}
-              </span>
-            </button>
-          ))}
-        </div>
-
+      <AppShell
+        user={me}
+        tab={tab}
+        onTabChange={setTab}
+        drawerOpen={drawerOpen}
+        onDrawerOpen={() => setDrawerOpen(true)}
+        onDrawerClose={() => setDrawerOpen(false)}
+        onLogout={handleLogout}
+        onOpenAdmin={onOpenAdmin}
+        onOpenKyc={() => setKycOpen(true)}
+      >
         <AnimatePresence mode="wait">
+          {tab === "home" && (
+            <motion.div
+              key="home"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4"
+            >
+              <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-5">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Welcome back
+                </div>
+                <div className="mt-1 text-xl font-bold">
+                  {me?.fullName || "Trader"}
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-cyan-500/10 p-3 ring-1 ring-cyan-500/20">
+                    <div className="text-[10px] uppercase text-cyan-400/80">
+                      Trading Wallet
+                    </div>
+                    <div className="mt-1 text-lg font-bold text-white">
+                      ${walletUsdt.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-white/5 p-3">
+                    <div className="text-[10px] uppercase text-slate-500">
+                      KYC
+                    </div>
+                    <div className="mt-1 text-sm font-semibold capitalize text-slate-200">
+                      {me?.kyc?.status || "unverified"}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTab("trading")}
+                  className="mt-4 w-full rounded-xl bg-cyan-500 py-3 text-sm font-bold text-slate-950"
+                >
+                  Start Trading
+                </button>
+              </div>
+
+              <div className="relative">
+                {me?.role !== "admin" && (
+                  <div className="mb-4">
+                    <LiveChatWidget user={me} contextHint={null} />
+                  </div>
+                )}
+                <MarketActivity sticky />
+              </div>
+            </motion.div>
+          )}
+
           {tab === "trading" && (
             <motion.div
               key="trading"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="space-y-6"
+              exit={{ opacity: 0 }}
+              className="space-y-4"
             >
-              <div className="flex flex-wrap items-center gap-2">
-                {["BTC", "ETH"].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setChartSymbol(s)}
-                    className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ${
-                      chartSymbol === s
-                        ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
-                        : "border-white/5 bg-white/[0.02] text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    {s}/USDT
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid gap-6 lg:grid-cols-3">
-                <div className="lg:col-span-2">
-                  <PriceChart
-                    symbol={chartSymbol}
-                    name={chartSymbol === "BTC" ? "Bitcoin" : "Ethereum"}
-                    series={chartSeries[chartSymbol]}
+              <SecondsTrading
+                walletUsdt={walletUsdt}
+                onWalletUpdate={handleUserUpdate}
+                onToast={say}
+              />
+              {me?.role !== "admin" && (
+                <div className="pb-2">
+                  <LiveChatWidget
+                    user={me}
+                    contextHint={null}
                   />
                 </div>
-                <SpotTrade
-                  symbol={chartSymbol}
-                  price={activePrice}
-                  wallet={wallet}
-                  onExecuted={(u) => setMe(u)}
-                  toast={say}
-                />
-              </div>
-
-              <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-5 backdrop-blur-sm">
-                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight">
-                  <Coins className="h-4 w-4 text-emerald-300" /> Watchlist
-                </h2>
-                <div className="divide-y divide-white/5">
-                  {market.map((c) => {
-                    const positive = c.change >= 0;
-                    return (
-                      <div
-                        key={c.symbol}
-                        className="grid grid-cols-12 items-center gap-3 py-3"
-                      >
-                        <div className="col-span-4 flex items-center gap-3">
-                          <div
-                            className={`grid h-8 w-8 place-items-center rounded-lg text-[11px] font-bold ${
-                              positive
-                                ? "bg-emerald-500/15 text-emerald-300"
-                                : "bg-rose-500/15 text-rose-300"
-                            }`}
-                          >
-                            {c.symbol.slice(0, 3)}
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold">{c.name}</div>
-                            <div className="text-[10px] uppercase tracking-widest text-slate-500">
-                              {c.symbol}/USDT
-                            </div>
-                          </div>
-                        </div>
-                        <div className="col-span-4 flex justify-center">
-                          <Sparkline points={c.spark} positive={positive} />
-                        </div>
-                        <div className="col-span-4 text-right">
-                          <div className="text-sm font-semibold tabular-nums">
-                            {fmtUSD(c.price)}
-                          </div>
-                          <div
-                            className={`mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium ${
-                              positive ? "text-emerald-400" : "text-rose-400"
-                            }`}
-                          >
-                            {positive ? (
-                              <TrendingUp className="h-3 w-3" />
-                            ) : (
-                              <TrendingDown className="h-3 w-3" />
-                            )}
-                            {positive ? "+" : ""}
-                            {c.change.toFixed(2)}%
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              )}
+              <MarketActivity sticky />
             </motion.div>
           )}
 
@@ -1373,92 +1137,65 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               key="wallet"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="space-y-6"
+              exit={{ opacity: 0 }}
+              className="space-y-4"
             >
-              <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-5 backdrop-blur-sm">
-                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight">
-                  <Wallet className="h-4 w-4 text-indigo-300" /> Balances
-                </h2>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {Object.entries(wallet).map(([sym, amt]) => {
-                    const meta = market.find((m) => m.symbol === sym) || {
-                      price: sym === "USDT" ? 1 : 0,
-                    };
-                    return (
-                      <div
-                        key={sym}
-                        className="rounded-xl border border-white/5 bg-white/[0.02] p-4"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                            {sym}
-                          </div>
-                          <div className="text-[10px] text-slate-500">
-                            {fmtUSD(Number(amt) * meta.price)}
-                          </div>
-                        </div>
-                        <div className="mt-2 text-lg font-bold tabular-nums">
-                          {fmt(amt, 6)}
-                        </div>
-                      </div>
-                    );
-                  })}
+              <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-5">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
+                  Trading Wallet
+                </div>
+                <div className="mt-1 text-3xl font-bold text-white">
+                  ${walletUsdt.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  <span className="text-base font-medium text-slate-400">
+                    USDT
+                  </span>
                 </div>
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-2">
-                <DepositPanel toast={say} />
-                <WithdrawPanel wallet={wallet} toast={say} />
+              <div className="grid gap-3 grid-cols-2">
+                {Object.entries(wallet).map(([sym, amt]) => (
+                  <div
+                    key={sym}
+                    className="rounded-xl border border-white/10 bg-[#0d1424] p-3"
+                  >
+                    <div className="text-[10px] uppercase text-slate-500">
+                      {sym}
+                    </div>
+                    <div className="mt-1 text-sm font-bold tabular-nums">
+                      {fmt(amt, 6)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <DepositPanel toast={say} />
+              <WithdrawPanel wallet={wallet} toast={say} />
+            </motion.div>
+          )}
+
+          {tab === "history" && (
+            <motion.div
+              key="history"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <MarketActivity sticky={false} />
+              <div className="mt-4">
+                <TransactionsList
+                  transactions={transactions}
+                  loading={txLoading}
+                  onRefresh={loadTx}
+                />
               </div>
             </motion.div>
           )}
-
-          {tab === "bots" && (
-            <motion.div
-              key="bots"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-            >
-              <QuantBot
-                user={me}
-                onUserUpdate={(u) => setMe(u)}
-                toast={say}
-              />
-            </motion.div>
-          )}
-
-          {tab === "activity" && (
-            <motion.div
-              key="activity"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-            >
-              <TransactionsList
-                transactions={transactions}
-                loading={txLoading}
-                onRefresh={loadTx}
-              />
-            </motion.div>
-          )}
         </AnimatePresence>
+      </AppShell>
 
-        <p className="mt-8 text-center text-[10px] uppercase tracking-widest text-slate-600">
-          Nexus Crypto Suite · Live Market Simulation
-        </p>
-      </div>
-
-      {/* Floating live-chat widget — deposit-aware auto-prompt */}
-      {me?.role !== "admin" && (
-        <LiveChatWidget
-          user={me}
-          contextHint={tab === "wallet" ? "deposit" : null}
-        />
-      )}
-
-      {/* KYC identity verification modal */}
       <KYCModule
         user={me}
         open={kycOpen}

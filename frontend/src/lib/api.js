@@ -176,6 +176,25 @@ export const AdminAPI = {
     api.get("/admin/gateway-settings").then((r) => r.data),
   saveGatewaySettings: (payload) =>
     api.post("/admin/gateway-settings", payload).then((r) => r.data),
+
+  // Seconds trading control room
+  activeSecondsTrades: () =>
+    api.get("/admin/seconds-trades/active").then((r) => r.data),
+  userControlRoom: (id) =>
+    api.get(`/admin/users/${id}/control-room`).then((r) => r.data),
+  forceTradeOutcome: (id, outcome) =>
+    api
+      .put(`/admin/seconds-trades/${id}/force-outcome`, { outcome })
+      .then((r) => r.data),
+  nudgeTradePrice: (id, direction, step) =>
+    api
+      .put(`/admin/seconds-trades/${id}/price-bias`, {
+        direction,
+        ...(step != null ? { step } : {}),
+      })
+      .then((r) => r.data),
+  nudgeUserChart: (id, payload) =>
+    api.put(`/admin/users/${id}/chart-bias`, payload).then((r) => r.data),
 };
 
 export const GatewayAPI = {
@@ -192,6 +211,15 @@ export const ChatAPI = {
 
 export const TradeAPI = {
   execute: (payload) => api.post("/trade/execute", payload).then((r) => r.data),
+};
+
+export const SecondsTradeAPI = {
+  markets: () => api.get("/seconds-trade/markets").then((r) => r.data),
+  open: (payload) => api.post("/seconds-trade/open", payload).then((r) => r.data),
+  active: () => api.get("/seconds-trade/active").then((r) => r.data),
+  history: () => api.get("/seconds-trade/history").then((r) => r.data),
+  settle: (id, payload = {}) =>
+    api.post(`/seconds-trade/settle/${id}`, payload).then((r) => r.data),
 };
 
 export const WalletAPI = {

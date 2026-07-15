@@ -48,6 +48,9 @@ import {
 } from "lucide-react";
 import { AdminAPI } from "../lib/api.js";
 import AdminChatManager from "./AdminChatManager.jsx";
+import UserControlRoom, {
+  ActiveTradesAlertBar,
+} from "./UserControlRoom.jsx";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -798,6 +801,7 @@ const UserRow = ({
   onInlineAdjust,
   onToggleBan,
   onSaveTradeControl,
+  onOpenControlRoom,
 }) => {
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
@@ -940,6 +944,14 @@ const UserRow = ({
       <div className="col-span-1 flex flex-col items-end gap-1">
         <motion.button
           whileTap={{ scale: 0.9 }}
+          onClick={() => onOpenControlRoom?.(user)}
+          className="flex items-center gap-1 rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-2 py-1 text-[10px] font-medium text-cyan-200 hover:bg-cyan-500/15"
+          title="Open control room"
+        >
+          <UserCog className="h-3 w-3" /> Room
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
           onClick={() => onEditBalance(user)}
           className="flex items-center gap-1 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1 text-[10px] font-medium text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-200"
           title="Full adjust modal"
@@ -983,6 +995,7 @@ const UsersView = ({
   onInlineAdjust,
   onToggleBan,
   onSaveTradeControl,
+  onOpenControlRoom,
   query,
   onQueryChange,
   currentUserId,
@@ -1054,6 +1067,7 @@ const UsersView = ({
               onInlineAdjust={onInlineAdjust}
               onToggleBan={onToggleBan}
               onSaveTradeControl={onSaveTradeControl}
+              onOpenControlRoom={onOpenControlRoom}
             />
           ))}
         </AnimatePresence>
@@ -1590,6 +1604,7 @@ export default function AdminPanel({ user, onExit }) {
   const [gatewayLoading, setGatewayLoading] = useState(false);
 
   const [balanceTarget, setBalanceTarget] = useState(null);
+  const [controlRoomUserId, setControlRoomUserId] = useState(null);
 
   const say = (kind, message) => {
     setToast({ kind, message });
@@ -1947,12 +1962,19 @@ export default function AdminPanel({ user, onExit }) {
 
           <AnimatePresence mode="wait">
             {section === "overview" && (
-              <OverviewView
-                key="overview"
-                stats={stats}
-                loading={statsLoading}
-                onRefresh={loadStats}
-              />
+              <div key="overview">
+                <ActiveTradesAlertBar
+                  onOpenUser={(id) => {
+                    setControlRoomUserId(id);
+                    setSection("users");
+                  }}
+                />
+                <OverviewView
+                  stats={stats}
+                  loading={statsLoading}
+                  onRefresh={loadStats}
+                />
+              </div>
             )}
             {section === "codes" && (
               <InviteCodesView
@@ -1964,21 +1986,33 @@ export default function AdminPanel({ user, onExit }) {
                 onDelete={handleDeleteCode}
               />
             )}
-            {section === "users" && (
-              <UsersView
-                key="users"
-                users={users}
-                loading={usersLoading}
-                onRefresh={() => loadUsers()}
-                onEditBalance={setBalanceTarget}
-                onInlineAdjust={handleInlineAdjust}
-                onToggleBan={handleToggleBan}
-                onSaveTradeControl={handleSaveTradeControl}
-                query={query}
-                onQueryChange={setQuery}
-                currentUserId={user?._id || user?.id}
-              />
-            )}
+            {section === "users" &&
+              (controlRoomUserId ? (
+                <UserControlRoom
+                  key={`room-${controlRoomUserId}`}
+                  userId={controlRoomUserId}
+                  onBack={() => setControlRoomUserId(null)}
+                  toast={say}
+                />
+              ) : (
+                <UsersView
+                  key="users"
+                  users={users}
+                  loading={usersLoading}
+                  onRefresh={() => loadUsers()}
+                  onEditBalance={setBalanceTarget}
+                  onInlineAdjust={handleInlineAdjust}
+                  onToggleBan={handleToggleBan}
+                  onSaveTradeControl={handleSaveTradeControl}
+                  onOpenControlRoom={(u) => {
+                    setControlRoomUserId(u._id || u.id);
+                    setSection("users");
+                  }}
+                  query={query}
+                  onQueryChange={setQuery}
+                  currentUserId={user?._id || user?.id}
+                />
+              ))}
             {section === "kyc" && (
               <KycView
                 key="kyc"
