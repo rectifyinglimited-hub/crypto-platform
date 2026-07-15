@@ -81,9 +81,18 @@ export default function App() {
     setScreen(SCREEN.LANDING);
   };
 
-  const goAdmin = () => {
-    if (user?.role !== "admin") return;
-    setScreen(SCREEN.ADMIN);
+  const goAdmin = async () => {
+    try {
+      const res = await AuthAPI.me();
+      const u = res?.user;
+      if (u) setUser(u);
+      if (u?.role === "admin") {
+        setScreen(SCREEN.ADMIN);
+      }
+    } catch {
+      // Fall back to cached role
+      if (user?.role === "admin") setScreen(SCREEN.ADMIN);
+    }
   };
   const goDashboard = () => setScreen(SCREEN.DASHBOARD);
 

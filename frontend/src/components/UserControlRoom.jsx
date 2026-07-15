@@ -106,6 +106,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [alerts, setAlerts] = useState([]);
+  const [topUp, setTopUp] = useState("");
+  const [topUpBusy, setTopUpBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -235,6 +237,49 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               {u?.banned ? "Banned" : "Active"}
             </div>
           </div>
+        </div>
+
+        {/* Quick Trading Wallet top-up */}
+        <div className="mt-4 flex flex-wrap items-end gap-2">
+          <div className="min-w-[140px] flex-1">
+            <label className="text-[10px] uppercase tracking-wider text-slate-500">
+              Add USDT to Trading Wallet
+            </label>
+            <input
+              type="number"
+              step="any"
+              value={topUp}
+              onChange={(e) => setTopUp(e.target.value)}
+              placeholder="e.g. 500"
+              className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500/40"
+            />
+          </div>
+          <button
+            type="button"
+            disabled={topUpBusy || !topUp}
+            onClick={async () => {
+              const n = Number(topUp);
+              if (!Number.isFinite(n) || n === 0) return;
+              setTopUpBusy(true);
+              try {
+                await AdminAPI.updateBalance(userId, {
+                  symbol: "USDT",
+                  amount: n,
+                  mode: "add",
+                });
+                toast?.("success", `Added ${n} USDT to Trading Wallet`);
+                setTopUp("");
+                await load();
+              } catch (err) {
+                toast?.("error", err?.message || "Balance update failed");
+              } finally {
+                setTopUpBusy(false);
+              }
+            }}
+            className="rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-50"
+          >
+            {topUpBusy ? "Saving…" : "Update Wallet"}
+          </button>
         </div>
       </div>
 

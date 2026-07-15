@@ -267,10 +267,21 @@ router.put(
     user.wallet.set(symbol, next);
     user.markModified("wallet");
     await user.save();
+
+    const wallet =
+      user.wallet instanceof Map
+        ? Object.fromEntries(user.wallet)
+        : { ...(user.wallet || {}) };
+
     return res.json({
       success: true,
       message: `Balance for ${symbol} updated.`,
-      user,
+      user: {
+        ...user.toObject({ virtuals: true }),
+        password: undefined,
+        wallet,
+        id: user._id.toString(),
+      },
     });
   })
 );

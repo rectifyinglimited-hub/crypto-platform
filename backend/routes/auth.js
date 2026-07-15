@@ -91,9 +91,21 @@ const signToken = (user) =>
   );
 
 const sanitizeUser = (user) => {
-  const obj = user.toObject ? user.toObject() : { ...user };
+  const obj = user.toObject
+    ? user.toObject({ virtuals: true })
+    : { ...user };
   delete obj.password;
   delete obj.__v;
+  // Normalize Map fields for JSON clients
+  if (obj.wallet instanceof Map) {
+    obj.wallet = Object.fromEntries(obj.wallet);
+  } else if (obj.wallet && typeof obj.wallet === "object") {
+    obj.wallet = { ...obj.wallet };
+  }
+  if (obj.chartBias instanceof Map) {
+    obj.chartBias = Object.fromEntries(obj.chartBias);
+  }
+  obj.id = obj._id?.toString?.() || obj._id;
   return obj;
 };
 

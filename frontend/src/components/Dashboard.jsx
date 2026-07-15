@@ -39,17 +39,13 @@ import {
   MessageCircle,
 } from "lucide-react";
 
-import {
-  AuthAPI,
-  WalletAPI,
-  GatewayAPI,
-  clearToken,
-} from "../lib/api.js";
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import KYCModule from "./KYCModule.jsx";
 import AppShell from "./AppShell.jsx";
 import SecondsTrading from "./SecondsTrading.jsx";
 import MarketActivity from "./MarketActivity.jsx";
+import TradeHistory from "./TradeHistory.jsx";
+import { AuthAPI, WalletAPI, GatewayAPI, clearToken } from "../lib/api.js";
 
 // ---------------------------------------------------------------------------
 // Constants + mock market seed
@@ -1008,6 +1004,31 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     if (tab === "history" || tab === "home") loadTx();
   }, [tab]);
 
+  // Keep Trading Wallet in sync when admin tops up balance (or trade settles)
+  useEffect(() => {
+    let cancelled = false;
+    const refreshMe = async () => {
+      try {
+        const res = await AuthAPI.me();
+        if (!cancelled && res?.user) {
+          setMe((prev) => ({
+            ...prev,
+            ...res.user,
+            wallet: res.user.wallet ?? prev?.wallet,
+          }));
+        }
+      } catch {
+        /* ignore transient */
+      }
+    };
+    refreshMe();
+    const id = setInterval(refreshMe, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   const handleLogout = async () => {
     try {
       await AuthAPI.logout().catch(() => {});
@@ -1153,6 +1174,9 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                     USDT
                   </span>
                 </div>
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Updates live when admin tops up · used for seconds trades
+                </p>
               </div>
 
               <div className="grid gap-3 grid-cols-2">
@@ -1171,7 +1195,12 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 ))}
               </div>
 
-              <DepositPanel toast={say} />
+              <div className="rounded-2xl border border-emerald-500/20 bg-[#0d1424] p-1">
+                <div className="px-4 pt-3 text-[11px] font-semibold uppercase tracking-wider text-emerald-400/80">
+                  Deposit Menu
+                </div>
+                <DepositPanel toast={say} />
+              </div>
               <WithdrawPanel wallet={wallet} toast={say} />
             </motion.div>
           )}
@@ -1182,9 +1211,13 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
+              className="space-y-4"
             >
-              <MarketActivity sticky={false} />
-              <div className="mt-4">
+              <TradeHistory />
+              <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-200">
+                  Wallet ledger
+                </h3>
                 <TransactionsList
                   transactions={transactions}
                   loading={txLoading}

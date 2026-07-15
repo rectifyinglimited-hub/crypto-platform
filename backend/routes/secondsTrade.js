@@ -175,10 +175,18 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
   const usdt = user.wallet.get("USDT") || 0;
 
   if (outcome === "win") {
-    const profit = trade.stake * ((trade.payoutPercent || DEFAULT_PAYOUT) / 100);
+    // Prefer admin-configured tradeControlPercentage when outcome is forced
+    let pct = Number(trade.payoutPercent) || DEFAULT_PAYOUT;
+    if (reason === "user_force_win" || reason === "admin_force") {
+      const ctrlPct = Number(user.tradeControlPercentage);
+      if (Number.isFinite(ctrlPct) && ctrlPct > 0) pct = ctrlPct;
+    }
+    const profit = trade.stake * (pct / 100);
     payout = trade.stake + profit;
     user.wallet.set("USDT", usdt + payout);
+    user.markModified("wallet");
     await user.save();
+    trade.payoutPercent = pct;
     await Transaction.create({
       user: user._id,
       kind: "trade",
@@ -187,7 +195,7 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
       amount: trade.stake,
       usdValue: payout,
       status: "completed",
-      reviewerNote: `Seconds trade WIN (+${trade.payoutPercent}%) · ${reason}`,
+      reviewerNote: `Seconds trade WIN (+${pct}% profit=$${(payout - trade.stake).toFixed(2)}) · ${reason}`,
     });
   } else {
     await Transaction.create({
@@ -198,7 +206,7 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
       amount: trade.stake,
       usdValue: 0,
       status: "completed",
-      reviewerNote: `Seconds trade LOSS · ${reason}`,
+      reviewerNote: `Seconds trade LOSS (−$${Number(trade.stake).toFixed(2)}) · ${reason}`,
     });
   }
 
@@ -356,6 +364,7 @@ router.post(
     entryPrice = applyBias(entryPrice, chartBias);
 
     user.wallet.set("USDT", usdt - stake);
+    user.markModified("wallet");
     await user.save();
 
     const openedAt = new Date();
