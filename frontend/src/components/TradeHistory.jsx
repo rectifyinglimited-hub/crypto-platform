@@ -1,9 +1,9 @@
 /**
- * Dedicated Trade History — won/lost seconds trades with profit/loss details.
+ * Dedicated Trade History — won/lost seconds trades + daily P/L summaries.
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, Trophy, Skull, History } from "lucide-react";
+import { Loader2, RefreshCw, Trophy, Skull, History, Calendar } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
 
 function fmt(n) {
@@ -24,6 +24,8 @@ function fmtTime(d) {
 
 export default function TradeHistory() {
   const [trades, setTrades] = useState([]);
+  const [daily, setDaily] = useState([]);
+  const [totals, setTotals] = useState({ wins: 0, losses: 0, net: 0 });
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -31,8 +33,11 @@ export default function TradeHistory() {
     try {
       const res = await SecondsTradeAPI.history();
       setTrades(res.trades || []);
+      setDaily(res.daily || []);
+      setTotals(res.totals || { wins: 0, losses: 0, net: 0 });
     } catch {
       setTrades([]);
+      setDaily([]);
     } finally {
       setLoading(false);
     }
@@ -44,8 +49,8 @@ export default function TradeHistory() {
     return () => clearInterval(id);
   }, [load]);
 
-  const wins = trades.filter((t) => t.status === "won").length;
-  const losses = trades.filter((t) => t.status === "lost").length;
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const today = daily.find((d) => d.date === todayKey);
 
   return (
     <div className="space-y-4">
@@ -56,7 +61,7 @@ export default function TradeHistory() {
             Trade History
           </h2>
           <p className="text-xs text-slate-500">
-            All settled seconds trades · WON / LOST
+            Daily profit / loss · WON & LOST details
           </p>
         </div>
         <button
@@ -73,14 +78,79 @@ export default function TradeHistory() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-emerald-500/10 p-3 ring-1 ring-emerald-500/20">
           <div className="text-[10px] uppercase text-emerald-400/80">Won</div>
-          <div className="text-xl font-bold text-emerald-300">{wins}</div>
+          <div className="text-xl font-bold text-emerald-300">
+            {totals.wins || 0}
+          </div>
         </div>
         <div className="rounded-xl bg-rose-500/10 p-3 ring-1 ring-rose-500/20">
           <div className="text-[10px] uppercase text-rose-400/80">Lost</div>
-          <div className="text-xl font-bold text-rose-300">{losses}</div>
+          <div className="text-xl font-bold text-rose-300">
+            {totals.losses || 0}
+          </div>
+        </div>
+        <div className="rounded-xl bg-cyan-500/10 p-3 ring-1 ring-cyan-500/20">
+          <div className="text-[10px] uppercase text-cyan-400/80">Net</div>
+          <div
+            className={`text-xl font-bold ${
+              (totals.net || 0) >= 0 ? "text-emerald-300" : "text-rose-300"
+            }`}
+          >
+            {(totals.net || 0) >= 0 ? "+" : ""}
+            ${fmt(totals.net)}
+          </div>
+        </div>
+      </div>
+
+      {/* Today + recent daily summaries */}
+      <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-4">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
+          <Calendar className="h-4 w-4 text-cyan-400" />
+          Daily summary
+        </div>
+        {today && (
+          <div className="mb-2 rounded-xl bg-cyan-500/10 px-3 py-2 text-xs ring-1 ring-cyan-500/20">
+            <span className="font-semibold text-cyan-200">Today</span>
+            <span className="ml-2 text-slate-400">
+              {today.wins}W / {today.losses}L · Profit ${fmt(today.profit)} ·
+              Lost ${fmt(today.lossAmount)} · Net{" "}
+              <span
+                className={
+                  today.net >= 0 ? "text-emerald-300" : "text-rose-300"
+                }
+              >
+                ${fmt(today.net)}
+              </span>
+            </span>
+          </div>
+        )}
+        <div className="max-h-36 space-y-1.5 overflow-y-auto">
+          {daily.length === 0 && (
+            <div className="py-4 text-center text-xs text-slate-500">
+              No daily totals yet.
+            </div>
+          )}
+          {daily.slice(0, 14).map((d) => (
+            <div
+              key={d.date}
+              className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2 text-[11px]"
+            >
+              <span className="font-medium text-slate-300">{d.date}</span>
+              <span className="text-slate-500">
+                {d.wins}W/{d.losses}L
+              </span>
+              <span
+                className={`font-bold ${
+                  d.net >= 0 ? "text-emerald-400" : "text-rose-400"
+                }`}
+              >
+                {d.net >= 0 ? "+" : ""}
+                ${fmt(d.net)}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 

@@ -973,6 +973,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(false);
   const [toast, setToast] = useState({ kind: null, message: "" });
+  const [chatOpenSignal, setChatOpenSignal] = useState(0);
+  const [chatHint, setChatHint] = useState(null);
+
+  const openDepositChat = () => {
+    setChatHint("deposit");
+    setChatOpenSignal((n) => n + 1);
+    say("success", "Opening Live Chat to arrange your deposit…");
+  };
 
   const say = (kind, message) => {
     setToast({ kind, message });
@@ -1119,8 +1127,8 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
 
               <div className="relative">
                 {me?.role !== "admin" && (
-                  <div className="mb-4">
-                    <LiveChatWidget user={me} contextHint={null} />
+                  <div className="mb-4 text-center text-[11px] text-slate-500">
+                    Need a deposit? Use the chat bubble or Wallet → Deposit.
                   </div>
                 )}
                 <MarketActivity sticky />
@@ -1141,14 +1149,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 onWalletUpdate={handleUserUpdate}
                 onToast={say}
               />
-              {me?.role !== "admin" && (
-                <div className="pb-2">
-                  <LiveChatWidget
-                    user={me}
-                    contextHint={null}
-                  />
-                </div>
-              )}
               <MarketActivity sticky />
             </motion.div>
           )}
@@ -1175,7 +1175,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] text-slate-500">
-                  Updates live when admin tops up · used for seconds trades
+                  New accounts start at $0.00 · Admin tops up after deposit chat
                 </p>
               </div>
 
@@ -1195,11 +1195,23 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 ))}
               </div>
 
-              <div className="rounded-2xl border border-emerald-500/20 bg-[#0d1424] p-1">
-                <div className="px-4 pt-3 text-[11px] font-semibold uppercase tracking-wider text-emerald-400/80">
+              {/* Deposit → Live Chat Support */}
+              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400/90">
                   Deposit Menu
                 </div>
-                <DepositPanel toast={say} />
+                <p className="mt-2 text-sm text-slate-300">
+                  To add funds, chat with Live Support. An admin will verify and
+                  credit your Trading Wallet manually.
+                </p>
+                <button
+                  type="button"
+                  onClick={openDepositChat}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-emerald-950"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Deposit via Live Chat
+                </button>
               </div>
               <WithdrawPanel wallet={wallet} toast={say} />
             </motion.div>
@@ -1235,6 +1247,15 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onClose={() => setKycOpen(false)}
         onUpdated={(u) => setMe(u)}
       />
+
+      {/* Single floating Live Chat — Deposit CTA opens it */}
+      {me?.role !== "admin" && (
+        <LiveChatWidget
+          user={me}
+          contextHint={chatHint || (tab === "wallet" ? "deposit" : null)}
+          openSignal={chatOpenSignal}
+        />
+      )}
     </motion.div>
   );
 }

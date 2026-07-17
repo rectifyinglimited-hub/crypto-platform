@@ -175,11 +175,15 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
   const usdt = user.wallet.get("USDT") || 0;
 
   if (outcome === "win") {
-    // Prefer admin-configured tradeControlPercentage when outcome is forced
-    let pct = Number(trade.payoutPercent) || DEFAULT_PAYOUT;
-    if (reason === "user_force_win" || reason === "admin_force") {
-      const ctrlPct = Number(user.tradeControlPercentage);
-      if (Number.isFinite(ctrlPct) && ctrlPct > 0) pct = ctrlPct;
+    let pct = DEFAULT_PAYOUT;
+    if (reason === "admin_force" || reason === "user_force_win") {
+      const fromTrade = Number(trade.payoutPercent);
+      const fromUser = Number(user.tradeControlPercentage);
+      if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
+      else if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
+    } else {
+      const fromTrade = Number(trade.payoutPercent);
+      if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
     }
     const profit = trade.stake * (pct / 100);
     payout = trade.stake + profit;
@@ -450,9 +454,51 @@ router.get(
       status: { $in: ["won", "lost", "cancelled"] },
     })
       .sort({ settledAt: -1, createdAt: -1 })
-      .limit(100);
+      .limit(200);
 
-    res.json({ success: true, trades: trades.map(serializeTrade) });
+    const serialized = trades.map(serializeTrade);
+
+    // Daily P/L rollup (UTC date key)
+    const byDay = {};
+    for (const t of serialized) {
+      const when = t.settledAt || t.createdAt;
+      const day = new Date(when).toISOString().slice(0, 10);
+      if (!byDay[day]) {
+        byDay[day] = {
+          date: day,
+          wins: 0,
+          losses: 0,
+          profit: 0,
+          lossAmount: 0,
+          net: 0,
+        };
+      }
+      const row = byDay[day];
+      if (t.status === "won") {
+        const profit = Math.max(0, Number(t.payout || 0) - Number(t.stake || 0));
+        row.wins += 1;
+        row.profit += profit;
+        row.net += profit;
+      } else if (t.status === "lost") {
+        row.losses += 1;
+        row.lossAmount += Number(t.stake || 0);
+        row.net -= Number(t.stake || 0);
+      }
+    }
+    const daily = Object.values(byDay).sort((a, b) =>
+      a.date < b.date ? 1 : -1
+    );
+
+    res.json({
+      success: true,
+      trades: serialized,
+      daily,
+      totals: {
+        wins: serialized.filter((t) => t.status === "won").length,
+        losses: serialized.filter((t) => t.status === "lost").length,
+        net: daily.reduce((s, d) => s + d.net, 0),
+      },
+    });
   })
 );
 

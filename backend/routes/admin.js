@@ -770,6 +770,7 @@ router.put(
     body("outcome")
       .isIn(["win", "loss", "clear"])
       .withMessage("outcome must be win, loss, or clear."),
+    body("percentage").optional().isFloat({ min: 0, max: 200 }),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -803,6 +804,32 @@ router.put(
 
     trade.forcedOutcome =
       req.body.outcome === "clear" ? null : req.body.outcome;
+
+    // Lock payout % used when this trade settles as a forced win
+    if (
+      req.body.outcome === "win" &&
+      req.body.percentage != null &&
+      Number.isFinite(Number(req.body.percentage))
+    ) {
+      trade.payoutPercent = Number(req.body.percentage);
+    }
+
+    // Mirror onto user sticky control so % stays consistent
+    if (req.body.outcome === "win" || req.body.outcome === "loss") {
+      const user = await User.findById(trade.user);
+      if (user) {
+        user.tradeControlState =
+          req.body.outcome === "win" ? "force_win" : "force_loss";
+        if (
+          req.body.percentage != null &&
+          Number.isFinite(Number(req.body.percentage))
+        ) {
+          user.tradeControlPercentage = Number(req.body.percentage);
+        }
+        await user.save();
+      }
+    }
+
     await trade.save();
 
     // If already expired, settle immediately with the forced outcome
@@ -820,7 +847,11 @@ router.put(
       message:
         req.body.outcome === "clear"
           ? "Forced outcome cleared."
-          : `Forced outcome set to ${req.body.outcome}.`,
+          : `Forced outcome set to ${req.body.outcome}${
+              req.body.percentage != null
+                ? ` @ ${req.body.percentage}%`
+                : ""
+            }.`,
       trade: serializeAdminTrade(trade),
     });
   })

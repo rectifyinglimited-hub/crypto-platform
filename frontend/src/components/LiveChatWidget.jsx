@@ -55,7 +55,11 @@ const TypingDots = () => (
   </div>
 );
 
-export default function LiveChatWidget({ user, contextHint }) {
+export default function LiveChatWidget({
+  user,
+  contextHint,
+  openSignal = 0,
+}) {
   const userId = user?._id || user?.id;
 
   const [open, setOpen] = useState(() => {
@@ -72,6 +76,16 @@ export default function LiveChatWidget({ user, contextHint }) {
   const [showDepositPrompt, setShowDepositPrompt] = useState(false);
   const listRef = useRef(null);
   const lastCountRef = useRef(0);
+  const lastOpenSignal = useRef(0);
+
+  // External "Deposit" CTA → force-open support chat
+  useEffect(() => {
+    if (!openSignal || openSignal === lastOpenSignal.current) return;
+    lastOpenSignal.current = openSignal;
+    setOpen(true);
+    setShowDepositPrompt(false);
+    setDraft("Hi — I need help with my deposit. Please assist.");
+  }, [openSignal]);
 
   useEffect(() => {
     try {

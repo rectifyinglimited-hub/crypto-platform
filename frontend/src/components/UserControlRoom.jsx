@@ -26,6 +26,9 @@ function fmt(n) {
 
 function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
   const [now, setNow] = useState(Date.now());
+  const [pct, setPct] = useState(
+    String(trade.payoutPercent || trade.user?.tradeControlPercentage || 10)
+  );
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
@@ -52,6 +55,9 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
           {trade.forcedOutcome && (
             <div className="mt-1 text-[11px] font-semibold uppercase text-amber-300">
               Forced: {trade.forcedOutcome}
+              {trade.payoutPercent != null
+                ? ` @ ${trade.payoutPercent}%`
+                : ""}
             </div>
           )}
         </div>
@@ -61,6 +67,21 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
             {rem}s
           </div>
         </div>
+      </div>
+
+      <div className="mt-3">
+        <label className="text-[10px] uppercase tracking-wider text-slate-500">
+          Profit % (for Force WIN)
+        </label>
+        <input
+          type="number"
+          min={0}
+          max={200}
+          step="1"
+          value={pct}
+          onChange={(e) => setPct(e.target.value)}
+          className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-amber-400/40"
+        />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -83,7 +104,7 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
         <button
           type="button"
           disabled={busy}
-          onClick={() => onForce(trade._id, "win")}
+          onClick={() => onForce(trade._id, "win", pct)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-emerald-950 disabled:opacity-50"
         >
           <Trophy className="h-3.5 w-3.5" /> Force WIN
@@ -154,13 +175,15 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     }
   };
 
-  const onForce = async (tradeId, outcome) => {
+  const onForce = async (tradeId, outcome, percentage) => {
     setBusyId(tradeId);
     try {
-      await AdminAPI.forceTradeOutcome(tradeId, outcome);
+      await AdminAPI.forceTradeOutcome(tradeId, outcome, percentage);
       toast?.(
         "success",
-        outcome === "win" ? "Forced WIN locked in" : "Forced LOSS locked in"
+        outcome === "win"
+          ? `Forced WIN @ ${percentage || "default"}%`
+          : "Forced LOSS locked in"
       );
       await load();
     } catch (err) {

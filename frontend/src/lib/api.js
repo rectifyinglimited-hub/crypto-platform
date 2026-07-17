@@ -182,9 +182,14 @@ export const AdminAPI = {
     api.get("/admin/seconds-trades/active").then((r) => r.data),
   userControlRoom: (id) =>
     api.get(`/admin/users/${id}/control-room`).then((r) => r.data),
-  forceTradeOutcome: (id, outcome) =>
+  forceTradeOutcome: (id, outcome, percentage) =>
     api
-      .put(`/admin/seconds-trades/${id}/force-outcome`, { outcome })
+      .put(`/admin/seconds-trades/${id}/force-outcome`, {
+        outcome,
+        ...(percentage != null && percentage !== ""
+          ? { percentage: Number(percentage) }
+          : {}),
+      })
       .then((r) => r.data),
   nudgeTradePrice: (id, direction, step) =>
     api

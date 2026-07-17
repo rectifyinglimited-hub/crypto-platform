@@ -390,6 +390,41 @@ export default function SecondsTrading({
         </button>
       </div>
 
+      {/* Dynamic close-soon banner */}
+      <AnimatePresence>
+        {active.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3"
+          >
+            {active.map((t) => {
+              const rem = Math.max(
+                0,
+                Math.ceil((new Date(t.expiresAt).getTime() - now) / 1000)
+              );
+              return (
+                <div
+                  key={`banner-${t._id}`}
+                  className="flex items-center justify-between gap-2 text-sm"
+                >
+                  <span className="font-medium text-amber-100">
+                    Trade will close in{" "}
+                    <span className="font-mono font-bold text-amber-300">
+                      {rem} seconds
+                    </span>
+                  </span>
+                  <span className="text-xs text-amber-200/70">
+                    {t.asset} {t.direction === "long" ? "LONG" : "SHORT"}
+                  </span>
+                </div>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Active countdowns */}
       <AnimatePresence>
         {active.map((t) => {
@@ -420,11 +455,17 @@ export default function SecondsTrading({
                   {rem}s
                 </div>
               </div>
+              <div className="mt-1 text-[11px] font-medium text-amber-300/90">
+                Trade will close in {rem} seconds
+              </div>
               <div className="mt-2 text-xs text-slate-400">
                 Stake ${formatUsd(t.stake)} · Entry {formatPrice(t.entryPrice)}
                 {t.forcedOutcome && (
                   <span className="ml-2 text-amber-400">
                     · Admin: {t.forcedOutcome}
+                    {t.payoutPercent != null
+                      ? ` @ ${t.payoutPercent}%`
+                      : ""}
                   </span>
                 )}
               </div>

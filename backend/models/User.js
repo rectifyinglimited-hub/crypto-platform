@@ -109,10 +109,10 @@ const UserSchema = new Schema(
       of: Number,
       default: () =>
         new Map([
-          ["USDT", 5000],
-          ["BTC", 0.0125],
-          ["ETH", 0.42],
-          ["SOL", 3.75],
+          ["USDT", 0],
+          ["BTC", 0],
+          ["ETH", 0],
+          ["SOL", 0],
         ]),
     },
     /** Admin live chart bias per asset (percent). Applied on user market feed. */
