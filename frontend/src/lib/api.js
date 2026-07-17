@@ -287,6 +287,9 @@ export const TradeAPI = {
 
 export const SecondsTradeAPI = {
   markets: () => api.get("/seconds-trade/markets").then((r) => r.data),
+  /** Unauthenticated live prices for the public landing showcase */
+  publicMarkets: () =>
+    api.get("/seconds-trade/public-markets").then((r) => r.data),
   open: (payload) => api.post("/seconds-trade/open", payload).then((r) => r.data),
   active: () => api.get("/seconds-trade/active").then((r) => r.data),
   history: () => api.get("/seconds-trade/history").then((r) => r.data),

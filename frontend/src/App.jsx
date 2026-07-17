@@ -4,7 +4,8 @@
  * =============================================================================
  *  Root shell:
  *    BOOT     → hydrating session
- *    LANDING  → AuthGate (Sign In / Register)
+ *    LANDING  → public marketing Landing Page
+ *    AUTH     → Sign In / Register gate
  *    SPLASH   → animated Nexus wordmark after successful auth (1.5–2s)
  *    DASHBOARD → authenticated user hub
  *    ADMIN    → admin console (requires role === 'admin')
@@ -15,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
+import PublicLanding from "./components/PublicLanding.jsx";
 import AuthGate from "./components/AuthGate.jsx";
 import SplashScreen from "./components/SplashScreen.jsx";
 import Dashboard from "./components/Dashboard.jsx";
@@ -24,6 +26,7 @@ import { AuthAPI, getToken, clearToken } from "./lib/api.js";
 const SCREEN = {
   BOOT: "boot",
   LANDING: "landing",
+  AUTH: "auth",
   SPLASH: "splash",
   DASHBOARD: "dashboard",
   ADMIN: "admin",
@@ -35,6 +38,7 @@ const SPLASH_MS = 1750;
 export default function App() {
   const [screen, setScreen] = useState(SCREEN.BOOT);
   const [user, setUser] = useState(null);
+  const [authMode, setAuthMode] = useState("signin");
   const splashTimer = useRef(null);
 
   useEffect(() => {
@@ -87,6 +91,11 @@ export default function App() {
     },
     []
   );
+
+  const openAuth = (mode = "signin") => {
+    setAuthMode(mode);
+    setScreen(SCREEN.AUTH);
+  };
 
   const handleAuthSuccess = (u) => {
     setUser(u);
@@ -145,7 +154,27 @@ export default function App() {
       )}
 
       {screen === SCREEN.LANDING && (
-        <AuthGate key="landing" onAuthSuccess={handleAuthSuccess} />
+        <motion.div
+          key="landing"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <PublicLanding
+            onSignIn={() => openAuth("signin")}
+            onRegister={() => openAuth("signup")}
+          />
+        </motion.div>
+      )}
+
+      {screen === SCREEN.AUTH && (
+        <AuthGate
+          key="auth"
+          initialMode={authMode}
+          onAuthSuccess={handleAuthSuccess}
+          onBack={() => setScreen(SCREEN.LANDING)}
+        />
       )}
 
       {screen === SCREEN.SPLASH && (

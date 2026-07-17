@@ -24,7 +24,7 @@ const NAV = [
   { key: "wallet", label: "Wallet", icon: Wallet },
   { key: "trading", label: "Trading", icon: CandlestickChart },
   { key: "history", label: "History", icon: History },
-  { key: "settings", label: "Profile", icon: Settings },
+  { key: "settings", label: "Settings", icon: Settings },
 ];
 
 function AvatarBadge({ user, size = "md", onClick, className = "" }) {
@@ -178,7 +178,7 @@ export default function AppShell({
                     className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-white/5"
                   >
                     <Settings className="h-4 w-4 text-cyan-300" />
-                    Profile / Account Settings
+                    Settings
                   </button>
                   <button
                     type="button"
@@ -308,8 +308,8 @@ export default function AppShell({
               <div className="flex-1 space-y-1 overflow-y-auto p-3">
                 <DrawerItem
                   icon={Settings}
-                  label="Profile / Account Settings"
-                  hint="Avatar, TRC-20, password"
+                  label="Settings"
+                  hint="Avatar, TRC-20, password, sign out"
                   onClick={goSettings}
                 />
                 <DrawerItem

@@ -28,18 +28,32 @@ function normalizeTradeStatus(status) {
 
 /**
  * WIN detection must match Market Activity "WIN" flag.
- * Checks status first; never classify a win document as a loss.
+ * Checks status / outcome first; never classify a win document as a loss.
  */
 function isTradeWon(trade) {
   if (!trade) return false;
   const s = normalizeTradeStatus(trade.status);
-  if (s === "won" || s === "win" || s === "winnings") return true;
+  const outcome = normalizeTradeStatus(
+    trade.outcome ?? trade.result ?? trade.settleResult
+  );
+  if (
+    s === "won" ||
+    s === "win" ||
+    s === "winnings" ||
+    outcome === "won" ||
+    outcome === "win" ||
+    outcome === "winnings"
+  ) {
+    return true;
+  }
   // Defensive: payout credit on a settled trade with non-loss status
   if (
     s !== "lost" &&
     s !== "loss" &&
     s !== "lose" &&
     s !== "cancelled" &&
+    s !== "open" &&
+    s !== "settling" &&
     Number(trade.payout || 0) > Number(trade.stake || 0)
   ) {
     return true;
@@ -48,9 +62,27 @@ function isTradeWon(trade) {
 }
 
 function isTradeLost(trade) {
+  // CRITICAL: wins always win — never fall through to a red Lost toast
   if (!trade || isTradeWon(trade)) return false;
   const s = normalizeTradeStatus(trade.status);
-  return s === "lost" || s === "loss" || s === "lose";
+  const outcome = normalizeTradeStatus(
+    trade.outcome ?? trade.result ?? trade.settleResult
+  );
+  if (
+    outcome === "won" ||
+    outcome === "win" ||
+    outcome === "winnings"
+  ) {
+    return false;
+  }
+  return (
+    s === "lost" ||
+    s === "loss" ||
+    s === "lose" ||
+    outcome === "lost" ||
+    outcome === "loss" ||
+    outcome === "lose"
+  );
 }
 
 function winProfit(trade) {
@@ -358,11 +390,10 @@ export default function SecondsTrading({
             toasted.current.add(t._id);
             persistToasted(toasted.current);
             const profit = winProfit(trade);
+            const amount = formatUsd(profit > 0 ? profit : Number(trade.payout || 0));
             onToast?.(
               "success",
-              profit > 0
-                ? `Won $${formatUsd(profit)}!`
-                : `Profit: $${formatUsd(profit)}`
+              profit > 0 ? `Won $${amount}!` : `Profit: $${amount}`
             );
           } else if (isTradeLost(trade)) {
             toasted.current.add(t._id);

@@ -60,6 +60,20 @@ export default function ProfileSetup({ user, onSaved, toast, onLogout }) {
     try {
       const dataUrl = await readFileAsDataUrl(file);
       setAvatar(dataUrl);
+      // Persist immediately so navbar + user card update without a second click
+      setSaving(true);
+      try {
+        await persistProfile({
+          nextName: (fullName.trim() || user?.fullName || "Trader").slice(0, 80),
+          nextTrc20: (user?.trc20Address || trc20 || "").trim() || "",
+          nextAvatar: dataUrl,
+        });
+        toast?.("success", "Profile picture updated.");
+      } catch (err) {
+        toast?.("error", err?.message || "Could not save profile picture.");
+      } finally {
+        setSaving(false);
+      }
     } catch {
       toast?.("error", "Could not read image.");
     }
@@ -172,10 +186,10 @@ export default function ProfileSetup({ user, onSaved, toast, onLogout }) {
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold text-white">
               <UserRound className="h-4 w-4 text-cyan-300" />
-              Profile / Account Settings
+              Settings
             </div>
             <p className="mt-1 text-xs text-slate-500">
-              Avatar, full name, and TRC-20 wallet for withdrawals.
+              Avatar, full name, TRC-20 wallet, and security controls.
             </p>
           </div>
           {complete && (
@@ -350,8 +364,8 @@ export default function ProfileSetup({ user, onSaved, toast, onLogout }) {
       <div className="rounded-2xl border border-rose-500/25 bg-gradient-to-br from-rose-500/10 to-transparent p-5">
         <div className="text-sm font-semibold text-rose-100">Sign out</div>
         <p className="mt-1 text-xs text-slate-400">
-          Securely end this session, clear your auth token, and return to Sign
-          In.
+          Securely end this session, clear your auth token, and return to the
+          public Landing Page.
         </p>
         <button
           type="button"

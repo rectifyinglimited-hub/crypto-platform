@@ -7,7 +7,8 @@
  *    GET    /active
  *    GET    /history
  *    POST   /settle/:id
- *    GET    /markets          — reference live prices (proxy + bias)
+ *    GET    /markets          — reference live prices (proxy + bias, auth)
+ *    GET    /public-markets   — unbiased Binance spot prices (public landing)
  * =============================================================================
  */
 
@@ -623,6 +624,31 @@ export async function settleExpiredTrades() {
   }
   return expired.length;
 }
+
+// ---------------------------------------------------------------------------
+// GET /public-markets — no auth (landing page ticker / charts)
+// ---------------------------------------------------------------------------
+router.get(
+  "/public-markets",
+  asyncHandler(async (_req, res) => {
+    const assets = [
+      ...CRYPTO_ASSETS.map((a) => ({ asset: a, assetType: "crypto" })),
+      ...STOCK_ASSETS.map((a) => ({ asset: a, assetType: "stock" })),
+    ];
+    const tickerMap = await fetchBinanceTickerMap();
+    const markets = await Promise.all(
+      assets.map(async ({ asset, assetType }) => {
+        const price = await fetchLivePrice(asset, tickerMap);
+        return { asset, assetType, price };
+      })
+    );
+    res.json({
+      success: true,
+      markets,
+      serverTime: new Date().toISOString(),
+    });
+  })
+);
 
 // ---------------------------------------------------------------------------
 // GET /markets
