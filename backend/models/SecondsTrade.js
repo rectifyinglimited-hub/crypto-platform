@@ -62,7 +62,7 @@ const SecondsTradeSchema = new Schema(
       min: 0,
       max: 200,
     },
-    /** Manual Balance Add — signed USD (e.g. 125 or -175). NOT a percentage. */
+    /** @deprecated Manual Balance Add removed — kept null for legacy docs */
     forcedAmount: {
       type: Number,
       default: null,

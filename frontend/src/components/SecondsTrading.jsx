@@ -117,7 +117,9 @@ export default function SecondsTrading({
     () => markets.find((m) => m.asset === asset),
     [markets, asset]
   );
-  const price = market?.price || 0;
+  const rawPrice = market?.price || 0;
+  // Chart header uses smoothed series so Graph UP/DOWN never looks like a jump
+  const price = series.length ? series[series.length - 1] : rawPrice;
   const activeForAsset = active.find((t) => t.asset === asset);
   const prev = series.length > 1 ? series[series.length - 2] : price;
   // While a trade is open, color chart vs entry so Graph HIGH looks UP / LOW looks DOWN
@@ -140,7 +142,7 @@ export default function SecondsTrading({
     }
   }, [asset]);
 
-  // Smooth candle drift toward live (biased) price — Graph HIGH/LOW looks gradual
+  // Smooth candle drift toward live (biased) price — Graph UP/DOWN never spikes
   useEffect(() => {
     const id = setInterval(() => {
       if (targetPrice.current == null) return;
@@ -150,14 +152,20 @@ export default function SecondsTrading({
         const cur = displayPrice.current;
         const tgt = targetPrice.current;
         const gap = tgt - cur;
-        if (Math.abs(gap) < 1e-12) {
+        const absGap = Math.abs(gap);
+        if (absGap < Math.abs(tgt) * 1e-8 || absGap < 1e-10) {
           // Gentle micro-fluctuation around target (natural candles)
-          const noise = tgt * (Math.random() - 0.5) * 0.00012;
+          const noise = tgt * (Math.random() - 0.5) * 0.0001;
           displayPrice.current = tgt + noise;
         } else {
-          // Ease ~10–14% of remaining gap each tick → slow climb/fall
-          const ease = 0.1 + Math.random() * 0.04;
-          displayPrice.current = cur + gap * ease;
+          // Cap step so admin bias ramps look gradual (~0.025–0.04% of price / tick)
+          const ease = 0.04 + Math.random() * 0.03;
+          const maxStep = Math.max(
+            Math.abs(tgt) * 0.00028,
+            absGap * 0.015
+          );
+          const step = Math.sign(gap) * Math.min(absGap * ease, maxStep);
+          displayPrice.current = cur + step;
         }
       }
       const p = displayPrice.current;
@@ -165,7 +173,7 @@ export default function SecondsTrading({
         const next = [...s, p];
         return next.slice(-64);
       });
-    }, 180);
+    }, 200);
     return () => clearInterval(id);
   }, [asset]);
 

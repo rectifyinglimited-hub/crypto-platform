@@ -1,5 +1,6 @@
 /**
  * Per-user Admin Control Room — live Graph / Force controls + wallet top-up.
+ * Live trade cards: asset, stake, entry, bias, timer, 4 control buttons only.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -27,6 +28,15 @@ function fmt(n) {
   });
 }
 
+function biasLabel(trade) {
+  if (trade.forcedOutcome === "win") return "Graph UP";
+  if (trade.forcedOutcome === "loss") return "Graph DOWN";
+  const b = Number(trade.priceBiasPercent || 0);
+  if (b > 0.01) return `UP ${b.toFixed(2)}%`;
+  if (b < -0.01) return `DOWN ${Math.abs(b).toFixed(2)}%`;
+  return "Neutral";
+}
+
 function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -40,6 +50,7 @@ function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
   );
   const busy = busyId === trade._id;
   const forced = trade.forcedOutcome;
+  const bias = biasLabel(trade);
 
   return (
     <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4">
@@ -47,10 +58,28 @@ function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
         <div>
           <div className="flex items-center gap-2 text-sm font-bold text-white">
             <Bell className="h-4 w-4 text-amber-300" />
-            {trade.asset} · {trade.direction === "long" ? "LONG" : "SHORT"}
+            {trade.asset}/USDT ·{" "}
+            {trade.direction === "long" ? "LONG" : "SHORT"}
           </div>
-          <div className="mt-1 text-xs text-slate-400">
-            Stake ${fmt(trade.stake)} · Entry {fmt(trade.entryPrice)}
+          <div className="mt-1 space-y-0.5 text-xs text-slate-400">
+            <div>Stake ${fmt(trade.stake)}</div>
+            <div>Entry {fmt(trade.entryPrice)}</div>
+            <div>
+              Bias{" "}
+              <span
+                className={
+                  forced === "win" || bias.startsWith("UP") || bias === "Graph UP"
+                    ? "text-emerald-300"
+                    : forced === "loss" ||
+                        bias.startsWith("DOWN") ||
+                        bias === "Graph DOWN"
+                      ? "text-rose-300"
+                      : "text-slate-300"
+                }
+              >
+                {bias}
+              </span>
+            </div>
           </div>
           {forced && (
             <div
@@ -103,6 +132,82 @@ function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
         >
           <Skull className="h-3.5 w-3.5" /> Force LOSS
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Overview sticky bar — open seconds trades across all users */
+export function ActiveTradesAlertBar({ onOpenUser }) {
+  const [trades, setTrades] = useState([]);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    let alive = true;
+    const pull = async () => {
+      try {
+        const res = await AdminAPI.activeSecondsTrades();
+        if (alive) setTrades(res.trades || []);
+      } catch {
+        /* ignore */
+      }
+    };
+    pull();
+    const poll = setInterval(pull, 1500);
+    const tick = setInterval(() => setNow(Date.now()), 250);
+    return () => {
+      alive = false;
+      clearInterval(poll);
+      clearInterval(tick);
+    };
+  }, []);
+
+  if (!trades.length) return null;
+
+  return (
+    <div className="mb-4 space-y-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-300/80">
+        Live Trade Alerts
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {trades.map((t) => {
+          const rem = Math.max(
+            0,
+            Math.ceil((new Date(t.expiresAt).getTime() - now) / 1000)
+          );
+          const uid = t.user?.id || t.user?._id || t.user;
+          const name =
+            t.user?.fullName || t.user?.email || t.user?.username || "User";
+          return (
+            <button
+              key={t._id}
+              type="button"
+              onClick={() => uid && onOpenUser?.(String(uid))}
+              className="min-w-[200px] shrink-0 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-left"
+            >
+              <div className="flex items-center justify-between gap-2 text-xs font-bold text-white">
+                <span>
+                  {t.asset} · {t.direction === "long" ? "LONG" : "SHORT"}
+                </span>
+                <span className="font-mono text-cyan-300">{rem}s</span>
+              </div>
+              <div className="mt-0.5 truncate text-[10px] text-slate-400">
+                {name} · ${fmt(t.stake)}
+              </div>
+              {t.forcedOutcome && (
+                <div
+                  className={`mt-0.5 text-[10px] font-semibold uppercase ${
+                    t.forcedOutcome === "win"
+                      ? "text-emerald-300"
+                      : "text-rose-300"
+                  }`}
+                >
+                  {t.forcedOutcome === "win" ? "WIN locked" : "LOSS locked"}
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -303,8 +408,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             Add USDT to Trading Wallet
           </label>
           <p className="mt-0.5 text-[10px] text-slate-500">
-            Precise decimals (e.g. 0.09, 10.55, −175). Live trade alerts have no
-            balance input — use this section only.
+            Precise decimals (e.g. 0.09, 10.55, −175).
           </p>
           <div className="mt-2 flex gap-2">
             <input
@@ -405,7 +509,6 @@ export default function UserControlRoom({ userId, onBack, toast }) {
         )}
       </div>
 
-      {/* Pending deposit / withdraw proofs */}
       {!!(data?.pendingDeposits?.length || data?.pendingWithdrawals?.length) && (
         <div>
           <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">

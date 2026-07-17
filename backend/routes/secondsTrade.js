@@ -101,12 +101,8 @@ const serializeTrade = (t, { forAdmin = false } = {}) => {
     isExpired: remainingSec <= 0 && doc.status === "open",
   };
 
-  // Settled wins may show natural profit % only for market wins (never admin %)
-  if (
-    doc.status === "won" &&
-    doc.payoutPercent != null &&
-    doc.settleReason !== "admin_force"
-  ) {
+  // Settled wins show natural profit % (including admin-forced / graph wins)
+  if (doc.status === "won" && doc.payoutPercent != null) {
     base.payoutPercent = doc.payoutPercent;
   }
   // Settled losses: show loss amount only (stake / extra), never admin tags
@@ -161,17 +157,16 @@ function applyBias(price, biasPercent) {
 }
 
 /**
- * Resolve win/loss for an open trade and credit wallet if won.
- * Atomic claim prevents double-settle (balance jumping).
- *
- * Force WIN + Manual Balance Add X:
- *   wallet += stake + |X|   (example: stake 298 + add 25 → +323)
- * Force LOSS + Manual Balance Add X:
- *   wallet -= |X|           (may go negative / red)
+ * Settle an expired trade and update Trading Wallet.
+ * Stake was deducted on open. At expiry:
+ *   WIN  → credit stake + (stake × payout%/100)
+ *   LOSS → stake stays deducted (no further wallet change)
+ * Force WIN / Force LOSS / Graph UP / Graph DOWN only stamp outcome;
+ * they must never settle early — call this only when expiresAt <= now.
  */
 export async function settleTrade(
   tradeId,
-  { exitPriceHint, forceOutcome, forceAmount } = {}
+  { exitPriceHint, forceOutcome } = {}
 ) {
   // Atomic claim — stamp Force WIN/LOSS in the SAME update so a concurrent
   // market settler cannot settle as LOSS before admin force lands.
@@ -179,10 +174,7 @@ export async function settleTrade(
   const claimSet = { status: "settling" };
   if (isForce) {
     claimSet.forcedOutcome = forceOutcome;
-    if (forceAmount != null && Number.isFinite(Number(forceAmount))) {
-      claimSet.forcedAmount = Number(forceAmount);
-    }
-    claimSet.priceBiasPercent = forceOutcome === "win" ? 3 : -3;
+    claimSet.forcedAmount = null;
   }
 
   let trade = await SecondsTrade.findOneAndUpdate(
@@ -191,8 +183,7 @@ export async function settleTrade(
     { new: true }
   );
 
-  // Admin Force can reclaim a stuck "settling" trade (crash / timeout mid-settle)
-  // so it never falls back to market LOSS after unstick.
+  // Reclaim a stuck "settling" trade (crash / timeout mid-settle)
   if (!trade && isForce) {
     trade = await SecondsTrade.findOneAndUpdate(
       {
@@ -215,11 +206,14 @@ export async function settleTrade(
     return SecondsTrade.findById(tradeId);
   }
 
-  // Admin force: never wait on Binance — use entry so settle is instant / reliable
   let exitPrice;
   if (exitPriceHint != null && Number.isFinite(Number(exitPriceHint))) {
     exitPrice = Number(exitPriceHint);
-  } else if (isForce || trade.forcedOutcome === "win" || trade.forcedOutcome === "loss") {
+  } else if (
+    isForce ||
+    trade.forcedOutcome === "win" ||
+    trade.forcedOutcome === "loss"
+  ) {
     exitPrice = Number(trade.entryPrice);
   } else {
     exitPrice = await fetchLivePrice(trade.asset);
@@ -248,54 +242,38 @@ export async function settleTrade(
     reason = "market";
   }
 
-  // Force display exit for win/loss graph consistency
+  // Align displayed exit with outcome for chart consistency
   if (outcome === "win") {
     if (trade.direction === "long") {
       exitPrice = Math.max(exitPrice, trade.entryPrice * 1.004);
     } else {
       exitPrice = Math.min(exitPrice, trade.entryPrice * 0.996);
     }
+  } else if (trade.direction === "long") {
+    exitPrice = Math.min(exitPrice, trade.entryPrice * 0.996);
   } else {
-    if (trade.direction === "long") {
-      exitPrice = Math.min(exitPrice, trade.entryPrice * 0.996);
-    } else {
-      exitPrice = Math.max(exitPrice, trade.entryPrice * 1.004);
-    }
+    exitPrice = Math.max(exitPrice, trade.entryPrice * 1.004);
   }
 
+  const stakeAmt = Number(parseFloat(Number(trade.stake).toFixed(8)));
   let payout = 0;
   const fresh = await User.findById(user._id);
-  const usdt = Number(fresh.wallet.get("USDT") || 0);
+  const usdt = Number(parseFloat(Number(fresh.wallet.get("USDT") || 0).toFixed(8)));
 
   try {
     if (outcome === "win") {
-      let profit = 0;
-      if (reason === "admin_force") {
-        if (
-          trade.forcedAmount != null &&
-          Number.isFinite(Number(trade.forcedAmount))
-        ) {
-          // Legacy manual-add path (kept for old trades)
-          profit = Math.abs(Number(trade.forcedAmount));
-        } else {
-          // Graph HIGH — return stake only; admin adds profit via Update Wallet
-          profit = 0;
-        }
-        trade.set("payoutPercent", undefined);
-      } else {
-        let pct = DEFAULT_PAYOUT;
-        if (reason === "user_force_win") {
-          const fromUser = Number(fresh.tradeControlPercentage);
-          if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
-        } else {
-          const fromTrade = Number(trade.payoutPercent);
-          if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
-        }
-        profit = trade.stake * (pct / 100);
-        trade.payoutPercent = pct;
+      let pct = DEFAULT_PAYOUT;
+      const fromTrade = Number(trade.payoutPercent);
+      if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
+      if (reason === "user_force_win") {
+        const fromUser = Number(fresh.tradeControlPercentage);
+        if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
       }
-      payout = Number(trade.stake) + profit;
-      fresh.wallet.set("USDT", Number((usdt + payout).toFixed(8)));
+      const profit = Number(parseFloat((stakeAmt * (pct / 100)).toFixed(8)));
+      payout = Number(parseFloat((stakeAmt + profit).toFixed(8)));
+      trade.payoutPercent = pct;
+      trade.forcedAmount = null;
+      fresh.wallet.set("USDT", Number(parseFloat((usdt + payout).toFixed(8))));
       fresh.markModified("wallet");
       await fresh.save();
       await Transaction.create({
@@ -303,48 +281,26 @@ export async function settleTrade(
         kind: "trade",
         side: trade.direction === "long" ? "buy" : "sell",
         symbol: trade.asset,
-        amount: trade.stake,
+        amount: stakeAmt,
         usdValue: payout,
         status: "completed",
-        reviewerNote: `Seconds WIN · stake $${Number(trade.stake).toFixed(
-          2
-        )} + add $${profit.toFixed(2)} = $${payout.toFixed(2)} · ${reason}`,
+        reviewerNote: `Seconds WIN · stake $${stakeAmt.toFixed(2)} + ${pct}% profit $${profit.toFixed(2)} = $${payout.toFixed(2)} · ${reason}`,
       });
     } else {
-      let extraLoss = 0;
-      if (
-        reason === "admin_force" &&
-        trade.forcedAmount != null &&
-        Number.isFinite(Number(trade.forcedAmount))
-      ) {
-        extraLoss = Math.abs(Number(trade.forcedAmount));
-        fresh.wallet.set("USDT", Number((usdt - extraLoss).toFixed(8)));
-        fresh.markModified("wallet");
-        await fresh.save();
-        trade.set("payoutPercent", undefined);
-      } else if (reason === "user_force_loss") {
-        const fromUser = Number(fresh.tradeControlPercentage);
-        if (Number.isFinite(fromUser) && fromUser > 0) {
-          extraLoss = trade.stake * (fromUser / 100);
-          fresh.wallet.set("USDT", Number((usdt - extraLoss).toFixed(8)));
-          fresh.markModified("wallet");
-          await fresh.save();
-        }
-      }
-      // Graph LOW / market loss — stake already deducted on open; no extra unless forcedAmount
-      trade.lossAmount = Number(trade.stake) + extraLoss;
+      // Stake already deducted on open — permanent loss, no further debit
+      trade.lossAmount = stakeAmt;
+      trade.forcedAmount = null;
+      trade.set("payoutPercent", undefined);
       payout = 0;
       await Transaction.create({
         user: fresh._id,
         kind: "trade",
         side: trade.direction === "long" ? "buy" : "sell",
         symbol: trade.asset,
-        amount: trade.stake,
+        amount: stakeAmt,
         usdValue: 0,
         status: "completed",
-        reviewerNote: `Seconds LOSS · stake −$${Number(trade.stake).toFixed(
-          2
-        )}${extraLoss ? ` + add −$${extraLoss.toFixed(2)}` : ""} · ${reason}`,
+        reviewerNote: `Seconds LOSS · stake −$${stakeAmt.toFixed(2)} · ${reason}`,
       });
     }
 
@@ -377,7 +333,7 @@ export async function settleTrade(
 export async function settleExpiredTrades() {
   if (mongoose.connection.readyState !== 1) return 0;
 
-  // Slowly ramp chart bias for open Graph HIGH/LOW trades (natural drift)
+  // Gradually ramp chart bias for Graph UP/DOWN / Force locks (no violent spikes)
   try {
     const forcedOpen = await SecondsTrade.find({
       status: "open",
@@ -387,33 +343,53 @@ export async function settleExpiredTrades() {
       const user = await User.findById(t.user);
       if (!user) continue;
       if (!user.chartBias) user.chartBias = new Map();
-      const cur = Number(user.chartBias.get(t.asset) || 0);
+
       const opened = new Date(t.openedAt).getTime();
       const expires = new Date(t.expiresAt).getTime();
-      const dur = Math.max(1, expires - opened);
-      const progress = Math.min(1, Math.max(0, (Date.now() - opened) / dur));
-      // Ease toward ~2.8% by end of trade; gentle sine wiggle for realism
-      const peak = 2.8;
-      const base = progress * progress * peak; // ease-in
-      const wiggle = Math.sin(Date.now() / 1800) * 0.12;
-      let next =
-        t.forcedOutcome === "win" ? base + wiggle : -(base + wiggle);
-      // Never reverse direction past soft floor once locked
-      if (t.forcedOutcome === "win") next = Math.max(0.2, next);
-      else next = Math.min(-0.2, next);
-      // Small step from current so chart doesn't jump
-      const step = 0.22;
-      if (t.forcedOutcome === "win" && cur < next) {
-        next = Math.min(next, cur + step);
-      } else if (t.forcedOutcome === "loss" && cur > next) {
-        next = Math.max(next, cur - step);
-      } else if (Math.abs(next - cur) < 0.02) {
-        // hold with micro noise
-        next = cur + (Math.random() - 0.5) * 0.04;
-        if (t.forcedOutcome === "win") next = Math.max(0.15, next);
-        else next = Math.min(-0.15, next);
+      const remainingMs = Math.max(0, expires - Date.now());
+      const rampWindow = Math.max(1, expires - opened);
+      const progress = Math.min(1, Math.max(0, (Date.now() - opened) / rampWindow));
+
+      // Ease-in-out toward ~1.6% by expiry — subtle, not abrupt
+      const peak = 1.6;
+      const eased =
+        progress < 0.5
+          ? 2 * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      const wiggle = Math.sin(Date.now() / 2400) * 0.06;
+      let target =
+        t.forcedOutcome === "win"
+          ? eased * peak + wiggle
+          : -(eased * peak + wiggle);
+
+      // Soft floor once locked
+      if (t.forcedOutcome === "win") target = Math.max(0.08, target);
+      else target = Math.min(-0.08, target);
+
+      // Single source of truth — avoid double-applying user + trade bias
+      const cur = Number(t.priceBiasPercent || user.chartBias.get(t.asset) || 0);
+      const maxStep = 0.07; // ~0.07% per settler tick (~1s) → smooth climb
+      let next = cur;
+      if (t.forcedOutcome === "win") {
+        if (cur < target) next = Math.min(target, cur + maxStep);
+        else next = target + (Math.random() - 0.5) * 0.03;
+        next = Math.max(0.06, next);
+      } else {
+        if (cur > target) next = Math.max(target, cur - maxStep);
+        else next = target + (Math.random() - 0.5) * 0.03;
+        next = Math.min(-0.06, next);
       }
-      user.chartBias.set(t.asset, Number(next.toFixed(4)));
+
+      // Near expiry, hold direction with micro-fluctuation only
+      if (remainingMs < 1500) {
+        next =
+          t.forcedOutcome === "win"
+            ? Math.max(0.4, cur + (Math.random() - 0.5) * 0.02)
+            : Math.min(-0.4, cur + (Math.random() - 0.5) * 0.02);
+      }
+
+      next = Number(next.toFixed(4));
+      user.chartBias.set(t.asset, next);
       user.markModified("chartBias");
       await user.save();
       t.priceBiasPercent = next;
@@ -438,12 +414,9 @@ export async function settleExpiredTrades() {
   }).limit(50);
   for (const t of expired) {
     try {
-      // Honor any Force / Graph HIGH-LOW already stamped on the trade
+      // Honor Force / Graph lock already stamped — settle only after timer hit 0
       if (t.forcedOutcome === "win" || t.forcedOutcome === "loss") {
-        await settleTrade(t._id, {
-          forceOutcome: t.forcedOutcome,
-          forceAmount: t.forcedAmount,
-        });
+        await settleTrade(t._id, { forceOutcome: t.forcedOutcome });
       } else {
         await settleTrade(t._id);
       }
@@ -484,7 +457,7 @@ router.get(
       })
     );
 
-    // Open trades biases for this user (overlay on matching assets)
+    // Open-trade bias overrides user chartBias (never sum — that caused 2× spikes)
     const open = await SecondsTrade.find({
       user: req.auth.sub,
       status: "open",
@@ -492,25 +465,23 @@ router.get(
 
     const tradeBias = {};
     for (const t of open) {
-      tradeBias[t.asset] =
-        (tradeBias[t.asset] || 0) + Number(t.priceBiasPercent || 0);
+      const b = Number(t.priceBiasPercent || 0);
+      // Prefer the strongest absolute bias if multiple open on same asset
+      if (
+        tradeBias[t.asset] == null ||
+        Math.abs(b) > Math.abs(tradeBias[t.asset])
+      ) {
+        tradeBias[t.asset] = b;
+      }
     }
 
     const merged = prices.map((p) => {
-      const extra = tradeBias[p.asset] || 0;
-      if (!extra) {
-        // Never expose biasPercent to the user client
-        return {
-          asset: p.asset,
-          assetType: p.assetType,
-          price: p.price,
-        };
-      }
-      const totalBias = p.biasPercent + extra;
+      const hasTrade = Object.prototype.hasOwnProperty.call(tradeBias, p.asset);
+      const bias = hasTrade ? tradeBias[p.asset] : p.biasPercent;
       return {
         asset: p.asset,
         assetType: p.assetType,
-        price: applyBias(p.rawPrice, totalBias),
+        price: applyBias(p.rawPrice, bias),
       };
     });
 

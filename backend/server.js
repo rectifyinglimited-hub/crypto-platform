@@ -143,10 +143,10 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   connectDatabase();
 });
 
-// Settle expired seconds trades every 3s
+// Settle expired seconds trades every 1s (timer must complete to 0, then settle)
 const settler = setInterval(() => {
   settleExpiredTrades().catch(() => {});
-}, 3000);
+}, 1000);
 settler.unref?.();
 
 process.on("unhandledRejection", (reason) => {

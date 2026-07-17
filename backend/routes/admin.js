@@ -891,7 +891,6 @@ router.put(
     body("outcome")
       .isIn(["win", "loss", "clear"])
       .withMessage("outcome must be win, loss, or clear."),
-    body("amount").optional().isFloat(),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -923,6 +922,7 @@ router.put(
       });
     }
 
+    // Never settle here — only stamp outcome; timer must reach 0
     if (trade.status === "settling") {
       trade.status = "open";
     }
@@ -939,17 +939,13 @@ router.put(
       });
     }
 
-    // Optional legacy amount stamp — balance still settled only at timer end
-    if (req.body.amount != null && req.body.amount !== "") {
-      trade.forcedAmount = Number(req.body.amount);
-    }
-
     trade.forcedOutcome = req.body.outcome;
-    // Soft initial bias — ramp continues over remaining duration (no jump)
+    trade.forcedAmount = null; // Manual Balance Add removed — payout % settles at timer 0
+    // Soft initial bias — background ramp climbs gradually (no spike)
     trade.priceBiasPercent =
       req.body.outcome === "win"
-        ? Math.max(Number(trade.priceBiasPercent || 0), 0.35)
-        : Math.min(Number(trade.priceBiasPercent || 0), -0.35);
+        ? Math.max(Number(trade.priceBiasPercent || 0), 0.08)
+        : Math.min(Number(trade.priceBiasPercent || 0), -0.08);
     await trade.save();
 
     const user = await User.findById(trade.user);
@@ -957,9 +953,9 @@ router.put(
       if (!user.chartBias) user.chartBias = new Map();
       const cur = Number(user.chartBias.get(trade.asset) || 0);
       if (req.body.outcome === "win") {
-        user.chartBias.set(trade.asset, Math.max(cur, 0.35));
+        user.chartBias.set(trade.asset, Math.max(cur, 0.08));
       } else {
-        user.chartBias.set(trade.asset, Math.min(cur, -0.35));
+        user.chartBias.set(trade.asset, Math.min(cur, -0.08));
       }
       user.markModified("chartBias");
       await user.save();
@@ -1028,19 +1024,20 @@ router.put(
     } else if (goingUp) {
       trade.forcedOutcome = "win";
       trade.forcedAmount = null;
-      // Soft start — background ramp climbs toward target over remaining time
+      // Soft start — ramp climbs over remaining seconds (no abrupt jump)
       trade.priceBiasPercent = Math.max(
         Number(trade.priceBiasPercent || 0),
-        0.35
+        0.08
       );
     } else if (goingDown) {
       trade.forcedOutcome = "loss";
       trade.forcedAmount = null;
       trade.priceBiasPercent = Math.min(
         Number(trade.priceBiasPercent || 0),
-        -0.35
+        -0.08
       );
     }
+    // Never settle early — reopen if stuck mid-settle so timer can finish
     if (trade.status === "settling") trade.status = "open";
     await trade.save();
 
@@ -1052,9 +1049,9 @@ router.put(
       if (req.body.direction === "reset") {
         user.chartBias.set(trade.asset, 0);
       } else if (goingUp) {
-        user.chartBias.set(trade.asset, Math.max(cur, 0.35));
+        user.chartBias.set(trade.asset, Math.max(cur, 0.08));
       } else if (goingDown) {
-        user.chartBias.set(trade.asset, Math.min(cur, -0.35));
+        user.chartBias.set(trade.asset, Math.min(cur, -0.08));
       }
       user.markModified("chartBias");
       await user.save();

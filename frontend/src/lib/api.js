@@ -198,16 +198,12 @@ export const AdminAPI = {
     api.get("/admin/seconds-trades/active").then((r) => r.data),
   userControlRoom: (id) =>
     api.get(`/admin/users/${id}/control-room`).then((r) => r.data),
-  forceTradeOutcome: (id, outcome, amount) =>
+  // Stamp WIN/LOSS only — never passes amount; settles at timer = 0
+  forceTradeOutcome: (id, outcome) =>
     api
       .put(
         `/admin/seconds-trades/${id}/force-outcome`,
-        {
-          outcome,
-          ...(amount != null && amount !== ""
-            ? { amount: Number(amount) }
-            : {}),
-        },
+        { outcome },
         { timeout: 30000 }
       )
       .then((r) => r.data),
