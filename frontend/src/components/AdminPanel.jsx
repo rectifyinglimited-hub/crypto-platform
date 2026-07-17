@@ -969,6 +969,25 @@ const UserRow = ({
             Update
           </motion.button>
         </div>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={async () => {
+            const ok = window.confirm(
+              "Clear this user's Trading Wallet to exactly $0.00 USDT?"
+            );
+            if (!ok) return;
+            setSaving(true);
+            try {
+              await onInlineAdjust(user, "USDT", 0, "set");
+            } finally {
+              setSaving(false);
+            }
+          }}
+          className="mt-1 w-full rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[10px] font-semibold text-rose-300 disabled:opacity-50"
+        >
+          Clear Balance
+        </button>
       </div>
 
       {/* Trade Control */}
@@ -1822,13 +1841,13 @@ export default function AdminPanel({ user, onExit }) {
 
   const handleDeleteUser = async (u) => {
     const ok = window.confirm(
-      `Delete user "${u.fullName || u.username}"?\n\nThey will disappear from this list and cannot log in. This cannot be undone from the panel.`
+      `Are you sure you want to permanently delete this user?\n\n"${u.fullName || u.username || u.email}"\n\nThis cannot be undone.`
     );
     if (!ok) return;
     try {
       await AdminAPI.deleteUser(u._id);
       setUsers((prev) => prev.filter((x) => x._id !== u._id));
-      say("success", "User deleted from directory.");
+      say("success", "User permanently deleted.");
     } catch (err) {
       say("error", err?.message || "Delete failed.");
     }

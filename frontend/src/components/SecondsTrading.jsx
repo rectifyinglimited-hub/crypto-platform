@@ -150,19 +150,22 @@ export default function SecondsTrading({
         const cur = displayPrice.current;
         const tgt = targetPrice.current;
         const gap = tgt - cur;
-        if (Math.abs(gap) < 1e-10) {
-          displayPrice.current = tgt;
+        if (Math.abs(gap) < 1e-12) {
+          // Gentle micro-fluctuation around target (natural candles)
+          const noise = tgt * (Math.random() - 0.5) * 0.00012;
+          displayPrice.current = tgt + noise;
         } else {
-          // Ease ~18% of remaining gap each tick → slow climb/fall
-          displayPrice.current = cur + gap * 0.18;
+          // Ease ~10–14% of remaining gap each tick → slow climb/fall
+          const ease = 0.1 + Math.random() * 0.04;
+          displayPrice.current = cur + gap * ease;
         }
       }
       const p = displayPrice.current;
       setSeries((s) => {
         const next = [...s, p];
-        return next.slice(-56);
+        return next.slice(-64);
       });
-    }, 220);
+    }, 180);
     return () => clearInterval(id);
   }, [asset]);
 
@@ -194,14 +197,11 @@ export default function SecondsTrading({
     targetPrice.current = null;
   }, [asset]);
 
-  // Auto-settle when countdown hits 0
+  // Auto-settle only when timer has fully elapsed (never early)
   useEffect(() => {
     active.forEach(async (t) => {
-      const rem = Math.max(
-        0,
-        Math.ceil((new Date(t.expiresAt).getTime() - now) / 1000)
-      );
-      if (rem > 0 || settling.current.has(t._id)) return;
+      const expiresAt = new Date(t.expiresAt).getTime();
+      if (Date.now() < expiresAt || settling.current.has(t._id)) return;
       settling.current.add(t._id);
       try {
         const res = await SecondsTradeAPI.settle(t._id, { exitPrice: price });

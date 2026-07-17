@@ -20,7 +20,7 @@ import {
 const NAV = [
   { key: "home", label: "Home", icon: Home },
   { key: "wallet", label: "Wallet", icon: Wallet },
-  { key: "trading", label: "Trade", icon: CandlestickChart },
+  { key: "trading", label: "Trading", icon: CandlestickChart },
   { key: "history", label: "History", icon: History },
 ];
 

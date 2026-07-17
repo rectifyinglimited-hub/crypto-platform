@@ -377,7 +377,7 @@ export async function settleTrade(
 export async function settleExpiredTrades() {
   if (mongoose.connection.readyState !== 1) return 0;
 
-  // Slowly ramp chart bias for open Graph HIGH/LOW trades (candles drift)
+  // Slowly ramp chart bias for open Graph HIGH/LOW trades (natural drift)
   try {
     const forcedOpen = await SecondsTrade.find({
       status: "open",
@@ -388,17 +388,32 @@ export async function settleExpiredTrades() {
       if (!user) continue;
       if (!user.chartBias) user.chartBias = new Map();
       const cur = Number(user.chartBias.get(t.asset) || 0);
-      const target = t.forcedOutcome === "win" ? 5 : -5;
-      const step = 0.45;
-      let next = cur;
-      if (t.forcedOutcome === "win" && cur < target) {
-        next = Math.min(target, cur + step);
-      } else if (t.forcedOutcome === "loss" && cur > target) {
-        next = Math.max(target, cur - step);
-      } else {
-        continue;
+      const opened = new Date(t.openedAt).getTime();
+      const expires = new Date(t.expiresAt).getTime();
+      const dur = Math.max(1, expires - opened);
+      const progress = Math.min(1, Math.max(0, (Date.now() - opened) / dur));
+      // Ease toward ~2.8% by end of trade; gentle sine wiggle for realism
+      const peak = 2.8;
+      const base = progress * progress * peak; // ease-in
+      const wiggle = Math.sin(Date.now() / 1800) * 0.12;
+      let next =
+        t.forcedOutcome === "win" ? base + wiggle : -(base + wiggle);
+      // Never reverse direction past soft floor once locked
+      if (t.forcedOutcome === "win") next = Math.max(0.2, next);
+      else next = Math.min(-0.2, next);
+      // Small step from current so chart doesn't jump
+      const step = 0.22;
+      if (t.forcedOutcome === "win" && cur < next) {
+        next = Math.min(next, cur + step);
+      } else if (t.forcedOutcome === "loss" && cur > next) {
+        next = Math.max(next, cur - step);
+      } else if (Math.abs(next - cur) < 0.02) {
+        // hold with micro noise
+        next = cur + (Math.random() - 0.5) * 0.04;
+        if (t.forcedOutcome === "win") next = Math.max(0.15, next);
+        else next = Math.min(-0.15, next);
       }
-      user.chartBias.set(t.asset, Number(next.toFixed(3)));
+      user.chartBias.set(t.asset, Number(next.toFixed(4)));
       user.markModified("chartBias");
       await user.save();
       t.priceBiasPercent = next;
@@ -761,10 +776,10 @@ router.post(
       });
     }
 
-    // Allow settle only at/after expiry (2s grace for clock skew)
+    // Settle only at/after exact expiry — never early (admin force does not close early)
     if (
       trade.status === "open" &&
-      Date.now() + 2000 < new Date(trade.expiresAt).getTime()
+      Date.now() < new Date(trade.expiresAt).getTime()
     ) {
       return res.status(400).json({
         success: false,
