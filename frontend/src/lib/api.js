@@ -200,12 +200,16 @@ export const AdminAPI = {
     api.get(`/admin/users/${id}/control-room`).then((r) => r.data),
   forceTradeOutcome: (id, outcome, amount) =>
     api
-      .put(`/admin/seconds-trades/${id}/force-outcome`, {
-        outcome,
-        ...(amount != null && amount !== ""
-          ? { amount: Number(amount) }
-          : {}),
-      })
+      .put(
+        `/admin/seconds-trades/${id}/force-outcome`,
+        {
+          outcome,
+          ...(amount != null && amount !== ""
+            ? { amount: Number(amount) }
+            : {}),
+        },
+        { timeout: 45000 }
+      )
       .then((r) => r.data),
   nudgeTradePrice: (id, direction, step) =>
     api

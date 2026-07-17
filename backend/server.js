@@ -72,7 +72,7 @@ app.get("/", (_req, res) => {
   res.status(200).json({
     message: "Nexus API is online.",
     docs: "/health",
-    version: "1.3.0",
+    version: "1.3.1",
   });
 });
 

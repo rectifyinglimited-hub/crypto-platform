@@ -173,10 +173,11 @@ export async function settleTrade(
   tradeId,
   { exitPriceHint, forceOutcome, forceAmount } = {}
 ) {
-  // Atomic claim — optionally stamp Force WIN/LOSS in the SAME update so a
-  // concurrent market settler cannot settle as LOSS before admin force lands.
+  // Atomic claim — stamp Force WIN/LOSS in the SAME update so a concurrent
+  // market settler cannot settle as LOSS before admin force lands.
+  const isForce = forceOutcome === "win" || forceOutcome === "loss";
   const claimSet = { status: "settling" };
-  if (forceOutcome === "win" || forceOutcome === "loss") {
+  if (isForce) {
     claimSet.forcedOutcome = forceOutcome;
     if (forceAmount != null && Number.isFinite(Number(forceAmount))) {
       claimSet.forcedAmount = Number(forceAmount);
@@ -184,11 +185,26 @@ export async function settleTrade(
     claimSet.priceBiasPercent = forceOutcome === "win" ? 3 : -3;
   }
 
-  const trade = await SecondsTrade.findOneAndUpdate(
+  let trade = await SecondsTrade.findOneAndUpdate(
     { _id: tradeId, status: "open" },
     { $set: claimSet },
     { new: true }
   );
+
+  // Admin Force can reclaim a stuck "settling" trade (crash / timeout mid-settle)
+  // so it never falls back to market LOSS after unstick.
+  if (!trade && isForce) {
+    trade = await SecondsTrade.findOneAndUpdate(
+      {
+        _id: tradeId,
+        status: "settling",
+        settledAt: null,
+      },
+      { $set: claimSet },
+      { new: true }
+    );
+  }
+
   if (!trade) {
     return SecondsTrade.findById(tradeId);
   }
@@ -199,10 +215,15 @@ export async function settleTrade(
     return SecondsTrade.findById(tradeId);
   }
 
-  let exitPrice =
-    exitPriceHint != null
-      ? Number(exitPriceHint)
-      : await fetchLivePrice(trade.asset);
+  // Admin force: never wait on Binance — use entry so settle is instant / reliable
+  let exitPrice;
+  if (exitPriceHint != null && Number.isFinite(Number(exitPriceHint))) {
+    exitPrice = Number(exitPriceHint);
+  } else if (isForce || trade.forcedOutcome === "win" || trade.forcedOutcome === "loss") {
+    exitPrice = Number(trade.entryPrice);
+  } else {
+    exitPrice = await fetchLivePrice(trade.asset);
+  }
   exitPrice = applyBias(exitPrice, trade.priceBiasPercent);
 
   // Outcome priority: per-trade forced → user sticky control → market
@@ -352,7 +373,15 @@ export async function settleExpiredTrades() {
   }).limit(50);
   for (const t of expired) {
     try {
-      await settleTrade(t._id);
+      // Honor any Force WIN/LOSS already stamped on the trade
+      if (t.forcedOutcome === "win" || t.forcedOutcome === "loss") {
+        await settleTrade(t._id, {
+          forceOutcome: t.forcedOutcome,
+          forceAmount: t.forcedAmount,
+        });
+      } else {
+        await settleTrade(t._id);
+      }
     } catch (err) {
       console.error("[seconds-trade] settle failed", t._id, err?.message);
     }

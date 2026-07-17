@@ -100,12 +100,12 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
         {valid && (
           <div className="mt-1.5 space-y-0.5 text-[10px] text-slate-400">
             <div className="text-emerald-400/90">
-              Force WIN → credits ${fmt(previewWin)} now
-              (stake ${fmt(trade.stake)} + add ${fmt(absAmt)}) · graph goes HIGH
+              Force WIN / Graph UP → credits ${fmt(previewWin)} now
+              (stake ${fmt(trade.stake)} + add ${fmt(absAmt)}) · settles WIN
             </div>
             <div className="text-rose-400/90">
-              Force LOSS → deduct ${fmt(absAmt)} now · graph goes LOW · wallet
-              can go negative (red)
+              Force LOSS / Graph DOWN → deduct ${fmt(absAmt)} now · settles
+              LOSS · wallet can go negative (red)
             </div>
           </div>
         )}
@@ -114,16 +114,16 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button
           type="button"
-          disabled={busy}
-          onClick={() => onNudge(trade._id, "up")}
+          disabled={busy || !valid}
+          onClick={() => onNudge(trade._id, "up", amount)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500/20 py-2.5 text-xs font-bold text-emerald-300 ring-1 ring-emerald-500/30 disabled:opacity-50"
         >
           <TrendingUp className="h-3.5 w-3.5" /> Graph UP
         </button>
         <button
           type="button"
-          disabled={busy}
-          onClick={() => onNudge(trade._id, "down")}
+          disabled={busy || !valid}
+          onClick={() => onNudge(trade._id, "down", amount)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-500/20 py-2.5 text-xs font-bold text-rose-300 ring-1 ring-rose-500/30 disabled:opacity-50"
         >
           <TrendingDown className="h-3.5 w-3.5" /> Graph DOWN
@@ -159,16 +159,22 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
   const [txBusy, setTxBusy] = useState(null);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await AdminAPI.userControlRoom(userId);
-      setData(res);
-    } catch (err) {
-      toast?.("error", err?.message || "Failed to load control room.");
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, toast]);
+  const load = useCallback(
+    async ({ silent = false } = {}) => {
+      try {
+        const res = await AdminAPI.userControlRoom(userId);
+        setData(res);
+      } catch (err) {
+        // Polling blips must not spam "Unable to reach Nexus server"
+        if (!silent) {
+          toast?.("error", err?.message || "Failed to load control room.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [userId, toast]
+  );
 
   const onVerifyTx = async (tx, action) => {
     setTxBusy(tx._id);
@@ -190,9 +196,9 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
   // Poll this user + global active trades for alerts
   useEffect(() => {
-    load();
+    load({ silent: false });
     const id = setInterval(async () => {
-      load();
+      load({ silent: true });
       try {
         const res = await AdminAPI.activeSecondsTrades();
         const mine = (res.trades || []).filter(
@@ -206,22 +212,6 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     return () => clearInterval(id);
   }, [load, userId]);
 
-  const onNudge = async (tradeId, direction) => {
-    setBusyId(tradeId);
-    try {
-      await AdminAPI.nudgeTradePrice(tradeId, direction);
-      toast?.(
-        "success",
-        direction === "up" ? "Graph nudged UP" : "Graph nudged DOWN"
-      );
-      await load();
-    } catch (err) {
-      toast?.("error", err?.message || "Nudge failed.");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   const onForce = async (tradeId, outcome, amount) => {
     setBusyId(tradeId);
     try {
@@ -233,9 +223,30 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             ? `Force WIN · stake + $${Number(amount).toFixed(2)} credited`
             : `Force LOSS · $${Number(amount).toFixed(2)} deducted`)
       );
-      await load();
+      await load({ silent: true });
     } catch (err) {
       toast?.("error", err?.message || "Force failed.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onNudge = async (tradeId, direction, amount) => {
+    // Graph UP/DOWN = same as Force WIN/LOSS when amount is set (instant settle)
+    const n = Number(amount);
+    if (amount !== "" && Number.isFinite(n)) {
+      return onForce(tradeId, direction === "up" ? "win" : "loss", amount);
+    }
+    setBusyId(tradeId);
+    try {
+      await AdminAPI.nudgeTradePrice(tradeId, direction);
+      toast?.(
+        "success",
+        direction === "up" ? "Graph nudged UP" : "Graph nudged DOWN"
+      );
+      await load({ silent: true });
+    } catch (err) {
+      toast?.("error", err?.message || "Nudge failed.");
     } finally {
       setBusyId(null);
     }

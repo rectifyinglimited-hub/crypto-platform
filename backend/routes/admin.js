@@ -908,7 +908,7 @@ router.put(
       });
     }
 
-    if (trade.status !== "open") {
+    if (trade.status === "won" || trade.status === "lost" || trade.status === "cancelled") {
       return res.status(400).json({
         success: false,
         error: "BadRequestError",
@@ -918,6 +918,13 @@ router.put(
     }
 
     if (req.body.outcome === "clear") {
+      if (trade.status !== "open") {
+        return res.status(400).json({
+          success: false,
+          error: "BadRequestError",
+          message: "Can only clear force on an open trade.",
+        });
+      }
       trade.forcedOutcome = null;
       trade.forcedAmount = null;
       await trade.save();
@@ -945,10 +952,11 @@ router.put(
         ? Number(req.body.amount)
         : Number(trade.forcedAmount);
 
-    // Single atomic settle with Force WIN/LOSS — no race with market settler
+    // Single atomic settle with Force WIN/LOSS — also reclaim stuck "settling"
     const settled = await settleTrade(trade._id, {
       forceOutcome: req.body.outcome,
       forceAmount,
+      exitPriceHint: Number(trade.entryPrice),
     });
 
     if (!settled || (settled.status !== "won" && settled.status !== "lost")) {
