@@ -197,7 +197,6 @@ export default function TradeHistory() {
                   </div>
                   <div className="mt-0.5 text-[10px] text-slate-500">
                     {fmtTime(t.settledAt || t.createdAt)}
-                    {t.settleReason ? ` · ${t.settleReason}` : ""}
                   </div>
                 </div>
                 <div className="text-right">
@@ -214,9 +213,6 @@ export default function TradeHistory() {
                   {won ? (
                     <div className="text-xs font-bold text-emerald-300">
                       +${fmt(profit)} profit
-                      <span className="ml-1 text-slate-500">
-                        ({t.payoutPercent || 85}%)
-                      </span>
                     </div>
                   ) : (
                     <div className="text-xs font-bold text-rose-300">

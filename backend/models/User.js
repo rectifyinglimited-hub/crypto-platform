@@ -67,6 +67,14 @@ const UserSchema = new Schema(
     },
     phone: { type: String, trim: true, default: null },
     country: { type: String, trim: true, default: null },
+    /** User's personal TRC-20 (TRON) wallet for withdrawals */
+    trc20Address: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: 64,
+    },
+    profileCompletedAt: { type: Date, default: null },
     inviteCode: {
       type: String,
       trim: true,

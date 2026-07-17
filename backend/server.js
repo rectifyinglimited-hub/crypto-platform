@@ -13,6 +13,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
@@ -31,6 +33,7 @@ const PORT = process.env.PORT || 5001;
 const MONGO_URI =
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/nexus_dev";
 const NODE_ENV = process.env.NODE_ENV || "development";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let DB_READY = false;
 
@@ -52,6 +55,7 @@ app.options("*", cors());
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/health", (_req, res) => {
   res.status(200).json({

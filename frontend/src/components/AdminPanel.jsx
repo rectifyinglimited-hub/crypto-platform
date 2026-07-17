@@ -46,7 +46,7 @@ import {
   Hash,
   Phone,
 } from "lucide-react";
-import { AdminAPI } from "../lib/api.js";
+import { AdminAPI, assetUrl } from "../lib/api.js";
 import AdminChatManager from "./AdminChatManager.jsx";
 import UserControlRoom, {
   ActiveTradesAlertBar,
@@ -850,6 +850,11 @@ const UserRow = ({
           <div className="truncate text-[11px] text-slate-500">
             {user.email}
           </div>
+          {user.trc20Address && (
+            <div className="mt-0.5 truncate font-mono text-[10px] text-cyan-400/80">
+              TRC20 · {user.trc20Address}
+            </div>
+          )}
           <div className="mt-1 flex gap-1">
             <span
               className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider ${
@@ -891,8 +896,15 @@ const UserRow = ({
         <div className="text-[10px] uppercase tracking-widest text-slate-500">
           Wallet
         </div>
-        <div className="text-sm font-semibold tabular-nums text-emerald-300">
-          {usdt.toLocaleString(undefined, { maximumFractionDigits: 2 })}{" "}
+        <div
+          className={`text-sm font-semibold tabular-nums ${
+            usdt < 0 ? "text-rose-400" : "text-emerald-300"
+          }`}
+        >
+          {usdt < 0 ? "-" : ""}
+          {Math.abs(usdt).toLocaleString(undefined, {
+            maximumFractionDigits: 2,
+          })}{" "}
           <span className="text-[9px] text-slate-500">USDT</span>
         </div>
         <div className="text-[10px] text-slate-500">
@@ -1187,6 +1199,16 @@ const TransactionsView = ({
               </div>
               <div className="col-span-2 text-xs text-slate-500">
                 {t.network || "—"}
+                {t.proofUrl && (
+                  <a
+                    href={assetUrl(t.proofUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 block text-[10px] font-semibold text-cyan-300 hover:underline"
+                  >
+                    View screenshot
+                  </a>
+                )}
               </div>
               <div className="col-span-1">
                 <StatusBadge status={t.status} />
@@ -1206,7 +1228,7 @@ const TransactionsView = ({
                       onClick={() => onVerify(t, "reject")}
                       className="flex items-center gap-1 rounded-lg border border-rose-400/25 bg-rose-500/10 px-2 py-1 text-[11px] font-semibold text-rose-200 hover:bg-rose-500/15"
                     >
-                      <X className="h-3 w-3" /> Reject
+                      <X className="h-3 w-3" /> Decline
                     </motion.button>
                   </>
                 ) : (
@@ -1493,6 +1515,11 @@ const KycView = ({
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-500">{u.email}</div>
+                {u.trc20Address && (
+                  <div className="mt-1 break-all font-mono text-[10px] text-cyan-300">
+                    TRC-20: {u.trc20Address}
+                  </div>
+                )}
               </div>
               <StatusBadge status={u.kyc?.status || "unverified"} />
             </div>

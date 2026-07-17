@@ -1,16 +1,10 @@
 /**
- * =============================================================================
- *  NEXUS FRONTEND — src/components/LiveChatWidget.jsx
- * =============================================================================
- *  Floating chat bubble → glassmorphic message tray.
- *    • Polls /api/chat/history/:userId every 4s while open.
- *    • Auto-prompt banner slides up when the parent tells us the user is on
- *      the deposit context (Wallet tab).
- *    • Unread badge + typing-dots animation for arriving admin replies.
- * =============================================================================
+ * Live support chat with automated menu:
+ *   Customer Service | Deposit | Information
+ * Deposit flow shows admin TRC-20 address + screenshot proof upload.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle,
@@ -19,14 +13,22 @@ import {
   ShieldCheck,
   Loader2,
   ArrowDownToLine,
+  Headphones,
+  Info,
+  Copy,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 
-import { ChatAPI } from "../lib/api.js";
+import {
+  ChatAPI,
+  GatewayAPI,
+  WalletAPI,
+  assetUrl,
+} from "../lib/api.js";
 
 const POLL_MS = 4000;
 const OPEN_KEY = "nexus_chat_open";
-const DEPOSIT_PROMPT_DISMISS_KEY = "nexus_chat_deposit_prompt_dismissed_at";
-const DEPOSIT_PROMPT_QUIET_MS = 60 * 60 * 1000; // 1h between prompts
 
 const timeAgo = (iso) => {
   const t = new Date(iso).getTime();
@@ -37,28 +39,32 @@ const timeAgo = (iso) => {
   return new Date(iso).toLocaleDateString();
 };
 
-const TypingDots = () => (
-  <div className="flex items-center gap-1 rounded-2xl bg-white/[0.03] px-3 py-2 text-slate-400">
-    <span className="text-[10px] uppercase tracking-widest">
-      Support is typing
-    </span>
-    <span className="flex gap-0.5">
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          className="h-1 w-1 rounded-full bg-emerald-300"
-          animate={{ opacity: [0.2, 1, 0.2] }}
-          transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }}
-        />
-      ))}
-    </span>
-  </div>
-);
+const MENU_OPTIONS = [
+  {
+    key: "service",
+    label: "Customer Service",
+    icon: Headphones,
+    tone: "from-indigo-500/20 to-indigo-400/5 text-indigo-200 ring-indigo-400/30",
+  },
+  {
+    key: "deposit",
+    label: "Deposit",
+    icon: ArrowDownToLine,
+    tone: "from-emerald-500/20 to-emerald-400/5 text-emerald-200 ring-emerald-400/30",
+  },
+  {
+    key: "info",
+    label: "Information",
+    icon: Info,
+    tone: "from-cyan-500/20 to-cyan-400/5 text-cyan-200 ring-cyan-400/30",
+  },
+];
 
 export default function LiveChatWidget({
   user,
   contextHint,
   openSignal = 0,
+  onDepositSubmitted,
 }) {
   const userId = user?._id || user?.id;
 
@@ -72,19 +78,25 @@ export default function LiveChatWidget({
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [typing, setTyping] = useState(false);
-  const [showDepositPrompt, setShowDepositPrompt] = useState(false);
+  const [menuStep, setMenuStep] = useState("menu"); // menu | service | deposit | info
+  const [gateway, setGateway] = useState(null);
+  const [depositAmount, setDepositAmount] = useState("");
+  const [proofFile, setProofFile] = useState(null);
+  const [proofPreview, setProofPreview] = useState(null);
+  const [submittingProof, setSubmittingProof] = useState(false);
+  const [statusBanner, setStatusBanner] = useState(null);
   const listRef = useRef(null);
   const lastCountRef = useRef(0);
   const lastOpenSignal = useRef(0);
+  const fileRef = useRef(null);
 
-  // External "Deposit" CTA → force-open support chat
   useEffect(() => {
     if (!openSignal || openSignal === lastOpenSignal.current) return;
     lastOpenSignal.current = openSignal;
     setOpen(true);
-    setShowDepositPrompt(false);
-    setDraft("Hi — I need help with my deposit. Please assist.");
+    setMenuStep("menu");
+    setDraft("");
+    setStatusBanner(null);
   }, [openSignal]);
 
   useEffect(() => {
@@ -95,68 +107,18 @@ export default function LiveChatWidget({
     }
   }, [open]);
 
-  // -----------------------------------------------------------------
-  // Deposit-context auto-prompt
-  // -----------------------------------------------------------------
   useEffect(() => {
-    if (contextHint !== "deposit") {
-      setShowDepositPrompt(false);
-      return;
-    }
-    let dismissedAt = 0;
-    try {
-      dismissedAt =
-        Number(localStorage.getItem(DEPOSIT_PROMPT_DISMISS_KEY)) || 0;
-    } catch {
-      /* ignore */
-    }
-    if (Date.now() - dismissedAt < DEPOSIT_PROMPT_QUIET_MS) return;
+    if (!open) return;
+    if (contextHint === "deposit") setMenuStep("menu");
+  }, [open, contextHint]);
 
-    // Small delay so it doesn't jump the moment the tab loads.
-    const t = setTimeout(() => setShowDepositPrompt(true), 900);
-    return () => clearTimeout(t);
-  }, [contextHint]);
-
-  const dismissDepositPrompt = () => {
-    setShowDepositPrompt(false);
-    try {
-      localStorage.setItem(
-        DEPOSIT_PROMPT_DISMISS_KEY,
-        String(Date.now())
-      );
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const openFromDepositPrompt = () => {
-    dismissDepositPrompt();
-    setOpen(true);
-    setDraft("Hi — I need help with my deposit.");
-  };
-
-  // -----------------------------------------------------------------
-  // Load history
-  // -----------------------------------------------------------------
   const load = async () => {
     if (!userId) return;
     try {
       const res = await ChatAPI.history(userId);
       const list = res.messages || [];
-      const newAdmin = list.some(
-        (m, i) => i >= lastCountRef.current && m.from === "admin"
-      );
-      if (newAdmin) {
-        setTyping(true);
-        setTimeout(() => {
-          setTyping(false);
-          setMessages(list);
-          lastCountRef.current = list.length;
-        }, 900);
-      } else {
-        setMessages(list);
-        lastCountRef.current = list.length;
-      }
+      setMessages(list);
+      lastCountRef.current = list.length;
     } catch {
       /* silent */
     }
@@ -174,9 +136,8 @@ export default function LiveChatWidget({
   useEffect(() => {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight + 200;
-  }, [messages.length, typing, open]);
+  }, [messages.length, open, menuStep]);
 
-  // Unread badge for closed widget
   const [unread, setUnread] = useState(0);
   useEffect(() => {
     if (open || !userId) return;
@@ -184,10 +145,7 @@ export default function LiveChatWidget({
       try {
         const res = await ChatAPI.history(userId);
         const list = res.messages || [];
-        const u = list.filter(
-          (m) => m.from === "admin" && !m.readByUser
-        ).length;
-        setUnread(u);
+        setUnread(list.filter((m) => m.from === "admin" && !m.readByUser).length);
       } catch {
         /* ignore */
       }
@@ -197,9 +155,91 @@ export default function LiveChatWidget({
     return () => clearInterval(id);
   }, [open, userId]);
 
-  // -----------------------------------------------------------------
-  // Send
-  // -----------------------------------------------------------------
+  const loadGateway = async () => {
+    try {
+      const res = await GatewayAPI.current();
+      setGateway(res.settings || null);
+    } catch {
+      setGateway(null);
+    }
+  };
+
+  const selectMenu = async (key) => {
+    setMenuStep(key);
+    setStatusBanner(null);
+    if (key === "deposit") {
+      await loadGateway();
+    }
+    if (key === "service" || key === "info") {
+      const text =
+        key === "service"
+          ? "I'd like to speak with Customer Service."
+          : "I need Information about the platform.";
+      try {
+        const res = await ChatAPI.send({ body: text });
+        setMessages((prev) => [...prev, res.message]);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  const copyDepositAddress = async () => {
+    const addr = gateway?.usdtTrc20Address;
+    if (!addr) return;
+    try {
+      await navigator.clipboard.writeText(addr);
+      setStatusBanner("Deposit address copied.");
+    } catch {
+      setStatusBanner("Could not copy — select the address manually.");
+    }
+  };
+
+  const onPickProof = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setProofFile(f);
+    const url = URL.createObjectURL(f);
+    setProofPreview(url);
+  };
+
+  const submitDepositProof = async () => {
+    const amount = Number(depositAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setStatusBanner("Enter a valid deposit amount.");
+      return;
+    }
+    if (!proofFile) {
+      setStatusBanner("Upload a screenshot of your transfer.");
+      return;
+    }
+    setSubmittingProof(true);
+    setStatusBanner(null);
+    try {
+      const fd = new FormData();
+      fd.append("amount", String(amount));
+      fd.append("symbol", "USDT");
+      fd.append("network", "TRC20");
+      fd.append("proof", proofFile);
+      const res = await WalletAPI.depositProof(fd);
+      if (res.chatMessage) {
+        setMessages((prev) => [...prev, res.chatMessage]);
+      }
+      setDepositAmount("");
+      setProofFile(null);
+      setProofPreview(null);
+      setStatusBanner(
+        "Pending Verification / Awaiting Admin Approval — wallet tops up after admin approve."
+      );
+      onDepositSubmitted?.(res.transaction);
+      await load();
+    } catch (err) {
+      setStatusBanner(err?.message || "Upload failed. Try again.");
+    } finally {
+      setSubmittingProof(false);
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     const body = draft.trim();
@@ -219,51 +259,10 @@ export default function LiveChatWidget({
 
   if (!userId) return null;
 
-  return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3">
-      {/* Deposit prompt bubble */}
-      <AnimatePresence>
-        {showDepositPrompt && !open && (
-          <motion.div
-            key="deposit-prompt"
-            initial={{ opacity: 0, y: 20, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.94 }}
-            transition={{ type: "spring", stiffness: 320, damping: 24 }}
-            className="pointer-events-auto max-w-[300px] rounded-2xl border border-emerald-400/25 bg-slate-900/90 p-3.5 shadow-2xl shadow-emerald-500/25 backdrop-blur-xl"
-          >
-            <div className="mb-2 flex items-start gap-2">
-              <div className="grid h-7 w-7 place-items-center rounded-lg bg-emerald-500/15 text-emerald-300">
-                <ArrowDownToLine className="h-3.5 w-3.5" />
-              </div>
-              <div className="flex-1">
-                <div className="text-xs font-semibold text-slate-100">
-                  Need help with your deposit?
-                </div>
-                <div className="mt-0.5 text-[11px] text-slate-400">
-                  Send a message to online support — we usually reply in
-                  minutes.
-                </div>
-              </div>
-              <button
-                onClick={dismissDepositPrompt}
-                className="rounded p-0.5 text-slate-500 hover:bg-white/5 hover:text-slate-200"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={openFromDepositPrompt}
-              className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-3 py-1.5 text-[11px] font-semibold text-white shadow-lg shadow-emerald-500/25"
-            >
-              Chat with Support
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+  const depositAddr = gateway?.usdtTrc20Address;
 
-      {/* Tray */}
+  return (
+    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 max-sm:bottom-20">
       <AnimatePresence>
         {open && (
           <motion.div
@@ -272,7 +271,7 @@ export default function LiveChatWidget({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 300, damping: 24 }}
-            className="pointer-events-auto flex h-[520px] w-[360px] max-w-[92vw] flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/80 shadow-2xl shadow-indigo-500/20 backdrop-blur-xl"
+            className="pointer-events-auto flex h-[560px] w-[360px] max-w-[92vw] flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/90 shadow-2xl shadow-indigo-500/20 backdrop-blur-xl"
           >
             <div className="flex items-center justify-between border-b border-white/5 bg-gradient-to-r from-indigo-500/20 via-transparent to-emerald-400/20 px-4 py-3">
               <div className="flex items-center gap-2">
@@ -280,13 +279,14 @@ export default function LiveChatWidget({
                   <ShieldCheck className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold">Nexus Support</div>
+                  <div className="text-sm font-semibold">Live Chat Support</div>
                   <div className="text-[10px] uppercase tracking-widest text-slate-400">
-                    Live · Usually replies in minutes
+                    Online · Secure channel
                   </div>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setOpen(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200"
               >
@@ -294,24 +294,158 @@ export default function LiveChatWidget({
               </button>
             </div>
 
-            {contextHint === "deposit" && (
-              <div className="border-b border-emerald-400/15 bg-emerald-500/5 px-3 py-2 text-[11px] text-emerald-200">
-                💡 You're on the deposit screen — describe your issue and we'll
-                jump in.
-              </div>
-            )}
-
             <div
               ref={listRef}
-              className="flex-1 space-y-2 overflow-y-auto px-3 py-3"
+              className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
             >
-              {messages.length === 0 && !typing && (
-                <div className="mt-16 text-center text-xs text-slate-500">
-                  Send a message to start the conversation.
-                  <br />
-                  Our team is standing by.
+              {/* Automated selection menu */}
+              {menuStep === "menu" && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-xs font-semibold text-slate-100">
+                    How can we help?
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Choose an option to continue.
+                  </p>
+                  <div className="mt-3 grid gap-2">
+                    {MENU_OPTIONS.map(({ key, label, icon: Icon, tone }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => selectMenu(key)}
+                        className={`flex items-center gap-3 rounded-xl bg-gradient-to-r px-3 py-3 text-left text-sm font-semibold ring-1 ${tone}`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {menuStep === "deposit" && (
+                <div className="space-y-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/5 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold text-emerald-200">
+                      Deposit · USDT TRC-20
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMenuStep("menu")}
+                      className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-slate-300"
+                    >
+                      Menu
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Send USDT to the admin wallet below, then upload your
+                    transfer screenshot for approval.
+                  </p>
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                      Admin deposit address
+                    </div>
+                    {depositAddr ? (
+                      <div className="mt-1 flex items-start gap-2">
+                        <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-emerald-200">
+                          {depositAddr}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={copyDepositAddress}
+                          className="rounded-lg border border-white/10 p-1.5 text-slate-400 hover:text-white"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-1 text-[11px] text-amber-300">
+                        Address not configured yet — wait for support or try
+                        again shortly.
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-slate-500">
+                      Amount (USDT)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      placeholder="e.g. 100"
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-emerald-400/40"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-slate-500">
+                      Screenshot proof
+                    </label>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={onPickProof}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.03] py-3 text-xs text-slate-300 hover:border-emerald-400/40"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      {proofFile ? proofFile.name : "Upload payment screenshot"}
+                    </button>
+                    {proofPreview && (
+                      <img
+                        src={proofPreview}
+                        alt="Proof preview"
+                        className="mt-2 max-h-32 w-full rounded-xl object-cover ring-1 ring-white/10"
+                      />
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={submittingProof}
+                    onClick={submitDepositProof}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-emerald-950 disabled:opacity-60"
+                  >
+                    {submittingProof ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
+                        Submitting…
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="h-3.5 w-3.5" /> Submit for
+                        verification
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {(menuStep === "service" || menuStep === "info") && (
+                <button
+                  type="button"
+                  onClick={() => setMenuStep("menu")}
+                  className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-slate-300"
+                >
+                  ← Back to menu
+                </button>
+              )}
+
+              {statusBanner && (
+                <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100">
+                  {statusBanner}
+                </div>
+              )}
+
               <AnimatePresence initial={false}>
                 {messages.map((m) => (
                   <motion.div
@@ -319,17 +453,12 @@ export default function LiveChatWidget({
                     layout
                     initial={{ opacity: 0, y: 12, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 320,
-                      damping: 26,
-                    }}
                     className={`flex ${
                       m.from === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
+                      className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
                         m.from === "user"
                           ? "bg-gradient-to-br from-indigo-500 to-indigo-400 text-white"
                           : "border border-white/5 bg-white/[0.03] text-slate-200"
@@ -338,6 +467,20 @@ export default function LiveChatWidget({
                       <div className="whitespace-pre-wrap break-words">
                         {m.body}
                       </div>
+                      {m.attachmentUrl && (
+                        <a
+                          href={assetUrl(m.attachmentUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 block overflow-hidden rounded-lg ring-1 ring-white/10"
+                        >
+                          <img
+                            src={assetUrl(m.attachmentUrl)}
+                            alt="Attachment"
+                            className="max-h-40 w-full object-cover"
+                          />
+                        </a>
+                      )}
                       <div
                         className={`mt-1 text-[10px] uppercase tracking-widest ${
                           m.from === "user"
@@ -350,18 +493,6 @@ export default function LiveChatWidget({
                     </div>
                   </motion.div>
                 ))}
-              </AnimatePresence>
-              <AnimatePresence>
-                {typing && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
-                    className="flex justify-start"
-                  >
-                    <TypingDots />
-                  </motion.div>
-                )}
               </AnimatePresence>
             </div>
 
@@ -393,7 +524,11 @@ export default function LiveChatWidget({
       </AnimatePresence>
 
       <motion.button
-        onClick={() => setOpen((v) => !v)}
+        type="button"
+        onClick={() => {
+          setOpen((v) => !v);
+          if (!open) setMenuStep("menu");
+        }}
         whileTap={{ scale: 0.94 }}
         whileHover={{ scale: 1.03 }}
         className="pointer-events-auto relative grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-400 text-white shadow-2xl shadow-indigo-500/40"
@@ -408,11 +543,6 @@ export default function LiveChatWidget({
             {unread > 9 ? "9+" : unread}
           </motion.span>
         )}
-        <motion.span
-          className="pointer-events-none absolute inset-0 rounded-full border border-emerald-300/40"
-          animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
-        />
       </motion.button>
     </div>
   );

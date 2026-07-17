@@ -80,6 +80,12 @@ api.interceptors.request.use(
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Let the browser set multipart boundary for FormData
+    if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+      if (config.headers) {
+        delete config.headers["Content-Type"];
+      }
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -126,6 +132,8 @@ export const AuthAPI = {
   me: () => api.get("/auth/me").then((r) => r.data),
   logout: () => api.post("/auth/logout").then((r) => r.data),
   ping: () => api.get("/auth/ping").then((r) => r.data),
+  updateProfile: (payload) =>
+    api.put("/auth/profile", payload).then((r) => r.data),
 };
 
 export const KycAPI = {
@@ -182,12 +190,12 @@ export const AdminAPI = {
     api.get("/admin/seconds-trades/active").then((r) => r.data),
   userControlRoom: (id) =>
     api.get(`/admin/users/${id}/control-room`).then((r) => r.data),
-  forceTradeOutcome: (id, outcome, percentage) =>
+  forceTradeOutcome: (id, outcome, amount) =>
     api
       .put(`/admin/seconds-trades/${id}/force-outcome`, {
         outcome,
-        ...(percentage != null && percentage !== ""
-          ? { percentage: Number(percentage) }
+        ...(amount != null && amount !== ""
+          ? { amount: Number(amount) }
           : {}),
       })
       .then((r) => r.data),
@@ -234,10 +242,25 @@ export const WalletAPI = {
       .then((r) => r.data),
   depositRequest: (payload) =>
     api.post("/wallet/deposit-request", payload).then((r) => r.data),
+  depositProof: (formData) =>
+    api
+      .post("/wallet/deposit-proof", formData, {
+        headers: { "Content-Type": undefined },
+        timeout: 60000,
+      })
+      .then((r) => r.data),
   withdrawRequest: (payload) =>
     api.post("/wallet/withdraw-request", payload).then((r) => r.data),
   transactions: (params = {}) =>
     api.get("/wallet/transactions", { params }).then((r) => r.data),
+};
+
+/** Absolute URL for /uploads/... proof images */
+export const assetUrl = (path) => {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  const origin = BASE_URL.replace(/\/api\/?$/, "");
+  return `${origin}${path.startsWith("/") ? path : `/${path}`}`;
 };
 
 export const HealthAPI = {

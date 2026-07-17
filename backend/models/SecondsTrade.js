@@ -59,8 +59,13 @@ const SecondsTradeSchema = new Schema(
     payoutPercent: {
       type: Number,
       default: 85,
-      min: 1,
+      min: 0,
       max: 200,
+    },
+    /** Manual Balance Add — signed USD (e.g. 125 or -175). NOT a percentage. */
+    forcedAmount: {
+      type: Number,
+      default: null,
     },
     openedAt: {
       type: Date,

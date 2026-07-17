@@ -230,8 +230,13 @@ export default function SecondsTrading({
           Trading Wallet
         </div>
         <div className="mt-1 flex items-end justify-between">
-          <div className="text-2xl font-bold tracking-tight text-white">
-            ${formatUsd(walletUsdt)}
+          <div
+            className={`text-2xl font-bold tracking-tight ${
+              Number(walletUsdt) < 0 ? "text-rose-400" : "text-white"
+            }`}
+          >
+            {Number(walletUsdt) < 0 ? "-" : ""}$
+            {formatUsd(Math.abs(Number(walletUsdt) || 0))}
             <span className="ml-1 text-sm font-medium text-slate-400">
               USDT
             </span>

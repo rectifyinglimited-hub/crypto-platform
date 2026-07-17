@@ -14,8 +14,12 @@ import {
   Loader2,
   Bell,
   RefreshCw,
+  CheckCircle2,
+  X,
+  ArrowDownToLine,
+  ArrowUpFromLine,
 } from "lucide-react";
-import { AdminAPI } from "../lib/api.js";
+import { AdminAPI, assetUrl } from "../lib/api.js";
 
 function fmt(n) {
   return Number(n || 0).toLocaleString(undefined, {
@@ -26,9 +30,14 @@ function fmt(n) {
 
 function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
   const [now, setNow] = useState(Date.now());
-  const [pct, setPct] = useState(
-    String(trade.payoutPercent || trade.user?.tradeControlPercentage || 10)
+  const [amount, setAmount] = useState(
+    trade.forcedAmount != null ? String(trade.forcedAmount) : ""
   );
+  useEffect(() => {
+    if (trade.forcedAmount != null) {
+      setAmount(String(trade.forcedAmount));
+    }
+  }, [trade.forcedAmount]);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
@@ -39,6 +48,10 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
     Math.ceil((new Date(trade.expiresAt).getTime() - now) / 1000)
   );
   const busy = busyId === trade._id;
+  const n = Number(amount);
+  const valid = amount !== "" && Number.isFinite(n);
+  const absAmt = valid ? Math.abs(n) : 0;
+  const previewWin = valid ? Number(trade.stake) + absAmt : null;
 
   return (
     <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4">
@@ -55,8 +68,8 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
           {trade.forcedOutcome && (
             <div className="mt-1 text-[11px] font-semibold uppercase text-amber-300">
               Forced: {trade.forcedOutcome}
-              {trade.payoutPercent != null
-                ? ` @ ${trade.payoutPercent}%`
+              {trade.forcedAmount != null
+                ? ` · Manual Balance Add $${fmt(trade.forcedAmount)}`
                 : ""}
             </div>
           )}
@@ -70,18 +83,31 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
       </div>
 
       <div className="mt-3">
-        <label className="text-[10px] uppercase tracking-wider text-slate-500">
-          Percentage (WIN = profit % · LOSS = extra deduction %)
+        <label className="block text-[11px] font-bold uppercase tracking-[0.14em] text-amber-200">
+          Manual Balance Add
         </label>
+        <p className="mt-0.5 text-[10px] text-slate-500">
+          Fixed USDT only — not percentage. Example: 125 or -175
+        </p>
         <input
           type="number"
-          min={0}
-          max={200}
-          step="1"
-          value={pct}
-          onChange={(e) => setPct(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-amber-400/40"
+          step="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="125 or -175"
+          className="mt-1.5 w-full rounded-xl border border-amber-400/40 bg-black/30 px-3 py-2.5 font-mono text-base font-bold text-white outline-none focus:border-amber-300"
         />
+        {valid && (
+          <div className="mt-1.5 space-y-0.5 text-[10px] text-slate-400">
+            <div className="text-emerald-400/90">
+              Force WIN → user sees WIN graph · wallet +${fmt(previewWin)}{" "}
+              (stake ${fmt(trade.stake)} + add ${fmt(absAmt)})
+            </div>
+            <div className="text-rose-400/90">
+              Force LOSS → deduct ${fmt(absAmt)} · wallet can go negative (red)
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -103,16 +129,16 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
         </button>
         <button
           type="button"
-          disabled={busy}
-          onClick={() => onForce(trade._id, "win", pct)}
+          disabled={busy || !valid}
+          onClick={() => onForce(trade._id, "win", amount)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-emerald-950 disabled:opacity-50"
         >
           <Trophy className="h-3.5 w-3.5" /> Force WIN
         </button>
         <button
           type="button"
-          disabled={busy}
-          onClick={() => onForce(trade._id, "loss", pct)}
+          disabled={busy || !valid}
+          onClick={() => onForce(trade._id, "loss", amount)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-500 py-2.5 text-xs font-bold text-rose-950 disabled:opacity-50"
         >
           <Skull className="h-3.5 w-3.5" /> Force LOSS
@@ -130,6 +156,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [topUp, setTopUp] = useState("");
   const [topUpBusy, setTopUpBusy] = useState(false);
 
+  const [txBusy, setTxBusy] = useState(null);
+
   const load = useCallback(async () => {
     try {
       const res = await AdminAPI.userControlRoom(userId);
@@ -140,6 +168,24 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       setLoading(false);
     }
   }, [userId, toast]);
+
+  const onVerifyTx = async (tx, action) => {
+    setTxBusy(tx._id);
+    try {
+      await AdminAPI.verifyTransaction(tx._id, { action });
+      toast?.(
+        "success",
+        action === "approve"
+          ? `${tx.kind === "deposit" ? "Deposit" : "Withdrawal"} approved.`
+          : `${tx.kind === "deposit" ? "Deposit" : "Withdrawal"} declined.`
+      );
+      await load();
+    } catch (err) {
+      toast?.("error", err?.message || "Action failed.");
+    } finally {
+      setTxBusy(null);
+    }
+  };
 
   // Poll this user + global active trades for alerts
   useEffect(() => {
@@ -175,15 +221,15 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     }
   };
 
-  const onForce = async (tradeId, outcome, percentage) => {
+  const onForce = async (tradeId, outcome, amount) => {
     setBusyId(tradeId);
     try {
-      await AdminAPI.forceTradeOutcome(tradeId, outcome, percentage);
+      await AdminAPI.forceTradeOutcome(tradeId, outcome, amount);
       toast?.(
         "success",
         outcome === "win"
-          ? `Forced WIN @ ${percentage || "default"}%`
-          : `Forced LOSS @ ${percentage || "0"}%`
+          ? `Force WIN locked · Manual Balance Add $${Number(amount).toFixed(2)}`
+          : `Force LOSS locked · Manual Balance Add $${Number(amount).toFixed(2)}`
       );
       await load();
     } catch (err) {
@@ -235,11 +281,28 @@ export default function UserControlRoom({ userId, onBack, toast }) {
         <div className="text-xs text-slate-400">
           @{u?.username} · {u?.email}
         </div>
+        {u?.trc20Address && (
+          <div className="mt-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-slate-500">
+              User TRC-20 wallet
+            </div>
+            <code className="mt-0.5 block break-all font-mono text-[11px] text-cyan-200">
+              {u.trc20Address}
+            </code>
+          </div>
+        )}
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl bg-white/5 p-3">
             <div className="text-[10px] uppercase text-slate-500">USDT</div>
-            <div className="text-sm font-bold">
-              ${fmt(u?.wallet?.USDT)}
+            <div
+              className={`text-sm font-bold ${
+                Number(u?.wallet?.USDT || 0) < 0
+                  ? "text-rose-400"
+                  : "text-white"
+              }`}
+            >
+              {Number(u?.wallet?.USDT || 0) < 0 ? "-" : ""}$
+              {fmt(Math.abs(Number(u?.wallet?.USDT || 0)))}
             </div>
           </div>
           <div className="rounded-xl bg-white/5 p-3">
@@ -305,6 +368,86 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           </button>
         </div>
       </div>
+
+      {/* Pending deposits & withdrawals for this user */}
+      {((data?.pendingDeposits || []).length > 0 ||
+        (data?.pendingWithdrawals || []).length > 0) && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-white">
+            Pending wallet requests
+          </h3>
+          {[...(data.pendingDeposits || []), ...(data.pendingWithdrawals || [])].map(
+            (tx) => (
+              <div
+                key={tx._id}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-semibold capitalize text-white">
+                      {tx.kind === "deposit" ? (
+                        <ArrowDownToLine className="h-4 w-4 text-emerald-300" />
+                      ) : (
+                        <ArrowUpFromLine className="h-4 w-4 text-rose-300" />
+                      )}
+                      {tx.kind}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-400">
+                      {fmt(tx.amount)} {tx.symbol} · {tx.network || "—"}
+                      {tx.kind === "deposit"
+                        ? " · Awaiting Admin Approval"
+                        : " · Pending Approval"}
+                    </div>
+                    {tx.address && (
+                      <code className="mt-1 block break-all text-[10px] text-slate-500">
+                        {tx.address}
+                      </code>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 gap-1.5">
+                    <button
+                      type="button"
+                      disabled={txBusy === tx._id}
+                      onClick={() => onVerifyTx(tx, "approve")}
+                      className="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200 ring-1 ring-emerald-500/30 disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="h-3 w-3" />
+                      {tx.kind === "withdrawal"
+                        ? "Approve Withdrawal"
+                        : "Approve"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={txBusy === tx._id}
+                      onClick={() => onVerifyTx(tx, "reject")}
+                      className="flex items-center gap-1 rounded-lg bg-rose-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-rose-200 ring-1 ring-rose-500/30 disabled:opacity-50"
+                    >
+                      <X className="h-3 w-3" />
+                      {tx.kind === "withdrawal"
+                        ? "Decline Withdrawal"
+                        : "Decline"}
+                    </button>
+                  </div>
+                </div>
+                {tx.proofUrl && (
+                  <a
+                    href={assetUrl(tx.proofUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 block overflow-hidden rounded-xl ring-1 ring-white/10"
+                  >
+                    <img
+                      src={assetUrl(tx.proofUrl)}
+                      alt="Deposit proof"
+                      className="max-h-48 w-full object-contain bg-black/40"
+                    />
+                  </a>
+                )}
+              </div>
+            )
+          )}
+        </div>
+      )}
 
       <div>
         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">

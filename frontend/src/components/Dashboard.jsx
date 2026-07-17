@@ -45,7 +45,8 @@ import AppShell from "./AppShell.jsx";
 import SecondsTrading from "./SecondsTrading.jsx";
 import MarketActivity from "./MarketActivity.jsx";
 import TradeHistory from "./TradeHistory.jsx";
-import { AuthAPI, WalletAPI, GatewayAPI, clearToken } from "../lib/api.js";
+import ProfileSetup from "./ProfileSetup.jsx";
+import { AuthAPI, WalletAPI, clearToken } from "../lib/api.js";
 
 // ---------------------------------------------------------------------------
 // Constants + mock market seed
@@ -740,12 +741,18 @@ const DepositPanel = ({ toast }) => {
 // ---------------------------------------------------------------------------
 // WithdrawPanel
 // ---------------------------------------------------------------------------
-const WithdrawPanel = ({ wallet, toast }) => {
+const WithdrawPanel = ({ wallet, user, toast, onWalletUpdate }) => {
   const [symbol, setSymbol] = useState("USDT");
   const [network, setNetwork] = useState("TRC20");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(user?.trc20Address || "");
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (user?.trc20Address && network === "TRC20") {
+      setAddress(user.trc20Address);
+    }
+  }, [user?.trc20Address, network]);
 
   const available = wallet?.[symbol] || 0;
 
@@ -760,9 +767,9 @@ const WithdrawPanel = ({ wallet, toast }) => {
         address: address.trim(),
         network,
       });
-      toast("success", res.message || "Withdrawal submitted.");
+      toast("success", res.message || "Withdrawal Pending Approval.");
+      if (res.wallet) onWalletUpdate?.(res.wallet);
       setAmount("");
-      setAddress("");
     } catch (err) {
       toast("error", err?.message || "Withdrawal failed.");
     } finally {
@@ -773,8 +780,12 @@ const WithdrawPanel = ({ wallet, toast }) => {
   return (
     <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-5 backdrop-blur-sm">
       <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight">
-        <ArrowUpFromLine className="h-4 w-4 text-indigo-300" /> Withdraw
+        <ArrowUpFromLine className="h-4 w-4 text-indigo-300" /> Withdrawal
       </h3>
+      <p className="mb-3 text-[11px] text-slate-500">
+        Request any amount up to your available balance. Funds are held as
+        Pending Approval until admin reviews.
+      </p>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
         <div>
@@ -826,7 +837,9 @@ const WithdrawPanel = ({ wallet, toast }) => {
         <div>
           <label className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-widest text-slate-500">
             <span>Amount</span>
-            <span>Available: {fmt(available, 4)} {symbol}</span>
+            <span>
+              Available: {fmt(available, 4)} {symbol}
+            </span>
           </label>
           <input
             type="number"
@@ -862,20 +875,30 @@ const WithdrawPanel = ({ wallet, toast }) => {
 // ---------------------------------------------------------------------------
 // TransactionList — for Activity tab (from backend)
 // ---------------------------------------------------------------------------
-const TxStatus = ({ status }) => {
+const TxStatus = ({ status, kind }) => {
   const map = {
     pending: "bg-amber-500/15 text-amber-300 border-amber-400/25",
     approved: "bg-emerald-500/15 text-emerald-300 border-emerald-400/25",
     completed: "bg-emerald-500/15 text-emerald-300 border-emerald-400/25",
     rejected: "bg-rose-500/15 text-rose-300 border-rose-400/25",
   };
+  let label = status;
+  if (status === "pending" && kind === "deposit") {
+    label = "Pending Verification";
+  } else if (status === "pending" && kind === "withdrawal") {
+    label = "Pending Approval";
+  } else if (status === "approved") {
+    label = "Approved";
+  } else if (status === "rejected") {
+    label = "Declined";
+  }
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
         map[status] || map.pending
       }`}
     >
-      {status}
+      {label}
     </span>
   );
 };
@@ -948,7 +971,7 @@ const TransactionsList = ({ transactions, loading, onRefresh }) => (
               {t.network || "—"}
             </div>
             <div className="col-span-3 text-right">
-              <TxStatus status={t.status} />
+              <TxStatus status={t.status} kind={t.kind} />
             </div>
           </motion.li>
         ))}
@@ -1130,6 +1153,12 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 </button>
               </div>
 
+              <ProfileSetup
+                user={me}
+                toast={say}
+                onSaved={(u) => handleUserUpdate(u)}
+              />
+
               <div className="relative">
                 {me?.role !== "admin" && (
                   <div className="mb-4 text-center text-[11px] text-slate-500">
@@ -1187,7 +1216,8 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] text-slate-500">
-                  New accounts start at $0.00 · Admin tops up after deposit chat
+                  New accounts start at $0.00 · Deposit via Live Chat with
+                  screenshot proof for admin approval
                 </p>
               </div>
 
@@ -1213,8 +1243,9 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   Deposit Menu
                 </div>
                 <p className="mt-2 text-sm text-slate-300">
-                  To add funds, chat with Live Support. An admin will verify and
-                  credit your Trading Wallet manually.
+                  To add funds, open Live Chat and choose Deposit. Transfer to
+                  the shown address, upload your screenshot, then wait for
+                  admin approval to top up your Trading Wallet.
                 </p>
                 <button
                   type="button"
@@ -1225,7 +1256,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   Deposit via Live Chat
                 </button>
               </div>
-              <WithdrawPanel wallet={wallet} toast={say} />
+              <WithdrawPanel
+                wallet={wallet}
+                user={me}
+                toast={say}
+                onWalletUpdate={(w) =>
+                  setMe((prev) => ({ ...prev, wallet: w }))
+                }
+              />
             </motion.div>
           )}
 
@@ -1266,6 +1304,13 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           user={me}
           contextHint={chatHint || (tab === "wallet" ? "deposit" : null)}
           openSignal={chatOpenSignal}
+          onDepositSubmitted={() => {
+            loadTx();
+            say(
+              "success",
+              "Deposit Pending Verification — awaiting admin approval."
+            );
+          }}
         />
       )}
     </motion.div>

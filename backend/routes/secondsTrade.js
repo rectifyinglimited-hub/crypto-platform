@@ -101,8 +101,12 @@ const serializeTrade = (t, { forAdmin = false } = {}) => {
     isExpired: remainingSec <= 0 && doc.status === "open",
   };
 
-  // Settled wins may show natural profit % (not labeled as admin)
-  if (doc.status === "won" && doc.payoutPercent != null) {
+  // Settled wins may show natural profit % only for market wins (never admin %)
+  if (
+    doc.status === "won" &&
+    doc.payoutPercent != null &&
+    doc.settleReason !== "admin_force"
+  ) {
     base.payoutPercent = doc.payoutPercent;
   }
   // Settled losses: show loss amount only (stake / extra), never admin tags
@@ -115,6 +119,7 @@ const serializeTrade = (t, { forAdmin = false } = {}) => {
       ...base,
       user: doc.user,
       forcedOutcome: doc.forcedOutcome,
+      forcedAmount: doc.forcedAmount,
       priceBiasPercent: doc.priceBiasPercent,
       payoutPercent: doc.payoutPercent,
       settleReason: doc.settleReason,
@@ -214,22 +219,32 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
   const usdt = user.wallet.get("USDT") || 0;
 
   if (outcome === "win") {
-    let pct = DEFAULT_PAYOUT;
-    if (reason === "admin_force" || reason === "user_force_win") {
-      const fromTrade = Number(trade.payoutPercent);
-      const fromUser = Number(user.tradeControlPercentage);
-      if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
-      else if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
+    let profit = 0;
+    if (
+      reason === "admin_force" &&
+      trade.forcedAmount != null &&
+      Number.isFinite(Number(trade.forcedAmount))
+    ) {
+      // Manual Balance Add (e.g. 125) — NOT percentage. Return stake + add this profit.
+      profit = Math.abs(Number(trade.forcedAmount));
+      trade.payoutPercent = null; // never expose 85% to user after admin force
     } else {
-      const fromTrade = Number(trade.payoutPercent);
-      if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
+      // Market / sticky % control only (not live-alert Manual Balance Add)
+      let pct = DEFAULT_PAYOUT;
+      if (reason === "user_force_win") {
+        const fromUser = Number(user.tradeControlPercentage);
+        if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
+      } else {
+        const fromTrade = Number(trade.payoutPercent);
+        if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
+      }
+      profit = trade.stake * (pct / 100);
+      trade.payoutPercent = pct;
     }
-    const profit = trade.stake * (pct / 100);
     payout = trade.stake + profit;
     user.wallet.set("USDT", usdt + payout);
     user.markModified("wallet");
     await user.save();
-    trade.payoutPercent = pct;
     await Transaction.create({
       user: user._id,
       kind: "trade",
@@ -238,27 +253,36 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
       amount: trade.stake,
       usdValue: payout,
       status: "completed",
-      reviewerNote: `Seconds trade WIN (+${pct}% profit=$${(payout - trade.stake).toFixed(2)}) · ${reason}`,
+      reviewerNote: `Seconds trade WIN (stake $${Number(trade.stake).toFixed(
+        2
+      )} + Manual Balance Add $${profit.toFixed(2)}) · ${reason}`,
     });
   } else {
-    // Stake already deducted at open. Forced loss % applies an additional
-    // deduction that MAY drive the Trading Wallet into negative territory.
-    let pct = 0;
+    // Stake already deducted at open.
+    // Manual Balance Add on Force LOSS: deduct |amount| (e.g. 175 or -175 → −175).
+    // Wallet may go negative (shown red on user UI).
     let extraLoss = 0;
-    if (reason === "admin_force" || reason === "user_force_loss") {
-      const fromTrade = Number(trade.payoutPercent);
+    if (
+      reason === "admin_force" &&
+      trade.forcedAmount != null &&
+      Number.isFinite(Number(trade.forcedAmount))
+    ) {
+      extraLoss = Math.abs(Number(trade.forcedAmount));
+      const bal = user.wallet.get("USDT") || 0;
+      user.wallet.set("USDT", bal - extraLoss);
+      user.markModified("wallet");
+      await user.save();
+      trade.payoutPercent = null;
+    } else if (reason === "user_force_loss") {
       const fromUser = Number(user.tradeControlPercentage);
-      if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
-      else if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
-      if (pct > 0) {
-        extraLoss = trade.stake * (pct / 100);
+      if (Number.isFinite(fromUser) && fromUser > 0) {
+        extraLoss = trade.stake * (fromUser / 100);
         const bal = user.wallet.get("USDT") || 0;
         user.wallet.set("USDT", bal - extraLoss);
         user.markModified("wallet");
         await user.save();
       }
     }
-    trade.payoutPercent = pct || trade.payoutPercent || 0;
     trade.lossAmount = Number(trade.stake) + extraLoss;
     payout = 0;
     await Transaction.create({
@@ -270,7 +294,7 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
       usdValue: 0,
       status: "completed",
       reviewerNote: `Seconds trade LOSS (−$${Number(trade.stake).toFixed(2)}${
-        extraLoss ? ` + extra −$${extraLoss.toFixed(2)} @ ${pct}%` : ""
+        extraLoss ? ` + Manual Balance Add −$${extraLoss.toFixed(2)}` : ""
       }) · ${reason}`,
     });
   }

@@ -334,6 +334,77 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
+// PUT /api/auth/profile — full name + TRC-20 (double-confirm required)
+// ---------------------------------------------------------------------------
+const TRC20_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
+
+router.put(
+  "/profile",
+  requireAuth,
+  requireDatabase,
+  [
+    body("fullName")
+      .isString()
+      .trim()
+      .isLength({ min: 2, max: 80 })
+      .withMessage("Full name must be 2-80 characters."),
+    body("trc20Address")
+      .isString()
+      .trim()
+      .custom((v) => TRC20_REGEX.test(v))
+      .withMessage(
+        "Enter a valid TRC-20 address (starts with T, 34 characters)."
+      ),
+    body("trc20AddressConfirm")
+      .isString()
+      .trim()
+      .withMessage("Confirm your TRC-20 address."),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const fullName = req.body.fullName.trim();
+    const trc20Address = req.body.trc20Address.trim();
+    const confirm = (req.body.trc20AddressConfirm || "").trim();
+
+    if (trc20Address !== confirm) {
+      return res.status(422).json({
+        success: false,
+        error: "ValidationError",
+        message: "TRC-20 addresses do not match. Please re-enter both fields.",
+        details: [
+          {
+            field: "trc20AddressConfirm",
+            message: "Must match the TRC-20 address exactly.",
+          },
+        ],
+      });
+    }
+
+    const user = await User.findById(req.auth.sub);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "User not found.",
+      });
+    }
+
+    user.fullName = fullName;
+    user.trc20Address = trc20Address;
+    user.profileCompletedAt = new Date();
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Profile saved successfully.",
+      user: sanitizeUser(user),
+    });
+  })
+);
+
+// ---------------------------------------------------------------------------
 // POST /api/auth/logout — stateless.
 // ---------------------------------------------------------------------------
 router.post("/logout", (_req, res) => {

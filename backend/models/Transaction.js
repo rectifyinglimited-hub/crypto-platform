@@ -48,6 +48,13 @@ const TransactionSchema = new Schema(
     network: { type: String, default: null }, // e.g. "TRC20"
     address: { type: String, default: null }, // withdraw destination or deposit hash
     txHash: { type: String, default: null },
+    /** Public path to uploaded payment screenshot (deposits) */
+    proofUrl: { type: String, default: null },
+    /**
+     * Withdrawals: true when amount was deducted on submit (held pending review).
+     * Approve keeps hold; reject refunds.
+     */
+    fundsHeld: { type: Boolean, default: false },
 
     status: {
       type: String,

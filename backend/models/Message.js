@@ -29,6 +29,14 @@ const MessageSchema = new Schema(
       trim: true,
       maxlength: 4000,
     },
+    /** text | system | menu | deposit_proof */
+    messageType: {
+      type: String,
+      enum: ["text", "system", "menu", "deposit_proof"],
+      default: "text",
+    },
+    attachmentUrl: { type: String, default: null },
+    meta: { type: Schema.Types.Mixed, default: null },
     adminAuthor: {
       type: Schema.Types.ObjectId,
       ref: "User",

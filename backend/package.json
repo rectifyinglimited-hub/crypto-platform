@@ -1,7 +1,7 @@
 {
   "name": "nexus-backend",
   "version": "1.0.0",
-  "description": "Nexus API \u2014 defensive Express + Mongoose backend.",
+  "description": "Nexus API — defensive Express + Mongoose backend.",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -18,7 +18,8 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.1",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "multer": "^2.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

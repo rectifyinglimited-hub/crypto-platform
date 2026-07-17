@@ -36,3 +36,7 @@ Thumbs.db
 
 # Temp / scratch
 _touch.tmp
+
+# Uploaded deposit proofs
+uploads/
+backend/uploads/
