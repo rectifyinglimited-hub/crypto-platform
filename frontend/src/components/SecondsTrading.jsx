@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
 import { WATCHLIST_CRYPTO } from "./CryptoWatchlist.jsx";
+import FuturesChart from "./FuturesChart.jsx";
 
 const TOASTED_KEY = "nexus_toasted_trades";
 const TRADING_SOON_MSG = "Trading will start soon";
@@ -135,57 +136,6 @@ function stakeableUsdt(walletUsdt) {
   const n = Number(walletUsdt);
   if (!Number.isFinite(n) || n <= 0) return 0;
   return Number(n.toFixed(8));
-}
-
-function LiveChart({ series, up }) {
-  const w = 320;
-  const h = 140;
-  if (!series?.length) {
-    return (
-      <div className="flex h-[140px] items-center justify-center text-xs text-slate-500">
-        Loading market…
-      </div>
-    );
-  }
-  const min = Math.min(...series);
-  const max = Math.max(...series);
-  const span = max - min || 1;
-  const pts = series
-    .map((y, i) => {
-      const x = (i / (series.length - 1 || 1)) * w;
-      const py = h - ((y - min) / span) * (h - 16) - 8;
-      return `${x},${py}`;
-    })
-    .join(" ");
-  const stroke = up ? "#34d399" : "#fb7185";
-  const fill = up ? "url(#upGrad)" : "url(#dnGrad)";
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-[140px] w-full">
-      <defs>
-        <linearGradient id="upGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#34d399" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="dnGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#fb7185" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#fb7185" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon
-        points={`0,${h} ${pts} ${w},${h}`}
-        fill={fill}
-      />
-      <polyline
-        points={pts}
-        fill="none"
-        stroke={stroke}
-        strokeWidth="2.2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
 }
 
 export default function SecondsTrading({
@@ -555,41 +505,12 @@ export default function SecondsTrading({
         ))}
       </div>
 
-      {/* Chart + price */}
-      <div
-        className={`overflow-hidden rounded-2xl border bg-[#0d1424] transition-colors duration-300 ${
-          priceFlash === "up"
-            ? "border-emerald-400/50 bg-emerald-500/10"
-            : priceFlash === "down"
-              ? "border-rose-400/50 bg-rose-500/10"
-              : "border-white/10"
-        }`}
-      >
-        <div className="flex items-center justify-between px-4 pt-4">
-          <div>
-            <div className="text-xs text-slate-400">{asset}/USDT</div>
-            <div
-              className={`text-xl font-bold transition-colors duration-300 ${
-                priceFlash === "up"
-                  ? "text-emerald-300"
-                  : priceFlash === "down"
-                    ? "text-rose-300"
-                    : up
-                      ? "text-emerald-400"
-                      : "text-rose-400"
-              }`}
-            >
-              {formatPrice(price)}
-            </div>
-          </div>
-          {priceFlash === "up" ? (
-            <TrendingUp className="h-5 w-5 text-emerald-400" />
-          ) : priceFlash === "down" ? (
-            <TrendingDown className="h-5 w-5 text-rose-400" />
-          ) : null}
-        </div>
-        <LiveChart series={series.length ? series : [price, price]} up={up} />
-      </div>
+      {/* Binance Futures–style TradingView chart */}
+      <FuturesChart
+        asset={asset}
+        assetType={assetType}
+        overridePrice={price || rawPrice || null}
+      />
 
       {/* Duration */}
       <div>
