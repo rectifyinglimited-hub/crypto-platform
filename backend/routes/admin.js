@@ -928,57 +928,69 @@ router.put(
       });
     }
 
-    trade.forcedOutcome = req.body.outcome;
     if (
-      req.body.amount != null &&
-      req.body.amount !== "" &&
-      Number.isFinite(Number(req.body.amount))
+      (req.body.amount == null || req.body.amount === "") &&
+      trade.forcedAmount == null
     ) {
-      trade.forcedAmount = Number(req.body.amount);
-    } else if (trade.forcedAmount == null) {
       return res.status(422).json({
         success: false,
         error: "ValidationError",
         message:
-          "Enter Manual Balance Add amount (e.g. 25). Final WIN credit = stake + this amount.",
+          "Enter Manual Balance Add amount (e.g. 25). WIN credits stake + amount.",
       });
     }
 
-    // Push live chart HIGH on Force WIN / LOW on Force LOSS
-    if (req.body.outcome === "win") {
-      trade.priceBiasPercent = Math.max(
-        Number(trade.priceBiasPercent || 0),
-        2.5
-      );
-    } else {
-      trade.priceBiasPercent = Math.min(
-        Number(trade.priceBiasPercent || 0),
-        -2.5
-      );
+    const forceAmount =
+      req.body.amount != null && req.body.amount !== ""
+        ? Number(req.body.amount)
+        : Number(trade.forcedAmount);
+
+    // Single atomic settle with Force WIN/LOSS — no race with market settler
+    const settled = await settleTrade(trade._id, {
+      forceOutcome: req.body.outcome,
+      forceAmount,
+    });
+
+    if (!settled || (settled.status !== "won" && settled.status !== "lost")) {
+      return res.status(409).json({
+        success: false,
+        error: "ConflictError",
+        message: "Trade could not be settled. Refresh and try again.",
+        trade: serializeAdminTrade(settled || trade),
+      });
     }
 
-    // Expire now so settle runs immediately with exact Manual Balance Add
-    trade.expiresAt = new Date();
-    await trade.save();
+    // If another process already settled as market before our claim, warn admin
+    if (
+      settled.settleReason !== "admin_force" ||
+      settled.forcedOutcome !== req.body.outcome
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: "ConflictError",
+        message:
+          "Trade was already settled by the market timer. Open a new trade and click Force WIN/LOSS before the timer hits 0.",
+        trade: serializeAdminTrade(settled),
+      });
+    }
 
-    const settled = await settleTrade(trade._id);
     const owner = await User.findById(trade.user);
     const wallet =
       owner?.wallet instanceof Map
         ? Object.fromEntries(owner.wallet)
         : { ...(owner?.wallet || {}) };
 
-    const add = Math.abs(Number(settled.forcedAmount || 0));
+    const add = Math.abs(Number(settled.forcedAmount || forceAmount || 0));
     const msg =
       settled.status === "won"
-        ? `Force WIN settled · credited $${Number(settled.payout || 0).toFixed(
+        ? `Force WIN · credited $${Number(settled.payout || 0).toFixed(
             2
           )} (stake $${Number(settled.stake).toFixed(2)} + add $${add.toFixed(
             2
-          )}). Wallet USDT now $${Number(wallet.USDT || 0).toFixed(2)}.`
-        : `Force LOSS settled · deducted add $${add.toFixed(
+          )}). Wallet now $${Number(wallet.USDT || 0).toFixed(2)} USDT.`
+        : `Force LOSS · deducted $${add.toFixed(
             2
-          )}. Wallet USDT now $${Number(wallet.USDT || 0).toFixed(2)}.`;
+          )}. Wallet now $${Number(wallet.USDT || 0).toFixed(2)} USDT.`;
 
     return res.json({
       success: true,

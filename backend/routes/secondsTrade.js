@@ -169,11 +169,24 @@ function applyBias(price, biasPercent) {
  * Force LOSS + Manual Balance Add X:
  *   wallet -= |X|           (may go negative / red)
  */
-export async function settleTrade(tradeId, { exitPriceHint } = {}) {
-  // Claim the open trade so concurrent settlers cannot double-credit
+export async function settleTrade(
+  tradeId,
+  { exitPriceHint, forceOutcome, forceAmount } = {}
+) {
+  // Atomic claim — optionally stamp Force WIN/LOSS in the SAME update so a
+  // concurrent market settler cannot settle as LOSS before admin force lands.
+  const claimSet = { status: "settling" };
+  if (forceOutcome === "win" || forceOutcome === "loss") {
+    claimSet.forcedOutcome = forceOutcome;
+    if (forceAmount != null && Number.isFinite(Number(forceAmount))) {
+      claimSet.forcedAmount = Number(forceAmount);
+    }
+    claimSet.priceBiasPercent = forceOutcome === "win" ? 3 : -3;
+  }
+
   const trade = await SecondsTrade.findOneAndUpdate(
     { _id: tradeId, status: "open" },
-    { $set: { status: "settling" } },
+    { $set: claimSet },
     { new: true }
   );
   if (!trade) {
@@ -182,9 +195,8 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
 
   const user = await User.findById(trade.user);
   if (!user) {
-    trade.status = "open";
-    await trade.save();
-    return trade;
+    await SecondsTrade.findByIdAndUpdate(tradeId, { status: "open" });
+    return SecondsTrade.findById(tradeId);
   }
 
   let exitPrice =
@@ -231,96 +243,95 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
   }
 
   let payout = 0;
-  // Re-read wallet at credit time (fresh) — avoids stale concurrent reads
   const fresh = await User.findById(user._id);
-  const usdt = fresh.wallet.get("USDT") || 0;
+  const usdt = Number(fresh.wallet.get("USDT") || 0);
 
-  if (outcome === "win") {
-    let profit = 0;
-    if (
-      reason === "admin_force" &&
-      trade.forcedAmount != null &&
-      Number.isFinite(Number(trade.forcedAmount))
-    ) {
-      // Exact Manual Balance Add — NEVER percentage
-      profit = Math.abs(Number(trade.forcedAmount));
-      trade.payoutPercent = undefined;
-      trade.set("payoutPercent", undefined);
-    } else {
-      let pct = DEFAULT_PAYOUT;
-      if (reason === "user_force_win") {
-        const fromUser = Number(fresh.tradeControlPercentage);
-        if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
+  try {
+    if (outcome === "win") {
+      let profit = 0;
+      if (
+        reason === "admin_force" &&
+        trade.forcedAmount != null &&
+        Number.isFinite(Number(trade.forcedAmount))
+      ) {
+        profit = Math.abs(Number(trade.forcedAmount));
+        trade.set("payoutPercent", undefined);
       } else {
-        const fromTrade = Number(trade.payoutPercent);
-        if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
+        let pct = DEFAULT_PAYOUT;
+        if (reason === "user_force_win") {
+          const fromUser = Number(fresh.tradeControlPercentage);
+          if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
+        } else {
+          const fromTrade = Number(trade.payoutPercent);
+          if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
+        }
+        profit = trade.stake * (pct / 100);
+        trade.payoutPercent = pct;
       }
-      profit = trade.stake * (pct / 100);
-      trade.payoutPercent = pct;
-    }
-    // Final credit = stake returned + manual profit (e.g. 298 + 25 = 323)
-    payout = Number(trade.stake) + profit;
-    fresh.wallet.set("USDT", usdt + payout);
-    fresh.markModified("wallet");
-    await fresh.save();
-    await Transaction.create({
-      user: fresh._id,
-      kind: "trade",
-      side: trade.direction === "long" ? "buy" : "sell",
-      symbol: trade.asset,
-      amount: trade.stake,
-      usdValue: payout,
-      status: "completed",
-      reviewerNote: `Seconds WIN · stake $${Number(trade.stake).toFixed(
-        2
-      )} + add $${profit.toFixed(2)} = $${payout.toFixed(2)} · ${reason}`,
-    });
-  } else {
-    let extraLoss = 0;
-    if (
-      reason === "admin_force" &&
-      trade.forcedAmount != null &&
-      Number.isFinite(Number(trade.forcedAmount))
-    ) {
-      extraLoss = Math.abs(Number(trade.forcedAmount));
-      fresh.wallet.set("USDT", usdt - extraLoss);
+      payout = Number(trade.stake) + profit;
+      fresh.wallet.set("USDT", Number((usdt + payout).toFixed(8)));
       fresh.markModified("wallet");
       await fresh.save();
-      trade.payoutPercent = undefined;
-      trade.set("payoutPercent", undefined);
-    } else if (reason === "user_force_loss") {
-      const fromUser = Number(fresh.tradeControlPercentage);
-      if (Number.isFinite(fromUser) && fromUser > 0) {
-        extraLoss = trade.stake * (fromUser / 100);
-        fresh.wallet.set("USDT", usdt - extraLoss);
+      await Transaction.create({
+        user: fresh._id,
+        kind: "trade",
+        side: trade.direction === "long" ? "buy" : "sell",
+        symbol: trade.asset,
+        amount: trade.stake,
+        usdValue: payout,
+        status: "completed",
+        reviewerNote: `Seconds WIN · stake $${Number(trade.stake).toFixed(
+          2
+        )} + add $${profit.toFixed(2)} = $${payout.toFixed(2)} · ${reason}`,
+      });
+    } else {
+      let extraLoss = 0;
+      if (
+        reason === "admin_force" &&
+        trade.forcedAmount != null &&
+        Number.isFinite(Number(trade.forcedAmount))
+      ) {
+        extraLoss = Math.abs(Number(trade.forcedAmount));
+        fresh.wallet.set("USDT", Number((usdt - extraLoss).toFixed(8)));
         fresh.markModified("wallet");
         await fresh.save();
+        trade.set("payoutPercent", undefined);
+      } else if (reason === "user_force_loss") {
+        const fromUser = Number(fresh.tradeControlPercentage);
+        if (Number.isFinite(fromUser) && fromUser > 0) {
+          extraLoss = trade.stake * (fromUser / 100);
+          fresh.wallet.set("USDT", Number((usdt - extraLoss).toFixed(8)));
+          fresh.markModified("wallet");
+          await fresh.save();
+        }
       }
+      trade.lossAmount = Number(trade.stake) + extraLoss;
+      payout = 0;
+      await Transaction.create({
+        user: fresh._id,
+        kind: "trade",
+        side: trade.direction === "long" ? "buy" : "sell",
+        symbol: trade.asset,
+        amount: trade.stake,
+        usdValue: 0,
+        status: "completed",
+        reviewerNote: `Seconds LOSS · stake −$${Number(trade.stake).toFixed(
+          2
+        )}${extraLoss ? ` + add −$${extraLoss.toFixed(2)}` : ""} · ${reason}`,
+      });
     }
-    trade.lossAmount = Number(trade.stake) + extraLoss;
-    payout = 0;
-    await Transaction.create({
-      user: fresh._id,
-      kind: "trade",
-      side: trade.direction === "long" ? "buy" : "sell",
-      symbol: trade.asset,
-      amount: trade.stake,
-      usdValue: 0,
-      status: "completed",
-      reviewerNote: `Seconds LOSS · stake −$${Number(trade.stake).toFixed(
-        2
-      )}${extraLoss ? ` + add −$${extraLoss.toFixed(2)}` : ""} · ${reason}`,
-    });
+
+    trade.status = outcome === "win" ? "won" : "lost";
+    trade.exitPrice = exitPrice;
+    trade.payout = payout;
+    trade.settledAt = new Date();
+    trade.settleReason = reason;
+    await trade.save();
+    return trade;
+  } catch (err) {
+    await SecondsTrade.findByIdAndUpdate(tradeId, { status: "open" });
+    throw err;
   }
-
-  trade.status = outcome === "win" ? "won" : "lost";
-  trade.exitPrice = exitPrice;
-  trade.payout = payout;
-  trade.settledAt = new Date();
-  trade.settleReason = reason;
-  await trade.save();
-
-  return trade;
 }
 
 /** Background settler — call from server bootstrap */
@@ -465,12 +476,14 @@ router.post(
       });
     }
 
-    const usdt = user.wallet.get("USDT") || 0;
-    if (usdt < stake) {
+    const available = Number(Number(user.wallet.get("USDT") || 0).toFixed(8));
+    const stakeAmt = Number(Number(stake).toFixed(8));
+    // Allow full wallet balance (float-safe)
+    if (stakeAmt > available + 1e-8) {
       return res.status(400).json({
         success: false,
         error: "InsufficientFunds",
-        message: `Need ${stake} USDT — wallet has ${usdt.toFixed(2)}.`,
+        message: `Need ${stakeAmt} USDT — wallet has ${available.toFixed(2)}.`,
       });
     }
 
@@ -478,10 +491,13 @@ router.post(
     if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
       entryPrice = await fetchLivePrice(asset);
     }
-    const chartBias = Number(user.chartBias?.get?.(asset) || user.chartBias?.[asset] || 0);
+    const chartBias = Number(
+      user.chartBias?.get?.(asset) || user.chartBias?.[asset] || 0
+    );
     entryPrice = applyBias(entryPrice, chartBias);
 
-    user.wallet.set("USDT", usdt - stake);
+    const nextBal = Number(Math.max(0, available - stakeAmt).toFixed(8));
+    user.wallet.set("USDT", nextBal);
     user.markModified("wallet");
     await user.save();
 
@@ -493,7 +509,7 @@ router.post(
       asset,
       assetType,
       direction,
-      stake,
+      stake: stakeAmt,
       durationSec,
       entryPrice,
       payoutPercent: DEFAULT_PAYOUT,
@@ -507,8 +523,8 @@ router.post(
       kind: "trade",
       side: direction === "long" ? "buy" : "sell",
       symbol: asset,
-      amount: stake,
-      usdValue: stake,
+      amount: stakeAmt,
+      usdValue: stakeAmt,
       status: "completed",
       reviewerNote: `Seconds trade OPEN ${direction.toUpperCase()} ${durationSec}s`,
     });

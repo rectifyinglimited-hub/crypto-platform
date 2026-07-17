@@ -195,12 +195,14 @@ export default function SecondsTrading({
   }, [customDur, duration]);
 
   const place = async (direction) => {
-    const amount = Number(stake);
+    const amount = Number(Number(stake).toFixed(8));
+    const available = Number(Number(walletUsdt).toFixed(8));
     if (!Number.isFinite(amount) || amount <= 0) {
       onToast?.("error", "Enter a valid stake.");
       return;
     }
-    if (amount > walletUsdt) {
+    // Allow full wallet amount (float-safe)
+    if (amount > available + 1e-8) {
       onToast?.("error", "Insufficient Trading Wallet balance.");
       return;
     }
@@ -351,7 +353,7 @@ export default function SecondsTrading({
           onChange={(e) => setStake(e.target.value)}
           className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-cyan-500/40"
         />
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           {[25, 50, 100, 250].map((q) => (
             <button
               key={q}
@@ -362,6 +364,19 @@ export default function SecondsTrading({
               ${q}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() =>
+              setStake(
+                String(
+                  Math.max(0, Number(Number(walletUsdt).toFixed(2)))
+                )
+              )
+            }
+            className="rounded-lg bg-cyan-500/15 px-2.5 py-1 text-[11px] font-semibold text-cyan-300"
+          >
+            Max
+          </button>
         </div>
       </div>
 

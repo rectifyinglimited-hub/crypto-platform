@@ -85,7 +85,7 @@ const SecondsTradeSchema = new Schema(
     /** Admin per-trade override — takes precedence over user.tradeControlState */
     forcedOutcome: {
       type: String,
-      enum: ["win", "loss"],
+      enum: ["win", "loss", null],
       default: null,
     },
     exitPrice: {
