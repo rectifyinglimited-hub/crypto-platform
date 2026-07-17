@@ -211,7 +211,9 @@ export const AdminAPI = {
   listTransactions: (params = {}) =>
     api.get("/admin/transactions", { params }).then((r) => r.data),
   verifyTransaction: (id, payload) =>
-    api.put(`/admin/transactions/${id}/verify`, payload).then((r) => r.data),
+    api
+      .patch(`/admin/transactions/${id}/verify`, payload)
+      .then((r) => r.data),
 
   listKycRequests: (status = "pending") =>
     api.get("/admin/kyc-requests", { params: { status } }).then((r) => r.data),
@@ -272,6 +274,11 @@ export const ChatAPI = {
         headers: { "Content-Type": undefined },
         timeout: 60000,
       })
+      .then((r) => r.data),
+  /** Base64 / data-URL image upload fallback */
+  uploadImageBase64: (payload) =>
+    api
+      .post("/chat/upload", payload, { timeout: 60000 })
       .then((r) => r.data),
   depositDetails: (payload = {}) =>
     api.post("/chat/deposit-details", payload).then((r) => r.data),

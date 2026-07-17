@@ -1,5 +1,5 @@
 /**
- * Admin Support Chat — shows images + admin can upload pics to users.
+ * Admin Support Chat — two-way images + deposit Approve / Decline action hub.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -12,11 +12,14 @@ import {
   User as UserIcon,
   Paperclip,
   Image as ImageIcon,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
-import { ChatAPI, assetUrl } from "../lib/api.js";
+import { AdminAPI, ChatAPI, assetUrl } from "../lib/api.js";
+import { getSocket, onSocketEvent } from "../lib/socket.js";
 
-const POLL_MS = 4000;
+const POLL_MS = 8000;
 
 const timeAgo = (iso) => {
   if (!iso) return "";
@@ -27,8 +30,89 @@ const timeAgo = (iso) => {
   return new Date(iso).toLocaleDateString();
 };
 
-function MessageBubble({ m }) {
+const isPlaceholderMedia = (m) => {
+  const hay = `${m?.attachmentUrl || ""} ${m?.body || ""}`;
+  return /delta.?force|unsplash|picsum|placeholder|combat|banner/i.test(hay);
+};
+
+const mergeMessages = (prev, incoming) => {
+  if (!incoming) return prev;
+  const list = Array.isArray(incoming) ? incoming : [incoming];
+  const map = new Map();
+  for (const m of prev) {
+    if (m?._id) map.set(String(m._id), m);
+  }
+  for (const m of list) {
+    if (!m?._id || isPlaceholderMedia(m)) continue;
+    map.set(String(m._id), m);
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+  );
+};
+
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read image file."));
+    reader.readAsDataURL(file);
+  });
+
+function DepositActions({
+  transactionId,
+  amount,
+  symbol,
+  busy,
+  onApprove,
+  onDecline,
+  compact = false,
+}) {
+  if (!transactionId) return null;
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-2 ${
+        compact ? "mt-2" : ""
+      }`}
+    >
+      {!compact && (
+        <div className="mr-auto text-[11px] text-slate-400">
+          Pending deposit
+          {amount != null
+            ? ` · $${Number(amount).toFixed(2)} ${symbol || "USDT"}`
+            : ""}
+        </div>
+      )}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onApprove(transactionId)}
+        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-[11px] font-bold text-emerald-950 shadow-sm shadow-emerald-500/30 disabled:opacity-50"
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Approve Deposit
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onDecline(transactionId)}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-rose-400/50 bg-rose-500/15 px-3 py-2 text-[11px] font-bold text-rose-200 disabled:opacity-50"
+      >
+        <XCircle className="h-3.5 w-3.5" />
+        Decline Deposit
+      </button>
+    </div>
+  );
+}
+
+function MessageBubble({ m, busy, onApprove, onDecline, reviewedIds }) {
   const isAdmin = m.from === "admin";
+  const txId = m?.meta?.transactionId;
+  const isProof =
+    m.messageType === "deposit_proof" ||
+    (txId && m.attachmentUrl && m.from === "user");
+  const alreadyReviewed = txId && reviewedIds.has(String(txId));
+
   return (
     <motion.div
       layout
@@ -44,7 +128,7 @@ function MessageBubble({ m }) {
         }`}
       >
         <div className="whitespace-pre-wrap break-words">{m.body}</div>
-        {m.attachmentUrl && (
+        {m.attachmentUrl && !isPlaceholderMedia(m) && (
           <a
             href={assetUrl(m.attachmentUrl)}
             target="_blank"
@@ -57,6 +141,22 @@ function MessageBubble({ m }) {
               className="max-h-56 w-full object-contain bg-black/40"
             />
           </a>
+        )}
+        {isProof && txId && !alreadyReviewed && (
+          <DepositActions
+            compact
+            transactionId={txId}
+            amount={m.meta?.amount}
+            symbol={m.meta?.symbol}
+            busy={busy}
+            onApprove={onApprove}
+            onDecline={onDecline}
+          />
+        )}
+        {isProof && alreadyReviewed && (
+          <div className="mt-2 text-[10px] uppercase tracking-wider text-slate-400">
+            Deposit already reviewed
+          </div>
         )}
         <div
           className={`mt-1 text-[10px] uppercase tracking-widest ${
@@ -76,6 +176,9 @@ export default function AdminChatManager() {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [actionBanner, setActionBanner] = useState(null);
+  const [reviewedIds, setReviewedIds] = useState(() => new Set());
   const [threadsLoading, setThreadsLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [query, setQuery] = useState("");
@@ -96,6 +199,7 @@ export default function AdminChatManager() {
 
   useEffect(() => {
     loadThreads();
+    getSocket();
     const id = setInterval(loadThreads, POLL_MS);
     return () => clearInterval(id);
   }, []);
@@ -105,7 +209,19 @@ export default function AdminChatManager() {
     setHistoryLoading(true);
     try {
       const res = await ChatAPI.history(userId);
-      setMessages(res.messages || []);
+      const list = (res.messages || []).filter((m) => !isPlaceholderMedia(m));
+      setMessages(list);
+      const done = new Set();
+      for (const m of list) {
+        if (
+          m.messageType === "system" &&
+          m.meta?.kind === "deposit_review" &&
+          m.meta?.transactionId
+        ) {
+          done.add(String(m.meta.transactionId));
+        }
+      }
+      setReviewedIds(done);
     } catch {
       /* ignore */
     } finally {
@@ -119,6 +235,32 @@ export default function AdminChatManager() {
     ChatAPI.markRead({ userId: selected._id }).catch(() => {});
     const id = setInterval(() => loadHistory(selected._id), POLL_MS);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?._id]);
+
+  useEffect(() => {
+    getSocket();
+    const offMsg = onSocketEvent("chat:message", (payload) => {
+      if (!payload?.message) return;
+      loadThreads();
+      if (
+        selected?._id &&
+        String(payload.userId) === String(selected._id)
+      ) {
+        setMessages((prev) => mergeMessages(prev, payload.message));
+        if (
+          payload.message?.meta?.kind === "deposit_review" &&
+          payload.message?.meta?.transactionId
+        ) {
+          setReviewedIds((prev) => {
+            const next = new Set(prev);
+            next.add(String(payload.message.meta.transactionId));
+            return next;
+          });
+        }
+      }
+    });
+    return () => offMsg();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?._id]);
 
@@ -138,6 +280,26 @@ export default function AdminChatManager() {
     );
   }, [threads, query]);
 
+  const latestPendingDeposit = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      const txId = m?.meta?.transactionId;
+      if (
+        txId &&
+        (m.messageType === "deposit_proof" || m.attachmentUrl) &&
+        m.from === "user" &&
+        !reviewedIds.has(String(txId))
+      ) {
+        return {
+          transactionId: String(txId),
+          amount: m.meta?.amount,
+          symbol: m.meta?.symbol || "USDT",
+        };
+      }
+    }
+    return null;
+  }, [messages, reviewedIds]);
+
   const handleSend = async (e) => {
     e.preventDefault();
     const body = draft.trim();
@@ -145,8 +307,11 @@ export default function AdminChatManager() {
     setSending(true);
     try {
       const res = await ChatAPI.send({ body, userId: selected._id });
-      setMessages((prev) => [...prev, res.message]);
+      setMessages((prev) => mergeMessages(prev, res.message));
       setDraft("");
+      loadThreads();
+    } catch (err) {
+      setActionBanner(err?.message || "Failed to send message.");
     } finally {
       setSending(false);
     }
@@ -156,18 +321,35 @@ export default function AdminChatManager() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file || !selected || sending) return;
+    if (!file.type?.startsWith("image/")) {
+      setActionBanner("Only image files can be attached.");
+      return;
+    }
     setSending(true);
+    setActionBanner(null);
     try {
       const fd = new FormData();
       fd.append("image", file);
       fd.append("userId", selected._id);
       if (draft.trim()) fd.append("body", draft.trim());
-      const res = await ChatAPI.uploadImage(fd);
-      setMessages((prev) => [...prev, res.message]);
-      setDraft("");
-      loadThreads();
-    } catch {
-      /* ignore */
+      let res;
+      try {
+        res = await ChatAPI.uploadImage(fd);
+      } catch {
+        const dataUrl = await fileToDataUrl(file);
+        res = await ChatAPI.uploadImageBase64({
+          image: dataUrl,
+          userId: selected._id,
+          body: draft.trim() || undefined,
+        });
+      }
+      if (res?.message) {
+        setMessages((prev) => mergeMessages(prev, res.message));
+        setDraft("");
+        loadThreads();
+      }
+    } catch (err) {
+      setActionBanner(err?.message || "Image upload failed.");
     } finally {
       setSending(false);
     }
@@ -178,9 +360,40 @@ export default function AdminChatManager() {
     setSending(true);
     try {
       const res = await ChatAPI.depositDetails({ userId: selected._id });
-      setMessages((prev) => [...prev, res.message]);
+      setMessages((prev) => mergeMessages(prev, res.message));
+    } catch (err) {
+      setActionBanner(err?.message || "Could not send deposit details.");
     } finally {
       setSending(false);
+    }
+  };
+
+  const reviewDeposit = async (transactionId, action) => {
+    if (!transactionId || verifying) return;
+    setVerifying(true);
+    setActionBanner(null);
+    try {
+      const res = await AdminAPI.verifyTransaction(transactionId, { action });
+      setReviewedIds((prev) => {
+        const next = new Set(prev);
+        next.add(String(transactionId));
+        return next;
+      });
+      setActionBanner(
+        action === "approve"
+          ? `Deposit approved — Trading Wallet credited${
+              res.wallet?.USDT != null
+                ? ` (USDT ${Number(res.wallet.USDT).toFixed(2)})`
+                : ""
+            }.`
+          : "Deposit marked REJECTED — balances unchanged."
+      );
+      if (selected?._id) await loadHistory(selected._id);
+      loadThreads();
+    } catch (err) {
+      setActionBanner(err?.message || "Could not update deposit status.");
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -309,6 +522,33 @@ export default function AdminChatManager() {
                 Send deposit details
               </button>
             </div>
+
+            {/* Persistent deposit action hub */}
+            <div className="border-b border-white/5 bg-black/25 px-4 py-2.5">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Deposit verification controls
+              </div>
+              {latestPendingDeposit ? (
+                <DepositActions
+                  transactionId={latestPendingDeposit.transactionId}
+                  amount={latestPendingDeposit.amount}
+                  symbol={latestPendingDeposit.symbol}
+                  busy={verifying}
+                  onApprove={(id) => reviewDeposit(id, "approve")}
+                  onDecline={(id) => reviewDeposit(id, "reject")}
+                />
+              ) : (
+                <div className="text-[11px] text-slate-500">
+                  No pending settlement receipt in this thread.
+                </div>
+              )}
+              {actionBanner && (
+                <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-slate-300">
+                  {actionBanner}
+                </div>
+              )}
+            </div>
+
             <div
               ref={listRef}
               className="flex-1 space-y-2 overflow-y-auto px-4 py-3"
@@ -320,7 +560,14 @@ export default function AdminChatManager() {
               )}
               <AnimatePresence initial={false}>
                 {messages.map((m) => (
-                  <MessageBubble key={m._id} m={m} />
+                  <MessageBubble
+                    key={m._id}
+                    m={m}
+                    busy={verifying}
+                    reviewedIds={reviewedIds}
+                    onApprove={(id) => reviewDeposit(id, "approve")}
+                    onDecline={(id) => reviewDeposit(id, "reject")}
+                  />
                 ))}
               </AnimatePresence>
               {!historyLoading && messages.length === 0 && (

@@ -49,6 +49,7 @@ import MarketActivity from "./MarketActivity.jsx";
 import TradeHistory from "./TradeHistory.jsx";
 import ProfileSetup from "./ProfileSetup.jsx";
 import { AuthAPI, WalletAPI, SecondsTradeAPI, clearToken } from "../lib/api.js";
+import { getSocket, onSocketEvent, disconnectSocket } from "../lib/socket.js";
 
 // ---------------------------------------------------------------------------
 // Constants + mock market seed
@@ -1080,13 +1081,48 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     };
     refreshMe();
     loadLiveEarnings();
+    getSocket();
     const id = setInterval(refreshMe, 2500);
     const eId = setInterval(loadLiveEarnings, 5000);
+    const offWallet = onSocketEvent("wallet:update", (payload) => {
+      if (!payload?.wallet || cancelled) return;
+      setMe((prev) => {
+        const myId = prev?._id || prev?.id;
+        if (
+          payload.userId &&
+          myId &&
+          String(payload.userId) !== String(myId)
+        ) {
+          return prev;
+        }
+        return { ...prev, wallet: payload.wallet };
+      });
+      if (payload.reason === "deposit_approved") {
+        say(
+          "success",
+          `Deposit approved — Trading Wallet updated${
+            payload.amount != null
+              ? ` (+$${Number(payload.amount).toFixed(2)} ${payload.symbol || "USDT"})`
+              : ""
+          }.`
+        );
+        loadTx();
+      } else if (
+        payload.reason === "deposit_rejected" ||
+        payload.status === "rejected"
+      ) {
+        say("error", "Deposit marked REJECTED — balance unchanged.");
+        loadTx();
+      }
+    });
     return () => {
       cancelled = true;
       clearInterval(id);
       clearInterval(eId);
+      offWallet();
+      disconnectSocket();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleLogout = async () => {
@@ -1130,6 +1166,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onLogout={handleLogout}
         onOpenAdmin={onOpenAdmin}
         onOpenKyc={() => setKycOpen(true)}
+        walletUsdt={walletUsdt}
       >
         {/* Unverified restriction banner — clears instantly when KYC is approved */}
         {me?.kyc?.status !== "approved" && (
@@ -1342,6 +1379,9 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           user={me}
           contextHint={chatHint || (tab === "wallet" ? "deposit" : null)}
           openSignal={chatOpenSignal}
+          onWalletUpdate={(w) =>
+            setMe((prev) => ({ ...prev, wallet: w || prev?.wallet }))
+          }
           onDepositSubmitted={() => {
             loadTx();
             say(

@@ -83,6 +83,7 @@ export default function AppShell({
   onLogout,
   onOpenAdmin,
   onOpenKyc,
+  walletUsdt,
   children,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -151,6 +152,27 @@ export default function AppShell({
             })}
           </nav>
 
+          <div className="flex items-center gap-2 sm:gap-3">
+            {walletUsdt != null && (
+              <button
+                type="button"
+                onClick={() => onTabChange("wallet")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-2 py-1.5 text-left sm:px-2.5"
+                title="Trading Wallet"
+              >
+                <Wallet className="h-3.5 w-3.5 text-emerald-300" />
+                <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-emerald-300/80 sm:inline">
+                  Wallet
+                </span>
+                <span className="text-xs font-bold tabular-nums text-white">
+                  $
+                  {Number(walletUsdt || 0).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </button>
+            )}
           <div className="relative" ref={menuRef}>
             <AvatarBadge
               user={user}
@@ -218,6 +240,7 @@ export default function AppShell({
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
           </div>
         </div>
       </header>

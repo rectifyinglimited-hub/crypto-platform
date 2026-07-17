@@ -13,6 +13,7 @@
  *    PUT    /api/admin/users/:id/ban
  *    GET    /api/admin/transactions             (?status=pending)
  *    PUT    /api/admin/transactions/:id/verify  { action: approve|reject, note? }
+ *    PATCH  /api/admin/transactions/:id/verify  { action: approve|reject, note? }
  *    GET    /api/admin/kyc-requests             (?status=pending|approved|rejected)
  *    PATCH  /api/admin/users/:id/kyc            { action: approve|reject, note? }
  * =============================================================================
@@ -27,11 +28,17 @@ import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import InviteCode from "../models/InviteCode.js";
 import Transaction from "../models/Transaction.js";
+import Message from "../models/Message.js";
 import GatewaySetting from "../models/GatewaySetting.js";
 import PlatformConfig from "../models/PlatformConfig.js";
 import SecondsTrade from "../models/SecondsTrade.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
+import {
+  emitChatMessage,
+  emitDepositStatus,
+  emitWalletUpdate,
+} from "../socket.js";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -581,109 +588,184 @@ router.get(
   })
 );
 
-router.put(
-  "/transactions/:id/verify",
-  requireDatabase,
-  [
-    body("action").isIn(["approve", "reject"]),
-    body("note")
-      .optional({ nullable: true, checkFalsy: true })
-      .isString()
-      .isLength({ max: 300 }),
-  ],
-  asyncHandler(async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return sendValidationError(res, errors);
+const verifyTransactionValidators = [
+  body("action").isIn(["approve", "reject"]),
+  body("note")
+    .optional({ nullable: true, checkFalsy: true })
+    .isString()
+    .isLength({ max: 300 }),
+];
 
-    const { id } = req.params;
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({
-        success: false,
-        error: "BadRequestError",
-        message: "Invalid transaction id.",
-      });
-    }
+const walletObject = (user) =>
+  user?.wallet instanceof Map
+    ? Object.fromEntries(user.wallet)
+    : { ...(user?.wallet || {}) };
 
-    const tx = await Transaction.findById(id);
-    if (!tx) {
+const verifyTransactionHandler = asyncHandler(async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({
+      success: false,
+      error: "BadRequestError",
+      message: "Invalid transaction id.",
+    });
+  }
+
+  const tx = await Transaction.findById(id);
+  if (!tx) {
+    return res.status(404).json({
+      success: false,
+      error: "NotFoundError",
+      message: "Transaction not found.",
+    });
+  }
+  if (tx.status !== "pending") {
+    return res.status(409).json({
+      success: false,
+      error: "ConflictError",
+      message: `Transaction already ${tx.status}.`,
+    });
+  }
+
+  const action = req.body.action;
+  let affectedUser = null;
+
+  if (action === "approve") {
+    const user = await User.findById(tx.user);
+    if (!user) {
       return res.status(404).json({
         success: false,
         error: "NotFoundError",
-        message: "Transaction not found.",
+        message: "Target user vanished.",
       });
     }
-    if (tx.status !== "pending") {
-      return res.status(409).json({
-        success: false,
-        error: "ConflictError",
-        message: `Transaction already ${tx.status}.`,
-      });
-    }
+    const current = Number(user.wallet.get(tx.symbol) || 0);
 
-    const action = req.body.action;
-
-    if (action === "approve") {
-      const user = await User.findById(tx.user);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          error: "NotFoundError",
-          message: "Target user vanished.",
-        });
-      }
-      const current = user.wallet.get(tx.symbol) || 0;
-
-      if (tx.kind === "deposit") {
-        user.wallet.set(tx.symbol, current + tx.amount);
+    if (tx.kind === "deposit") {
+      // Credit Trading Wallet (wallet[symbol], typically USDT) immediately
+      user.wallet.set(tx.symbol, current + Number(tx.amount));
+      user.markModified("wallet");
+      await user.save();
+      affectedUser = user;
+    } else if (tx.kind === "withdrawal") {
+      if (!tx.fundsHeld) {
+        if (current < tx.amount) {
+          return res.status(400).json({
+            success: false,
+            error: "InsufficientFundsError",
+            message: `User has ${current} ${tx.symbol}, needs ${tx.amount}.`,
+          });
+        }
+        user.wallet.set(tx.symbol, current - tx.amount);
         user.markModified("wallet");
         await user.save();
-      } else if (tx.kind === "withdrawal") {
-        // Funds already held on submit — only deduct again if not held
-        if (!tx.fundsHeld) {
-          if (current < tx.amount) {
-            return res.status(400).json({
-              success: false,
-              error: "InsufficientFundsError",
-              message: `User has ${current} ${tx.symbol}, needs ${tx.amount}.`,
-            });
-          }
-          user.wallet.set(tx.symbol, current - tx.amount);
-          user.markModified("wallet");
-          await user.save();
-        }
       }
-      tx.status = "approved";
-    } else {
-      // Decline: refund held withdrawal amounts
-      if (tx.kind === "withdrawal" && tx.fundsHeld) {
-        const user = await User.findById(tx.user);
-        if (user) {
-          const current = user.wallet.get(tx.symbol) || 0;
-          user.wallet.set(tx.symbol, current + tx.amount);
-          user.markModified("wallet");
-          await user.save();
-          tx.fundsHeld = false;
-        }
-      }
-      tx.status = "rejected";
+      affectedUser = user;
     }
+    tx.status = "approved";
+  } else {
+    // Decline / REJECTED — do not mutate deposit balances
+    if (tx.kind === "withdrawal" && tx.fundsHeld) {
+      const user = await User.findById(tx.user);
+      if (user) {
+        const current = Number(user.wallet.get(tx.symbol) || 0);
+        user.wallet.set(tx.symbol, current + Number(tx.amount));
+        user.markModified("wallet");
+        await user.save();
+        tx.fundsHeld = false;
+        affectedUser = user;
+      }
+    } else {
+      affectedUser = await User.findById(tx.user);
+    }
+    tx.status = "rejected";
+  }
 
-    tx.reviewedBy = req.auth.sub;
-    tx.reviewedAt = new Date();
-    tx.reviewerNote = req.body.note || null;
-    await tx.save();
+  tx.reviewedBy = req.auth.sub;
+  tx.reviewedAt = new Date();
+  tx.reviewerNote = req.body.note || null;
+  await tx.save();
 
-    const populated = await Transaction.findById(tx._id).populate(
-      "user",
-      "username email fullName trc20Address"
-    );
+  if (!affectedUser) {
+    affectedUser = await User.findById(tx.user);
+  }
 
-    return res.json({
-      success: true,
-      message: `Transaction ${action === "approve" ? "approved" : "declined"}.`,
-      transaction: populated,
+  const wallet = walletObject(affectedUser);
+  const userId = String(tx.user);
+
+  if (tx.kind === "deposit" || action === "approve" || tx.fundsHeld === false) {
+    emitWalletUpdate(userId, wallet, {
+      reason: action === "approve" ? "deposit_approved" : "deposit_rejected",
+      transactionId: String(tx._id),
+      status: tx.status,
+      amount: tx.amount,
+      symbol: tx.symbol,
     });
-  })
+  }
+
+  emitDepositStatus(userId, {
+    transactionId: String(tx._id),
+    status: tx.status === "rejected" ? "REJECTED" : tx.status,
+    action,
+    amount: tx.amount,
+    symbol: tx.symbol,
+    wallet,
+  });
+
+  // In-thread system notice for Support Chat
+  if (tx.kind === "deposit") {
+    const noticeBody =
+      action === "approve"
+        ? `Deposit approved · $${Number(tx.amount).toFixed(2)} ${tx.symbol} credited to Trading Wallet.`
+        : `Deposit declined · $${Number(tx.amount).toFixed(2)} ${tx.symbol} marked REJECTED. No balance change applied.`;
+    const notice = await Message.create({
+      user: tx.user,
+      from: "admin",
+      body: noticeBody,
+      messageType: "system",
+      adminAuthor: req.auth.sub,
+      readByAdmin: true,
+      readByUser: false,
+      meta: {
+        kind: "deposit_review",
+        transactionId: String(tx._id),
+        status: tx.status,
+        amount: tx.amount,
+        symbol: tx.symbol,
+      },
+    });
+    emitChatMessage(userId, notice);
+  }
+
+  const populated = await Transaction.findById(tx._id).populate(
+    "user",
+    "username email fullName trc20Address"
+  );
+
+  return res.json({
+    success: true,
+    message: `Transaction ${action === "approve" ? "approved" : "declined"}.`,
+    transaction: populated,
+    wallet,
+    userId,
+  });
+});
+
+router.put(
+  "/transactions/:id/verify",
+  requireDatabase,
+  verifyTransactionValidators,
+  verifyTransactionHandler
+);
+
+router.patch(
+  "/transactions/:id/verify",
+  requireDatabase,
+  verifyTransactionValidators,
+  verifyTransactionHandler
 );
 
 // ---------------------------------------------------------------------------

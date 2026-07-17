@@ -1,7 +1,6 @@
 /**
- * Live support chat with automated menu:
- *   Customer Service | Deposit | Information
- * Deposit flow shows admin TRC-20 address + screenshot proof upload.
+ * Live support chat — Secure Payment Verification Channel.
+ * Deposit flow shows official TRC-20 address + receipt attachment upload.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -26,9 +25,14 @@ import {
   WalletAPI,
   assetUrl,
 } from "../lib/api.js";
+import { getSocket, onSocketEvent } from "../lib/socket.js";
 
-const POLL_MS = 4000;
+const POLL_MS = 8000;
 const OPEN_KEY = "nexus_chat_open";
+
+const VERIFICATION_HEADER = "Secure Payment Verification Channel";
+const VERIFICATION_INSTRUCTIONS =
+  "Please review the official TRC-20 settlement address below. Once your external transfer is complete, attach a clear photographic transaction receipt or hash snapshot using the attachment utility below for management validation.";
 
 const timeAgo = (iso) => {
   const t = new Date(iso).getTime();
@@ -60,11 +64,44 @@ const MENU_OPTIONS = [
   },
 ];
 
+const isPlaceholderMedia = (m) => {
+  const hay = `${m?.attachmentUrl || ""} ${m?.body || ""}`;
+  return /delta.?force|unsplash|picsum|placeholder|combat|banner/i.test(hay);
+};
+
+const mergeMessages = (prev, incoming) => {
+  if (!incoming) return prev;
+  const list = Array.isArray(incoming) ? incoming : [incoming];
+  const map = new Map();
+  for (const m of prev) {
+    if (m?._id) map.set(String(m._id), m);
+  }
+  for (const m of list) {
+    if (!m?._id || isPlaceholderMedia(m)) continue;
+    map.set(String(m._id), {
+      ...m,
+      attachmentUrl: isPlaceholderMedia(m) ? null : m.attachmentUrl,
+    });
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+  );
+};
+
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read image file."));
+    reader.readAsDataURL(file);
+  });
+
 export default function LiveChatWidget({
   user,
   contextHint,
   openSignal = 0,
   onDepositSubmitted,
+  onWalletUpdate,
 }) {
   const userId = user?._id || user?.id;
 
@@ -86,7 +123,6 @@ export default function LiveChatWidget({
   const [submittingProof, setSubmittingProof] = useState(false);
   const [statusBanner, setStatusBanner] = useState(null);
   const listRef = useRef(null);
-  const lastCountRef = useRef(0);
   const lastOpenSignal = useRef(0);
   const fileRef = useRef(null);
   const attachRef = useRef(null);
@@ -117,9 +153,8 @@ export default function LiveChatWidget({
     if (!userId) return;
     try {
       const res = await ChatAPI.history(userId);
-      const list = res.messages || [];
+      const list = (res.messages || []).filter((m) => !isPlaceholderMedia(m));
       setMessages(list);
-      lastCountRef.current = list.length;
     } catch {
       /* silent */
     }
@@ -129,10 +164,47 @@ export default function LiveChatWidget({
     if (!open || !userId) return;
     load();
     ChatAPI.markRead().catch(() => {});
+    getSocket();
     const id = setInterval(load, POLL_MS);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, userId]);
+
+  // Live socket: new messages + deposit status
+  useEffect(() => {
+    if (!userId) return;
+    getSocket();
+    const offMsg = onSocketEvent("chat:message", (payload) => {
+      if (!payload?.message) return;
+      if (payload.userId && String(payload.userId) !== String(userId)) return;
+      if (isPlaceholderMedia(payload.message)) return;
+      setMessages((prev) => mergeMessages(prev, payload.message));
+      if (open) ChatAPI.markRead().catch(() => {});
+    });
+    const offDeposit = onSocketEvent("deposit:status", (payload) => {
+      if (payload?.userId && String(payload.userId) !== String(userId)) return;
+      if (payload?.wallet) onWalletUpdate?.(payload.wallet);
+      const status = String(payload?.status || "").toUpperCase();
+      if (status === "APPROVED" || payload?.action === "approve") {
+        setStatusBanner(
+          `Deposit approved — $${Number(payload.amount || 0).toFixed(2)} credited to Trading Wallet.`
+        );
+      } else if (status === "REJECTED" || payload?.action === "reject") {
+        setStatusBanner(
+          "Deposit marked REJECTED. No balance change was applied."
+        );
+      }
+    });
+    const offWallet = onSocketEvent("wallet:update", (payload) => {
+      if (payload?.userId && String(payload.userId) !== String(userId)) return;
+      if (payload?.wallet) onWalletUpdate?.(payload.wallet);
+    });
+    return () => {
+      offMsg();
+      offDeposit();
+      offWallet();
+    };
+  }, [userId, open, onWalletUpdate]);
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -146,7 +218,9 @@ export default function LiveChatWidget({
       try {
         const res = await ChatAPI.history(userId);
         const list = res.messages || [];
-        setUnread(list.filter((m) => m.from === "admin" && !m.readByUser).length);
+        setUnread(
+          list.filter((m) => m.from === "admin" && !m.readByUser).length
+        );
       } catch {
         /* ignore */
       }
@@ -173,7 +247,7 @@ export default function LiveChatWidget({
       try {
         const res = await ChatAPI.depositDetails();
         if (res.message) {
-          setMessages((prev) => [...prev, res.message]);
+          setMessages((prev) => mergeMessages(prev, res.message));
         }
         if (res.settings) setGateway(res.settings);
       } catch {
@@ -187,7 +261,7 @@ export default function LiveChatWidget({
           : "I need Information about the platform.";
       try {
         const res = await ChatAPI.send({ body: text });
-        setMessages((prev) => [...prev, res.message]);
+        setMessages((prev) => mergeMessages(prev, res.message));
       } catch {
         /* ignore */
       }
@@ -199,7 +273,7 @@ export default function LiveChatWidget({
     if (!addr) return;
     try {
       await navigator.clipboard.writeText(addr);
-      setStatusBanner("Deposit address copied.");
+      setStatusBanner("Settlement address copied.");
     } catch {
       setStatusBanner("Could not copy — select the address manually.");
     }
@@ -220,7 +294,7 @@ export default function LiveChatWidget({
       return;
     }
     if (!proofFile) {
-      setStatusBanner("Upload a screenshot of your transfer.");
+      setStatusBanner("Attach a clear photographic transaction receipt.");
       return;
     }
     setSubmittingProof(true);
@@ -233,7 +307,7 @@ export default function LiveChatWidget({
       fd.append("proof", proofFile);
       const res = await WalletAPI.depositProof(fd);
       if (res.chatMessage) {
-        setMessages((prev) => [...prev, res.chatMessage]);
+        setMessages((prev) => mergeMessages(prev, res.chatMessage));
       }
       setDepositAmount("");
       setProofFile(null);
@@ -257,11 +331,46 @@ export default function LiveChatWidget({
     setSending(true);
     try {
       const res = await ChatAPI.send({ body });
-      setMessages((prev) => [...prev, res.message]);
-      lastCountRef.current += 1;
+      setMessages((prev) => mergeMessages(prev, res.message));
       setDraft("");
-    } catch {
-      /* silent */
+    } catch (err) {
+      setStatusBanner(err?.message || "Message failed to send.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleAttachImage = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f || sending) return;
+    if (!f.type?.startsWith("image/")) {
+      setStatusBanner("Only image receipts are accepted.");
+      return;
+    }
+    setSending(true);
+    setStatusBanner(null);
+    try {
+      const fd = new FormData();
+      fd.append("image", f);
+      if (draft.trim()) fd.append("body", draft.trim());
+      let res;
+      try {
+        res = await ChatAPI.uploadImage(fd);
+      } catch {
+        // Fallback: base64 payload if multipart parsing fails upstream
+        const dataUrl = await fileToDataUrl(f);
+        res = await ChatAPI.uploadImageBase64({
+          image: dataUrl,
+          body: draft.trim() || undefined,
+        });
+      }
+      if (res?.message) {
+        setMessages((prev) => mergeMessages(prev, res.message));
+        setDraft("");
+      }
+    } catch (err) {
+      setStatusBanner(err?.message || "Image upload failed. Try again.");
     } finally {
       setSending(false);
     }
@@ -289,9 +398,11 @@ export default function LiveChatWidget({
                   <ShieldCheck className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold">Live Chat Support</div>
+                  <div className="text-sm font-semibold leading-tight">
+                    {VERIFICATION_HEADER}
+                  </div>
                   <div className="text-[10px] uppercase tracking-widest text-slate-400">
-                    Online · Secure channel
+                    Online · Encrypted channel
                   </div>
                 </div>
               </div>
@@ -308,7 +419,6 @@ export default function LiveChatWidget({
               ref={listRef}
               className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
             >
-              {/* Automated selection menu */}
               {menuStep === "menu" && (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-xs font-semibold text-slate-100">
@@ -337,7 +447,7 @@ export default function LiveChatWidget({
                 <div className="space-y-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/5 p-3">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-semibold text-emerald-200">
-                      Deposit · USDT TRC-20
+                      {VERIFICATION_HEADER}
                     </div>
                     <button
                       type="button"
@@ -347,13 +457,12 @@ export default function LiveChatWidget({
                       Menu
                     </button>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Send USDT to the admin wallet below, then upload your
-                    transfer screenshot for approval.
+                  <p className="text-[11px] leading-relaxed text-slate-400">
+                    {VERIFICATION_INSTRUCTIONS}
                   </p>
                   <div className="rounded-xl border border-white/10 bg-black/30 p-3">
                     <div className="text-[10px] uppercase tracking-wider text-slate-500">
-                      Admin deposit address
+                      Official TRC-20 settlement address
                     </div>
                     {depositAddr ? (
                       <div className="mt-1 flex items-start gap-2">
@@ -393,7 +502,7 @@ export default function LiveChatWidget({
 
                   <div>
                     <label className="text-[10px] uppercase tracking-wider text-slate-500">
-                      Screenshot proof
+                      Transaction receipt
                     </label>
                     <input
                       ref={fileRef}
@@ -408,7 +517,7 @@ export default function LiveChatWidget({
                       className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.03] py-3 text-xs text-slate-300 hover:border-emerald-400/40"
                     >
                       <Upload className="h-3.5 w-3.5" />
-                      {proofFile ? proofFile.name : "Upload payment screenshot"}
+                      {proofFile ? proofFile.name : "Attach receipt / hash snapshot"}
                     </button>
                     {proofPreview && (
                       <img
@@ -433,7 +542,7 @@ export default function LiveChatWidget({
                     ) : (
                       <>
                         <ImageIcon className="h-3.5 w-3.5" /> Submit for
-                        verification
+                        validation
                       </>
                     )}
                   </button>
@@ -477,7 +586,7 @@ export default function LiveChatWidget({
                       <div className="whitespace-pre-wrap break-words">
                         {m.body}
                       </div>
-                      {m.attachmentUrl && (
+                      {m.attachmentUrl && !isPlaceholderMedia(m) && (
                         <a
                           href={assetUrl(m.attachmentUrl)}
                           target="_blank"
@@ -515,31 +624,14 @@ export default function LiveChatWidget({
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  e.target.value = "";
-                  if (!f || sending) return;
-                  setSending(true);
-                  try {
-                    const fd = new FormData();
-                    fd.append("image", f);
-                    if (draft.trim()) fd.append("body", draft.trim());
-                    const res = await ChatAPI.uploadImage(fd);
-                    setMessages((prev) => [...prev, res.message]);
-                    setDraft("");
-                  } catch {
-                    /* ignore */
-                  } finally {
-                    setSending(false);
-                  }
-                }}
+                onChange={handleAttachImage}
               />
               <button
                 type="button"
                 onClick={() => attachRef.current?.click()}
                 disabled={sending}
                 className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-slate-300 disabled:opacity-50"
-                title="Send image"
+                title="Attach receipt image"
               >
                 <Upload className="h-4 w-4" />
               </button>

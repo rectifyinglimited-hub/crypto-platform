@@ -2,21 +2,32 @@
  * =============================================================================
  *  NEXUS BACKEND — routes/chat.js
  * =============================================================================
- *  Chat between users and admin support (text + images).
+ *  Chat between users and admin support (text + images + deposit verification).
  * =============================================================================
  */
 
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
 import mongoose from "mongoose";
+import fs from "node:fs";
+import path from "node:path";
 
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import GatewaySetting from "../models/GatewaySetting.js";
 import { requireAuth } from "../middleware/auth.js";
-import { uploadProof, proofPublicUrl } from "../middleware/upload.js";
+import {
+  uploadProof,
+  proofPublicUrl,
+  UPLOADS_DIR,
+} from "../middleware/upload.js";
+import { emitChatMessage } from "../socket.js";
 
 const router = Router();
+
+const VERIFICATION_HEADER = "Secure Payment Verification Channel";
+const VERIFICATION_INSTRUCTIONS =
+  "Please review the official TRC-20 settlement address below. Once your external transfer is complete, attach a clear photographic transaction receipt or hash snapshot using the attachment utility below for management validation.";
 
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -44,9 +55,65 @@ const requireDatabase = (_req, res, next) => {
 };
 
 async function resolveSender(req) {
-  const dbUser = await User.findById(req.auth.sub).select("role deletedAt banned");
+  const dbUser = await User.findById(req.auth.sub).select(
+    "role deletedAt banned"
+  );
   const isAdmin = dbUser?.role === "admin";
   return { isAdmin, dbUser };
+}
+
+function persistBase64Image(dataUrl) {
+  const match = String(dataUrl || "").match(
+    /^data:(image\/(?:png|jpe?g|webp|gif));base64,([A-Za-z0-9+/=\s]+)$/i
+  );
+  if (!match) {
+    const err = new Error(
+      "Invalid image payload. Use a PNG, JPEG, WEBP, or GIF data URL."
+    );
+    err.status = 422;
+    throw err;
+  }
+  const mime = match[1].toLowerCase();
+  const ext =
+    mime.includes("png")
+      ? ".png"
+      : mime.includes("webp")
+        ? ".webp"
+        : mime.includes("gif")
+          ? ".gif"
+          : ".jpg";
+  const buffer = Buffer.from(match[2].replace(/\s+/g, ""), "base64");
+  if (!buffer.length || buffer.length > 6 * 1024 * 1024) {
+    const err = new Error("Image must be under 6MB.");
+    err.status = 422;
+    throw err;
+  }
+  const filename = `proof-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}${ext}`;
+  fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer);
+  return proofPublicUrl(filename);
+}
+
+async function createAttachmentMessage({
+  threadUserId,
+  from,
+  adminAuthor,
+  caption,
+  attachmentUrl,
+}) {
+  const msg = await Message.create({
+    user: threadUserId,
+    from,
+    body: caption || "Transaction receipt attached",
+    messageType: "text",
+    attachmentUrl,
+    adminAuthor,
+    readByAdmin: from === "admin",
+    readByUser: from === "user",
+  });
+  emitChatMessage(threadUserId, msg);
+  return msg;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,18 +181,27 @@ router.post(
       readByUser: from === "user",
     });
 
+    emitChatMessage(threadUserId, msg);
     return res.status(201).json({ success: true, message: msg });
   })
 );
 
 // ---------------------------------------------------------------------------
-// POST /upload — text optional + image (user or admin)
+// POST /upload — multipart image (field: image) + optional caption
 // ---------------------------------------------------------------------------
 router.post(
   "/upload",
   requireAuth,
   requireDatabase,
   (req, res, next) => {
+    // JSON base64 path (no multipart)
+    if (
+      req.is("application/json") &&
+      typeof req.body?.image === "string" &&
+      req.body.image.startsWith("data:image/")
+    ) {
+      return next();
+    }
     uploadProof.single("image")(req, res, (err) => {
       if (err) {
         return res.status(422).json({
@@ -138,14 +214,6 @@ router.post(
     });
   },
   asyncHandler(async (req, res) => {
-    if (!req.file) {
-      return res.status(422).json({
-        success: false,
-        error: "ValidationError",
-        message: "Choose an image to upload.",
-      });
-    }
-
     const { isAdmin } = await resolveSender(req);
     let threadUserId;
     let from;
@@ -167,18 +235,32 @@ router.post(
       from = "user";
     }
 
-    const caption = (req.body.body || "").toString().trim() || "📷 Image";
-    const attachmentUrl = proofPublicUrl(req.file.filename);
+    let attachmentUrl = null;
+    if (req.file) {
+      attachmentUrl = proofPublicUrl(req.file.filename);
+    } else if (
+      typeof req.body?.image === "string" &&
+      req.body.image.startsWith("data:image/")
+    ) {
+      attachmentUrl = persistBase64Image(req.body.image);
+    } else {
+      return res.status(422).json({
+        success: false,
+        error: "ValidationError",
+        message: "Choose an image to upload.",
+      });
+    }
 
-    const msg = await Message.create({
-      user: threadUserId,
+    const caption =
+      (req.body.body || "").toString().trim() ||
+      "Transaction receipt attached";
+
+    const msg = await createAttachmentMessage({
+      threadUserId,
       from,
-      body: caption,
-      messageType: "text",
-      attachmentUrl,
       adminAuthor,
-      readByAdmin: from === "admin",
-      readByUser: from === "user",
+      caption,
+      attachmentUrl,
     });
 
     return res.status(201).json({ success: true, message: msg });
@@ -211,36 +293,22 @@ router.post(
     }
 
     const gw = await GatewaySetting.getSingleton();
-    const lines = ["💳 Deposit details (from Admin Gateway Settings)", ""];
+    const lines = [VERIFICATION_HEADER, "", VERIFICATION_INSTRUCTIONS, ""];
+
     if (gw.usdtTrc20Address) {
-      lines.push(`USDT TRC-20:\n${gw.usdtTrc20Address}`);
+      lines.push(`Official TRC-20 settlement address:\n${gw.usdtTrc20Address}`);
+    } else {
+      lines.push(
+        "Official TRC-20 settlement address is not configured yet. An administrator will provide it shortly."
+      );
     }
+
     if (gw.usdtErc20Address) {
-      lines.push(`USDT ERC-20:\n${gw.usdtErc20Address}`);
+      lines.push(`\nUSDT ERC-20 (secondary):\n${gw.usdtErc20Address}`);
     }
-    if (gw.bankName || gw.accountNumber) {
-      lines.push(
-        `Bank: ${gw.bankName || "—"} · ${gw.accountTitle || ""} · ${
-          gw.accountNumber || ""
-        }`
-      );
+    if (gw.instructions) {
+      lines.push(`\nAdditional settlement notes:\n${gw.instructions}`);
     }
-    if (gw.easyPaisaNumber) lines.push(`EasyPaisa: ${gw.easyPaisaNumber}`);
-    if (gw.jazzCashNumber) lines.push(`JazzCash: ${gw.jazzCashNumber}`);
-    if (gw.instructions) lines.push(`\n${gw.instructions}`);
-    if (
-      !gw.usdtTrc20Address &&
-      !gw.usdtErc20Address &&
-      !gw.accountNumber &&
-      !gw.easyPaisaNumber
-    ) {
-      lines.push(
-        "No deposit rails configured yet. Admin: open Gateway Settings and save USDT TRC-20 address."
-      );
-    }
-    lines.push(
-      "\nAfter transfer, upload your payment screenshot here for approval."
-    );
 
     const msg = await Message.create({
       user: threadUserId,
@@ -255,6 +323,8 @@ router.post(
         usdtTrc20Address: gw.usdtTrc20Address || null,
       },
     });
+
+    emitChatMessage(threadUserId, msg);
 
     return res.status(201).json({
       success: true,
@@ -297,7 +367,23 @@ router.get(
       .sort({ createdAt: 1 })
       .lean();
 
-    return res.json({ success: true, messages });
+    // Strip legacy placeholder / non-local decorative media from history
+    const cleaned = messages.map((m) => {
+      const url = m.attachmentUrl || "";
+      const isLocalUpload =
+        typeof url === "string" &&
+        (url.startsWith("/uploads/") || url.startsWith("data:image/"));
+      const looksLikePlaceholder =
+        /delta.?force|unsplash|picsum|placeholder|combat|banner/i.test(
+          `${url} ${m.body || ""}`
+        );
+      if (url && (!isLocalUpload || looksLikePlaceholder)) {
+        return { ...m, attachmentUrl: null };
+      }
+      return m;
+    });
+
+    return res.json({ success: true, messages: cleaned });
   })
 );
 

@@ -21,6 +21,7 @@ import Transaction from "../models/Transaction.js";
 import Message from "../models/Message.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uploadProof, proofPublicUrl } from "../middleware/upload.js";
+import { emitChatMessage } from "../socket.js";
 
 const router = Router();
 
@@ -171,13 +172,15 @@ router.post(
     const msg = await Message.create({
       user: req.auth.sub,
       from: "user",
-      body: `Deposit proof submitted · $${amount.toFixed(2)} ${symbol} (${network})\nStatus: Pending Verification / Awaiting Admin Approval`,
+      body: `Settlement receipt submitted · $${amount.toFixed(2)} ${symbol} (${network})\nStatus: Pending Verification / Awaiting Admin Approval`,
       messageType: "deposit_proof",
       attachmentUrl: proofUrl,
       meta: { transactionId: tx._id.toString(), amount, symbol, network },
       readByAdmin: false,
       readByUser: true,
     });
+
+    emitChatMessage(req.auth.sub, msg);
 
     return res.status(201).json({
       success: true,

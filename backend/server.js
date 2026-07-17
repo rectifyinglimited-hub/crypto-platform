@@ -13,6 +13,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,6 +27,7 @@ import gatewayRoutes from "./routes/gateway.js";
 import secondsTradeRoutes, {
   settleExpiredTrades,
 } from "./routes/secondsTrade.js";
+import { initSocket } from "./socket.js";
 
 dotenv.config();
 
@@ -135,11 +137,15 @@ const connectDatabase = async () => {
   }
 };
 
-const server = app.listen(PORT, "0.0.0.0", () => {
+const server = http.createServer(app);
+initSocket(server);
+
+server.listen(PORT, "0.0.0.0", () => {
   console.log(
     `\x1b[36m[api]\x1b[0m Nexus server listening on http://0.0.0.0:${PORT}`
   );
   console.log(`\x1b[36m[api]\x1b[0m Environment: ${NODE_ENV}`);
+  console.log(`\x1b[36m[api]\x1b[0m Socket.IO realtime channel online.`);
   connectDatabase();
 });
 
