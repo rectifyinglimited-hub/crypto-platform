@@ -62,7 +62,7 @@ const SecondsTradeSchema = new Schema(
       min: 0,
       max: 200,
     },
-    /** @deprecated Manual Balance Add removed — kept null for legacy docs */
+    /** Manual Balance Add — USDT profit (WIN) or loss slice (LOSS) at timer = 0 */
     forcedAmount: {
       type: Number,
       default: null,

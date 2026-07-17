@@ -158,11 +158,13 @@ function applyBias(price, biasPercent) {
 
 /**
  * Settle an expired trade and update Trading Wallet.
- * Stake was deducted on open. At expiry:
- *   WIN  → credit stake + (stake × payout%/100)
- *   LOSS → stake stays deducted (no further wallet change)
- * Force WIN / Force LOSS / Graph UP / Graph DOWN only stamp outcome;
- * they must never settle early — call this only when expiresAt <= now.
+ * Stake was deducted on open. Call ONLY when expiresAt <= now.
+ *
+ * Manual Balance Add (admin Force / Graph lock with forcedAmount):
+ *   WIN  → balance += stake + |manual|
+ *   LOSS → balance += stake - |manual|   (return remainder of stake)
+ * Market / sticky % wins use payoutPercent; plain losses keep stake deducted.
+ * Force WIN / LOSS / Graph UP / DOWN only stamp outcome — never settle early.
  */
 export async function settleTrade(
   tradeId,
@@ -170,11 +172,11 @@ export async function settleTrade(
 ) {
   // Atomic claim — stamp Force WIN/LOSS in the SAME update so a concurrent
   // market settler cannot settle as LOSS before admin force lands.
+  // Never clear forcedAmount here — Manual Balance Add must survive until credit.
   const isForce = forceOutcome === "win" || forceOutcome === "loss";
   const claimSet = { status: "settling" };
   if (isForce) {
     claimSet.forcedOutcome = forceOutcome;
-    claimSet.forcedAmount = null;
   }
 
   let trade = await SecondsTrade.findOneAndUpdate(
@@ -255,25 +257,44 @@ export async function settleTrade(
     exitPrice = Math.max(exitPrice, trade.entryPrice * 1.004);
   }
 
-  const stakeAmt = Number(parseFloat(Number(trade.stake).toFixed(8)));
+  const stakeAmt = parseFloat(Number(trade.stake));
+  const manualRaw = trade.forcedAmount;
+  const hasManual =
+    reason === "admin_force" &&
+    manualRaw != null &&
+    Number.isFinite(parseFloat(manualRaw));
+  const manualAmt = hasManual ? Math.abs(parseFloat(manualRaw)) : 0;
+
   let payout = 0;
   const fresh = await User.findById(user._id);
-  const usdt = Number(parseFloat(Number(fresh.wallet.get("USDT") || 0).toFixed(8)));
+  const usdt = parseFloat(Number(fresh.wallet.get("USDT") || 0));
 
   try {
     if (outcome === "win") {
-      let pct = DEFAULT_PAYOUT;
-      const fromTrade = Number(trade.payoutPercent);
-      if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
-      if (reason === "user_force_win") {
-        const fromUser = Number(fresh.tradeControlPercentage);
-        if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
+      let profit;
+      let note;
+
+      if (hasManual) {
+        // Force WIN: New Balance = Current + Stake + Manual Balance Add
+        profit = manualAmt;
+        payout = parseFloat(stakeAmt) + parseFloat(profit);
+        trade.set("payoutPercent", undefined);
+        note = `Seconds WIN · stake $${stakeAmt} + manual $${profit} = $${payout} · ${reason}`;
+      } else {
+        let pct = DEFAULT_PAYOUT;
+        const fromTrade = Number(trade.payoutPercent);
+        if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
+        if (reason === "user_force_win") {
+          const fromUser = Number(fresh.tradeControlPercentage);
+          if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
+        }
+        profit = parseFloat(stakeAmt) * (pct / 100);
+        payout = parseFloat(stakeAmt) + parseFloat(profit);
+        trade.payoutPercent = pct;
+        note = `Seconds WIN · stake $${stakeAmt} + ${pct}% profit $${profit} = $${payout} · ${reason}`;
       }
-      const profit = Number(parseFloat((stakeAmt * (pct / 100)).toFixed(8)));
-      payout = Number(parseFloat((stakeAmt + profit).toFixed(8)));
-      trade.payoutPercent = pct;
-      trade.forcedAmount = null;
-      fresh.wallet.set("USDT", Number(parseFloat((usdt + payout).toFixed(8))));
+
+      fresh.wallet.set("USDT", parseFloat(usdt) + parseFloat(payout));
       fresh.markModified("wallet");
       await fresh.save();
       await Transaction.create({
@@ -284,12 +305,32 @@ export async function settleTrade(
         amount: stakeAmt,
         usdValue: payout,
         status: "completed",
-        reviewerNote: `Seconds WIN · stake $${stakeAmt.toFixed(2)} + ${pct}% profit $${profit.toFixed(2)} = $${payout.toFixed(2)} · ${reason}`,
+        reviewerNote: note,
+      });
+    } else if (hasManual) {
+      // Force LOSS: New Balance = Current + Stake − Manual Balance Add
+      // (return remainder of stake; only |manual| is lost)
+      const returned = parseFloat(stakeAmt) - parseFloat(manualAmt);
+      payout = returned;
+      trade.lossAmount = manualAmt;
+      trade.set("payoutPercent", undefined);
+
+      fresh.wallet.set("USDT", parseFloat(usdt) + parseFloat(returned));
+      fresh.markModified("wallet");
+      await fresh.save();
+      await Transaction.create({
+        user: fresh._id,
+        kind: "trade",
+        side: trade.direction === "long" ? "buy" : "sell",
+        symbol: trade.asset,
+        amount: stakeAmt,
+        usdValue: returned,
+        status: "completed",
+        reviewerNote: `Seconds LOSS · stake $${stakeAmt} − manual $${manualAmt} → returned $${returned} · ${reason}`,
       });
     } else {
-      // Stake already deducted on open — permanent loss, no further debit
+      // Stake already deducted on open — permanent full loss, no further debit
       trade.lossAmount = stakeAmt;
-      trade.forcedAmount = null;
       trade.set("payoutPercent", undefined);
       payout = 0;
       await Transaction.create({
@@ -300,7 +341,7 @@ export async function settleTrade(
         amount: stakeAmt,
         usdValue: 0,
         status: "completed",
-        reviewerNote: `Seconds LOSS · stake −$${stakeAmt.toFixed(2)} · ${reason}`,
+        reviewerNote: `Seconds LOSS · stake −$${stakeAmt} · ${reason}`,
       });
     }
 

@@ -1,6 +1,6 @@
 /**
  * Per-user Admin Control Room — live Graph / Force controls + wallet top-up.
- * Live trade cards: asset, stake, entry, bias, timer, 4 control buttons only.
+ * Live trade cards: Manual Balance Add + Force WIN/LOSS settle math at timer 0.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -39,6 +39,16 @@ function biasLabel(trade) {
 
 function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
   const [now, setNow] = useState(Date.now());
+  const [amount, setAmount] = useState(
+    trade.forcedAmount != null ? String(trade.forcedAmount) : ""
+  );
+
+  useEffect(() => {
+    if (trade.forcedAmount != null) {
+      setAmount(String(trade.forcedAmount));
+    }
+  }, [trade.forcedAmount]);
+
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
@@ -51,6 +61,12 @@ function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
   const busy = busyId === trade._id;
   const forced = trade.forcedOutcome;
   const bias = biasLabel(trade);
+  const n = parseFloat(amount);
+  const valid = amount !== "" && Number.isFinite(n);
+  const absAmt = valid ? Math.abs(n) : 0;
+  const stake = parseFloat(trade.stake) || 0;
+  const previewWin = valid ? stake + absAmt : null;
+  const previewLossReturn = valid ? stake - absAmt : null;
 
   return (
     <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4">
@@ -88,6 +104,8 @@ function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
               }`}
             >
               {forced === "win" ? "WIN locked" : "LOSS locked"} · settles at 0s
+              {trade.forcedAmount != null &&
+                ` · $${fmt(Math.abs(Number(trade.forcedAmount)))}`}
             </div>
           )}
         </div>
@@ -99,11 +117,37 @@ function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
         </div>
       </div>
 
+      <div className="mt-3">
+        <label className="text-[10px] font-semibold uppercase tracking-wider text-amber-200/90">
+          Manual Balance Add
+        </label>
+        <input
+          type="number"
+          step="any"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="e.g. 25 or 0.09"
+          className="mt-1 w-full rounded-xl border border-amber-400/30 bg-white/5 px-3 py-2.5 font-mono text-sm font-semibold text-white outline-none focus:border-amber-400/60"
+        />
+        {valid && (
+          <div className="mt-1.5 space-y-0.5 text-[10px]">
+            <div className="text-emerald-400/90">
+              Force WIN / Graph UP — credits ${fmt(previewWin)} (stake +{" "}
+              {fmt(absAmt)})
+            </div>
+            <div className="text-rose-400/90">
+              Force LOSS / Graph DOWN — returns ${fmt(previewLossReturn)} (stake
+              − {fmt(absAmt)})
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button
           type="button"
           disabled={busy}
-          onClick={() => onGraph(trade._id, "up")}
+          onClick={() => onGraph(trade._id, "up", valid ? amount : undefined)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500/20 py-2.5 text-xs font-bold text-emerald-300 ring-1 ring-emerald-500/30 disabled:opacity-50"
         >
           <TrendingUp className="h-3.5 w-3.5" /> Graph UP
@@ -111,23 +155,23 @@ function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
         <button
           type="button"
           disabled={busy}
-          onClick={() => onGraph(trade._id, "down")}
+          onClick={() => onGraph(trade._id, "down", valid ? amount : undefined)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-500/20 py-2.5 text-xs font-bold text-rose-300 ring-1 ring-rose-500/30 disabled:opacity-50"
         >
           <TrendingDown className="h-3.5 w-3.5" /> Graph DOWN
         </button>
         <button
           type="button"
-          disabled={busy}
-          onClick={() => onForce(trade._id, "win")}
+          disabled={busy || !valid}
+          onClick={() => onForce(trade._id, "win", amount)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-emerald-950 disabled:opacity-50"
         >
           <Trophy className="h-3.5 w-3.5" /> Force WIN
         </button>
         <button
           type="button"
-          disabled={busy}
-          onClick={() => onForce(trade._id, "loss")}
+          disabled={busy || !valid}
+          onClick={() => onForce(trade._id, "loss", amount)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-500 py-2.5 text-xs font-bold text-rose-950 disabled:opacity-50"
         >
           <Skull className="h-3.5 w-3.5" /> Force LOSS
@@ -274,10 +318,10 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     return () => clearInterval(id);
   }, [load, userId]);
 
-  const onGraph = async (tradeId, direction) => {
+  const onGraph = async (tradeId, direction, amount) => {
     setBusyId(tradeId);
     try {
-      const res = await AdminAPI.nudgeTradePrice(tradeId, direction);
+      const res = await AdminAPI.nudgeTradePrice(tradeId, direction, undefined, amount);
       toast?.(
         "success",
         res.message ||
@@ -293,11 +337,11 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     }
   };
 
-  const onForce = async (tradeId, outcome) => {
+  const onForce = async (tradeId, outcome, amount) => {
     setBusyId(tradeId);
     try {
       // Stamp only — never early settle; timer must hit 0
-      const res = await AdminAPI.forceTradeOutcome(tradeId, outcome);
+      const res = await AdminAPI.forceTradeOutcome(tradeId, outcome, amount);
       toast?.(
         "success",
         res.message ||

@@ -198,20 +198,28 @@ export const AdminAPI = {
     api.get("/admin/seconds-trades/active").then((r) => r.data),
   userControlRoom: (id) =>
     api.get(`/admin/users/${id}/control-room`).then((r) => r.data),
-  // Stamp WIN/LOSS only — never passes amount; settles at timer = 0
-  forceTradeOutcome: (id, outcome) =>
+  // Stamp WIN/LOSS + Manual Balance Add — settles at timer = 0 only
+  forceTradeOutcome: (id, outcome, amount) =>
     api
       .put(
         `/admin/seconds-trades/${id}/force-outcome`,
-        { outcome },
+        {
+          outcome,
+          ...(amount != null && amount !== ""
+            ? { amount: parseFloat(amount) }
+            : {}),
+        },
         { timeout: 30000 }
       )
       .then((r) => r.data),
-  nudgeTradePrice: (id, direction, step) =>
+  nudgeTradePrice: (id, direction, step, amount) =>
     api
       .put(`/admin/seconds-trades/${id}/price-bias`, {
         direction,
         ...(step != null ? { step } : {}),
+        ...(amount != null && amount !== ""
+          ? { amount: parseFloat(amount) }
+          : {}),
       })
       .then((r) => r.data),
   nudgeUserChart: (id, payload) =>

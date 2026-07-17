@@ -219,8 +219,8 @@ export default function SecondsTrading({
         onToast?.(
           res.trade?.status === "won" ? "success" : "error",
           res.trade?.status === "won"
-            ? `Won · +$${formatUsd(Math.max(0, res.trade.payout - res.trade.stake))}`
-            : `Lost $${formatUsd(res.trade.stake)}`
+            ? `Won · +$${formatUsd(Math.max(0, (res.trade.payout || 0) - (res.trade.stake || 0)))}`
+            : `Lost $${formatUsd(res.trade.lossAmount ?? res.trade.stake)}`
         );
         await loadActive();
       } catch {

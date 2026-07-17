@@ -882,7 +882,7 @@ router.get(
   })
 );
 
-// PUT /seconds-trades/:id/force-outcome — stamp WIN/LOSS only (NO early settle)
+// PUT /seconds-trades/:id/force-outcome — stamp WIN/LOSS + Manual Balance Add
 // Trade always runs full duration; settlement happens at timer = 0 only.
 router.put(
   "/seconds-trades/:id/force-outcome",
@@ -891,6 +891,7 @@ router.put(
     body("outcome")
       .isIn(["win", "loss", "clear"])
       .withMessage("outcome must be win, loss, or clear."),
+    body("amount").optional({ nullable: true }).isFloat(),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -939,8 +940,18 @@ router.put(
       });
     }
 
+    const rawAmt = req.body.amount;
+    if (rawAmt == null || rawAmt === "" || !Number.isFinite(parseFloat(rawAmt))) {
+      return res.status(422).json({
+        success: false,
+        error: "ValidationError",
+        message:
+          "Enter a Manual Balance Add amount for Force WIN (profit) or Force LOSS (loss slice).",
+      });
+    }
+
     trade.forcedOutcome = req.body.outcome;
-    trade.forcedAmount = null; // Manual Balance Add removed — payout % settles at timer 0
+    trade.forcedAmount = parseFloat(rawAmt);
     // Soft initial bias — background ramp climbs gradually (no spike)
     trade.priceBiasPercent =
       req.body.outcome === "win"
@@ -965,13 +976,14 @@ router.put(
       0,
       Math.ceil((new Date(trade.expiresAt).getTime() - Date.now()) / 1000)
     );
+    const absAmt = Math.abs(parseFloat(trade.forcedAmount));
 
     return res.json({
       success: true,
       message:
         req.body.outcome === "win"
-          ? `Force WIN locked · timer continues ${remSec}s · settles at 0`
-          : `Force LOSS locked · timer continues ${remSec}s · settles at 0`,
+          ? `Force WIN locked · +$${absAmt} profit at 0s · timer ${remSec}s`
+          : `Force LOSS locked · −$${absAmt} from stake at 0s · timer ${remSec}s`,
       trade: serializeAdminTrade(trade, user),
       wallet:
         user?.wallet instanceof Map
@@ -990,6 +1002,7 @@ router.put(
       .isIn(["up", "down", "reset"])
       .withMessage("direction must be up, down, or reset."),
     body("step").optional().isFloat({ gt: 0, max: 10 }),
+    body("amount").optional({ nullable: true }).isFloat(),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -1023,7 +1036,6 @@ router.put(
       trade.forcedAmount = null;
     } else if (goingUp) {
       trade.forcedOutcome = "win";
-      trade.forcedAmount = null;
       // Soft start — ramp climbs over remaining seconds (no abrupt jump)
       trade.priceBiasPercent = Math.max(
         Number(trade.priceBiasPercent || 0),
@@ -1031,12 +1043,22 @@ router.put(
       );
     } else if (goingDown) {
       trade.forcedOutcome = "loss";
-      trade.forcedAmount = null;
       trade.priceBiasPercent = Math.min(
         Number(trade.priceBiasPercent || 0),
         -0.08
       );
     }
+
+    // Optional Manual Balance Add from live card (precise float)
+    if (
+      (goingUp || goingDown) &&
+      req.body.amount != null &&
+      req.body.amount !== "" &&
+      Number.isFinite(parseFloat(req.body.amount))
+    ) {
+      trade.forcedAmount = parseFloat(req.body.amount);
+    }
+
     // Never settle early — reopen if stuck mid-settle so timer can finish
     if (trade.status === "settling") trade.status = "open";
     await trade.save();
@@ -1074,6 +1096,10 @@ router.put(
       chartBias: user?.chartBias
         ? Object.fromEntries(user.chartBias)
         : {},
+      wallet:
+        user?.wallet instanceof Map
+          ? Object.fromEntries(user.wallet)
+          : { ...(user?.wallet || {}) },
     });
   })
 );
