@@ -162,13 +162,30 @@ function applyBias(price, biasPercent) {
 
 /**
  * Resolve win/loss for an open trade and credit wallet if won.
+ * Atomic claim prevents double-settle (balance jumping).
+ *
+ * Force WIN + Manual Balance Add X:
+ *   wallet += stake + |X|   (example: stake 298 + add 25 → +323)
+ * Force LOSS + Manual Balance Add X:
+ *   wallet -= |X|           (may go negative / red)
  */
 export async function settleTrade(tradeId, { exitPriceHint } = {}) {
-  const trade = await SecondsTrade.findById(tradeId);
-  if (!trade || trade.status !== "open") return trade;
+  // Claim the open trade so concurrent settlers cannot double-credit
+  const trade = await SecondsTrade.findOneAndUpdate(
+    { _id: tradeId, status: "open" },
+    { $set: { status: "settling" } },
+    { new: true }
+  );
+  if (!trade) {
+    return SecondsTrade.findById(tradeId);
+  }
 
   const user = await User.findById(trade.user);
-  if (!user) return trade;
+  if (!user) {
+    trade.status = "open";
+    await trade.save();
+    return trade;
+  }
 
   let exitPrice =
     exitPriceHint != null
@@ -198,25 +215,25 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
     reason = "market";
   }
 
-  // If admin forced win/loss, nudge exit price for display consistency
+  // Force display exit for win/loss graph consistency
   if (outcome === "win") {
-    if (trade.direction === "long" && exitPrice < trade.entryPrice) {
-      exitPrice = trade.entryPrice * 1.002;
-    }
-    if (trade.direction === "short" && exitPrice > trade.entryPrice) {
-      exitPrice = trade.entryPrice * 0.998;
+    if (trade.direction === "long") {
+      exitPrice = Math.max(exitPrice, trade.entryPrice * 1.004);
+    } else {
+      exitPrice = Math.min(exitPrice, trade.entryPrice * 0.996);
     }
   } else {
-    if (trade.direction === "long" && exitPrice >= trade.entryPrice) {
-      exitPrice = trade.entryPrice * 0.998;
-    }
-    if (trade.direction === "short" && exitPrice <= trade.entryPrice) {
-      exitPrice = trade.entryPrice * 1.002;
+    if (trade.direction === "long") {
+      exitPrice = Math.min(exitPrice, trade.entryPrice * 0.996);
+    } else {
+      exitPrice = Math.max(exitPrice, trade.entryPrice * 1.004);
     }
   }
 
   let payout = 0;
-  const usdt = user.wallet.get("USDT") || 0;
+  // Re-read wallet at credit time (fresh) — avoids stale concurrent reads
+  const fresh = await User.findById(user._id);
+  const usdt = fresh.wallet.get("USDT") || 0;
 
   if (outcome === "win") {
     let profit = 0;
@@ -225,14 +242,14 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
       trade.forcedAmount != null &&
       Number.isFinite(Number(trade.forcedAmount))
     ) {
-      // Manual Balance Add (e.g. 125) — NOT percentage. Return stake + add this profit.
+      // Exact Manual Balance Add — NEVER percentage
       profit = Math.abs(Number(trade.forcedAmount));
-      trade.payoutPercent = null; // never expose 85% to user after admin force
+      trade.payoutPercent = undefined;
+      trade.set("payoutPercent", undefined);
     } else {
-      // Market / sticky % control only (not live-alert Manual Balance Add)
       let pct = DEFAULT_PAYOUT;
       if (reason === "user_force_win") {
-        const fromUser = Number(user.tradeControlPercentage);
+        const fromUser = Number(fresh.tradeControlPercentage);
         if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
       } else {
         const fromTrade = Number(trade.payoutPercent);
@@ -241,26 +258,24 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
       profit = trade.stake * (pct / 100);
       trade.payoutPercent = pct;
     }
-    payout = trade.stake + profit;
-    user.wallet.set("USDT", usdt + payout);
-    user.markModified("wallet");
-    await user.save();
+    // Final credit = stake returned + manual profit (e.g. 298 + 25 = 323)
+    payout = Number(trade.stake) + profit;
+    fresh.wallet.set("USDT", usdt + payout);
+    fresh.markModified("wallet");
+    await fresh.save();
     await Transaction.create({
-      user: user._id,
+      user: fresh._id,
       kind: "trade",
       side: trade.direction === "long" ? "buy" : "sell",
       symbol: trade.asset,
       amount: trade.stake,
       usdValue: payout,
       status: "completed",
-      reviewerNote: `Seconds trade WIN (stake $${Number(trade.stake).toFixed(
+      reviewerNote: `Seconds WIN · stake $${Number(trade.stake).toFixed(
         2
-      )} + Manual Balance Add $${profit.toFixed(2)}) · ${reason}`,
+      )} + add $${profit.toFixed(2)} = $${payout.toFixed(2)} · ${reason}`,
     });
   } else {
-    // Stake already deducted at open.
-    // Manual Balance Add on Force LOSS: deduct |amount| (e.g. 175 or -175 → −175).
-    // Wallet may go negative (shown red on user UI).
     let extraLoss = 0;
     if (
       reason === "admin_force" &&
@@ -268,34 +283,33 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
       Number.isFinite(Number(trade.forcedAmount))
     ) {
       extraLoss = Math.abs(Number(trade.forcedAmount));
-      const bal = user.wallet.get("USDT") || 0;
-      user.wallet.set("USDT", bal - extraLoss);
-      user.markModified("wallet");
-      await user.save();
-      trade.payoutPercent = null;
+      fresh.wallet.set("USDT", usdt - extraLoss);
+      fresh.markModified("wallet");
+      await fresh.save();
+      trade.payoutPercent = undefined;
+      trade.set("payoutPercent", undefined);
     } else if (reason === "user_force_loss") {
-      const fromUser = Number(user.tradeControlPercentage);
+      const fromUser = Number(fresh.tradeControlPercentage);
       if (Number.isFinite(fromUser) && fromUser > 0) {
         extraLoss = trade.stake * (fromUser / 100);
-        const bal = user.wallet.get("USDT") || 0;
-        user.wallet.set("USDT", bal - extraLoss);
-        user.markModified("wallet");
-        await user.save();
+        fresh.wallet.set("USDT", usdt - extraLoss);
+        fresh.markModified("wallet");
+        await fresh.save();
       }
     }
     trade.lossAmount = Number(trade.stake) + extraLoss;
     payout = 0;
     await Transaction.create({
-      user: user._id,
+      user: fresh._id,
       kind: "trade",
       side: trade.direction === "long" ? "buy" : "sell",
       symbol: trade.asset,
       amount: trade.stake,
       usdValue: 0,
       status: "completed",
-      reviewerNote: `Seconds trade LOSS (−$${Number(trade.stake).toFixed(2)}${
-        extraLoss ? ` + Manual Balance Add −$${extraLoss.toFixed(2)}` : ""
-      }) · ${reason}`,
+      reviewerNote: `Seconds LOSS · stake −$${Number(trade.stake).toFixed(
+        2
+      )}${extraLoss ? ` + add −$${extraLoss.toFixed(2)}` : ""} · ${reason}`,
     });
   }
 
@@ -312,6 +326,14 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
 /** Background settler — call from server bootstrap */
 export async function settleExpiredTrades() {
   if (mongoose.connection.readyState !== 1) return 0;
+  // Unstick crashed mid-settle claims
+  await SecondsTrade.updateMany(
+    {
+      status: "settling",
+      updatedAt: { $lte: new Date(Date.now() - 15000) },
+    },
+    { $set: { status: "open" } }
+  );
   const now = new Date();
   const expired = await SecondsTrade.find({
     status: "open",
@@ -615,12 +637,22 @@ router.post(
       });
     }
 
-    if (trade.status !== "open") {
-      return res.json({ success: true, trade: serializeTrade(trade) });
+    if (trade.status !== "open" && trade.status !== "settling") {
+      const userDone = await User.findById(req.auth.sub);
+      return res.json({
+        success: true,
+        trade: serializeTrade(trade),
+        user: userDone
+          ? { id: userDone._id, wallet: walletToObject(userDone.wallet) }
+          : null,
+      });
     }
 
     // Allow settle only at/after expiry (2s grace for clock skew)
-    if (Date.now() + 2000 < new Date(trade.expiresAt).getTime()) {
+    if (
+      trade.status === "open" &&
+      Date.now() + 2000 < new Date(trade.expiresAt).getTime()
+    ) {
       return res.status(400).json({
         success: false,
         error: "TooEarly",

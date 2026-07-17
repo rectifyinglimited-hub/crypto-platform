@@ -109,8 +109,12 @@ export default function SecondsTrading({
     [markets, asset]
   );
   const price = market?.price || 0;
+  const activeForAsset = active.find((t) => t.asset === asset);
   const prev = series.length > 1 ? series[series.length - 2] : price;
-  const up = price >= prev;
+  // While a trade is open, color chart vs entry so Graph UP/Force WIN looks HIGH
+  const up = activeForAsset
+    ? price >= Number(activeForAsset.entryPrice || price)
+    : price >= prev;
 
   const loadMarkets = useCallback(async () => {
     try {

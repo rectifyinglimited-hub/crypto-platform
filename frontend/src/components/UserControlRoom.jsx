@@ -100,11 +100,12 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
         {valid && (
           <div className="mt-1.5 space-y-0.5 text-[10px] text-slate-400">
             <div className="text-emerald-400/90">
-              Force WIN → user sees WIN graph · wallet +${fmt(previewWin)}{" "}
-              (stake ${fmt(trade.stake)} + add ${fmt(absAmt)})
+              Force WIN → credits ${fmt(previewWin)} now
+              (stake ${fmt(trade.stake)} + add ${fmt(absAmt)}) · graph goes HIGH
             </div>
             <div className="text-rose-400/90">
-              Force LOSS → deduct ${fmt(absAmt)} · wallet can go negative (red)
+              Force LOSS → deduct ${fmt(absAmt)} now · graph goes LOW · wallet
+              can go negative (red)
             </div>
           </div>
         )}
@@ -224,12 +225,13 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const onForce = async (tradeId, outcome, amount) => {
     setBusyId(tradeId);
     try {
-      await AdminAPI.forceTradeOutcome(tradeId, outcome, amount);
+      const res = await AdminAPI.forceTradeOutcome(tradeId, outcome, amount);
       toast?.(
         "success",
-        outcome === "win"
-          ? `Force WIN locked · Manual Balance Add $${Number(amount).toFixed(2)}`
-          : `Force LOSS locked · Manual Balance Add $${Number(amount).toFixed(2)}`
+        res.message ||
+          (outcome === "win"
+            ? `Force WIN · stake + $${Number(amount).toFixed(2)} credited`
+            : `Force LOSS · $${Number(amount).toFixed(2)} deducted`)
       );
       await load();
     } catch (err) {
