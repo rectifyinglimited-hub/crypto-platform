@@ -1,5 +1,6 @@
 /**
- * Profile / Account Settings: avatar, full name, TRC-20, password.
+ * Profile / Account Settings: avatar, full name, TRC-20 (add/edit/remove),
+ * password change, and Sign Out.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -11,6 +12,8 @@ import {
   CheckCircle2,
   Copy,
   Camera,
+  Trash2,
+  LogOut,
 } from "lucide-react";
 import { AuthAPI } from "../lib/api.js";
 
@@ -26,12 +29,13 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function ProfileSetup({ user, onSaved, toast }) {
+export default function ProfileSetup({ user, onSaved, toast, onLogout }) {
   const [fullName, setFullName] = useState(user?.fullName || "");
   const [trc20, setTrc20] = useState(user?.trc20Address || "");
   const [trc20Confirm, setTrc20Confirm] = useState(user?.trc20Address || "");
   const [avatar, setAvatar] = useState(user?.avatar || null);
   const [saving, setSaving] = useState(false);
+  const [removingWallet, setRemovingWallet] = useState(false);
   const [errors, setErrors] = useState({});
   const fileRef = useRef(null);
 
@@ -66,14 +70,34 @@ export default function ProfileSetup({ user, onSaved, toast }) {
     if (!fullName.trim() || fullName.trim().length < 2) {
       e.fullName = "Enter your full name.";
     }
-    if (!TRC20_REGEX.test(trc20.trim())) {
-      e.trc20 = "Valid TRC-20 address required (starts with T, 34 chars).";
-    }
-    if (trc20.trim() !== trc20Confirm.trim()) {
-      e.trc20Confirm = "Addresses must match exactly.";
+    const addr = trc20.trim();
+    const confirm = trc20Confirm.trim();
+    // Empty = clear / leave unset — allowed
+    if (addr || confirm) {
+      if (!TRC20_REGEX.test(addr)) {
+        e.trc20 = "Valid TRC-20 address required (starts with T, 34 chars).";
+      }
+      if (addr !== confirm) {
+        e.trc20Confirm = "Addresses must match exactly.";
+      }
     }
     setErrors(e);
     return Object.keys(e).length === 0;
+  };
+
+  const persistProfile = async ({
+    nextName = fullName.trim(),
+    nextTrc20,
+    nextAvatar = avatar,
+  }) => {
+    const res = await AuthAPI.updateProfile({
+      fullName: nextName,
+      trc20Address: nextTrc20,
+      trc20AddressConfirm: nextTrc20,
+      avatar: nextAvatar || null,
+    });
+    onSaved?.(res.user);
+    return res;
   };
 
   const handleSave = async (ev) => {
@@ -81,14 +105,11 @@ export default function ProfileSetup({ user, onSaved, toast }) {
     if (!validate() || saving) return;
     setSaving(true);
     try {
-      const res = await AuthAPI.updateProfile({
-        fullName: fullName.trim(),
-        trc20Address: trc20.trim(),
-        trc20AddressConfirm: trc20Confirm.trim(),
-        avatar: avatar || null,
+      const addr = trc20.trim();
+      const res = await persistProfile({
+        nextTrc20: addr || "",
       });
       toast?.("success", res.message || "Profile saved.");
-      onSaved?.(res.user);
     } catch (err) {
       toast?.("error", err?.message || "Could not save profile.");
       if (err?.details?.length) {
@@ -100,6 +121,28 @@ export default function ProfileSetup({ user, onSaved, toast }) {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRemoveWallet = async () => {
+    if (removingWallet) return;
+    const ok = window.confirm(
+      "Remove your saved TRC-20 wallet address from this account?"
+    );
+    if (!ok) return;
+    setRemovingWallet(true);
+    try {
+      const res = await persistProfile({
+        nextName: (fullName.trim() || user?.fullName || "Trader").slice(0, 80),
+        nextTrc20: "",
+      });
+      setTrc20("");
+      setTrc20Confirm("");
+      toast?.("success", res.message || "TRC-20 wallet removed.");
+    } catch (err) {
+      toast?.("error", err?.message || "Could not remove wallet.");
+    } finally {
+      setRemovingWallet(false);
     }
   };
 
@@ -179,22 +222,42 @@ export default function ProfileSetup({ user, onSaved, toast }) {
             <p className="mt-0.5 text-[11px] text-slate-500">
               Shown in the navbar and your workspace. JPG/PNG under 900KB.
             </p>
-            {avatar && (
+            <div className="mt-1.5 flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => setAvatar(null)}
-                className="mt-1 text-[11px] font-medium text-rose-300"
+                onClick={() => fileRef.current?.click()}
+                className="text-[11px] font-semibold text-cyan-300"
               >
-                Remove photo
+                Upload Profile Picture
               </button>
-            )}
+              {avatar && (
+                <button
+                  type="button"
+                  onClick={() => setAvatar(null)}
+                  className="text-[11px] font-medium text-rose-300"
+                >
+                  Remove photo
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {user?.trc20Address && (
           <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500">
-              Saved TRC-20
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                Saved TRC-20
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveWallet}
+                disabled={removingWallet}
+                className="inline-flex items-center gap-1 rounded-lg bg-rose-500/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-rose-300 ring-1 ring-rose-500/30 disabled:opacity-50"
+              >
+                <Trash2 className="h-3 w-3" />
+                {removingWallet ? "Removing…" : "Remove wallet"}
+              </button>
             </div>
             <div className="mt-1 flex items-center gap-2">
               <code className="min-w-0 flex-1 truncate text-xs text-cyan-200">
@@ -229,13 +292,13 @@ export default function ProfileSetup({ user, onSaved, toast }) {
 
           <div>
             <label className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              <Wallet className="h-3 w-3" /> Enter TRC-20 address
+              <Wallet className="h-3 w-3" /> TRC-20 wallet address
             </label>
             <input
               value={trc20}
               onChange={(e) => setTrc20(e.target.value.trim())}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 font-mono text-sm text-white outline-none focus:border-cyan-500/40"
-              placeholder="T…"
+              placeholder="T… (optional — leave blank to clear)"
               autoComplete="off"
               spellCheck={false}
             />
@@ -252,7 +315,7 @@ export default function ProfileSetup({ user, onSaved, toast }) {
               value={trc20Confirm}
               onChange={(e) => setTrc20Confirm(e.target.value.trim())}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 font-mono text-sm text-white outline-none focus:border-cyan-500/40"
-              placeholder="Re-enter the same address"
+              placeholder="Re-enter the same address (or leave blank)"
               autoComplete="off"
               spellCheck={false}
             />
@@ -282,6 +345,22 @@ export default function ProfileSetup({ user, onSaved, toast }) {
 
       <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-5">
         <PasswordChangeForm toast={toast} />
+      </div>
+
+      <div className="rounded-2xl border border-rose-500/25 bg-gradient-to-br from-rose-500/10 to-transparent p-5">
+        <div className="text-sm font-semibold text-rose-100">Sign out</div>
+        <p className="mt-1 text-xs text-slate-400">
+          Securely end this session, clear your auth token, and return to Sign
+          In.
+        </p>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-rose-500 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-rose-500/20 transition hover:bg-rose-400"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </button>
       </div>
     </div>
   );

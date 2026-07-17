@@ -42,6 +42,7 @@ import {
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import KYCModule from "./KYCModule.jsx";
 import AppShell from "./AppShell.jsx";
+import HomeLanding from "./HomeLanding.jsx";
 import SecondsTrading from "./SecondsTrading.jsx";
 import CryptoWatchlist from "./CryptoWatchlist.jsx";
 import MarketActivity from "./MarketActivity.jsx";
@@ -989,8 +990,8 @@ const TransactionsList = ({ transactions, loading, onRefresh }) => (
 // ---------------------------------------------------------------------------
 // Main Dashboard — mobile-first Seconds Trading shell
 // ---------------------------------------------------------------------------
-export default function Dashboard({ user, onLogout, onOpenAdmin, onAuthSuccess }) {
-  const [tab, setTab] = useState("trading");
+export default function Dashboard({ user, onLogout, onOpenAdmin }) {
+  const [tab, setTab] = useState("home");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [kycOpen, setKycOpen] = useState(false);
   const [me, setMe] = useState(user);
@@ -1129,7 +1130,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin, onAuthSuccess }
         onLogout={handleLogout}
         onOpenAdmin={onOpenAdmin}
         onOpenKyc={() => setKycOpen(true)}
-        onAuthSuccess={onAuthSuccess}
       >
         {/* Unverified restriction banner — clears instantly when KYC is approved */}
         {me?.kyc?.status !== "approved" && (
@@ -1167,57 +1167,13 @@ export default function Dashboard({ user, onLogout, onOpenAdmin, onAuthSuccess }
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="space-y-4"
             >
-              <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-5">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                  Welcome back
-                </div>
-                <div className="mt-1 text-xl font-bold">
-                  {me?.fullName || "Trader"}
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-cyan-500/10 p-3 ring-1 ring-cyan-500/20">
-                    <div className="text-[10px] uppercase text-cyan-400/80">
-                      Trading Wallet
-                    </div>
-                    <div
-                      className={`mt-1 text-lg font-bold tabular-nums ${
-                        walletUsdt < 0 ? "text-rose-400" : "text-white"
-                      }`}
-                    >
-                      {walletUsdt < 0 ? "-" : ""}$
-                      {Math.abs(walletUsdt).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-emerald-500/10 p-3 ring-1 ring-emerald-500/25">
-                    <div className="text-[10px] uppercase text-emerald-400/90">
-                      Live Earnings
-                    </div>
-                    <div className="mt-1 text-lg font-bold tabular-nums text-emerald-300">
-                      $
-                      {liveEarnings.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setTab("trading")}
-                  className="mt-4 w-full rounded-xl bg-cyan-500 py-3 text-sm font-bold text-slate-950"
-                >
-                  Start Trading
-                </button>
-              </div>
-
-              <div className="relative">
-                <MarketActivity sticky />
-              </div>
+              <HomeLanding
+                user={me}
+                walletUsdt={walletUsdt}
+                liveEarnings={liveEarnings}
+                onStartTrading={() => setTab("trading")}
+              />
             </motion.div>
           )}
 
@@ -1227,12 +1183,13 @@ export default function Dashboard({ user, onLogout, onOpenAdmin, onAuthSuccess }
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="space-y-4"
+              className="mx-auto max-w-2xl space-y-4"
             >
               <ProfileSetup
                 user={me}
                 toast={say}
                 onSaved={(u) => handleUserUpdate(u)}
+                onLogout={handleLogout}
               />
             </motion.div>
           )}
@@ -1243,25 +1200,28 @@ export default function Dashboard({ user, onLogout, onOpenAdmin, onAuthSuccess }
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="space-y-4"
+              className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]"
             >
-              <SecondsTrading
-                walletUsdt={walletUsdt}
-                onWalletUpdate={handleUserUpdate}
-                onToast={say}
-                tradingSuspended={tradingSuspended}
-              />
-              <CryptoWatchlist
-                onSelectAsset={(symbol) => {
-                  /* SecondsTrading listens via custom event */
-                  window.dispatchEvent(
-                    new CustomEvent("nexus:select-asset", {
-                      detail: { asset: symbol, assetType: "crypto" },
-                    })
-                  );
-                }}
-              />
-              <MarketActivity sticky />
+              <div className="min-w-0 space-y-4">
+                <SecondsTrading
+                  walletUsdt={walletUsdt}
+                  onWalletUpdate={handleUserUpdate}
+                  onToast={say}
+                  tradingSuspended={tradingSuspended}
+                />
+                <CryptoWatchlist
+                  onSelectAsset={(symbol) => {
+                    window.dispatchEvent(
+                      new CustomEvent("nexus:select-asset", {
+                        detail: { asset: symbol, assetType: "crypto" },
+                      })
+                    );
+                  }}
+                />
+              </div>
+              <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
+                <MarketActivity sticky={false} />
+              </div>
             </motion.div>
           )}
 
@@ -1271,7 +1231,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin, onAuthSuccess }
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="space-y-4"
+              className="mx-auto max-w-3xl space-y-4"
             >
               <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-5">
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
@@ -1351,7 +1311,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin, onAuthSuccess }
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="space-y-4"
+              className="mx-auto max-w-4xl space-y-4"
             >
               <TradeHistory />
               <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-4">

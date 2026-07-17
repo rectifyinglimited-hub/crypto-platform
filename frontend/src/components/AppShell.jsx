@@ -1,6 +1,6 @@
 /**
- * Mobile-first shell: hamburger drawer + sticky bottom nav + avatar menu.
- * Bottom nav hides while the drawer is open.
+ * Responsive shell: hamburger drawer + sticky bottom nav (mobile) +
+ * expanded top nav (tablet/desktop) + avatar menu.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -18,13 +18,13 @@ import {
   ChevronRight,
   Settings,
 } from "lucide-react";
-import SignIn from "./SignIn.jsx";
 
 const NAV = [
   { key: "home", label: "Home", icon: Home },
   { key: "wallet", label: "Wallet", icon: Wallet },
   { key: "trading", label: "Trading", icon: CandlestickChart },
   { key: "history", label: "History", icon: History },
+  { key: "settings", label: "Profile", icon: Settings },
 ];
 
 function AvatarBadge({ user, size = "md", onClick, className = "" }) {
@@ -35,7 +35,12 @@ function AvatarBadge({ user, size = "md", onClick, className = "" }) {
       .slice(0, 2)
       .map((s) => s[0]?.toUpperCase())
       .join("");
-  const dim = size === "lg" ? "h-11 w-11 text-sm" : "h-10 w-10 text-xs";
+  const dim =
+    size === "lg"
+      ? "h-11 w-11 text-sm"
+      : size === "sm"
+        ? "h-9 w-9 text-[11px]"
+        : "h-10 w-10 text-xs";
   const base =
     "grid place-items-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-500/30 to-emerald-500/20 font-bold text-cyan-100 ring-1 ring-white/10";
 
@@ -78,7 +83,6 @@ export default function AppShell({
   onLogout,
   onOpenAdmin,
   onOpenKyc,
-  onAuthSuccess,
   children,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -95,34 +99,6 @@ export default function AppShell({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen]);
 
-  // Unauthenticated entry gate
-  if (!user) {
-    return (
-      <div className="relative min-h-screen w-full overflow-hidden bg-[#070a12] text-slate-100">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-cyan-500/15 blur-3xl" />
-          <div className="absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
-        </div>
-        <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 py-10">
-          <div className="mb-6 text-center">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-400/80">
-              Nexus
-            </div>
-            <h1 className="mt-2 text-2xl font-bold text-white">
-              Sign in to trade
-            </h1>
-            <p className="mt-2 text-sm text-slate-400">
-              Access your wallet, live markets, and account settings.
-            </p>
-          </div>
-          <div className="w-full rounded-2xl border border-white/10 bg-[#0c1222]/90 p-1 shadow-2xl">
-            <SignIn onSignInSuccess={onAuthSuccess} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const goSettings = () => {
     onTabChange("settings");
     setMenuOpen(false);
@@ -133,23 +109,48 @@ export default function AppShell({
     <div className="relative min-h-screen w-full bg-[#070a12] text-slate-100">
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-white/5 bg-[#070a12]/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-4">
-          <button
-            type="button"
-            onClick={onDrawerOpen}
-            className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-200"
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="text-center">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400/80">
-              Nexus
-            </div>
-            <div className="text-sm font-semibold tracking-tight">
-              Seconds Trading
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onDrawerOpen}
+              className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-200 md:hidden"
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <div className="text-left md:pl-0">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400/80">
+                Nexus
+              </div>
+              <div className="text-sm font-semibold tracking-tight">
+                Seconds Trading
+              </div>
             </div>
           </div>
+
+          {/* Desktop / tablet top nav */}
+          <nav className="hidden items-center gap-1 md:flex">
+            {NAV.map(({ key, label, icon: Icon }) => {
+              const active = tab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onTabChange(key)}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition lg:px-3.5 lg:text-sm ${
+                    active
+                      ? "bg-cyan-500/15 text-cyan-300"
+                      : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              );
+            })}
+          </nav>
+
           <div className="relative" ref={menuRef}>
             <AvatarBadge
               user={user}
@@ -221,10 +222,12 @@ export default function AppShell({
         </div>
       </header>
 
-      {/* Content */}
-      <main className="mx-auto max-w-lg px-4 pb-28 pt-4">{children}</main>
+      {/* Content — full-width grid on tablet/desktop */}
+      <main className="mx-auto w-full max-w-7xl px-4 pb-28 pt-4 sm:px-6 md:pb-10 lg:px-8 lg:pt-6">
+        {children}
+      </main>
 
-      {/* Sticky bottom nav — hidden when drawer open */}
+      {/* Sticky bottom nav — mobile only */}
       <AnimatePresence>
         {!drawerOpen && (
           <motion.nav
@@ -233,9 +236,9 @@ export default function AppShell({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
-            className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b1020]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl"
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b1020]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
           >
-            <div className="mx-auto grid max-w-lg grid-cols-4 gap-1 px-2 py-2">
+            <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5 px-1.5 py-1.5">
               {NAV.map(({ key, label, icon: Icon }) => {
                 const active = tab === key;
                 return (
@@ -243,7 +246,7 @@ export default function AppShell({
                     key={key}
                     type="button"
                     onClick={() => onTabChange(key)}
-                    className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition ${
+                    className={`flex min-h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-medium transition active:scale-95 ${
                       active
                         ? "bg-cyan-500/15 text-cyan-300"
                         : "text-slate-400 hover:text-slate-200"
@@ -261,7 +264,7 @@ export default function AppShell({
         )}
       </AnimatePresence>
 
-      {/* Side drawer */}
+      {/* Side drawer — mobile */}
       <AnimatePresence>
         {drawerOpen && (
           <>
@@ -271,7 +274,7 @@ export default function AppShell({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm md:hidden"
               onClick={onDrawerClose}
             />
             <motion.aside
@@ -279,7 +282,7 @@ export default function AppShell({
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", stiffness: 360, damping: 34 }}
-              className="fixed inset-y-0 left-0 z-50 flex w-[86%] max-w-sm flex-col border-r border-white/10 bg-[#0c1222] shadow-2xl"
+              className="fixed inset-y-0 left-0 z-50 flex w-[86%] max-w-sm flex-col border-r border-white/10 bg-[#0c1222] shadow-2xl md:hidden"
             >
               <div className="flex items-center justify-between border-b border-white/5 px-4 py-4">
                 <div className="flex items-center gap-3">

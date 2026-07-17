@@ -222,7 +222,7 @@ function SelfieCapture({ preview, onCapture, onClear, error }) {
   return (
     <div>
       <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-        Selfie Verification <span className="text-rose-400">*</span>
+        SELFIE VERIFICATION <span className="text-rose-400">*</span>
       </label>
       <p className="mb-2 text-[10px] text-slate-500">
         Take a live selfie with your camera, or upload a clear face photo.

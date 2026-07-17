@@ -745,7 +745,7 @@ router.post(
       return res.status(403).json({
         success: false,
         error: "TradingSuspended",
-        message: "Trading Suspended by Management",
+        message: "Trading will start soon",
         tradingSuspended: true,
         reason: "global",
       });
@@ -754,7 +754,7 @@ router.post(
       return res.status(403).json({
         success: false,
         error: "TradingSuspended",
-        message: "Trading Suspended by Management",
+        message: "Trading will start soon",
         tradingSuspended: true,
         reason: "user",
       });

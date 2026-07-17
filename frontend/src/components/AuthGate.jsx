@@ -42,7 +42,7 @@ export default function AuthGate({ onAuthSuccess }) {
         <div className="mb-4 flex w-full gap-1 rounded-xl bg-white/5 p-1">
           {[
             { key: "signin", label: "Sign In" },
-            { key: "signup", label: "Create Account" },
+            { key: "signup", label: "Register" },
           ].map((t) => (
             <button
               key={t.key}

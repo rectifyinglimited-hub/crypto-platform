@@ -4,17 +4,19 @@
  * =============================================================================
  *  Root shell:
  *    BOOT     → hydrating session
- *    LANDING  → MainPlatform (live futures interface + morphing auth panel)
+ *    LANDING  → AuthGate (Sign In / Register)
+ *    SPLASH   → animated Nexus wordmark after successful auth (1.5–2s)
  *    DASHBOARD → authenticated user hub
  *    ADMIN    → admin console (requires role === 'admin')
  * =============================================================================
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
 import AuthGate from "./components/AuthGate.jsx";
+import SplashScreen from "./components/SplashScreen.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
 import { AuthAPI, getToken, clearToken } from "./lib/api.js";
@@ -22,13 +24,18 @@ import { AuthAPI, getToken, clearToken } from "./lib/api.js";
 const SCREEN = {
   BOOT: "boot",
   LANDING: "landing",
+  SPLASH: "splash",
   DASHBOARD: "dashboard",
   ADMIN: "admin",
 };
 
+/** Splash dwell: 1.5–2.0 seconds */
+const SPLASH_MS = 1750;
+
 export default function App() {
   const [screen, setScreen] = useState(SCREEN.BOOT);
   const [user, setUser] = useState(null);
+  const splashTimer = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +70,10 @@ export default function App() {
 
   useEffect(() => {
     const handler = () => {
+      if (splashTimer.current) {
+        clearTimeout(splashTimer.current);
+        splashTimer.current = null;
+      }
       setUser(null);
       setScreen(SCREEN.LANDING);
     };
@@ -70,13 +81,34 @@ export default function App() {
     return () => window.removeEventListener("nexus:unauthenticated", handler);
   }, []);
 
+  useEffect(
+    () => () => {
+      if (splashTimer.current) clearTimeout(splashTimer.current);
+    },
+    []
+  );
+
   const handleAuthSuccess = (u) => {
     setUser(u);
-    setScreen(SCREEN.DASHBOARD);
+    setScreen(SCREEN.SPLASH);
+    if (splashTimer.current) clearTimeout(splashTimer.current);
+    splashTimer.current = setTimeout(() => {
+      splashTimer.current = null;
+      setScreen(SCREEN.DASHBOARD);
+    }, SPLASH_MS);
   };
 
   const handleLogout = () => {
+    if (splashTimer.current) {
+      clearTimeout(splashTimer.current);
+      splashTimer.current = null;
+    }
     clearToken();
+    try {
+      sessionStorage.removeItem("nexus_toasted_trades");
+    } catch {
+      /* ignore */
+    }
     setUser(null);
     setScreen(SCREEN.LANDING);
   };
@@ -90,7 +122,6 @@ export default function App() {
         setScreen(SCREEN.ADMIN);
       }
     } catch {
-      // Fall back to cached role
       if (user?.role === "admin") setScreen(SCREEN.ADMIN);
     }
   };
@@ -117,13 +148,24 @@ export default function App() {
         <AuthGate key="landing" onAuthSuccess={handleAuthSuccess} />
       )}
 
+      {screen === SCREEN.SPLASH && (
+        <motion.div
+          key="splash"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <SplashScreen />
+        </motion.div>
+      )}
+
       {screen === SCREEN.DASHBOARD && (
         <Dashboard
           key="dashboard"
           user={user}
           onLogout={handleLogout}
           onOpenAdmin={goAdmin}
-          onAuthSuccess={handleAuthSuccess}
         />
       )}
 

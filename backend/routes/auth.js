@@ -376,16 +376,20 @@ router.put(
       .trim()
       .isLength({ min: 2, max: 80 })
       .withMessage("Full name must be 2-80 characters."),
+    // Empty string / null clears the saved wallet; non-empty must be valid TRC-20
     body("trc20Address")
-      .isString()
-      .trim()
-      .custom((v) => TRC20_REGEX.test(v))
+      .optional({ nullable: true })
+      .custom((v) => {
+        if (v == null || v === "") return true;
+        if (typeof v !== "string") return false;
+        return TRC20_REGEX.test(v.trim());
+      })
       .withMessage(
-        "Enter a valid TRC-20 address (starts with T, 34 characters)."
+        "Enter a valid TRC-20 address (starts with T, 34 characters), or leave blank to remove."
       ),
     body("trc20AddressConfirm")
+      .optional({ nullable: true })
       .isString()
-      .trim()
       .withMessage("Confirm your TRC-20 address."),
     body("avatar")
       .optional({ nullable: true })
@@ -405,8 +409,8 @@ router.put(
     if (!errors.isEmpty()) return sendValidationError(res, errors);
 
     const fullName = req.body.fullName.trim();
-    const trc20Address = req.body.trc20Address.trim();
-    const confirm = (req.body.trc20AddressConfirm || "").trim();
+    const trc20Address = String(req.body.trc20Address ?? "").trim();
+    const confirm = String(req.body.trc20AddressConfirm ?? "").trim();
 
     if (trc20Address !== confirm) {
       return res.status(422).json({
@@ -432,8 +436,11 @@ router.put(
     }
 
     user.fullName = fullName;
-    user.trc20Address = trc20Address;
-    user.profileCompletedAt = new Date();
+    // Empty string → null (wallet removed from profile)
+    user.trc20Address = trc20Address || null;
+    if (trc20Address) {
+      user.profileCompletedAt = new Date();
+    }
     if (Object.prototype.hasOwnProperty.call(req.body, "avatar")) {
       const raw = req.body.avatar;
       user.avatar = raw === "" || raw == null ? null : raw;
@@ -442,7 +449,9 @@ router.put(
 
     return res.json({
       success: true,
-      message: "Profile saved successfully.",
+      message: trc20Address
+        ? "Profile saved successfully."
+        : "Profile saved. TRC-20 wallet cleared.",
       user: sanitizeUser(user),
     });
   })

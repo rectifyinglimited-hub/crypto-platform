@@ -24,7 +24,8 @@ const KycSchema = new Schema(
     fullName: { type: String, trim: true, default: null },
     docType: {
       type: String,
-      enum: ["Passport", "ID", "DriversLicense", "CNIC", null],
+      // Legacy "CNIC" kept for existing documents; UI offers international labels only
+      enum: ["Passport", "ID", "DriversLicense", "CNIC", "National ID Card", null],
       default: null,
     },
     docNumber: { type: String, trim: true, default: null },

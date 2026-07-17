@@ -16,6 +16,9 @@ import {
 import { SecondsTradeAPI } from "../lib/api.js";
 import { WATCHLIST_CRYPTO } from "./CryptoWatchlist.jsx";
 
+const TOASTED_KEY = "nexus_toasted_trades";
+const TRADING_SOON_MSG = "Trading will start soon";
+
 /** Normalize settlement status — never treat WIN/WON as a loss toast. */
 function normalizeTradeStatus(status) {
   return String(status || "")
@@ -23,13 +26,30 @@ function normalizeTradeStatus(status) {
     .toLowerCase();
 }
 
+/**
+ * WIN detection must match Market Activity "WIN" flag.
+ * Checks status first; never classify a win document as a loss.
+ */
 function isTradeWon(trade) {
-  const s = normalizeTradeStatus(trade?.status);
-  return s === "won" || s === "win";
+  if (!trade) return false;
+  const s = normalizeTradeStatus(trade.status);
+  if (s === "won" || s === "win" || s === "winnings") return true;
+  // Defensive: payout credit on a settled trade with non-loss status
+  if (
+    s !== "lost" &&
+    s !== "loss" &&
+    s !== "lose" &&
+    s !== "cancelled" &&
+    Number(trade.payout || 0) > Number(trade.stake || 0)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function isTradeLost(trade) {
-  const s = normalizeTradeStatus(trade?.status);
+  if (!trade || isTradeWon(trade)) return false;
+  const s = normalizeTradeStatus(trade.status);
   return s === "lost" || s === "loss" || s === "lose";
 }
 
@@ -37,6 +57,25 @@ function winProfit(trade) {
   const stake = Number(trade?.stake || 0);
   const payout = Number(trade?.payout || 0);
   return Math.max(0, payout - stake);
+}
+
+function loadToastedSet() {
+  try {
+    const raw = sessionStorage.getItem(TOASTED_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistToasted(set) {
+  try {
+    sessionStorage.setItem(TOASTED_KEY, JSON.stringify([...set].slice(-80)));
+  } catch {
+    /* ignore */
+  }
 }
 
 const DURATIONS = [60, 90, 120];
@@ -136,7 +175,7 @@ export default function SecondsTrading({
   const [priceFlash, setPriceFlash] = useState(null); // "up" | "down" | null
   const [liveEarnings, setLiveEarnings] = useState(0);
   const settling = useRef(new Set());
-  const toasted = useRef(new Set());
+  const toasted = useRef(loadToastedSet());
   const displayPrice = useRef(null);
   const targetPrice = useRef(null);
   const lastTickPrice = useRef(null);
@@ -302,10 +341,11 @@ export default function SecondsTrading({
       try {
         let res = await SecondsTradeAPI.settle(t._id, { exitPrice: price });
         let trade = res?.trade;
-        // If concurrent settler left status mid-flight, re-fetch once
-        const st = normalizeTradeStatus(trade?.status);
-        if (!trade || st === "settling" || st === "open") {
-          await new Promise((r) => setTimeout(r, 450));
+        // If concurrent settler left status mid-flight, re-fetch until terminal
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const st = normalizeTradeStatus(trade?.status);
+          if (trade && st !== "settling" && st !== "open") break;
+          await new Promise((r) => setTimeout(r, 400));
           res = await SecondsTradeAPI.settle(t._id, { exitPrice: price });
           trade = res?.trade;
         }
@@ -313,8 +353,10 @@ export default function SecondsTrading({
           onWalletUpdate(res.user);
         }
         if (trade && !toasted.current.has(t._id)) {
+          // CRITICAL: WIN/WON → green success only. Never red Lost on wins.
           if (isTradeWon(trade)) {
             toasted.current.add(t._id);
+            persistToasted(toasted.current);
             const profit = winProfit(trade);
             onToast?.(
               "success",
@@ -324,6 +366,7 @@ export default function SecondsTrading({
             );
           } else if (isTradeLost(trade)) {
             toasted.current.add(t._id);
+            persistToasted(toasted.current);
             onToast?.(
               "error",
               `Lost $${formatUsd(trade.lossAmount ?? trade.stake)}`
@@ -349,8 +392,8 @@ export default function SecondsTrading({
 
   const place = async (direction) => {
     if (tradingSuspended) {
-      window.alert("Trading Suspended by Management");
-      onToast?.("error", "Trading Suspended by Management");
+      window.alert(TRADING_SOON_MSG);
+      onToast?.("error", TRADING_SOON_MSG);
       return;
     }
     const available = stakeableUsdt(walletUsdt);
@@ -433,10 +476,10 @@ export default function SecondsTrading({
           <Ban className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
           <div>
             <div className="text-sm font-semibold text-amber-100">
-              Trading Suspended by Management
+              {TRADING_SOON_MSG}
             </div>
             <p className="mt-0.5 text-[11px] text-amber-200/70">
-              Buy Long and Sell Short are disabled until access is restored.
+              Buy Long and Sell Short are temporarily unavailable.
             </p>
           </div>
         </div>
@@ -591,17 +634,28 @@ export default function SecondsTrading({
 
       {/* Long / Short */}
       {tradingSuspended ? (
-        <button
-          type="button"
-          onClick={() => {
-            window.alert("Trading Suspended by Management");
-            onToast?.("error", "Trading Suspended by Management");
-          }}
-          className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl bg-slate-700/80 py-3.5 text-sm font-bold text-slate-400 ring-1 ring-white/10 opacity-80"
-        >
-          <Ban className="h-4 w-4" />
-          Trading Suspended by Management
-        </button>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {["Buy Long", "Sell Short"].map((label) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                window.alert(TRADING_SOON_MSG);
+                onToast?.("error", TRADING_SOON_MSG);
+              }}
+              className="flex cursor-not-allowed flex-col items-center justify-center gap-1 rounded-2xl bg-slate-700/80 px-3 py-3.5 text-center text-xs font-bold text-slate-400 ring-1 ring-white/10 opacity-80 sm:text-sm"
+              aria-label={`${label} disabled — ${TRADING_SOON_MSG}`}
+            >
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 line-through">
+                {label}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Ban className="h-3.5 w-3.5 shrink-0" />
+                {TRADING_SOON_MSG}
+              </span>
+            </button>
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <button

@@ -207,7 +207,7 @@ const GlobalTradingToggle = ({ enabled, busy, onToggle }) => (
           type="button"
           disabled={busy || enabled}
           onClick={() => onToggle(true)}
-          className="rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-emerald-950 disabled:opacity-40"
+          className="rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-emerald-950 disabled:opacity-40"
         >
           Enable All Trades
         </button>
@@ -215,7 +215,7 @@ const GlobalTradingToggle = ({ enabled, busy, onToggle }) => (
           type="button"
           disabled={busy || !enabled}
           onClick={() => onToggle(false)}
-          className="rounded-xl bg-rose-500/90 px-4 py-2.5 text-xs font-bold text-rose-50 disabled:opacity-40"
+          className="rounded-xl bg-rose-500/90 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-rose-50 disabled:opacity-40"
         >
           Disable All Trades
         </button>
@@ -1594,6 +1594,8 @@ const DOC_TYPE_LABELS = {
   ID: "National ID Card",
   Passport: "Passport",
   DriversLicense: "Driver's License",
+  "National ID Card": "National ID Card",
+  // Legacy submissions only — never offered in the KYC dropdown
   CNIC: "National ID Card",
 };
 

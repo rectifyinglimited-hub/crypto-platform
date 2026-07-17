@@ -513,7 +513,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               type="button"
               disabled={accessBusy || u?.tradingAllowed !== false}
               onClick={() => onTradingAccess(true)}
-              className="rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-emerald-950 disabled:opacity-40"
+              className="rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold uppercase tracking-wide text-emerald-950 disabled:opacity-40"
             >
               Allow Trading
             </button>
@@ -521,7 +521,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               type="button"
               disabled={accessBusy || u?.tradingAllowed === false}
               onClick={() => onTradingAccess(false)}
-              className="rounded-xl bg-rose-500/90 px-3 py-2 text-xs font-bold text-rose-50 disabled:opacity-40"
+              className="rounded-xl bg-rose-500/90 px-3 py-2 text-xs font-bold uppercase tracking-wide text-rose-50 disabled:opacity-40"
             >
               Block Trading
             </button>
