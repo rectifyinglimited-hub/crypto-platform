@@ -11,7 +11,7 @@
  * =============================================================================
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
@@ -1718,10 +1718,13 @@ export default function AdminPanel({ user, onExit }) {
   const [balanceTarget, setBalanceTarget] = useState(null);
   const [controlRoomUserId, setControlRoomUserId] = useState(null);
 
-  const say = (kind, message) => {
+  // Stable identity — Control Room polls depend on this; a new fn each render
+  // remounted the poll effect and surfaced false "Unable to reach server" toasts.
+  const say = useCallback((kind, message) => {
+    if (!message) return;
     setToast({ kind, message });
-    setTimeout(() => setToast({ kind: null, message: "" }), 2600);
-  };
+    setTimeout(() => setToast({ kind: null, message: "" }), 3200);
+  }, []);
 
   const loadStats = async () => {
     setStatsLoading(true);

@@ -66,7 +66,7 @@ export const clearToken = () => setToken(null);
 // ---------------------------------------------------------------------------
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 25000,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -94,12 +94,33 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (!error.response) {
+    // Aborted / superseded requests (poll remount, navigation) — not a server outage
+    const code = error?.code || error?.name;
+    const aborted =
+      error?.code === "ERR_CANCELED" ||
+      error?.name === "CanceledError" ||
+      error?.name === "AbortError" ||
+      (typeof axios.isCancel === "function" && axios.isCancel(error));
+    if (aborted) {
       return Promise.reject({
         success: false,
-        error: "NetworkError",
-        message:
-          "Unable to reach the Nexus server. Please check your connection and try again.",
+        error: "Canceled",
+        message: null,
+        canceled: true,
+        original: error,
+      });
+    }
+
+    if (!error.response) {
+      const timedOut =
+        code === "ECONNABORTED" ||
+        /timeout/i.test(String(error?.message || ""));
+      return Promise.reject({
+        success: false,
+        error: timedOut ? "TimeoutError" : "NetworkError",
+        message: timedOut
+          ? "Request timed out. The server may still have applied the change — refresh and check."
+          : "Unable to reach the Nexus server. Please check your connection and try again.",
         baseURL: BASE_URL,
         original: error,
       });
@@ -209,18 +230,22 @@ export const AdminAPI = {
             ? { amount: parseFloat(amount) }
             : {}),
         },
-        { timeout: 30000 }
+        { timeout: 45000 }
       )
       .then((r) => r.data),
   nudgeTradePrice: (id, direction, step, amount) =>
     api
-      .put(`/admin/seconds-trades/${id}/price-bias`, {
-        direction,
-        ...(step != null ? { step } : {}),
-        ...(amount != null && amount !== ""
-          ? { amount: parseFloat(amount) }
-          : {}),
-      })
+      .put(
+        `/admin/seconds-trades/${id}/price-bias`,
+        {
+          direction,
+          ...(step != null ? { step } : {}),
+          ...(amount != null && amount !== ""
+            ? { amount: parseFloat(amount) }
+            : {}),
+        },
+        { timeout: 45000 }
+      )
       .then((r) => r.data),
   nudgeUserChart: (id, payload) =>
     api.put(`/admin/users/${id}/chart-bias`, payload).then((r) => r.data),

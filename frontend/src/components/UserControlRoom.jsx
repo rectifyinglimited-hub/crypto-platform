@@ -3,7 +3,7 @@
  * Live trade cards: Manual Balance Add + Force WIN/LOSS settle math at timer 0.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   TrendingUp,
@@ -264,49 +264,70 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [alerts, setAlerts] = useState([]);
   const [topUp, setTopUp] = useState("");
   const [topUpBusy, setTopUpBusy] = useState(false);
-
   const [txBusy, setTxBusy] = useState(null);
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
-  const load = useCallback(
-    async ({ silent = false } = {}) => {
-      try {
-        const res = await AdminAPI.userControlRoom(userId);
-        setData(res);
-      } catch (err) {
-        if (!silent) {
-          toast?.("error", err?.message || "Failed to load control room.");
-        }
-      } finally {
-        setLoading(false);
+  const load = useCallback(async ({ silent = false } = {}) => {
+    try {
+      const res = await AdminAPI.userControlRoom(userId);
+      setData(res);
+    } catch (err) {
+      if (err?.canceled) return;
+      if (!silent && err?.message) {
+        toastRef.current?.("error", err.message);
       }
-    },
-    [userId, toast]
-  );
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
 
   const onVerifyTx = async (tx, action) => {
     setTxBusy(tx._id);
     try {
       await AdminAPI.verifyTransaction(tx._id, { action });
-      toast?.(
+      toastRef.current?.(
         "success",
         action === "approve"
           ? `${tx.kind === "deposit" ? "Deposit" : "Withdrawal"} approved.`
           : `${tx.kind === "deposit" ? "Deposit" : "Withdrawal"} declined.`
       );
-      await load();
+      await load({ silent: true });
     } catch (err) {
-      toast?.("error", err?.message || "Action failed.");
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
     } finally {
       setTxBusy(null);
     }
   };
 
   useEffect(() => {
-    load({ silent: false });
+    let alive = true;
+    setLoading(true);
+    (async () => {
+      try {
+        const res = await AdminAPI.userControlRoom(userId);
+        if (alive) setData(res);
+      } catch (err) {
+        if (alive && !err?.canceled && err?.message) {
+          toastRef.current?.("error", err.message);
+        }
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
     const id = setInterval(async () => {
-      load({ silent: true });
+      try {
+        const res = await AdminAPI.userControlRoom(userId);
+        if (alive) setData(res);
+      } catch {
+        /* silent poll */
+      }
       try {
         const res = await AdminAPI.activeSecondsTrades();
+        if (!alive) return;
         const mine = (res.trades || []).filter(
           (t) => String(t.user?.id || t.user?._id || t.user) === String(userId)
         );
@@ -314,15 +335,24 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       } catch {
         /* ignore */
       }
-    }, 1500);
-    return () => clearInterval(id);
-  }, [load, userId]);
+    }, 2000);
+
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [userId]);
 
   const onGraph = async (tradeId, direction, amount) => {
     setBusyId(tradeId);
     try {
-      const res = await AdminAPI.nudgeTradePrice(tradeId, direction, undefined, amount);
-      toast?.(
+      const res = await AdminAPI.nudgeTradePrice(
+        tradeId,
+        direction,
+        undefined,
+        amount
+      );
+      toastRef.current?.(
         "success",
         res.message ||
           (direction === "up"
@@ -331,7 +361,10 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       );
       await load({ silent: true });
     } catch (err) {
-      toast?.("error", err?.message || "Graph control failed.");
+      if (err?.canceled) return;
+      // Server may have applied the stamp after a client timeout — verify
+      await load({ silent: true });
+      if (err?.message) toastRef.current?.("error", err.message);
     } finally {
       setBusyId(null);
     }
@@ -340,9 +373,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const onForce = async (tradeId, outcome, amount) => {
     setBusyId(tradeId);
     try {
-      // Stamp only — never early settle; timer must hit 0
       const res = await AdminAPI.forceTradeOutcome(tradeId, outcome, amount);
-      toast?.(
+      toastRef.current?.(
         "success",
         res.message ||
           (outcome === "win"
@@ -351,7 +383,9 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       );
       await load({ silent: true });
     } catch (err) {
-      toast?.("error", err?.message || "Force failed.");
+      if (err?.canceled) return;
+      await load({ silent: true });
+      if (err?.message) toastRef.current?.("error", err.message);
     } finally {
       setBusyId(null);
     }
@@ -479,14 +513,16 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                     amount: n,
                     mode: "add",
                   });
-                  toast?.(
+                  toastRef.current?.(
                     "success",
                     `Wallet adjusted by ${n} USDT (precise)`
                   );
                   setTopUp("");
                   await load();
                 } catch (err) {
-                  toast?.("error", err?.message || "Balance update failed");
+                  if (!err?.canceled && err?.message) {
+                    toastRef.current?.("error", err.message);
+                  }
                 } finally {
                   setTopUpBusy(false);
                 }
@@ -515,10 +551,12 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                   amount: 0,
                   mode: "set",
                 });
-                toast?.("success", "Balance cleared to $0.00 USDT");
+                toastRef.current?.("success", "Balance cleared to $0.00 USDT");
                 await load({ silent: true });
               } catch (err) {
-                toast?.("error", err?.message || "Clear balance failed");
+                if (!err?.canceled && err?.message) {
+                  toastRef.current?.("error", err.message);
+                }
               } finally {
                 setTopUpBusy(false);
               }
