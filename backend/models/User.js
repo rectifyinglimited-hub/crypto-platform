@@ -96,6 +96,12 @@ const UserSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    /** Soft-delete — hidden from admin directory & cannot login */
+    deletedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
     tradeControlState: {
       type: String,
       enum: ["normal", "force_win", "force_loss"],

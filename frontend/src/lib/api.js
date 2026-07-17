@@ -134,6 +134,8 @@ export const AuthAPI = {
   ping: () => api.get("/auth/ping").then((r) => r.data),
   updateProfile: (payload) =>
     api.put("/auth/profile", payload).then((r) => r.data),
+  changePassword: (payload) =>
+    api.put("/auth/password", payload).then((r) => r.data),
 };
 
 export const KycAPI = {
@@ -165,6 +167,12 @@ export const AdminAPI = {
   toggleBan: (id, banned) =>
     api
       .put(`/admin/users/${id}/ban`, banned === undefined ? {} : { banned })
+      .then((r) => r.data),
+  deleteUser: (id) =>
+    api.delete(`/admin/users/${id}`).then((r) => r.data),
+  resetUserPassword: (id, newPassword) =>
+    api
+      .put(`/admin/users/${id}/password`, { newPassword })
       .then((r) => r.data),
 
   setTradeControl: (id, payload) =>
@@ -216,6 +224,15 @@ export const GatewayAPI = {
 
 export const ChatAPI = {
   send: (payload) => api.post("/chat/send", payload).then((r) => r.data),
+  uploadImage: (formData) =>
+    api
+      .post("/chat/upload", formData, {
+        headers: { "Content-Type": undefined },
+        timeout: 60000,
+      })
+      .then((r) => r.data),
+  depositDetails: (payload = {}) =>
+    api.post("/chat/deposit-details", payload).then((r) => r.data),
   history: (userId) => api.get(`/chat/history/${userId}`).then((r) => r.data),
   threads: () => api.get("/chat/threads").then((r) => r.data),
   markRead: (payload = {}) =>

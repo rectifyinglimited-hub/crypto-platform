@@ -283,7 +283,7 @@ router.post(
     const { email, password } = req.body;
 
     const user = await User.findOne({ email }).select("+password");
-    if (!user) {
+    if (!user || user.deletedAt) {
       return res.status(401).json({
         success: false,
         error: "UnauthorizedError",
@@ -297,6 +297,14 @@ router.post(
         success: false,
         error: "UnauthorizedError",
         message: "Invalid email or password.",
+      });
+    }
+
+    if (user.banned) {
+      return res.status(403).json({
+        success: false,
+        error: "ForbiddenError",
+        message: "Your account has been suspended. Contact support.",
       });
     }
 
@@ -322,11 +330,18 @@ router.get(
   requireDatabase,
   asyncHandler(async (req, res) => {
     const user = await User.findById(req.auth.sub);
-    if (!user) {
+    if (!user || user.deletedAt) {
       return res.status(404).json({
         success: false,
         error: "NotFoundError",
         message: "User no longer exists.",
+      });
+    }
+    if (user.banned) {
+      return res.status(403).json({
+        success: false,
+        error: "ForbiddenError",
+        message: "Your account has been suspended.",
       });
     }
     return res.status(200).json({ success: true, user: sanitizeUser(user) });
@@ -400,6 +415,52 @@ router.put(
       success: true,
       message: "Profile saved successfully.",
       user: sanitizeUser(user),
+    });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// PUT /api/auth/password — user changes own password
+// ---------------------------------------------------------------------------
+router.put(
+  "/password",
+  requireAuth,
+  requireDatabase,
+  [
+    body("currentPassword").isString().isLength({ min: 1 }),
+    body("newPassword")
+      .isString()
+      .isLength({ min: 8, max: 128 })
+      .withMessage("New password must be at least 8 characters."),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const user = await User.findById(req.auth.sub).select("+password");
+    if (!user || user.deletedAt) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "User not found.",
+      });
+    }
+
+    const ok = await bcrypt.compare(req.body.currentPassword, user.password);
+    if (!ok) {
+      return res.status(401).json({
+        success: false,
+        error: "UnauthorizedError",
+        message: "Current password is incorrect.",
+      });
+    }
+
+    user.password = await bcrypt.hash(req.body.newPassword, BCRYPT_ROUNDS);
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password updated successfully.",
     });
   })
 );

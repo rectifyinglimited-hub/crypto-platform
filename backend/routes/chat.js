@@ -2,19 +2,7 @@
  * =============================================================================
  *  NEXUS BACKEND — routes/chat.js
  * =============================================================================
- *  Real-time-ish chat between a user and admin support.
- *
- *    POST  /api/chat/send                 Post a message
- *      • As a user: body { body } → thread is own userId, from="user"
- *      • As an admin: body { body, userId } → thread is userId, from="admin"
- *
- *    GET   /api/chat/history/:userId      Full ordered message list
- *      • Users may only fetch their own history
- *      • Admins may fetch any user's history
- *
- *    GET   /api/chat/threads              Admin-only: list active threads
- *
- *    POST  /api/chat/mark-read            User marks all as read
+ *  Chat between users and admin support (text + images).
  * =============================================================================
  */
 
@@ -24,7 +12,9 @@ import mongoose from "mongoose";
 
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+import GatewaySetting from "../models/GatewaySetting.js";
 import { requireAuth } from "../middleware/auth.js";
+import { uploadProof, proofPublicUrl } from "../middleware/upload.js";
 
 const router = Router();
 
@@ -53,6 +43,12 @@ const requireDatabase = (_req, res, next) => {
   return next();
 };
 
+async function resolveSender(req) {
+  const dbUser = await User.findById(req.auth.sub).select("role deletedAt banned");
+  const isAdmin = dbUser?.role === "admin";
+  return { isAdmin, dbUser };
+}
+
 // ---------------------------------------------------------------------------
 // POST /send
 // ---------------------------------------------------------------------------
@@ -75,7 +71,7 @@ router.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) return sendValidationError(res, errors);
 
-    const isAdmin = req.auth.role === "admin";
+    const { isAdmin } = await resolveSender(req);
     let threadUserId;
     let from;
     let adminAuthor = null;
@@ -96,8 +92,10 @@ router.post(
       from = "user";
     }
 
-    // Sanity: target user must exist
-    const exists = await User.exists({ _id: threadUserId });
+    const exists = await User.exists({
+      _id: threadUserId,
+      deletedAt: null,
+    });
     if (!exists) {
       return res.status(404).json({
         success: false,
@@ -110,12 +108,163 @@ router.post(
       user: threadUserId,
       from,
       body: req.body.body,
+      messageType: "text",
       adminAuthor,
       readByAdmin: from === "admin",
       readByUser: from === "user",
     });
 
     return res.status(201).json({ success: true, message: msg });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// POST /upload — text optional + image (user or admin)
+// ---------------------------------------------------------------------------
+router.post(
+  "/upload",
+  requireAuth,
+  requireDatabase,
+  (req, res, next) => {
+    uploadProof.single("image")(req, res, (err) => {
+      if (err) {
+        return res.status(422).json({
+          success: false,
+          error: "ValidationError",
+          message: err.message || "Invalid image.",
+        });
+      }
+      return next();
+    });
+  },
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      return res.status(422).json({
+        success: false,
+        error: "ValidationError",
+        message: "Choose an image to upload.",
+      });
+    }
+
+    const { isAdmin } = await resolveSender(req);
+    let threadUserId;
+    let from;
+    let adminAuthor = null;
+
+    if (isAdmin) {
+      threadUserId = req.body.userId;
+      if (!threadUserId || !mongoose.isValidObjectId(threadUserId)) {
+        return res.status(400).json({
+          success: false,
+          error: "BadRequestError",
+          message: "Admin image messages require a target `userId`.",
+        });
+      }
+      from = "admin";
+      adminAuthor = req.auth.sub;
+    } else {
+      threadUserId = req.auth.sub;
+      from = "user";
+    }
+
+    const caption = (req.body.body || "").toString().trim() || "📷 Image";
+    const attachmentUrl = proofPublicUrl(req.file.filename);
+
+    const msg = await Message.create({
+      user: threadUserId,
+      from,
+      body: caption,
+      messageType: "text",
+      attachmentUrl,
+      adminAuthor,
+      readByAdmin: from === "admin",
+      readByUser: from === "user",
+    });
+
+    return res.status(201).json({ success: true, message: msg });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// POST /deposit-details — push Gateway Settings into chat for this user
+// ---------------------------------------------------------------------------
+router.post(
+  "/deposit-details",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const { isAdmin } = await resolveSender(req);
+    const threadUserId = isAdmin ? req.body.userId : req.auth.sub;
+    if (!threadUserId || !mongoose.isValidObjectId(threadUserId)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user.",
+      });
+    }
+    if (!isAdmin && threadUserId !== req.auth.sub) {
+      return res.status(403).json({
+        success: false,
+        error: "ForbiddenError",
+        message: "Forbidden.",
+      });
+    }
+
+    const gw = await GatewaySetting.getSingleton();
+    const lines = ["💳 Deposit details (from Admin Gateway Settings)", ""];
+    if (gw.usdtTrc20Address) {
+      lines.push(`USDT TRC-20:\n${gw.usdtTrc20Address}`);
+    }
+    if (gw.usdtErc20Address) {
+      lines.push(`USDT ERC-20:\n${gw.usdtErc20Address}`);
+    }
+    if (gw.bankName || gw.accountNumber) {
+      lines.push(
+        `Bank: ${gw.bankName || "—"} · ${gw.accountTitle || ""} · ${
+          gw.accountNumber || ""
+        }`
+      );
+    }
+    if (gw.easyPaisaNumber) lines.push(`EasyPaisa: ${gw.easyPaisaNumber}`);
+    if (gw.jazzCashNumber) lines.push(`JazzCash: ${gw.jazzCashNumber}`);
+    if (gw.instructions) lines.push(`\n${gw.instructions}`);
+    if (
+      !gw.usdtTrc20Address &&
+      !gw.usdtErc20Address &&
+      !gw.accountNumber &&
+      !gw.easyPaisaNumber
+    ) {
+      lines.push(
+        "No deposit rails configured yet. Admin: open Gateway Settings and save USDT TRC-20 address."
+      );
+    }
+    lines.push(
+      "\nAfter transfer, upload your payment screenshot here for approval."
+    );
+
+    const msg = await Message.create({
+      user: threadUserId,
+      from: "admin",
+      body: lines.join("\n"),
+      messageType: "system",
+      adminAuthor: isAdmin ? req.auth.sub : null,
+      readByAdmin: true,
+      readByUser: false,
+      meta: {
+        kind: "deposit_details",
+        usdtTrc20Address: gw.usdtTrc20Address || null,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: msg,
+      settings: {
+        usdtTrc20Address: gw.usdtTrc20Address,
+        usdtErc20Address: gw.usdtErc20Address,
+        instructions: gw.instructions,
+      },
+    });
   })
 );
 
@@ -135,7 +284,8 @@ router.get(
         message: "Invalid userId.",
       });
     }
-    if (req.auth.role !== "admin" && userId !== req.auth.sub) {
+    const { isAdmin } = await resolveSender(req);
+    if (!isAdmin && userId !== req.auth.sub) {
       return res.status(403).json({
         success: false,
         error: "ForbiddenError",
@@ -153,14 +303,14 @@ router.get(
 
 // ---------------------------------------------------------------------------
 // GET /threads (admin)
-// Returns one entry per user who has messaged, with last message + unread count.
 // ---------------------------------------------------------------------------
 router.get(
   "/threads",
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    if (req.auth.role !== "admin") {
+    const { isAdmin } = await resolveSender(req);
+    if (!isAdmin) {
       return res.status(403).json({
         success: false,
         error: "ForbiddenError",
@@ -177,7 +327,12 @@ router.get(
           unread: {
             $sum: {
               $cond: [
-                { $and: [{ $eq: ["$from", "user"] }, { $eq: ["$readByAdmin", false] }] },
+                {
+                  $and: [
+                    { $eq: ["$from", "user"] },
+                    { $eq: ["$readByAdmin", false] },
+                  ],
+                },
                 1,
                 0,
               ],
@@ -196,6 +351,7 @@ router.get(
         },
       },
       { $unwind: "$user" },
+      { $match: { "user.deletedAt": null } },
       {
         $project: {
           _id: 1,
@@ -216,14 +372,14 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
-// POST /mark-read — user marks all admin messages as read (or vice versa)
+// POST /mark-read
 // ---------------------------------------------------------------------------
 router.post(
   "/mark-read",
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    const isAdmin = req.auth.role === "admin";
+    const { isAdmin } = await resolveSender(req);
     if (isAdmin) {
       const { userId } = req.body || {};
       if (!mongoose.isValidObjectId(userId)) {

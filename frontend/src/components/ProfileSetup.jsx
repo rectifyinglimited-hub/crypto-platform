@@ -182,6 +182,83 @@ export default function ProfileSetup({ user, onSaved, toast }) {
           )}
         </motion.button>
       </form>
+
+      <PasswordChangeForm toast={toast} />
     </div>
+  );
+}
+
+function PasswordChangeForm({ toast }) {
+  const [currentPassword, setCurrent] = useState("");
+  const [newPassword, setNew] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      toast?.("error", "New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirm) {
+      toast?.("error", "New passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await AuthAPI.changePassword({ currentPassword, newPassword });
+      toast?.("success", "Password changed.");
+      setCurrent("");
+      setNew("");
+      setConfirm("");
+    } catch (err) {
+      toast?.("error", err?.message || "Could not change password.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={submit}
+      className="mt-4 space-y-3 border-t border-white/10 pt-4"
+    >
+      <div className="text-sm font-semibold text-white">Change password</div>
+      <p className="text-[11px] text-slate-500">
+        Or ask Live Chat support — admin can also reset your password from User
+        Management.
+      </p>
+      <input
+        type="password"
+        value={currentPassword}
+        onChange={(e) => setCurrent(e.target.value)}
+        placeholder="Current password"
+        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none"
+        required
+      />
+      <input
+        type="password"
+        value={newPassword}
+        onChange={(e) => setNew(e.target.value)}
+        placeholder="New password (8+)"
+        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none"
+        required
+      />
+      <input
+        type="password"
+        value={confirm}
+        onChange={(e) => setConfirm(e.target.value)}
+        placeholder="Confirm new password"
+        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none"
+        required
+      />
+      <button
+        type="submit"
+        disabled={busy}
+        className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-slate-200 disabled:opacity-50"
+      >
+        {busy ? "Updating…" : "Update password"}
+      </button>
+    </form>
   );
 }

@@ -89,6 +89,7 @@ export default function LiveChatWidget({
   const lastCountRef = useRef(0);
   const lastOpenSignal = useRef(0);
   const fileRef = useRef(null);
+  const attachRef = useRef(null);
 
   useEffect(() => {
     if (!openSignal || openSignal === lastOpenSignal.current) return;
@@ -169,6 +170,15 @@ export default function LiveChatWidget({
     setStatusBanner(null);
     if (key === "deposit") {
       await loadGateway();
+      try {
+        const res = await ChatAPI.depositDetails();
+        if (res.message) {
+          setMessages((prev) => [...prev, res.message]);
+        }
+        if (res.settings) setGateway(res.settings);
+      } catch {
+        /* gateway panel still works locally */
+      }
     }
     if (key === "service" || key === "info") {
       const text =
@@ -500,6 +510,39 @@ export default function LiveChatWidget({
               onSubmit={handleSend}
               className="flex items-center gap-2 border-t border-white/5 bg-black/20 px-3 py-2.5"
             >
+              <input
+                ref={attachRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!f || sending) return;
+                  setSending(true);
+                  try {
+                    const fd = new FormData();
+                    fd.append("image", f);
+                    if (draft.trim()) fd.append("body", draft.trim());
+                    const res = await ChatAPI.uploadImage(fd);
+                    setMessages((prev) => [...prev, res.message]);
+                    setDraft("");
+                  } catch {
+                    /* ignore */
+                  } finally {
+                    setSending(false);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => attachRef.current?.click()}
+                disabled={sending}
+                className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-slate-300 disabled:opacity-50"
+                title="Send image"
+              >
+                <Upload className="h-4 w-4" />
+              </button>
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}

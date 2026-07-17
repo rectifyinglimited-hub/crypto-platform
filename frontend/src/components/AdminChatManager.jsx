@@ -1,19 +1,20 @@
 /**
- * =============================================================================
- *  NEXUS FRONTEND — src/components/AdminChatManager.jsx
- * =============================================================================
- *  Admin-side chat console. Split-pane layout:
- *    • LEFT   — list of users with active threads, unread badges, last message
- *    • RIGHT  — active thread panel with reply composer
- *  Polls the threads list + selected history for near-real-time updates.
- * =============================================================================
+ * Admin Support Chat — shows images + admin can upload pics to users.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Search, RefreshCw, User as UserIcon } from "lucide-react";
+import {
+  Send,
+  Loader2,
+  Search,
+  RefreshCw,
+  User as UserIcon,
+  Paperclip,
+  Image as ImageIcon,
+} from "lucide-react";
 
-import { ChatAPI } from "../lib/api.js";
+import { ChatAPI, assetUrl } from "../lib/api.js";
 
 const POLL_MS = 4000;
 
@@ -26,6 +27,49 @@ const timeAgo = (iso) => {
   return new Date(iso).toLocaleDateString();
 };
 
+function MessageBubble({ m }) {
+  const isAdmin = m.from === "admin";
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 6, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}
+    >
+      <div
+        className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
+          isAdmin
+            ? "bg-gradient-to-br from-indigo-500 to-indigo-400 text-white"
+            : "border border-white/5 bg-white/[0.03] text-slate-200"
+        }`}
+      >
+        <div className="whitespace-pre-wrap break-words">{m.body}</div>
+        {m.attachmentUrl && (
+          <a
+            href={assetUrl(m.attachmentUrl)}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 block overflow-hidden rounded-lg ring-1 ring-white/20"
+          >
+            <img
+              src={assetUrl(m.attachmentUrl)}
+              alt="Attachment"
+              className="max-h-56 w-full object-contain bg-black/40"
+            />
+          </a>
+        )}
+        <div
+          className={`mt-1 text-[10px] uppercase tracking-widest ${
+            isAdmin ? "text-indigo-100/70" : "text-slate-500"
+          }`}
+        >
+          {timeAgo(m.createdAt)}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function AdminChatManager() {
   const [threads, setThreads] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -36,8 +80,8 @@ export default function AdminChatManager() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [query, setQuery] = useState("");
   const listRef = useRef(null);
+  const fileRef = useRef(null);
 
-  // ---- Load threads ----
   const loadThreads = async () => {
     setThreadsLoading(true);
     try {
@@ -56,7 +100,6 @@ export default function AdminChatManager() {
     return () => clearInterval(id);
   }, []);
 
-  // ---- Load selected history ----
   const loadHistory = async (userId) => {
     if (!userId) return;
     setHistoryLoading(true);
@@ -109,16 +152,46 @@ export default function AdminChatManager() {
     }
   };
 
+  const handleImage = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !selected || sending) return;
+    setSending(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      fd.append("userId", selected._id);
+      if (draft.trim()) fd.append("body", draft.trim());
+      const res = await ChatAPI.uploadImage(fd);
+      setMessages((prev) => [...prev, res.message]);
+      setDraft("");
+      loadThreads();
+    } catch {
+      /* ignore */
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendDepositDetails = async () => {
+    if (!selected || sending) return;
+    setSending(true);
+    try {
+      const res = await ChatAPI.depositDetails({ userId: selected._id });
+      setMessages((prev) => [...prev, res.message]);
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="grid h-[calc(100vh-14rem)] min-h-[540px] grid-cols-1 gap-4 md:grid-cols-3">
-      {/* LEFT: Threads */}
       <aside className="flex flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm md:col-span-1">
         <div className="border-b border-white/5 p-4">
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-semibold tracking-tight">
-              Inboxes
-            </div>
+            <div className="text-sm font-semibold tracking-tight">Inboxes</div>
             <button
+              type="button"
               onClick={loadThreads}
               disabled={threadsLoading}
               className="flex items-center gap-1 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
@@ -154,15 +227,13 @@ export default function AdminChatManager() {
                   exit={{ opacity: 0, x: -8 }}
                   onClick={() => setSelected(t.user)}
                   className={`relative cursor-pointer px-4 py-3 transition ${
-                    active
-                      ? "bg-white/[0.05]"
-                      : "hover:bg-white/[0.02]"
+                    active ? "bg-white/[0.05]" : "hover:bg-white/[0.02]"
                   }`}
                 >
                   {active && (
                     <motion.span
                       layoutId="thread-active"
-                      className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-gradient-to-b from-indigo-500 to-emerald-400"
+                      className="absolute bottom-2 left-0 top-2 w-1 rounded-r bg-gradient-to-b from-indigo-500 to-emerald-400"
                     />
                   )}
                   <div className="flex items-start gap-2.5">
@@ -184,6 +255,7 @@ export default function AdminChatManager() {
                         </div>
                       </div>
                       <div className="truncate text-[11px] text-slate-500">
+                        {t.lastMessage?.attachmentUrl ? "📷 " : ""}
                         {t.lastMessage?.from === "admin" ? "You: " : ""}
                         {t.lastMessage?.body}
                       </div>
@@ -206,7 +278,6 @@ export default function AdminChatManager() {
         </ul>
       </aside>
 
-      {/* RIGHT: Thread */}
       <section className="flex flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm md:col-span-2">
         {selected ? (
           <>
@@ -229,8 +300,19 @@ export default function AdminChatManager() {
                   </div>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={sendDepositDetails}
+                disabled={sending}
+                className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-200 disabled:opacity-50"
+              >
+                Send deposit details
+              </button>
             </div>
-            <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
+            <div
+              ref={listRef}
+              className="flex-1 space-y-2 overflow-y-auto px-4 py-3"
+            >
               {historyLoading && messages.length === 0 && (
                 <div className="mt-16 flex items-center justify-center gap-2 text-xs text-slate-500">
                   <Loader2 className="h-3 w-3 animate-spin" /> Loading history…
@@ -238,41 +320,7 @@ export default function AdminChatManager() {
               )}
               <AnimatePresence initial={false}>
                 {messages.map((m) => (
-                  <motion.div
-                    key={m._id}
-                    layout
-                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 320,
-                      damping: 26,
-                    }}
-                    className={`flex ${
-                      m.from === "admin" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                        m.from === "admin"
-                          ? "bg-gradient-to-br from-indigo-500 to-indigo-400 text-white"
-                          : "border border-white/5 bg-white/[0.03] text-slate-200"
-                      }`}
-                    >
-                      <div className="whitespace-pre-wrap break-words">
-                        {m.body}
-                      </div>
-                      <div
-                        className={`mt-1 text-[10px] uppercase tracking-widest ${
-                          m.from === "admin"
-                            ? "text-indigo-100/70"
-                            : "text-slate-500"
-                        }`}
-                      >
-                        {timeAgo(m.createdAt)}
-                      </div>
-                    </div>
-                  </motion.div>
+                  <MessageBubble key={m._id} m={m} />
                 ))}
               </AnimatePresence>
               {!historyLoading && messages.length === 0 && (
@@ -285,6 +333,22 @@ export default function AdminChatManager() {
               onSubmit={handleSend}
               className="flex items-center gap-2 border-t border-white/5 bg-black/20 px-3 py-2.5"
             >
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImage}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={sending}
+                className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 disabled:opacity-50"
+                title="Send image"
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -311,8 +375,9 @@ export default function AdminChatManager() {
             <div className="text-sm font-semibold">
               Select a conversation to begin
             </div>
-            <div className="mt-1 text-xs">
-              User messages appear on the left as they come in.
+            <div className="mt-1 flex items-center gap-1 text-xs">
+              <ImageIcon className="h-3 w-3" /> Deposit proofs & admin pics show
+              here
             </div>
           </div>
         )}

@@ -22,6 +22,7 @@ import { Router } from "express";
 import { body, validationResult } from "express-validator";
 import mongoose from "mongoose";
 import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 
 import User from "../models/User.js";
 import InviteCode from "../models/InviteCode.js";
@@ -209,15 +210,20 @@ router.get(
   requireDatabase,
   asyncHandler(async (req, res) => {
     const q = (req.query.q || "").toString().trim();
-    const filter = q
-      ? {
+    const filter = { deletedAt: null };
+    if (q) {
+      filter.$and = [
+        { deletedAt: null },
+        {
           $or: [
             { email: { $regex: q, $options: "i" } },
             { username: { $regex: q, $options: "i" } },
             { fullName: { $regex: q, $options: "i" } },
           ],
-        }
-      : {};
+        },
+      ];
+      delete filter.deletedAt;
+    }
     const users = await User.find(filter).sort({ createdAt: -1 }).limit(500);
     return res.json({ success: true, users });
   })
@@ -313,8 +319,98 @@ router.put(
     await user.save();
     return res.json({
       success: true,
-      message: nextBanned ? "User suspended." : "User reinstated.",
+      message: nextBanned ? "User banned." : "User set to Active.",
       user,
+    });
+  })
+);
+
+// DELETE /users/:id — soft-delete (hidden from directory, cannot login)
+router.delete(
+  "/users/:id",
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user id.",
+      });
+    }
+    const user = await User.findById(id);
+    if (!user || user.deletedAt) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "User not found.",
+      });
+    }
+    if (user._id.toString() === req.auth.sub) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "You cannot delete your own account.",
+      });
+    }
+    if (user.role === "admin") {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Admin accounts cannot be deleted from this panel.",
+      });
+    }
+
+    user.deletedAt = new Date();
+    user.banned = true;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "User deleted and removed from the directory.",
+      userId: user._id,
+    });
+  })
+);
+
+// PUT /users/:id/password — admin resets user password
+router.put(
+  "/users/:id/password",
+  requireDatabase,
+  [
+    body("newPassword")
+      .isString()
+      .isLength({ min: 8, max: 128 })
+      .withMessage("Password must be at least 8 characters."),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user id.",
+      });
+    }
+
+    const user = await User.findById(id).select("+password");
+    if (!user || user.deletedAt) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "User not found.",
+      });
+    }
+
+    user.password = await bcrypt.hash(req.body.newPassword, 12);
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: `Password reset for @${user.username}. Share the new password securely.`,
     });
   })
 );

@@ -45,6 +45,7 @@ import {
   Landmark,
   Hash,
   Phone,
+  KeyRound,
 } from "lucide-react";
 import { AdminAPI, assetUrl } from "../lib/api.js";
 import AdminChatManager from "./AdminChatManager.jsx";
@@ -802,9 +803,14 @@ const UserRow = ({
   onToggleBan,
   onSaveTradeControl,
   onOpenControlRoom,
+  onDeleteUser,
+  onResetPassword,
 }) => {
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pwdOpen, setPwdOpen] = useState(false);
+  const [newPwd, setNewPwd] = useState("");
+  const [pwdBusy, setPwdBusy] = useState(false);
 
   const usdt = walletValue(user, "USDT");
   const btc = walletValue(user, "BTC");
@@ -819,6 +825,18 @@ const UserRow = ({
       setAmount("");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const doResetPwd = async () => {
+    if (!newPwd || newPwd.length < 8 || pwdBusy) return;
+    setPwdBusy(true);
+    try {
+      await onResetPassword?.(user, newPwd);
+      setNewPwd("");
+      setPwdOpen(false);
+    } finally {
+      setPwdBusy(false);
     }
   };
 
@@ -850,9 +868,18 @@ const UserRow = ({
           <div className="truncate text-[11px] text-slate-500">
             {user.email}
           </div>
-          {user.trc20Address && (
-            <div className="mt-0.5 truncate font-mono text-[10px] text-cyan-400/80">
-              TRC20 · {user.trc20Address}
+          {user.trc20Address ? (
+            <div className="mt-1 rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-2 py-1">
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-cyan-400/80">
+                User TRC-20 wallet
+              </div>
+              <div className="mt-0.5 break-all font-mono text-[10px] text-cyan-100">
+                {user.trc20Address}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-1 text-[10px] text-slate-600">
+              TRC-20 not set
             </div>
           )}
           <div className="mt-1 flex gap-1">
@@ -872,7 +899,7 @@ const UserRow = ({
                   : "border-emerald-400/25 bg-emerald-500/15 text-emerald-300"
               }`}
             >
-              {user.banned ? "Suspended" : "Active"}
+              {user.banned ? "Banned" : "Active"}
             </span>
           </div>
         </div>
@@ -972,18 +999,26 @@ const UserRow = ({
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.9 }}
-          onClick={() => onToggleBan(user)}
+          onClick={() => setPwdOpen((v) => !v)}
+          disabled={user._id === currentUserId}
+          className="flex items-center gap-1 rounded-lg border border-amber-400/25 bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-200 disabled:opacity-40"
+        >
+          <KeyRound className="h-3 w-3" /> Reset PW
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => onToggleBan(user, !user.banned)}
           disabled={user._id === currentUserId}
           className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
             user.banned
               ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15"
               : "border-rose-400/25 bg-rose-500/10 text-rose-200 hover:bg-rose-500/15"
           }`}
-          title={user.banned ? "Reinstate" : "Suspend"}
+          title={user.banned ? "Set Active" : "Ban user"}
         >
           {user.banned ? (
             <>
-              <ShieldCheck className="h-3 w-3" /> Un-ban
+              <ShieldCheck className="h-3 w-3" /> Active
             </>
           ) : (
             <>
@@ -991,6 +1026,33 @@ const UserRow = ({
             </>
           )}
         </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => onDeleteUser?.(user)}
+          disabled={user._id === currentUserId || user.role === "admin"}
+          className="flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-600/20 px-2 py-1 text-[10px] font-medium text-rose-200 disabled:opacity-40"
+        >
+          <Trash2 className="h-3 w-3" /> Delete
+        </motion.button>
+        {pwdOpen && (
+          <div className="mt-1 w-full min-w-[140px] space-y-1 rounded-lg border border-white/10 bg-black/40 p-2">
+            <input
+              type="text"
+              value={newPwd}
+              onChange={(e) => setNewPwd(e.target.value)}
+              placeholder="New password (8+)"
+              className="w-full rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white outline-none"
+            />
+            <button
+              type="button"
+              onClick={doResetPwd}
+              disabled={pwdBusy || newPwd.length < 8}
+              className="w-full rounded bg-amber-500 py-1 text-[10px] font-bold text-amber-950 disabled:opacity-50"
+            >
+              {pwdBusy ? "Saving…" : "Save password"}
+            </button>
+          </div>
+        )}
       </div>
     </motion.li>
   );
@@ -1008,6 +1070,8 @@ const UsersView = ({
   onToggleBan,
   onSaveTradeControl,
   onOpenControlRoom,
+  onDeleteUser,
+  onResetPassword,
   query,
   onQueryChange,
   currentUserId,
@@ -1080,6 +1144,8 @@ const UsersView = ({
               onToggleBan={onToggleBan}
               onSaveTradeControl={onSaveTradeControl}
               onOpenControlRoom={onOpenControlRoom}
+              onDeleteUser={onDeleteUser}
+              onResetPassword={onResetPassword}
             />
           ))}
         </AnimatePresence>
@@ -1343,8 +1409,8 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
             Deposit Gateway Settings
           </h2>
           <p className="text-xs text-slate-500">
-            These credentials appear on every user's Deposit screen. Fill in
-            only the rails you accept — leave others blank to hide them.
+            Save your USDT TRC-20 (and other rails) here. Live Chat → Deposit
+            automatically sends these details to the user.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1741,13 +1807,40 @@ export default function AdminPanel({ user, onExit }) {
     }
   };
 
-  const handleToggleBan = async (u) => {
+  const handleToggleBan = async (u, banned) => {
     try {
-      const res = await AdminAPI.toggleBan(u._id);
+      const res = await AdminAPI.toggleBan(
+        u._id,
+        typeof banned === "boolean" ? banned : undefined
+      );
       setUsers((prev) => prev.map((x) => (x._id === u._id ? res.user : x)));
       say("success", res.message || "User updated.");
     } catch (err) {
       say("error", err?.message || "Failed to update user.");
+    }
+  };
+
+  const handleDeleteUser = async (u) => {
+    const ok = window.confirm(
+      `Delete user "${u.fullName || u.username}"?\n\nThey will disappear from this list and cannot log in. This cannot be undone from the panel.`
+    );
+    if (!ok) return;
+    try {
+      await AdminAPI.deleteUser(u._id);
+      setUsers((prev) => prev.filter((x) => x._id !== u._id));
+      say("success", "User deleted from directory.");
+    } catch (err) {
+      say("error", err?.message || "Delete failed.");
+    }
+  };
+
+  const handleResetPassword = async (u, newPassword) => {
+    try {
+      const res = await AdminAPI.resetUserPassword(u._id, newPassword);
+      say("success", res.message || "Password reset.");
+    } catch (err) {
+      say("error", err?.message || "Password reset failed.");
+      throw err;
     }
   };
 
@@ -2035,6 +2128,8 @@ export default function AdminPanel({ user, onExit }) {
                     setControlRoomUserId(u._id || u.id);
                     setSection("users");
                   }}
+                  onDeleteUser={handleDeleteUser}
+                  onResetPassword={handleResetPassword}
                   query={query}
                   onQueryChange={setQuery}
                   currentUserId={user?._id || user?.id}
