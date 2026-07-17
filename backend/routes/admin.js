@@ -656,7 +656,8 @@ router.patch(
       });
     }
 
-    user.kyc.status = req.body.action === "approve" ? "approved" : "rejected";
+    const approved = req.body.action === "approve";
+    user.kyc.status = approved ? "approved" : "rejected";
     user.kyc.reviewedAt = new Date();
     user.kyc.reviewedBy = req.auth.sub;
     user.kyc.reviewerNote = req.body.note || null;
@@ -665,7 +666,9 @@ router.patch(
 
     return res.json({
       success: true,
-      message: `KYC ${req.body.action}d.`,
+      message: approved
+        ? "Verification approved. User is now Verified."
+        : "Verification declined.",
       user,
     });
   })

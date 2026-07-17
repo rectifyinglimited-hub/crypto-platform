@@ -43,6 +43,7 @@ import LiveChatWidget from "./LiveChatWidget.jsx";
 import KYCModule from "./KYCModule.jsx";
 import AppShell from "./AppShell.jsx";
 import SecondsTrading from "./SecondsTrading.jsx";
+import CryptoWatchlist from "./CryptoWatchlist.jsx";
 import MarketActivity from "./MarketActivity.jsx";
 import TradeHistory from "./TradeHistory.jsx";
 import ProfileSetup from "./ProfileSetup.jsx";
@@ -1102,6 +1103,35 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onOpenAdmin={onOpenAdmin}
         onOpenKyc={() => setKycOpen(true)}
       >
+        {/* Unverified restriction banner — clears instantly when KYC is approved */}
+        {me?.kyc?.status !== "approved" && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            onClick={() => setKycOpen(true)}
+            className="mb-4 flex w-full items-start gap-2.5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3.5 py-3 text-left"
+          >
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-semibold text-amber-100">
+                {me?.kyc?.status === "pending"
+                  ? "Identity verification under review"
+                  : "Unverified account — trading limits apply"}
+              </div>
+              <div className="mt-0.5 text-[11px] text-amber-200/70">
+                {me?.kyc?.status === "pending"
+                  ? "An admin is reviewing your documents. This banner clears when you are Verified."
+                  : "Complete Identity Verification to remove restrictions. Tap to verify."}
+              </div>
+            </div>
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+              {me?.kyc?.status === "pending" ? "Pending" : "Verify"}
+            </span>
+          </motion.button>
+        )}
+
         <AnimatePresence mode="wait">
           {tab === "home" && (
             <motion.div
@@ -1140,7 +1170,9 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                       KYC
                     </div>
                     <div className="mt-1 text-sm font-semibold capitalize text-slate-200">
-                      {me?.kyc?.status || "unverified"}
+                      {me?.kyc?.status === "approved"
+                        ? "Verified"
+                        : me?.kyc?.status || "unverified"}
                     </div>
                   </div>
                 </div>
@@ -1182,6 +1214,16 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 walletUsdt={walletUsdt}
                 onWalletUpdate={handleUserUpdate}
                 onToast={say}
+              />
+              <CryptoWatchlist
+                onSelectAsset={(symbol) => {
+                  /* SecondsTrading listens via custom event */
+                  window.dispatchEvent(
+                    new CustomEvent("nexus:select-asset", {
+                      detail: { asset: symbol, assetType: "crypto" },
+                    })
+                  );
+                }}
               />
               <MarketActivity sticky />
             </motion.div>

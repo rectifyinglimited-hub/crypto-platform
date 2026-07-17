@@ -13,9 +13,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
+import { WATCHLIST_CRYPTO } from "./CryptoWatchlist.jsx";
 
 const DURATIONS = [60, 90, 120];
-const CRYPTO = ["BTC", "ETH", "SOL", "BNB", "XRP"];
+const CRYPTO = WATCHLIST_CRYPTO;
 const STOCKS = ["AAPL", "TSLA", "AMZN", "NVDA", "GOOGL"];
 
 function formatPrice(n) {
@@ -107,9 +108,12 @@ export default function SecondsTrading({
   const [busy, setBusy] = useState(false);
   const [active, setActive] = useState([]);
   const [now, setNow] = useState(Date.now());
+  const [priceFlash, setPriceFlash] = useState(null); // "up" | "down" | null
   const settling = useRef(new Set());
   const displayPrice = useRef(null);
   const targetPrice = useRef(null);
+  const lastTickPrice = useRef(null);
+  const flashTimer = useRef(null);
 
   const assets = assetType === "crypto" ? CRYPTO : STOCKS;
 
@@ -189,7 +193,7 @@ export default function SecondsTrading({
   useEffect(() => {
     loadMarkets();
     loadActive();
-    const mId = setInterval(loadMarkets, 2000);
+    const mId = setInterval(loadMarkets, 1000);
     const aId = setInterval(loadActive, 1500);
     const tId = setInterval(() => setNow(Date.now()), 250);
     return () => {
@@ -203,7 +207,42 @@ export default function SecondsTrading({
     setSeries([]);
     displayPrice.current = null;
     targetPrice.current = null;
+    lastTickPrice.current = null;
+    setPriceFlash(null);
   }, [asset]);
+
+  // Flash green/red on every second tick when the selected pair moves
+  useEffect(() => {
+    if (!rawPrice) return;
+    const prev = lastTickPrice.current;
+    if (prev != null && rawPrice !== prev) {
+      const dir = rawPrice > prev ? "up" : "down";
+      setPriceFlash(dir);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setPriceFlash(null), 650);
+    }
+    lastTickPrice.current = rawPrice;
+  }, [rawPrice]);
+
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    []
+  );
+
+  // Watchlist / external asset pick
+  useEffect(() => {
+    const onSelect = (e) => {
+      const next = e?.detail?.asset;
+      const type = e?.detail?.assetType || "crypto";
+      if (!next) return;
+      setAssetType(type);
+      setAsset(String(next).toUpperCase());
+    };
+    window.addEventListener("nexus:select-asset", onSelect);
+    return () => window.removeEventListener("nexus:select-asset", onSelect);
+  }, []);
 
   // Auto-settle only when timer has fully elapsed (never early)
   useEffect(() => {
@@ -323,7 +362,7 @@ export default function SecondsTrading({
         ))}
       </div>
 
-      {/* Asset chips */}
+      {/* Asset chips — scrollable 50+ crypto pairs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {assets.map((a) => (
           <button
@@ -342,16 +381,37 @@ export default function SecondsTrading({
       </div>
 
       {/* Chart + price */}
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d1424]">
+      <div
+        className={`overflow-hidden rounded-2xl border bg-[#0d1424] transition-colors duration-300 ${
+          priceFlash === "up"
+            ? "border-emerald-400/50 bg-emerald-500/10"
+            : priceFlash === "down"
+              ? "border-rose-400/50 bg-rose-500/10"
+              : "border-white/10"
+        }`}
+      >
         <div className="flex items-center justify-between px-4 pt-4">
           <div>
             <div className="text-xs text-slate-400">{asset}/USDT</div>
             <div
-              className={`text-xl font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}
+              className={`text-xl font-bold transition-colors duration-300 ${
+                priceFlash === "up"
+                  ? "text-emerald-300"
+                  : priceFlash === "down"
+                    ? "text-rose-300"
+                    : up
+                      ? "text-emerald-400"
+                      : "text-rose-400"
+              }`}
             >
               {formatPrice(price)}
             </div>
           </div>
+          {priceFlash === "up" ? (
+            <TrendingUp className="h-5 w-5 text-emerald-400" />
+          ) : priceFlash === "down" ? (
+            <TrendingDown className="h-5 w-5 text-rose-400" />
+          ) : null}
         </div>
         <LiveChart series={series.length ? series : [price, price]} up={up} />
       </div>

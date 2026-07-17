@@ -167,7 +167,11 @@ export default function AppShell({
                 <DrawerItem
                   icon={ShieldCheck}
                   label="KYC Verification"
-                  hint={user?.kyc?.status || "unverified"}
+                  hint={
+                    user?.kyc?.status === "approved"
+                      ? "Verified"
+                      : user?.kyc?.status || "unverified"
+                  }
                   onClick={() => {
                     onOpenKyc?.();
                     onDrawerClose();

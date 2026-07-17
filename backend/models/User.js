@@ -24,11 +24,12 @@ const KycSchema = new Schema(
     fullName: { type: String, trim: true, default: null },
     docType: {
       type: String,
-      enum: ["CNIC", "Passport", "ID", "DriversLicense", null],
+      enum: ["Passport", "ID", "DriversLicense", "CNIC", null],
       default: null,
     },
     docNumber: { type: String, trim: true, default: null },
-    documentPreview: { type: String, default: null }, // filename or opaque ref
+    documentPreview: { type: String, default: null }, // data URL, filename, or opaque ref
+    selfiePreview: { type: String, default: null }, // live selfie data URL
     submittedAt: { type: Date, default: null },
     reviewedAt: { type: Date, default: null },
     reviewedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },

@@ -53,7 +53,7 @@ app.use(
 );
 app.options("*", cors());
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "10mb" })); // KYC document + selfie data URLs
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

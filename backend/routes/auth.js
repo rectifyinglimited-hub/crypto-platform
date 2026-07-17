@@ -495,6 +495,8 @@ router.post(
     const docNumber = (req.body.docNumber || "").toString().trim();
     const documentPreview =
       (req.body.documentPreview || "").toString().trim() || null;
+    const selfiePreview =
+      (req.body.selfiePreview || "").toString().trim() || null;
 
     if (fullName.length < 2 || fullName.length > 80) {
       return res.status(422).json({
@@ -503,12 +505,12 @@ router.post(
         message: "Full name is required (2-80 chars).",
       });
     }
-    if (!["CNIC", "Passport", "ID", "DriversLicense"].includes(docType)) {
+    if (!["Passport", "ID", "DriversLicense"].includes(docType)) {
       return res.status(422).json({
         success: false,
         error: "ValidationError",
         message:
-          "Document type must be one of CNIC, Passport, ID, DriversLicense.",
+          "Document type must be one of National ID Card (ID), Passport, or Driver's License.",
       });
     }
     if (docNumber.length < 4 || docNumber.length > 40) {
@@ -516,6 +518,13 @@ router.post(
         success: false,
         error: "ValidationError",
         message: "Document number must be 4-40 chars.",
+      });
+    }
+    if (!selfiePreview) {
+      return res.status(422).json({
+        success: false,
+        error: "ValidationError",
+        message: "Selfie verification photo is required.",
       });
     }
 
@@ -548,6 +557,7 @@ router.post(
       docType,
       docNumber,
       documentPreview,
+      selfiePreview,
       submittedAt: new Date(),
       reviewedAt: null,
       reviewedBy: null,

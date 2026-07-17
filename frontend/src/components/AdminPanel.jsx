@@ -46,6 +46,8 @@ import {
   Hash,
   Phone,
   KeyRound,
+  Camera,
+  Image as ImageIcon,
 } from "lucide-react";
 import { AdminAPI, assetUrl } from "../lib/api.js";
 import AdminChatManager from "./AdminChatManager.jsx";
@@ -126,6 +128,14 @@ const Toast = ({ kind, message, onClose }) => (
 
 const StatusBadge = ({ status }) => {
   const map = {
+    verified: {
+      cls: "bg-emerald-500/15 text-emerald-300 border-emerald-400/25",
+      label: "Verified",
+    },
+    unverified: {
+      cls: "bg-slate-500/15 text-slate-300 border-slate-400/25",
+      label: "Unverified",
+    },
     active: {
       cls: "bg-emerald-500/15 text-emerald-300 border-emerald-400/25",
       label: "Active",
@@ -1514,8 +1524,56 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
 };
 
 // ---------------------------------------------------------------------------
-// KycView — approve / reject pending KYC submissions
+// KycView — approve / decline pending KYC submissions
 // ---------------------------------------------------------------------------
+const DOC_TYPE_LABELS = {
+  ID: "National ID Card",
+  Passport: "Passport",
+  DriversLicense: "Driver's License",
+  CNIC: "National ID Card",
+};
+
+const isImagePreview = (v) =>
+  typeof v === "string" &&
+  (v.startsWith("data:image") ||
+    v.startsWith("blob:") ||
+    /^https?:\/\//i.test(v));
+
+const KycMediaThumb = ({ src, label, icon: Icon, accent }) => {
+  const showImg = isImagePreview(src);
+  return (
+    <div
+      className={`overflow-hidden rounded-xl border ${accent} bg-white/[0.02]`}
+    >
+      <div className="flex items-center gap-1.5 border-b border-white/5 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
+        <Icon className="h-3 w-3" />
+        {label}
+      </div>
+      {showImg ? (
+        <button
+          type="button"
+          onClick={() => window.open(src, "_blank", "noopener,noreferrer")}
+          className="block w-full"
+          title="Open full size"
+        >
+          <img
+            src={src}
+            alt={label}
+            className="h-36 w-full object-cover object-top"
+          />
+        </button>
+      ) : (
+        <div className="flex h-36 flex-col items-center justify-center gap-2 px-3 text-center text-[10px] text-slate-500">
+          <FileText className="h-5 w-5 opacity-60" />
+          <span className="line-clamp-3 break-all">
+            {src || "No photo submitted"}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const KycView = ({
   requests,
   loading,
@@ -1534,7 +1592,7 @@ const KycView = ({
       <div>
         <h2 className="text-lg font-semibold tracking-tight">KYC Review</h2>
         <p className="text-xs text-slate-500">
-          Verify identity submissions and lock user profiles.
+          Review document + selfie side-by-side, then approve or decline.
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -1549,7 +1607,7 @@ const KycView = ({
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              {f}
+              {f === "approved" ? "verified" : f}
             </button>
           ))}
         </div>
@@ -1572,7 +1630,7 @@ const KycView = ({
       variants={listContainer}
       initial="hidden"
       animate="show"
-      className="grid gap-3 md:grid-cols-2"
+      className="grid gap-4 xl:grid-cols-2"
     >
       <AnimatePresence initial={false}>
         {requests.map((u) => (
@@ -1606,10 +1664,16 @@ const KycView = ({
                   </div>
                 )}
               </div>
-              <StatusBadge status={u.kyc?.status || "unverified"} />
+              <StatusBadge
+                status={
+                  u.kyc?.status === "approved"
+                    ? "verified"
+                    : u.kyc?.status || "unverified"
+                }
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-[11px]">
+            <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-[11px]">
               <div>
                 <div className="text-[9px] uppercase tracking-widest text-slate-500">
                   Legal Name
@@ -1623,7 +1687,7 @@ const KycView = ({
                   Doc Type
                 </div>
                 <div className="font-semibold text-slate-200">
-                  {u.kyc?.docType || "—"}
+                  {DOC_TYPE_LABELS[u.kyc?.docType] || u.kyc?.docType || "—"}
                 </div>
               </div>
               <div className="col-span-2">
@@ -1634,12 +1698,6 @@ const KycView = ({
                   {u.kyc?.docNumber || "—"}
                 </div>
               </div>
-              {u.kyc?.documentPreview && (
-                <div className="col-span-2 flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1.5 text-[10px] text-slate-400">
-                  <FileText className="h-3 w-3" />
-                  {u.kyc.documentPreview}
-                </div>
-              )}
               <div className="col-span-2 flex items-center gap-1 text-[10px] text-slate-500">
                 <Clock className="h-3 w-3" />
                 Submitted{" "}
@@ -1649,21 +1707,37 @@ const KycView = ({
               </div>
             </div>
 
+            {/* Document + Selfie side-by-side */}
+            <div className="grid grid-cols-2 gap-2">
+              <KycMediaThumb
+                src={u.kyc?.documentPreview}
+                label="Document Photo"
+                icon={ImageIcon}
+                accent="border-indigo-400/20"
+              />
+              <KycMediaThumb
+                src={u.kyc?.selfiePreview}
+                label="Selfie Photo"
+                icon={Camera}
+                accent="border-emerald-400/30 ring-1 ring-emerald-400/15"
+              />
+            </div>
+
             {u.kyc?.status === "pending" && (
               <div className="mt-3 flex gap-2">
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onReview(u, "approve")}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/15"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/25"
                 >
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve Verification
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onReview(u, "reject")}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 hover:bg-rose-500/15"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-400/30 bg-rose-500/15 px-3 py-2.5 text-xs font-semibold text-rose-100 hover:bg-rose-500/25"
                 >
-                  <X className="h-3.5 w-3.5" /> Reject
+                  <X className="h-3.5 w-3.5" /> Decline Verification
                 </motion.button>
               </div>
             )}
@@ -1969,9 +2043,25 @@ export default function AdminPanel({ user, onExit }) {
     try {
       const res = await AdminAPI.reviewKyc(u._id, { action });
       setKycRequests((prev) => prev.filter((x) => x._id !== u._id));
-      say("success", res.message || `KYC ${action}d.`);
+      // Keep Users directory in sync so Verified status shows immediately
+      if (res?.user) {
+        setUsers((prev) =>
+          prev.map((x) => (x._id === u._id ? { ...x, kyc: res.user.kyc } : x))
+        );
+      }
+      say(
+        "success",
+        res.message ||
+          (action === "approve"
+            ? "Verification approved. User is now Verified."
+            : "Verification declined.")
+      );
     } catch (err) {
-      say("error", err?.message || `Failed to ${action} KYC.`);
+      say(
+        "error",
+        err?.message ||
+          `Failed to ${action === "approve" ? "approve" : "decline"} verification.`
+      );
     }
   };
 
