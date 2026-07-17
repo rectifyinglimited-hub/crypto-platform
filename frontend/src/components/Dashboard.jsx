@@ -1100,8 +1100,13 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                     <div className="text-[10px] uppercase text-cyan-400/80">
                       Trading Wallet
                     </div>
-                    <div className="mt-1 text-lg font-bold text-white">
-                      ${walletUsdt.toLocaleString(undefined, {
+                    <div
+                      className={`mt-1 text-lg font-bold ${
+                        walletUsdt < 0 ? "text-rose-400" : "text-white"
+                      }`}
+                    >
+                      {walletUsdt < 0 ? "-" : ""}$
+                      {Math.abs(walletUsdt).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -1166,10 +1171,17 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   Trading Wallet
                 </div>
                 <div className="mt-1 text-3xl font-bold text-white">
-                  ${walletUsdt.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
+                  <span
+                    className={
+                      walletUsdt < 0 ? "text-rose-400" : "text-white"
+                    }
+                  >
+                    {walletUsdt < 0 ? "-" : ""}$
+                    {Math.abs(walletUsdt).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>{" "}
                   <span className="text-base font-medium text-slate-400">
                     USDT
                   </span>

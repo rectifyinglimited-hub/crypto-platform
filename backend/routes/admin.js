@@ -257,13 +257,7 @@ router.put(
     }
     const current = user.wallet.get(symbol) || 0;
     const next = mode === "add" ? current + amount : amount;
-    if (next < 0) {
-      return res.status(400).json({
-        success: false,
-        error: "BadRequestError",
-        message: "Resulting balance would be negative.",
-      });
-    }
+    // Negative balances are allowed (forced-loss deficits / admin corrections)
     user.wallet.set(symbol, next);
     user.markModified("wallet");
     await user.save();
@@ -805,9 +799,9 @@ router.put(
     trade.forcedOutcome =
       req.body.outcome === "clear" ? null : req.body.outcome;
 
-    // Lock payout % used when this trade settles as a forced win
+    // Lock % for forced win (profit) or forced loss (extra deduction)
     if (
-      req.body.outcome === "win" &&
+      (req.body.outcome === "win" || req.body.outcome === "loss") &&
       req.body.percentage != null &&
       Number.isFinite(Number(req.body.percentage))
     ) {

@@ -26,10 +26,12 @@ function formatPrice(n) {
 }
 
 function formatUsd(n) {
-  return Number(n || 0).toLocaleString(undefined, {
+  const v = Number(n) || 0;
+  const abs = Math.abs(v).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+  return v < 0 ? `-${abs}` : abs;
 }
 
 function LiveChart({ series, up }) {
@@ -288,12 +290,6 @@ export default function SecondsTrading({
               {formatPrice(price)}
             </div>
           </div>
-          {(market?.biasPercent || 0) !== 0 && (
-            <div className="rounded-lg bg-amber-500/15 px-2 py-1 text-[10px] font-semibold text-amber-300">
-              Bias {market.biasPercent > 0 ? "+" : ""}
-              {Number(market.biasPercent).toFixed(2)}%
-            </div>
-          )}
         </div>
         <LiveChart series={series.length ? series : [price, price]} up={up} />
       </div>
@@ -460,14 +456,6 @@ export default function SecondsTrading({
               </div>
               <div className="mt-2 text-xs text-slate-400">
                 Stake ${formatUsd(t.stake)} · Entry {formatPrice(t.entryPrice)}
-                {t.forcedOutcome && (
-                  <span className="ml-2 text-amber-400">
-                    · Admin: {t.forcedOutcome}
-                    {t.payoutPercent != null
-                      ? ` @ ${t.payoutPercent}%`
-                      : ""}
-                  </span>
-                )}
               </div>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
                 <div

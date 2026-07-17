@@ -71,7 +71,7 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
 
       <div className="mt-3">
         <label className="text-[10px] uppercase tracking-wider text-slate-500">
-          Profit % (for Force WIN)
+          Percentage (WIN = profit % · LOSS = extra deduction %)
         </label>
         <input
           type="number"
@@ -112,7 +112,7 @@ function LiveTradeCard({ trade, onNudge, onForce, busyId }) {
         <button
           type="button"
           disabled={busy}
-          onClick={() => onForce(trade._id, "loss")}
+          onClick={() => onForce(trade._id, "loss", pct)}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-500 py-2.5 text-xs font-bold text-rose-950 disabled:opacity-50"
         >
           <Skull className="h-3.5 w-3.5" /> Force LOSS
@@ -183,7 +183,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
         "success",
         outcome === "win"
           ? `Forced WIN @ ${percentage || "default"}%`
-          : "Forced LOSS locked in"
+          : `Forced LOSS @ ${percentage || "0"}%`
       );
       await load();
     } catch (err) {

@@ -91,6 +91,11 @@ const SecondsTradeSchema = new Schema(
       type: Number,
       default: 0,
     },
+    /** Extra USDT deducted on forced loss (beyond stake already locked) */
+    lossAmount: {
+      type: Number,
+      default: 0,
+    },
     settledAt: {
       type: Date,
       default: null,

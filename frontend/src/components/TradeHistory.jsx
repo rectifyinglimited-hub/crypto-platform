@@ -220,7 +220,7 @@ export default function TradeHistory() {
                     </div>
                   ) : (
                     <div className="text-xs font-bold text-rose-300">
-                      −${fmt(t.stake)} lost
+                      −${fmt(t.lossAmount || t.stake)} lost
                     </div>
                   )}
                 </div>
