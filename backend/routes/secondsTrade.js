@@ -18,6 +18,7 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import SecondsTrade from "../models/SecondsTrade.js";
 import Transaction from "../models/Transaction.js";
+import PlatformConfig from "../models/PlatformConfig.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -347,7 +348,14 @@ export async function settleTrade(
   }
 
   if (!trade) {
-    return SecondsTrade.findById(tradeId);
+    // Concurrent settler may still be mid-flight — wait briefly so clients
+    // never receive a transient "settling" doc that maps to a false LOSS toast.
+    let existing = await SecondsTrade.findById(tradeId);
+    if (existing?.status === "settling") {
+      await new Promise((r) => setTimeout(r, 400));
+      existing = await SecondsTrade.findById(tradeId);
+    }
+    return existing;
   }
 
   const user = await User.findById(trade.user);
@@ -732,6 +740,26 @@ router.post(
       });
     }
 
+    const platform = await PlatformConfig.getSingleton();
+    if (platform.globalTradingEnabled === false) {
+      return res.status(403).json({
+        success: false,
+        error: "TradingSuspended",
+        message: "Trading Suspended by Management",
+        tradingSuspended: true,
+        reason: "global",
+      });
+    }
+    if (user.tradingAllowed === false) {
+      return res.status(403).json({
+        success: false,
+        error: "TradingSuspended",
+        message: "Trading Suspended by Management",
+        tradingSuspended: true,
+        reason: "user",
+      });
+    }
+
     const rawAvailable = Number(user.wallet.get("USDT") || 0);
     const available = Number(rawAvailable.toFixed(8));
     let stakeAmt = Number(Number(stake).toFixed(8));
@@ -893,13 +921,20 @@ router.get(
       a.date < b.date ? 1 : -1
     );
 
+    const wins = serialized.filter((t) => t.status === "won");
+    const profit = wins.reduce(
+      (s, t) => s + Math.max(0, Number(t.payout || 0) - Number(t.stake || 0)),
+      0
+    );
+
     res.json({
       success: true,
       trades: serialized,
       daily,
       totals: {
-        wins: serialized.filter((t) => t.status === "won").length,
+        wins: wins.length,
         losses: serialized.filter((t) => t.status === "lost").length,
+        profit,
         net: daily.reduce((s, d) => s + d.net, 0),
       },
     });
@@ -951,9 +986,14 @@ router.post(
       });
     }
 
-    const settled = await settleTrade(trade._id, {
+    let settled = await settleTrade(trade._id, {
       exitPriceHint: req.body?.exitPrice,
     });
+    // Ensure clients always get a terminal won/lost status for toast mapping
+    if (settled?.status === "settling") {
+      await new Promise((r) => setTimeout(r, 350));
+      settled = await SecondsTrade.findById(trade._id);
+    }
     const user = await User.findById(req.auth.sub);
 
     res.json({

@@ -114,6 +114,17 @@ const UserSchema = new Schema(
       max: 100,
       default: 5,
     },
+    /** Per-user trading access — false blocks Buy Long / Sell Short */
+    tradingAllowed: {
+      type: Boolean,
+      default: true,
+    },
+    /** Profile picture as data URL (base64) or absolute image URL */
+    avatar: {
+      type: String,
+      default: null,
+      maxlength: 2_500_000,
+    },
     kyc: {
       type: KycSchema,
       default: () => ({ status: "unverified" }),

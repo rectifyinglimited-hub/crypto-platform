@@ -66,10 +66,14 @@ export default function MarketActivity({ sticky = true }) {
             </div>
             <div
               className={`text-xs font-bold ${
-                t.status === "won" ? "text-emerald-400" : "text-rose-400"
+                ["won", "win"].includes(String(t.status || "").toLowerCase())
+                  ? "text-emerald-400"
+                  : "text-rose-400"
               }`}
             >
-              {t.status === "won" ? "WIN" : "LOSS"}
+              {["won", "win"].includes(String(t.status || "").toLowerCase())
+                ? "WIN"
+                : "LOSS"}
             </div>
           </div>
         ))}

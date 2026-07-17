@@ -34,6 +34,7 @@ import mongoose from "mongoose";
 
 import User from "../models/User.js";
 import InviteCode from "../models/InviteCode.js";
+import PlatformConfig from "../models/PlatformConfig.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -344,14 +345,26 @@ router.get(
         message: "Your account has been suspended.",
       });
     }
-    return res.status(200).json({ success: true, user: sanitizeUser(user) });
+    let globalTradingEnabled = true;
+    try {
+      const cfg = await PlatformConfig.getSingleton();
+      globalTradingEnabled = cfg.globalTradingEnabled !== false;
+    } catch {
+      /* keep default */
+    }
+    return res.status(200).json({
+      success: true,
+      user: sanitizeUser(user),
+      globalTradingEnabled,
+    });
   })
 );
 
 // ---------------------------------------------------------------------------
-// PUT /api/auth/profile — full name + TRC-20 (double-confirm required)
+// PUT /api/auth/profile — full name + TRC-20 + optional avatar
 // ---------------------------------------------------------------------------
 const TRC20_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
+const AVATAR_MAX = 2_000_000;
 
 router.put(
   "/profile",
@@ -374,6 +387,18 @@ router.put(
       .isString()
       .trim()
       .withMessage("Confirm your TRC-20 address."),
+    body("avatar")
+      .optional({ nullable: true })
+      .custom((v) => {
+        if (v === null || v === "") return true;
+        if (typeof v !== "string") return false;
+        if (v.length > AVATAR_MAX) return false;
+        return (
+          v.startsWith("data:image/") ||
+          /^https?:\/\//i.test(v)
+        );
+      })
+      .withMessage("Avatar must be an image data URL or http(s) URL under 2MB."),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -409,6 +434,10 @@ router.put(
     user.fullName = fullName;
     user.trc20Address = trc20Address;
     user.profileCompletedAt = new Date();
+    if (Object.prototype.hasOwnProperty.call(req.body, "avatar")) {
+      const raw = req.body.avatar;
+      user.avatar = raw === "" || raw == null ? null : raw;
+    }
     await user.save();
 
     return res.json({

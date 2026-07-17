@@ -265,6 +265,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [topUp, setTopUp] = useState("");
   const [topUpBusy, setTopUpBusy] = useState(false);
   const [txBusy, setTxBusy] = useState(null);
+  const [accessBusy, setAccessBusy] = useState(false);
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
@@ -391,6 +392,25 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     }
   };
 
+  const onTradingAccess = async (allowed) => {
+    setAccessBusy(true);
+    try {
+      const res = await AdminAPI.setUserTradingAccess(userId, allowed);
+      toastRef.current?.(
+        "success",
+        res.message ||
+          (allowed ? "User trading allowed." : "User trading blocked.")
+      );
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setAccessBusy(false);
+    }
+  };
+
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-slate-400">
@@ -478,6 +498,40 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             >
               {u?.banned ? "Banned" : "Active"}
             </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/5 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
+            User Trading Access
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Block or allow this user independently of the global trading switch.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={accessBusy || u?.tradingAllowed !== false}
+              onClick={() => onTradingAccess(true)}
+              className="rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-emerald-950 disabled:opacity-40"
+            >
+              Allow Trading
+            </button>
+            <button
+              type="button"
+              disabled={accessBusy || u?.tradingAllowed === false}
+              onClick={() => onTradingAccess(false)}
+              className="rounded-xl bg-rose-500/90 px-3 py-2 text-xs font-bold text-rose-50 disabled:opacity-40"
+            >
+              Block Trading
+            </button>
+          </div>
+          <div
+            className={`mt-2 text-[10px] font-semibold uppercase tracking-wider ${
+              u?.tradingAllowed === false ? "text-rose-300" : "text-emerald-300"
+            }`}
+          >
+            {u?.tradingAllowed === false ? "Trading blocked" : "Trading allowed"}
           </div>
         </div>
 

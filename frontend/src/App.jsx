@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
-import MainPlatform from "./components/MainPlatform.jsx";
+import AuthGate from "./components/AuthGate.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
 import { AuthAPI, getToken, clearToken } from "./lib/api.js";
@@ -114,7 +114,7 @@ export default function App() {
       )}
 
       {screen === SCREEN.LANDING && (
-        <MainPlatform key="landing" onAuthSuccess={handleAuthSuccess} />
+        <AuthGate key="landing" onAuthSuccess={handleAuthSuccess} />
       )}
 
       {screen === SCREEN.DASHBOARD && (
@@ -123,6 +123,7 @@ export default function App() {
           user={user}
           onLogout={handleLogout}
           onOpenAdmin={goAdmin}
+          onAuthSuccess={handleAuthSuccess}
         />
       )}
 

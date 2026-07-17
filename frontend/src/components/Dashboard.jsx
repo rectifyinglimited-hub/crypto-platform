@@ -47,7 +47,7 @@ import CryptoWatchlist from "./CryptoWatchlist.jsx";
 import MarketActivity from "./MarketActivity.jsx";
 import TradeHistory from "./TradeHistory.jsx";
 import ProfileSetup from "./ProfileSetup.jsx";
-import { AuthAPI, WalletAPI, clearToken } from "../lib/api.js";
+import { AuthAPI, WalletAPI, SecondsTradeAPI, clearToken } from "../lib/api.js";
 
 // ---------------------------------------------------------------------------
 // Constants + mock market seed
@@ -989,11 +989,13 @@ const TransactionsList = ({ transactions, loading, onRefresh }) => (
 // ---------------------------------------------------------------------------
 // Main Dashboard — mobile-first Seconds Trading shell
 // ---------------------------------------------------------------------------
-export default function Dashboard({ user, onLogout, onOpenAdmin }) {
+export default function Dashboard({ user, onLogout, onOpenAdmin, onAuthSuccess }) {
   const [tab, setTab] = useState("trading");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [kycOpen, setKycOpen] = useState(false);
   const [me, setMe] = useState(user);
+  const [globalTradingEnabled, setGlobalTradingEnabled] = useState(true);
+  const [liveEarnings, setLiveEarnings] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(false);
   const [toast, setToast] = useState({ kind: null, message: "" });
@@ -1019,6 +1021,8 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   }, [me]);
 
   const walletUsdt = Number(wallet.USDT || 0);
+  const tradingSuspended =
+    globalTradingEnabled === false || me?.tradingAllowed === false;
 
   const loadTx = async () => {
     setTxLoading(true);
@@ -1032,11 +1036,28 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     }
   };
 
+  const loadLiveEarnings = async () => {
+    try {
+      const res = await SecondsTradeAPI.history();
+      let total = 0;
+      for (const t of res.trades || []) {
+        const s = String(t.status || "").toLowerCase();
+        if (s === "won" || s === "win") {
+          total += Math.max(0, Number(t.payout || 0) - Number(t.stake || 0));
+        }
+      }
+      setLiveEarnings(total);
+    } catch {
+      /* ignore */
+    }
+  };
+
   useEffect(() => {
     if (tab === "history" || tab === "home") loadTx();
+    if (tab === "home" || tab === "trading") loadLiveEarnings();
   }, [tab]);
 
-  // Keep Trading Wallet in sync when admin tops up balance (or trade settles)
+  // Keep Trading Wallet / permissions in sync when admin changes access
   useEffect(() => {
     let cancelled = false;
     const refreshMe = async () => {
@@ -1048,16 +1069,22 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             ...res.user,
             wallet: res.user.wallet ?? prev?.wallet,
           }));
+          if (typeof res.globalTradingEnabled === "boolean") {
+            setGlobalTradingEnabled(res.globalTradingEnabled);
+          }
         }
       } catch {
         /* ignore transient */
       }
     };
     refreshMe();
+    loadLiveEarnings();
     const id = setInterval(refreshMe, 2500);
+    const eId = setInterval(loadLiveEarnings, 5000);
     return () => {
       cancelled = true;
       clearInterval(id);
+      clearInterval(eId);
     };
   }, []);
 
@@ -1102,6 +1129,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onLogout={handleLogout}
         onOpenAdmin={onOpenAdmin}
         onOpenKyc={() => setKycOpen(true)}
+        onAuthSuccess={onAuthSuccess}
       >
         {/* Unverified restriction banner — clears instantly when KYC is approved */}
         {me?.kyc?.status !== "approved" && (
@@ -1154,7 +1182,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                       Trading Wallet
                     </div>
                     <div
-                      className={`mt-1 text-lg font-bold ${
+                      className={`mt-1 text-lg font-bold tabular-nums ${
                         walletUsdt < 0 ? "text-rose-400" : "text-white"
                       }`}
                     >
@@ -1165,14 +1193,16 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                       })}
                     </div>
                   </div>
-                  <div className="rounded-xl bg-white/5 p-3">
-                    <div className="text-[10px] uppercase text-slate-500">
-                      KYC
+                  <div className="rounded-xl bg-emerald-500/10 p-3 ring-1 ring-emerald-500/25">
+                    <div className="text-[10px] uppercase text-emerald-400/90">
+                      Live Earnings
                     </div>
-                    <div className="mt-1 text-sm font-semibold capitalize text-slate-200">
-                      {me?.kyc?.status === "approved"
-                        ? "Verified"
-                        : me?.kyc?.status || "unverified"}
+                    <div className="mt-1 text-lg font-bold tabular-nums text-emerald-300">
+                      $
+                      {liveEarnings.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </div>
                   </div>
                 </div>
@@ -1185,20 +1215,25 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 </button>
               </div>
 
+              <div className="relative">
+                <MarketActivity sticky />
+              </div>
+            </motion.div>
+          )}
+
+          {tab === "settings" && (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4"
+            >
               <ProfileSetup
                 user={me}
                 toast={say}
                 onSaved={(u) => handleUserUpdate(u)}
               />
-
-              <div className="relative">
-                {me?.role !== "admin" && (
-                  <div className="mb-4 text-center text-[11px] text-slate-500">
-                    Need a deposit? Use the chat bubble or Wallet → Deposit.
-                  </div>
-                )}
-                <MarketActivity sticky />
-              </div>
             </motion.div>
           )}
 
@@ -1214,6 +1249,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 walletUsdt={walletUsdt}
                 onWalletUpdate={handleUserUpdate}
                 onToast={say}
+                tradingSuspended={tradingSuspended}
               />
               <CryptoWatchlist
                 onSelectAsset={(symbol) => {

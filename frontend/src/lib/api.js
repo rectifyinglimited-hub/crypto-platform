@@ -199,6 +199,15 @@ export const AdminAPI = {
   setTradeControl: (id, payload) =>
     api.put(`/admin/users/${id}/trade-control`, payload).then((r) => r.data),
 
+  setGlobalTradingAccess: (enabled) =>
+    api
+      .put("/admin/trading-access/global", { enabled: Boolean(enabled) })
+      .then((r) => r.data),
+  setUserTradingAccess: (id, allowed) =>
+    api
+      .put(`/admin/users/${id}/trading-access`, { allowed: Boolean(allowed) })
+      .then((r) => r.data),
+
   listTransactions: (params = {}) =>
     api.get("/admin/transactions", { params }).then((r) => r.data),
   verifyTransaction: (id, payload) =>

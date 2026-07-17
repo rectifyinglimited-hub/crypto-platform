@@ -11,9 +11,33 @@ import {
   Timer,
   Loader2,
   Sparkles,
+  Ban,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
 import { WATCHLIST_CRYPTO } from "./CryptoWatchlist.jsx";
+
+/** Normalize settlement status — never treat WIN/WON as a loss toast. */
+function normalizeTradeStatus(status) {
+  return String(status || "")
+    .trim()
+    .toLowerCase();
+}
+
+function isTradeWon(trade) {
+  const s = normalizeTradeStatus(trade?.status);
+  return s === "won" || s === "win";
+}
+
+function isTradeLost(trade) {
+  const s = normalizeTradeStatus(trade?.status);
+  return s === "lost" || s === "loss" || s === "lose";
+}
+
+function winProfit(trade) {
+  const stake = Number(trade?.stake || 0);
+  const payout = Number(trade?.payout || 0);
+  return Math.max(0, payout - stake);
+}
 
 const DURATIONS = [60, 90, 120];
 const CRYPTO = WATCHLIST_CRYPTO;
@@ -97,6 +121,7 @@ export default function SecondsTrading({
   walletUsdt = 0,
   onWalletUpdate,
   onToast,
+  tradingSuspended = false,
 }) {
   const [assetType, setAssetType] = useState("crypto");
   const [asset, setAsset] = useState("BTC");
@@ -109,7 +134,9 @@ export default function SecondsTrading({
   const [active, setActive] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [priceFlash, setPriceFlash] = useState(null); // "up" | "down" | null
+  const [liveEarnings, setLiveEarnings] = useState(0);
   const settling = useRef(new Set());
+  const toasted = useRef(new Set());
   const displayPrice = useRef(null);
   const targetPrice = useRef(null);
   const lastTickPrice = useRef(null);
@@ -190,18 +217,40 @@ export default function SecondsTrading({
     }
   }, []);
 
+  const loadLiveEarnings = useCallback(async () => {
+    try {
+      const res = await SecondsTradeAPI.history();
+      const trades = res.trades || [];
+      let total = 0;
+      for (const t of trades) {
+        if (isTradeWon(t)) total += winProfit(t);
+      }
+      // Prefer server totals when present (wins-only profit sum)
+      if (typeof res.totals?.profit === "number") {
+        setLiveEarnings(res.totals.profit);
+      } else {
+        setLiveEarnings(total);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     loadMarkets();
     loadActive();
+    loadLiveEarnings();
     const mId = setInterval(loadMarkets, 1000);
     const aId = setInterval(loadActive, 1500);
+    const eId = setInterval(loadLiveEarnings, 4000);
     const tId = setInterval(() => setNow(Date.now()), 250);
     return () => {
       clearInterval(mId);
       clearInterval(aId);
+      clearInterval(eId);
       clearInterval(tId);
     };
-  }, [loadMarkets, loadActive]);
+  }, [loadMarkets, loadActive, loadLiveEarnings]);
 
   useEffect(() => {
     setSeries([]);
@@ -251,24 +300,46 @@ export default function SecondsTrading({
       if (Date.now() < expiresAt || settling.current.has(t._id)) return;
       settling.current.add(t._id);
       try {
-        const res = await SecondsTradeAPI.settle(t._id, { exitPrice: price });
+        let res = await SecondsTradeAPI.settle(t._id, { exitPrice: price });
+        let trade = res?.trade;
+        // If concurrent settler left status mid-flight, re-fetch once
+        const st = normalizeTradeStatus(trade?.status);
+        if (!trade || st === "settling" || st === "open") {
+          await new Promise((r) => setTimeout(r, 450));
+          res = await SecondsTradeAPI.settle(t._id, { exitPrice: price });
+          trade = res?.trade;
+        }
         if (res?.user?.wallet && onWalletUpdate) {
           onWalletUpdate(res.user);
         }
-        onToast?.(
-          res.trade?.status === "won" ? "success" : "error",
-          res.trade?.status === "won"
-            ? `Won · +$${formatUsd(Math.max(0, (res.trade.payout || 0) - (res.trade.stake || 0)))}`
-            : `Lost $${formatUsd(res.trade.lossAmount ?? res.trade.stake)}`
-        );
+        if (trade && !toasted.current.has(t._id)) {
+          if (isTradeWon(trade)) {
+            toasted.current.add(t._id);
+            const profit = winProfit(trade);
+            onToast?.(
+              "success",
+              profit > 0
+                ? `Won $${formatUsd(profit)}!`
+                : `Profit: $${formatUsd(profit)}`
+            );
+          } else if (isTradeLost(trade)) {
+            toasted.current.add(t._id);
+            onToast?.(
+              "error",
+              `Lost $${formatUsd(trade.lossAmount ?? trade.stake)}`
+            );
+          }
+          // Non-terminal statuses: no toast (avoids false "Lost" on WIN)
+        }
         await loadActive();
+        await loadLiveEarnings();
       } catch {
         /* settler on server will catch */
       } finally {
         settling.current.delete(t._id);
       }
     });
-  }, [active, now, price, onWalletUpdate, onToast, loadActive]);
+  }, [active, now, price, onWalletUpdate, onToast, loadActive, loadLiveEarnings]);
 
   const effectiveDuration = useMemo(() => {
     const c = Number(customDur);
@@ -277,6 +348,11 @@ export default function SecondsTrading({
   }, [customDur, duration]);
 
   const place = async (direction) => {
+    if (tradingSuspended) {
+      window.alert("Trading Suspended by Management");
+      onToast?.("error", "Trading Suspended by Management");
+      return;
+    }
     const available = stakeableUsdt(walletUsdt);
     let amount = Number(stake);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -320,26 +396,51 @@ export default function SecondsTrading({
 
   return (
     <div className="space-y-4">
-      {/* Trading wallet strip */}
-      <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-emerald-500/5 p-4">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
-          Trading Wallet
-        </div>
-        <div className="mt-1 flex items-end justify-between">
-          <div
-            className={`text-2xl font-bold tracking-tight ${
-              Number(walletUsdt) < 0 ? "text-rose-400" : "text-white"
-            }`}
-          >
-            {Number(walletUsdt) < 0 ? "-" : ""}$
-            {formatUsd(Math.abs(Number(walletUsdt) || 0))}
-            <span className="ml-1 text-sm font-medium text-slate-400">
-              USDT
-            </span>
+      {/* Trading wallet + Live Earnings */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-emerald-500/5 p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
+            Trading Wallet
           </div>
-          <Sparkles className="h-4 w-4 text-cyan-400/70" />
+          <div className="mt-1 flex items-end justify-between gap-1">
+            <div
+              className={`text-xl font-bold tracking-tight tabular-nums ${
+                Number(walletUsdt) < 0 ? "text-rose-400" : "text-white"
+              }`}
+            >
+              {Number(walletUsdt) < 0 ? "-" : ""}$
+              {formatUsd(Math.abs(Number(walletUsdt) || 0))}
+            </div>
+            <Sparkles className="mb-1 h-3.5 w-3.5 shrink-0 text-cyan-400/70" />
+          </div>
+          <div className="mt-0.5 text-[10px] text-slate-500">USDT</div>
+        </div>
+        <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 to-cyan-500/5 p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400/90">
+            Live Earnings
+          </div>
+          <div className="mt-1 text-xl font-bold tracking-tight tabular-nums text-emerald-300">
+            ${formatUsd(liveEarnings)}
+          </div>
+          <div className="mt-0.5 text-[10px] text-slate-500">
+            Settled WIN profits
+          </div>
         </div>
       </div>
+
+      {tradingSuspended && (
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
+          <Ban className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+          <div>
+            <div className="text-sm font-semibold text-amber-100">
+              Trading Suspended by Management
+            </div>
+            <p className="mt-0.5 text-[11px] text-amber-200/70">
+              Buy Long and Sell Short are disabled until access is restored.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Asset type */}
       <div className="flex gap-2 rounded-xl bg-white/5 p-1">
@@ -489,34 +590,48 @@ export default function SecondsTrading({
       </div>
 
       {/* Long / Short */}
-      <div className="grid grid-cols-2 gap-3">
+      {tradingSuspended ? (
         <button
           type="button"
-          disabled={busy}
-          onClick={() => place("long")}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 text-sm font-bold text-emerald-950 disabled:opacity-50"
+          onClick={() => {
+            window.alert("Trading Suspended by Management");
+            onToast?.("error", "Trading Suspended by Management");
+          }}
+          className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl bg-slate-700/80 py-3.5 text-sm font-bold text-slate-400 ring-1 ring-white/10 opacity-80"
         >
-          {busy ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <TrendingUp className="h-4 w-4" />
-          )}
-          Buy Long
+          <Ban className="h-4 w-4" />
+          Trading Suspended by Management
         </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => place("short")}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-rose-500 py-3.5 text-sm font-bold text-rose-950 disabled:opacity-50"
-        >
-          {busy ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <TrendingDown className="h-4 w-4" />
-          )}
-          Sell Short
-        </button>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => place("long")}
+            className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 text-sm font-bold text-emerald-950 disabled:opacity-50"
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <TrendingUp className="h-4 w-4" />
+            )}
+            Buy Long
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => place("short")}
+            className="flex items-center justify-center gap-2 rounded-2xl bg-rose-500 py-3.5 text-sm font-bold text-rose-950 disabled:opacity-50"
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <TrendingDown className="h-4 w-4" />
+            )}
+            Sell Short
+          </button>
+        </div>
+      )}
 
       {/* Dynamic close-soon banner */}
       <AnimatePresence>

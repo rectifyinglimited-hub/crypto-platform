@@ -28,6 +28,7 @@ import User from "../models/User.js";
 import InviteCode from "../models/InviteCode.js";
 import Transaction from "../models/Transaction.js";
 import GatewaySetting from "../models/GatewaySetting.js";
+import PlatformConfig from "../models/PlatformConfig.js";
 import SecondsTrade from "../models/SecondsTrade.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
@@ -78,13 +79,15 @@ router.get(
   "/overview",
   requireDatabase,
   asyncHandler(async (_req, res) => {
-    const [totalUsers, admins, banned, codes, pendingTx] = await Promise.all([
-      User.countDocuments({}),
-      User.countDocuments({ role: "admin" }),
-      User.countDocuments({ banned: true }),
-      InviteCode.find({}).lean(),
-      Transaction.countDocuments({ status: "pending" }),
-    ]);
+    const [totalUsers, admins, banned, codes, pendingTx, platform] =
+      await Promise.all([
+        User.countDocuments({}),
+        User.countDocuments({ role: "admin" }),
+        User.countDocuments({ banned: true }),
+        InviteCode.find({}).lean(),
+        Transaction.countDocuments({ status: "pending" }),
+        PlatformConfig.getSingleton(),
+      ]);
 
     const activeCodes = codes.filter((c) => {
       if (!c.active) return false;
@@ -104,6 +107,90 @@ router.get(
         pendingTransactions: pendingTx,
         mockVolume24h: 4_286_712.55,
         mockTrades24h: 18_294,
+        globalTradingEnabled: platform.globalTradingEnabled !== false,
+      },
+      globalTradingEnabled: platform.globalTradingEnabled !== false,
+    });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// GLOBAL TRADING ACCESS — platform-wide kill switch
+// ---------------------------------------------------------------------------
+router.put(
+  "/trading-access/global",
+  requireDatabase,
+  [
+    body("enabled")
+      .isBoolean()
+      .withMessage("enabled must be a boolean."),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const platform = await PlatformConfig.getSingleton();
+    platform.globalTradingEnabled = Boolean(req.body.enabled);
+    platform.updatedBy = req.auth.sub;
+    await platform.save();
+
+    return res.json({
+      success: true,
+      message: platform.globalTradingEnabled
+        ? "Global trading enabled for all users."
+        : "Global trading disabled — all new trades suspended.",
+      globalTradingEnabled: platform.globalTradingEnabled,
+    });
+  })
+);
+
+// Per-user trading allow / block
+router.put(
+  "/users/:id/trading-access",
+  requireDatabase,
+  [
+    body("allowed")
+      .isBoolean()
+      .withMessage("allowed must be a boolean."),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user id.",
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "User not found.",
+      });
+    }
+
+    user.tradingAllowed = Boolean(req.body.allowed);
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: user.tradingAllowed
+        ? "User trading access allowed."
+        : "User trading access blocked.",
+      user: {
+        ...user.toObject({ virtuals: true }),
+        password: undefined,
+        id: user._id.toString(),
+        wallet:
+          user.wallet instanceof Map
+            ? Object.fromEntries(user.wallet)
+            : user.wallet,
       },
     });
   })
@@ -868,8 +955,10 @@ router.get(
         profileCompletedAt: user.profileCompletedAt || null,
         role: user.role,
         banned: user.banned,
+        tradingAllowed: user.tradingAllowed !== false,
         tradeControlState: user.tradeControlState,
         tradeControlPercentage: user.tradeControlPercentage,
+        avatar: user.avatar || null,
         wallet,
         chartBias,
         kyc: user.kyc,

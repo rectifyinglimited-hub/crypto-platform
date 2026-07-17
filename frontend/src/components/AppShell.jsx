@@ -1,8 +1,9 @@
 /**
- * Mobile-first shell: hamburger drawer + sticky bottom nav.
+ * Mobile-first shell: hamburger drawer + sticky bottom nav + avatar menu.
  * Bottom nav hides while the drawer is open.
  */
 
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Home,
@@ -15,7 +16,9 @@ import {
   ShieldCheck,
   UserRound,
   ChevronRight,
+  Settings,
 } from "lucide-react";
+import SignIn from "./SignIn.jsx";
 
 const NAV = [
   { key: "home", label: "Home", icon: Home },
@@ -23,6 +26,47 @@ const NAV = [
   { key: "trading", label: "Trading", icon: CandlestickChart },
   { key: "history", label: "History", icon: History },
 ];
+
+function AvatarBadge({ user, size = "md", onClick, className = "" }) {
+  const initials =
+    user?.initials ||
+    (user?.fullName || "U")
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase())
+      .join("");
+  const dim = size === "lg" ? "h-11 w-11 text-sm" : "h-10 w-10 text-xs";
+  const base =
+    "grid place-items-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-500/30 to-emerald-500/20 font-bold text-cyan-100 ring-1 ring-white/10";
+
+  if (user?.avatar) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${dim} ${base} ${className}`}
+        aria-label="Account menu"
+      >
+        <img
+          src={user.avatar}
+          alt=""
+          className="h-full w-full object-cover"
+        />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${dim} ${base} ${className}`}
+      aria-label="Account menu"
+    >
+      {initials || "U"}
+    </button>
+  );
+}
 
 export default function AppShell({
   user,
@@ -34,15 +78,56 @@ export default function AppShell({
   onLogout,
   onOpenAdmin,
   onOpenKyc,
+  onAuthSuccess,
   children,
 }) {
-  const initials =
-    user?.initials ||
-    (user?.fullName || "U")
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((s) => s[0]?.toUpperCase())
-      .join("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
+  // Unauthenticated entry gate
+  if (!user) {
+    return (
+      <div className="relative min-h-screen w-full overflow-hidden bg-[#070a12] text-slate-100">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-cyan-500/15 blur-3xl" />
+          <div className="absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+        </div>
+        <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 py-10">
+          <div className="mb-6 text-center">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-400/80">
+              Nexus
+            </div>
+            <h1 className="mt-2 text-2xl font-bold text-white">
+              Sign in to trade
+            </h1>
+            <p className="mt-2 text-sm text-slate-400">
+              Access your wallet, live markets, and account settings.
+            </p>
+          </div>
+          <div className="w-full rounded-2xl border border-white/10 bg-[#0c1222]/90 p-1 shadow-2xl">
+            <SignIn onSignInSuccess={onAuthSuccess} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const goSettings = () => {
+    onTabChange("settings");
+    setMenuOpen(false);
+    onDrawerClose?.();
+  };
 
   return (
     <div className="relative min-h-screen w-full bg-[#070a12] text-slate-100">
@@ -65,8 +150,73 @@ export default function AppShell({
               Seconds Trading
             </div>
           </div>
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-cyan-500/30 to-emerald-500/20 text-xs font-bold text-cyan-100 ring-1 ring-white/10">
-            {initials}
+          <div className="relative" ref={menuRef}>
+            <AvatarBadge
+              user={user}
+              onClick={() => setMenuOpen((v) => !v)}
+            />
+            <AnimatePresence>
+              {menuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#0c1222] py-1 shadow-2xl"
+                >
+                  <div className="border-b border-white/5 px-3 py-2.5">
+                    <div className="truncate text-sm font-semibold">
+                      {user?.fullName || "Trader"}
+                    </div>
+                    <div className="truncate text-[11px] text-slate-500">
+                      @{user?.username}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={goSettings}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-white/5"
+                  >
+                    <Settings className="h-4 w-4 text-cyan-300" />
+                    Profile / Account Settings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenKyc?.();
+                      setMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-white/5"
+                  >
+                    <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                    KYC Verification
+                  </button>
+                  {user?.role === "admin" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenAdmin?.();
+                        setMenuOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-white/5"
+                    >
+                      <ShieldCheck className="h-4 w-4 text-indigo-300" />
+                      Admin Console
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onLogout?.();
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-rose-300 hover:bg-rose-500/10"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </header>
@@ -133,9 +283,7 @@ export default function AppShell({
             >
               <div className="flex items-center justify-between border-b border-white/5 px-4 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="grid h-11 w-11 place-items-center rounded-full bg-cyan-500/20 text-sm font-bold text-cyan-200">
-                    {initials}
-                  </div>
+                  <AvatarBadge user={user} size="lg" onClick={goSettings} />
                   <div>
                     <div className="text-sm font-semibold">
                       {user?.fullName || "Trader"}
@@ -156,8 +304,14 @@ export default function AppShell({
 
               <div className="flex-1 space-y-1 overflow-y-auto p-3">
                 <DrawerItem
+                  icon={Settings}
+                  label="Profile / Account Settings"
+                  hint="Avatar, TRC-20, password"
+                  onClick={goSettings}
+                />
+                <DrawerItem
                   icon={UserRound}
-                  label="Profile"
+                  label="Home"
                   hint={user?.email}
                   onClick={() => {
                     onTabChange("home");

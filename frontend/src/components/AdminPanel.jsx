@@ -182,7 +182,56 @@ const StatusBadge = ({ status }) => {
 // ---------------------------------------------------------------------------
 // OverviewView
 // ---------------------------------------------------------------------------
-const OverviewView = ({ stats, loading, onRefresh }) => {
+const GlobalTradingToggle = ({ enabled, busy, onToggle }) => (
+  <div className="mb-5 rounded-2xl border border-white/10 bg-gradient-to-r from-indigo-500/10 via-slate-900/60 to-emerald-500/10 p-4">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+          Global Trading Access
+        </div>
+        <p className="mt-1 text-xs text-slate-400">
+          Master switch for all Buy Long / Sell Short actions across the exchange.
+        </p>
+        <div
+          className={`mt-2 inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+            enabled
+              ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-300"
+              : "border-rose-400/30 bg-rose-500/15 text-rose-300"
+          }`}
+        >
+          {enabled ? "All trades enabled" : "All trades disabled"}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy || enabled}
+          onClick={() => onToggle(true)}
+          className="rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-emerald-950 disabled:opacity-40"
+        >
+          Enable All Trades
+        </button>
+        <button
+          type="button"
+          disabled={busy || !enabled}
+          onClick={() => onToggle(false)}
+          className="rounded-xl bg-rose-500/90 px-4 py-2.5 text-xs font-bold text-rose-50 disabled:opacity-40"
+        >
+          Disable All Trades
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const OverviewView = ({
+  stats,
+  loading,
+  onRefresh,
+  globalTradingEnabled,
+  tradingBusy,
+  onGlobalTradingToggle,
+}) => {
   const cards = [
     {
       label: "Total Users",
@@ -217,6 +266,12 @@ const OverviewView = ({ stats, loading, onRefresh }) => {
       animate="show"
       exit="exit"
     >
+      <GlobalTradingToggle
+        enabled={globalTradingEnabled !== false}
+        busy={tradingBusy}
+        onToggle={onGlobalTradingToggle}
+      />
+
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">
@@ -1104,6 +1159,9 @@ const UsersView = ({
   query,
   onQueryChange,
   currentUserId,
+  globalTradingEnabled,
+  tradingBusy,
+  onGlobalTradingToggle,
 }) => (
   <motion.div
     variants={viewVariants}
@@ -1111,6 +1169,12 @@ const UsersView = ({
     animate="show"
     exit="exit"
   >
+    <GlobalTradingToggle
+      enabled={globalTradingEnabled !== false}
+      busy={tradingBusy}
+      onToggle={onGlobalTradingToggle}
+    />
+
     <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">
@@ -1791,6 +1855,8 @@ export default function AdminPanel({ user, onExit }) {
 
   const [balanceTarget, setBalanceTarget] = useState(null);
   const [controlRoomUserId, setControlRoomUserId] = useState(null);
+  const [globalTradingEnabled, setGlobalTradingEnabled] = useState(true);
+  const [tradingBusy, setTradingBusy] = useState(false);
 
   // Stable identity — Control Room polls depend on this; a new fn each render
   // remounted the poll effect and surfaced false "Unable to reach server" toasts.
@@ -1805,10 +1871,28 @@ export default function AdminPanel({ user, onExit }) {
     try {
       const res = await AdminAPI.overview();
       setStats(res.stats);
+      if (typeof res.globalTradingEnabled === "boolean") {
+        setGlobalTradingEnabled(res.globalTradingEnabled);
+      } else if (typeof res.stats?.globalTradingEnabled === "boolean") {
+        setGlobalTradingEnabled(res.stats.globalTradingEnabled);
+      }
     } catch (err) {
       say("error", err?.message || "Failed to load stats.");
     } finally {
       setStatsLoading(false);
+    }
+  };
+
+  const handleGlobalTradingToggle = async (enabled) => {
+    setTradingBusy(true);
+    try {
+      const res = await AdminAPI.setGlobalTradingAccess(enabled);
+      setGlobalTradingEnabled(res.globalTradingEnabled !== false);
+      say("success", res.message || "Global trading access updated.");
+    } catch (err) {
+      say("error", err?.message || "Failed to update global trading access.");
+    } finally {
+      setTradingBusy(false);
     }
   };
 
@@ -2205,6 +2289,9 @@ export default function AdminPanel({ user, onExit }) {
                   stats={stats}
                   loading={statsLoading}
                   onRefresh={loadStats}
+                  globalTradingEnabled={globalTradingEnabled}
+                  tradingBusy={tradingBusy}
+                  onGlobalTradingToggle={handleGlobalTradingToggle}
                 />
               </div>
             )}
@@ -2245,6 +2332,9 @@ export default function AdminPanel({ user, onExit }) {
                   query={query}
                   onQueryChange={setQuery}
                   currentUserId={user?._id || user?.id}
+                  globalTradingEnabled={globalTradingEnabled}
+                  tradingBusy={tradingBusy}
+                  onGlobalTradingToggle={handleGlobalTradingToggle}
                 />
               ))}
             {section === "kyc" && (
