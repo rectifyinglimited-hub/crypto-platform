@@ -1,13 +1,14 @@
 /**
- * Per-user Admin Control Room — live Graph HIGH/LOW + manual wallet top-up.
+ * Per-user Admin Control Room — live Graph / Force controls + wallet top-up.
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   TrendingUp,
   TrendingDown,
+  Trophy,
+  Skull,
   Timer,
   Loader2,
   Bell,
@@ -22,11 +23,11 @@ import { AdminAPI, assetUrl } from "../lib/api.js";
 function fmt(n) {
   return Number(n || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 8,
   });
 }
 
-function LiveTradeCard({ trade, onGraph, busyId }) {
+function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
@@ -57,7 +58,7 @@ function LiveTradeCard({ trade, onGraph, busyId }) {
                 forced === "win" ? "text-emerald-300" : "text-rose-300"
               }`}
             >
-              Graph {forced === "win" ? "HIGH → WIN" : "LOW → LOSS"} locked
+              {forced === "win" ? "WIN locked" : "LOSS locked"} · settles at 0s
             </div>
           )}
         </div>
@@ -69,28 +70,38 @@ function LiveTradeCard({ trade, onGraph, busyId }) {
         </div>
       </div>
 
-      <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
-        Graph HIGH → candles drift up slowly · WIN at timer 0. Graph LOW →
-        candles drift down · LOSS at timer 0. Balance is updated separately
-        above — trade never closes early.
-      </p>
-
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button
           type="button"
           disabled={busy}
           onClick={() => onGraph(trade._id, "up")}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-3 text-xs font-bold text-emerald-950 disabled:opacity-50"
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500/20 py-2.5 text-xs font-bold text-emerald-300 ring-1 ring-emerald-500/30 disabled:opacity-50"
         >
-          <TrendingUp className="h-4 w-4" /> Graph HIGH
+          <TrendingUp className="h-3.5 w-3.5" /> Graph UP
         </button>
         <button
           type="button"
           disabled={busy}
           onClick={() => onGraph(trade._id, "down")}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-500 py-3 text-xs font-bold text-rose-950 disabled:opacity-50"
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-500/20 py-2.5 text-xs font-bold text-rose-300 ring-1 ring-rose-500/30 disabled:opacity-50"
         >
-          <TrendingDown className="h-4 w-4" /> Graph LOW
+          <TrendingDown className="h-3.5 w-3.5" /> Graph DOWN
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onForce(trade._id, "win")}
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-emerald-950 disabled:opacity-50"
+        >
+          <Trophy className="h-3.5 w-3.5" /> Force WIN
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onForce(trade._id, "loss")}
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-500 py-2.5 text-xs font-bold text-rose-950 disabled:opacity-50"
+        >
+          <Skull className="h-3.5 w-3.5" /> Force LOSS
         </button>
       </div>
     </div>
@@ -166,12 +177,32 @@ export default function UserControlRoom({ userId, onBack, toast }) {
         "success",
         res.message ||
           (direction === "up"
-            ? "Graph HIGH · candles rising · WIN locked"
-            : "Graph LOW · candles falling · LOSS locked")
+            ? "Graph UP · candles rising · WIN locked · timer continues"
+            : "Graph DOWN · candles falling · LOSS locked · timer continues")
       );
       await load({ silent: true });
     } catch (err) {
       toast?.("error", err?.message || "Graph control failed.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onForce = async (tradeId, outcome) => {
+    setBusyId(tradeId);
+    try {
+      // Stamp only — never early settle; timer must hit 0
+      const res = await AdminAPI.forceTradeOutcome(tradeId, outcome);
+      toast?.(
+        "success",
+        res.message ||
+          (outcome === "win"
+            ? "Force WIN locked · timer continues to 0"
+            : "Force LOSS locked · timer continues to 0")
+      );
+      await load({ silent: true });
+    } catch (err) {
+      toast?.("error", err?.message || "Force failed.");
     } finally {
       setBusyId(null);
     }
@@ -272,8 +303,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             Add USDT to Trading Wallet
           </label>
           <p className="mt-0.5 text-[10px] text-slate-500">
-            Precise decimals supported (e.g. 0.09, 10.55, −175). Graph HIGH/LOW
-            only control candles + win/loss — timer always runs to 0.
+            Precise decimals (e.g. 0.09, 10.55, −175). Live trade alerts have no
+            balance input — use this section only.
           </p>
           <div className="mt-2 flex gap-2">
             <input
@@ -362,6 +393,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                 key={t._id}
                 trade={t}
                 onGraph={onGraph}
+                onForce={onForce}
                 busyId={busyId}
               />
             ))}

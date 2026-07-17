@@ -208,7 +208,7 @@ export const AdminAPI = {
             ? { amount: Number(amount) }
             : {}),
         },
-        { timeout: 45000 }
+        { timeout: 30000 }
       )
       .then((r) => r.data),
   nudgeTradePrice: (id, direction, step) =>
