@@ -34,6 +34,13 @@ function formatUsd(n) {
   return v < 0 ? `-${abs}` : abs;
 }
 
+/** Exact stakeable balance — never round UP past wallet */
+function stakeableUsdt(walletUsdt) {
+  const n = Number(walletUsdt);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Number(n.toFixed(8));
+}
+
 function LiveChart({ series, up }) {
   const w = 320;
   const h = 140;
@@ -101,6 +108,8 @@ export default function SecondsTrading({
   const [active, setActive] = useState([]);
   const [now, setNow] = useState(Date.now());
   const settling = useRef(new Set());
+  const displayPrice = useRef(null);
+  const targetPrice = useRef(null);
 
   const assets = assetType === "crypto" ? CRYPTO : STOCKS;
 
@@ -111,7 +120,7 @@ export default function SecondsTrading({
   const price = market?.price || 0;
   const activeForAsset = active.find((t) => t.asset === asset);
   const prev = series.length > 1 ? series[series.length - 2] : price;
-  // While a trade is open, color chart vs entry so Graph UP/Force WIN looks HIGH
+  // While a trade is open, color chart vs entry so Graph HIGH looks UP / LOW looks DOWN
   const up = activeForAsset
     ? price >= Number(activeForAsset.entryPrice || price)
     : price >= prev;
@@ -123,14 +132,38 @@ export default function SecondsTrading({
       setMarkets(list);
       const m = list.find((x) => x.asset === asset);
       if (m?.price) {
-        setSeries((s) => {
-          const next = [...s, m.price];
-          return next.slice(-48);
-        });
+        targetPrice.current = m.price;
+        if (displayPrice.current == null) displayPrice.current = m.price;
       }
     } catch {
       /* ignore transient */
     }
+  }, [asset]);
+
+  // Smooth candle drift toward live (biased) price — Graph HIGH/LOW looks gradual
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (targetPrice.current == null) return;
+      if (displayPrice.current == null) {
+        displayPrice.current = targetPrice.current;
+      } else {
+        const cur = displayPrice.current;
+        const tgt = targetPrice.current;
+        const gap = tgt - cur;
+        if (Math.abs(gap) < 1e-10) {
+          displayPrice.current = tgt;
+        } else {
+          // Ease ~18% of remaining gap each tick → slow climb/fall
+          displayPrice.current = cur + gap * 0.18;
+        }
+      }
+      const p = displayPrice.current;
+      setSeries((s) => {
+        const next = [...s, p];
+        return next.slice(-56);
+      });
+    }, 220);
+    return () => clearInterval(id);
   }, [asset]);
 
   const loadActive = useCallback(async () => {
@@ -157,6 +190,8 @@ export default function SecondsTrading({
 
   useEffect(() => {
     setSeries([]);
+    displayPrice.current = null;
+    targetPrice.current = null;
   }, [asset]);
 
   // Auto-settle when countdown hits 0
@@ -176,7 +211,7 @@ export default function SecondsTrading({
         onToast?.(
           res.trade?.status === "won" ? "success" : "error",
           res.trade?.status === "won"
-            ? `Won +$${formatUsd(res.trade.payout - res.trade.stake)}`
+            ? `Won · +$${formatUsd(Math.max(0, res.trade.payout - res.trade.stake))}`
             : `Lost $${formatUsd(res.trade.stake)}`
         );
         await loadActive();
@@ -195,14 +230,22 @@ export default function SecondsTrading({
   }, [customDur, duration]);
 
   const place = async (direction) => {
-    const amount = Number(Number(stake).toFixed(8));
-    const available = Number(Number(walletUsdt).toFixed(8));
+    const available = stakeableUsdt(walletUsdt);
+    let amount = Number(stake);
     if (!Number.isFinite(amount) || amount <= 0) {
       onToast?.("error", "Enter a valid stake.");
       return;
     }
-    // Allow full wallet amount (float-safe)
+    amount = Number(amount.toFixed(8));
+    // Full balance: clamp near-max / rounded UI values to exact wallet
+    if (amount >= available - 0.02 || amount > available) {
+      if (amount <= available + 0.05) amount = available;
+    }
     if (amount > available + 1e-8) {
+      onToast?.("error", "Insufficient Trading Wallet balance.");
+      return;
+    }
+    if (amount <= 0) {
       onToast?.("error", "Insufficient Trading Wallet balance.");
       return;
     }
@@ -347,8 +390,8 @@ export default function SecondsTrading({
         </div>
         <input
           type="number"
-          min={1}
-          step="1"
+          min={0}
+          step="any"
           value={stake}
           onChange={(e) => setStake(e.target.value)}
           className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-cyan-500/40"
@@ -366,13 +409,10 @@ export default function SecondsTrading({
           ))}
           <button
             type="button"
-            onClick={() =>
-              setStake(
-                String(
-                  Math.max(0, Number(Number(walletUsdt).toFixed(2)))
-                )
-              )
-            }
+            onClick={() => {
+              const max = stakeableUsdt(walletUsdt);
+              setStake(max > 0 ? String(max) : "0");
+            }}
             className="rounded-lg bg-cyan-500/15 px-2.5 py-1 text-[11px] font-semibold text-cyan-300"
           >
             Max

@@ -270,12 +270,17 @@ export async function settleTrade(
   try {
     if (outcome === "win") {
       let profit = 0;
-      if (
-        reason === "admin_force" &&
-        trade.forcedAmount != null &&
-        Number.isFinite(Number(trade.forcedAmount))
-      ) {
-        profit = Math.abs(Number(trade.forcedAmount));
+      if (reason === "admin_force") {
+        if (
+          trade.forcedAmount != null &&
+          Number.isFinite(Number(trade.forcedAmount))
+        ) {
+          // Legacy manual-add path (kept for old trades)
+          profit = Math.abs(Number(trade.forcedAmount));
+        } else {
+          // Graph HIGH — return stake only; admin adds profit via Update Wallet
+          profit = 0;
+        }
         trade.set("payoutPercent", undefined);
       } else {
         let pct = DEFAULT_PAYOUT;
@@ -326,6 +331,7 @@ export async function settleTrade(
           await fresh.save();
         }
       }
+      // Graph LOW / market loss — stake already deducted on open; no extra unless forcedAmount
       trade.lossAmount = Number(trade.stake) + extraLoss;
       payout = 0;
       await Transaction.create({
@@ -348,6 +354,18 @@ export async function settleTrade(
     trade.settledAt = new Date();
     trade.settleReason = reason;
     await trade.save();
+
+    // Soft-reset chart bias after settle so next trade starts clean
+    try {
+      const u2 = await User.findById(trade.user);
+      if (u2?.chartBias?.set) {
+        u2.chartBias.set(trade.asset, 0);
+        u2.markModified("chartBias");
+        await u2.save();
+      }
+    } catch {
+      /* ignore */
+    }
     return trade;
   } catch (err) {
     await SecondsTrade.findByIdAndUpdate(tradeId, { status: "open" });
@@ -358,6 +376,38 @@ export async function settleTrade(
 /** Background settler — call from server bootstrap */
 export async function settleExpiredTrades() {
   if (mongoose.connection.readyState !== 1) return 0;
+
+  // Slowly ramp chart bias for open Graph HIGH/LOW trades (candles drift)
+  try {
+    const forcedOpen = await SecondsTrade.find({
+      status: "open",
+      forcedOutcome: { $in: ["win", "loss"] },
+    }).limit(40);
+    for (const t of forcedOpen) {
+      const user = await User.findById(t.user);
+      if (!user) continue;
+      if (!user.chartBias) user.chartBias = new Map();
+      const cur = Number(user.chartBias.get(t.asset) || 0);
+      const target = t.forcedOutcome === "win" ? 5 : -5;
+      const step = 0.45;
+      let next = cur;
+      if (t.forcedOutcome === "win" && cur < target) {
+        next = Math.min(target, cur + step);
+      } else if (t.forcedOutcome === "loss" && cur > target) {
+        next = Math.max(target, cur - step);
+      } else {
+        continue;
+      }
+      user.chartBias.set(t.asset, Number(next.toFixed(3)));
+      user.markModified("chartBias");
+      await user.save();
+      t.priceBiasPercent = next;
+      await t.save();
+    }
+  } catch (err) {
+    console.error("[seconds-trade] bias ramp failed", err?.message);
+  }
+
   // Unstick crashed mid-settle claims
   await SecondsTrade.updateMany(
     {
@@ -373,7 +423,7 @@ export async function settleExpiredTrades() {
   }).limit(50);
   for (const t of expired) {
     try {
-      // Honor any Force WIN/LOSS already stamped on the trade
+      // Honor any Force / Graph HIGH-LOW already stamped on the trade
       if (t.forcedOutcome === "win" || t.forcedOutcome === "loss") {
         await settleTrade(t._id, {
           forceOutcome: t.forcedOutcome,
@@ -505,14 +555,32 @@ router.post(
       });
     }
 
-    const available = Number(Number(user.wallet.get("USDT") || 0).toFixed(8));
-    const stakeAmt = Number(Number(stake).toFixed(8));
-    // Allow full wallet balance (float-safe)
+    const rawAvailable = Number(user.wallet.get("USDT") || 0);
+    const available = Number(rawAvailable.toFixed(8));
+    let stakeAmt = Number(Number(stake).toFixed(8));
+    if (!Number.isFinite(stakeAmt) || stakeAmt <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Enter a valid stake.",
+      });
+    }
+    // Full-wallet stake: if user asks for ~all balance (or slightly more from UI rounding), clamp to exact available
+    if (stakeAmt >= available - 0.02 || Math.abs(stakeAmt - available) <= 0.05) {
+      stakeAmt = available;
+    }
     if (stakeAmt > available + 1e-8) {
       return res.status(400).json({
         success: false,
         error: "InsufficientFunds",
         message: `Need ${stakeAmt} USDT — wallet has ${available.toFixed(2)}.`,
+      });
+    }
+    if (available <= 0 || stakeAmt <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "InsufficientFunds",
+        message: "Insufficient Trading Wallet balance.",
       });
     }
 

