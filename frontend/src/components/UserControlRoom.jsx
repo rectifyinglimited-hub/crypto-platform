@@ -20,6 +20,7 @@ import {
   ArrowUpFromLine,
 } from "lucide-react";
 import { AdminAPI, assetUrl } from "../lib/api.js";
+import { onSocketEvent } from "../lib/socket.js";
 
 function fmt(n) {
   return Number(n || 0).toLocaleString(undefined, {
@@ -206,10 +207,14 @@ export function ActiveTradesAlertBar({ onOpenUser }) {
     pull();
     const poll = setInterval(pull, 1500);
     const tick = setInterval(() => setNow(Date.now()), 250);
+    const offOpen = onSocketEvent("trade:opened", () => {
+      pull();
+    });
     return () => {
       alive = false;
       clearInterval(poll);
       clearInterval(tick);
+      offOpen();
     };
   }, []);
 

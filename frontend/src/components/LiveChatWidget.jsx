@@ -102,6 +102,7 @@ export default function LiveChatWidget({
   openSignal = 0,
   onDepositSubmitted,
   onWalletUpdate,
+  onToast,
 }) {
   const userId = user?._id || user?.id;
 
@@ -180,6 +181,19 @@ export default function LiveChatWidget({
       if (isPlaceholderMedia(payload.message)) return;
       setMessages((prev) => mergeMessages(prev, payload.message));
       if (open) ChatAPI.markRead().catch(() => {});
+      // Popup when admin / support replies
+      if (payload.message.from === "admin" || payload.message.from === "system") {
+        const preview = payload.message.attachmentUrl
+          ? "Support sent an image"
+          : String(payload.message.body || "")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 90);
+        onToast?.(
+          "success",
+          preview ? `Support: ${preview}` : "New message from Support"
+        );
+      }
     });
     const offDeposit = onSocketEvent("deposit:status", (payload) => {
       if (payload?.userId && String(payload.userId) !== String(userId)) return;
@@ -204,7 +218,7 @@ export default function LiveChatWidget({
       offDeposit();
       offWallet();
     };
-  }, [userId, open, onWalletUpdate]);
+  }, [userId, open, onWalletUpdate, onToast]);
 
   useEffect(() => {
     if (!listRef.current) return;

@@ -110,6 +110,7 @@ async function createAttachmentMessage({
   caption,
   attachmentUrl,
   adminId = null,
+  user = null,
 }) {
   const msg = await Message.create({
     user: threadUserId,
@@ -122,7 +123,7 @@ async function createAttachmentMessage({
     readByAdmin: from === "admin",
     readByUser: from === "user",
   });
-  emitChatMessage(threadUserId, msg);
+  emitChatMessage(threadUserId, msg, { adminId, user });
   return msg;
 }
 
@@ -211,7 +212,16 @@ router.post(
       readByUser: from === "user",
     });
 
-    emitChatMessage(threadUserId, msg);
+    const userSummary =
+      from === "user"
+        ? {
+            id: String(threadUserId),
+            username: sender.dbUser?.username || null,
+            email: sender.dbUser?.email || null,
+            fullName: sender.dbUser?.fullName || null,
+          }
+        : null;
+    emitChatMessage(threadUserId, msg, { adminId, user: userSummary });
     return res.status(201).json({ success: true, message: msg });
   })
 );
@@ -298,6 +308,15 @@ router.post(
       (req.body.body || "").toString().trim() ||
       "Transaction receipt attached";
 
+    const userSummary =
+      from === "user"
+        ? {
+            id: String(threadUserId),
+            username: sender.dbUser?.username || null,
+            email: sender.dbUser?.email || null,
+            fullName: sender.dbUser?.fullName || null,
+          }
+        : null;
     const msg = await createAttachmentMessage({
       threadUserId,
       from,
@@ -305,6 +324,7 @@ router.post(
       caption,
       attachmentUrl,
       adminId,
+      user: userSummary,
     });
 
     return res.status(201).json({ success: true, message: msg });

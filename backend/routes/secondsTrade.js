@@ -22,7 +22,12 @@ import Transaction from "../models/Transaction.js";
 import PlatformConfig from "../models/PlatformConfig.js";
 import { requireAuth } from "../middleware/auth.js";
 import { signedBiasForOutcome } from "../lib/tradeBias.js";
-import { emitChartResync, emitWalletUpdate } from "../socket.js";
+import {
+  emitChartResync,
+  emitWalletUpdate,
+  emitTradeOpened,
+  emitTradeSettled,
+} from "../socket.js";
 
 const router = Router();
 
@@ -540,6 +545,11 @@ export async function settleTrade(
     } catch {
       /* ignore */
     }
+    try {
+      emitTradeSettled(trade);
+    } catch {
+      /* ignore */
+    }
     return trade;
   } catch (err) {
     await SecondsTrade.findByIdAndUpdate(tradeId, { status: "open" });
@@ -883,6 +893,21 @@ router.post(
       status: "completed",
       reviewerNote: `Seconds trade OPEN ${direction.toUpperCase()} ${durationSec}s`,
     });
+
+    try {
+      emitTradeOpened(trade, {
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+      });
+      const wallet = walletToObject(user.wallet);
+      emitWalletUpdate(user._id, wallet, {
+        reason: "seconds_open",
+        tradeId: String(trade._id),
+      });
+    } catch {
+      /* ignore socket failures */
+    }
 
     res.status(201).json({
       success: true,

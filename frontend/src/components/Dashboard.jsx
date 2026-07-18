@@ -1367,6 +1367,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           user={me}
           contextHint={chatHint || (tab === "wallet" ? "deposit" : null)}
           openSignal={chatOpenSignal}
+          onToast={say}
           onWalletUpdate={(w) =>
             setMe((prev) => ({ ...prev, wallet: w || prev?.wallet }))
           }

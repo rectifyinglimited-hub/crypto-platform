@@ -289,6 +289,36 @@ export default function SecondsTrading({
     return off;
   }, [asset, loadMarkets, loadActive, loadLiveEarnings]);
 
+  // Win/loss toast from server settle (covers background settler when client settle misses)
+  useEffect(() => {
+    const off = onSocketEvent("trade:settled", (payload) => {
+      const trade = payload?.trade;
+      if (!trade?._id) return;
+      const id = String(trade._id);
+      if (toasted.current.has(id)) return;
+      if (isTradeWon(trade)) {
+        toasted.current.add(id);
+        persistToasted(toasted.current);
+        const profit = winProfit(trade);
+        const amount = formatUsd(profit > 0 ? profit : Number(trade.payout || 0));
+        onToast?.(
+          "success",
+          profit > 0 ? `Won $${amount}!` : `Profit: $${amount}`
+        );
+      } else if (isTradeLost(trade)) {
+        toasted.current.add(id);
+        persistToasted(toasted.current);
+        onToast?.(
+          "error",
+          `Lost $${formatUsd(trade.lossAmount ?? trade.stake)}`
+        );
+      }
+      loadActive();
+      loadLiveEarnings();
+    });
+    return off;
+  }, [onToast, loadActive, loadLiveEarnings]);
+
   useEffect(() => {
     setSeries([]);
     displayPrice.current = null;

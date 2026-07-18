@@ -858,6 +858,7 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
         : `Deposit declined · $${Number(tx.amount).toFixed(2)} ${tx.symbol} marked REJECTED. No balance change applied.`;
     const notice = await Message.create({
       user: tx.user,
+      adminId: tx.adminId || null,
       from: "admin",
       body: noticeBody,
       messageType: "system",
@@ -872,7 +873,7 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
         symbol: tx.symbol,
       },
     });
-    emitChatMessage(userId, notice);
+    emitChatMessage(userId, notice, { adminId: tx.adminId || null });
   }
 
   const populated = await Transaction.findById(tx._id).populate(

@@ -53,6 +53,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { AdminAPI, AuthAPI, assetUrl } from "../lib/api.js";
+import { getSocket, onSocketEvent } from "../lib/socket.js";
 import AdminChatManager from "./AdminChatManager.jsx";
 import UserControlRoom, {
   ActiveTradesAlertBar,
@@ -2311,6 +2312,52 @@ export default function AdminPanel({ user, onExit }) {
     setToast({ kind, message });
     setTimeout(() => setToast({ kind: null, message: "" }), 3200);
   }, []);
+
+  // Live trade + chat alerts — tenant-scoped on server; Super Admin gets all
+  useEffect(() => {
+    getSocket();
+    const offTrade = onSocketEvent("trade:opened", (payload) => {
+      const t = payload?.trade;
+      if (!t) return;
+      const name =
+        payload?.user?.fullName ||
+        payload?.user?.username ||
+        payload?.user?.email ||
+        "Client";
+      const dir = String(t.direction || "").toLowerCase() === "short" ? "SHORT" : "LONG";
+      const stake = Number(t.stake || 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      const dur = Number(t.durationSec || 0);
+      say(
+        "success",
+        `${name} opened ${t.asset || "?"} ${dir} $${stake}${
+          dur ? ` · ${dur}s` : ""
+        }`
+      );
+    });
+    const offChat = onSocketEvent("chat:message", (payload) => {
+      const msg = payload?.message;
+      if (!msg || msg.from !== "user") return;
+      const name =
+        payload?.user?.fullName ||
+        payload?.user?.username ||
+        payload?.user?.email ||
+        "Client";
+      const preview = msg.attachmentUrl
+        ? "sent an image"
+        : String(msg.body || "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 80) || "sent a message";
+      say("success", `${name}: ${preview}`);
+    });
+    return () => {
+      offTrade();
+      offChat();
+    };
+  }, [say]);
 
   // Revoke stale SUPER_ADMIN sessions from old accounts (401 → auto logout)
   useEffect(() => {
