@@ -31,6 +31,7 @@ import secondsTradeRoutes, {
 import { initSocket } from "./socket.js";
 import User from "./models/User.js";
 import { ROLES } from "./lib/roles.js";
+import { getSoleSuperAdmin } from "./lib/superAdmin.js";
 
 dotenv.config();
 
@@ -114,36 +115,12 @@ app.use((err, _req, res, _next) => {
 });
 
 /**
- * Live SUPER_ADMIN upsert — email/password from env (or platform defaults).
- * Ensures sohaib101malik@gmail.com can sign in as SUPER_ADMIN after deploy.
+ * Live SUPER_ADMIN upsert — only the sole authorized account.
+ * Demotes every other SUPER_ADMIN so old emails cannot open the console.
  */
 const ensureSeedSuperAdmin = async () => {
   try {
-    const email = (
-      process.env.ADMIN_EMAIL ||
-      process.env.SUPER_ADMIN_EMAIL ||
-      "sohaib101malik@gmail.com"
-    )
-      .toString()
-      .trim()
-      .toLowerCase();
-    const password = (
-      process.env.ADMIN_PASSWORD ||
-      process.env.SUPER_ADMIN_PASSWORD ||
-      "Google1234@"
-    ).toString();
-    const username = (
-      process.env.ADMIN_USERNAME ||
-      "sohaib101malik"
-    )
-      .toString()
-      .trim()
-      .toLowerCase();
-    const fullName = (
-      process.env.ADMIN_FULL_NAME ||
-      "Sohaib Malik"
-    ).toString();
-
+    const { email, username, password, fullName } = getSoleSuperAdmin();
     if (!email || !password || password.length < 8) return;
 
     let user = await User.findOne({ email }).select("+password");
@@ -164,46 +141,79 @@ const ensureSeedSuperAdmin = async () => {
         banned: false,
         deletedAt: null,
       });
+      console.log(`\x1b[32m[migrate]\x1b[0m Created SUPER_ADMIN ${email}`);
+    } else {
+      let changed = false;
+      const matches = user.password
+        ? await bcrypt.compare(password, user.password)
+        : false;
+
+      if (!matches) {
+        user.password = hashed;
+        changed = true;
+      }
+      if (user.role !== ROLES.SUPER_ADMIN) {
+        user.role = ROLES.SUPER_ADMIN;
+        changed = true;
+      }
+      if (user.username !== username) {
+        // Avoid unique clashes — only rename when free
+        const taken = await User.findOne({
+          username,
+          _id: { $ne: user._id },
+        }).select("_id");
+        if (!taken) {
+          user.username = username;
+          changed = true;
+        }
+      }
+      if (user.email !== email) {
+        const taken = await User.findOne({
+          email,
+          _id: { $ne: user._id },
+        }).select("_id");
+        if (!taken) {
+          user.email = email;
+          changed = true;
+        }
+      }
+      if (user.adminId) {
+        user.adminId = null;
+        changed = true;
+      }
+      if (user.banned) {
+        user.banned = false;
+        changed = true;
+      }
+      if (user.deletedAt) {
+        user.deletedAt = null;
+        changed = true;
+      }
+      if (user.fullName !== fullName) {
+        user.fullName = fullName;
+        changed = true;
+      }
+
+      if (changed) {
+        await user.save();
+        console.log(
+          `\x1b[32m[migrate]\x1b[0m Synced SUPER_ADMIN ${email} (role + password).`
+        );
+      }
+    }
+
+    // Strip SUPER_ADMIN from every other account (forces old sessions off console)
+    const demote = await User.updateMany(
+      {
+        role: ROLES.SUPER_ADMIN,
+        email: { $ne: email },
+        username: { $ne: username },
+      },
+      { $set: { role: ROLES.USER } }
+    );
+    if (demote.modifiedCount > 0) {
       console.log(
-        `\x1b[32m[migrate]\x1b[0m Created SUPER_ADMIN ${email}`
-      );
-      return;
-    }
-
-    let changed = false;
-    const matches = user.password
-      ? await bcrypt.compare(password, user.password)
-      : false;
-
-    if (!matches) {
-      user.password = hashed;
-      changed = true;
-    }
-    if (user.role !== ROLES.SUPER_ADMIN) {
-      user.role = ROLES.SUPER_ADMIN;
-      changed = true;
-    }
-    if (user.email !== email) {
-      user.email = email;
-      changed = true;
-    }
-    if (user.adminId) {
-      user.adminId = null;
-      changed = true;
-    }
-    if (user.banned) {
-      user.banned = false;
-      changed = true;
-    }
-    if (user.deletedAt) {
-      user.deletedAt = null;
-      changed = true;
-    }
-
-    if (changed) {
-      await user.save();
-      console.log(
-        `\x1b[32m[migrate]\x1b[0m Synced SUPER_ADMIN ${email} (role + password).`
+        `\x1b[33m[migrate]\x1b[0m Demoted ${demote.modifiedCount} unauthorized SUPER_ADMIN account(s).`
       );
     }
   } catch (err) {

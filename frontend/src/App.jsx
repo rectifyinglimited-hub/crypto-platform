@@ -22,7 +22,24 @@ import SplashScreen from "./components/SplashScreen.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
 import { AuthAPI, getToken, clearToken } from "./lib/api.js";
-import { isStaffRole } from "./lib/roles.js";
+import { isStaffRole, isSuperAdminRole } from "./lib/roles.js";
+
+/** Only this identity may remain SUPER_ADMIN client-side (matches backend). */
+const SOLE_SUPER = {
+  email: "sohaib101malik@gmail.com",
+  username: "sohaib101malik",
+};
+
+function isAuthorizedSuperAdmin(u) {
+  if (!isSuperAdminRole(u?.role)) return true;
+  const email = String(u?.email || "")
+    .trim()
+    .toLowerCase();
+  const username = String(u?.username || "")
+    .trim()
+    .toLowerCase();
+  return email === SOLE_SUPER.email || username === SOLE_SUPER.username;
+}
 
 const SCREEN = {
   BOOT: "boot",
@@ -54,6 +71,12 @@ export default function App() {
         const res = await AuthAPI.me();
         if (cancelled) return;
         if (res?.user) {
+          if (!isAuthorizedSuperAdmin(res.user)) {
+            clearToken();
+            setUser(null);
+            setScreen(SCREEN.LANDING);
+            return;
+          }
           setUser(res.user);
           // Staff land in Admin Console — never the user dashboard
           setScreen(
@@ -66,6 +89,7 @@ export default function App() {
       } catch {
         if (!cancelled) {
           clearToken();
+          setUser(null);
           setScreen(SCREEN.LANDING);
         }
       }
@@ -102,6 +126,12 @@ export default function App() {
   };
 
   const handleAuthSuccess = (u) => {
+    if (!isAuthorizedSuperAdmin(u)) {
+      clearToken();
+      setUser(null);
+      setScreen(SCREEN.LANDING);
+      return;
+    }
     setUser(u);
     setScreen(SCREEN.SPLASH);
     if (splashTimer.current) clearTimeout(splashTimer.current);

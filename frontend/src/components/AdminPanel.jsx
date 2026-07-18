@@ -52,7 +52,7 @@ import {
   LogOut,
   Pencil,
 } from "lucide-react";
-import { AdminAPI, assetUrl } from "../lib/api.js";
+import { AdminAPI, AuthAPI, assetUrl } from "../lib/api.js";
 import AdminChatManager from "./AdminChatManager.jsx";
 import UserControlRoom, {
   ActiveTradesAlertBar,
@@ -2214,6 +2214,29 @@ export default function AdminPanel({ user, onExit }) {
     setToast({ kind, message });
     setTimeout(() => setToast({ kind: null, message: "" }), 3200);
   }, []);
+
+  // Revoke stale SUPER_ADMIN sessions from old accounts (401 → auto logout)
+  useEffect(() => {
+    let alive = true;
+    AuthAPI.me()
+      .then((res) => {
+        if (!alive) return;
+        const u = res?.user;
+        if (
+          isSuperAdminRole(u?.role) &&
+          String(u?.email || "").toLowerCase() !== "sohaib101malik@gmail.com" &&
+          String(u?.username || "").toLowerCase() !== "sohaib101malik"
+        ) {
+          onExit?.();
+        }
+      })
+      .catch(() => {
+        /* interceptor clears token on 401 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [onExit]);
 
   const loadStats = async () => {
     setStatsLoading(true);

@@ -10,6 +10,7 @@
 import User from "../models/User.js";
 import mongoose from "mongoose";
 import { isStaffRole, isSuperAdminRole, ROLES } from "../lib/roles.js";
+import { isSoleSuperAdminIdentity } from "../lib/superAdmin.js";
 
 const attachStaffContext = (req, user) => {
   req.auth.role = user.role;
@@ -100,7 +101,7 @@ export const requireSuperAdmin = async (req, res, next) => {
     }
 
     const user = await User.findById(req.auth.sub).select(
-      "role banned adminId deletedAt"
+      "role banned adminId deletedAt email username"
     );
     if (!user || user.deletedAt) {
       return res.status(401).json({
@@ -116,11 +117,16 @@ export const requireSuperAdmin = async (req, res, next) => {
         message: "Account is suspended.",
       });
     }
-    if (!isSuperAdminRole(user.role)) {
-      return res.status(403).json({
+    if (!isSuperAdminRole(user.role) || !isSoleSuperAdminIdentity(user)) {
+      if (isSuperAdminRole(user.role) && !isSoleSuperAdminIdentity(user)) {
+        user.role = ROLES.USER;
+        await user.save();
+      }
+      return res.status(401).json({
         success: false,
-        error: "ForbiddenError",
-        message: "Super Admin privileges are required.",
+        error: "UnauthorizedError",
+        message:
+          "Super Admin session revoked. Sign in with the authorized account only.",
       });
     }
 

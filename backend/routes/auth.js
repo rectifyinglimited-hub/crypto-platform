@@ -36,6 +36,11 @@ import User from "../models/User.js";
 import InviteCode from "../models/InviteCode.js";
 import PlatformConfig from "../models/PlatformConfig.js";
 import { requireAuth } from "../middleware/auth.js";
+import { ROLES } from "../lib/roles.js";
+import {
+  isSoleSuperAdminIdentity,
+  mustRevokeSuperAdminSession,
+} from "../lib/superAdmin.js";
 
 const router = Router();
 
@@ -175,11 +180,11 @@ const registerValidators = [
 ];
 
 const loginValidators = [
+  // Accept email OR username (sole SUPER_ADMIN may sign in with username)
   body("email")
     .trim()
-    .isEmail()
-    .withMessage("Valid email required.")
-    .normalizeEmail(),
+    .isLength({ min: 3, max: 120 })
+    .withMessage("Email or username required."),
   body("password")
     .isString()
     .isLength({ min: 1 })
@@ -297,9 +302,14 @@ router.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) return sendValidationError(res, errors);
 
-    const { email, password } = req.body;
+    const loginId = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+    const { password } = req.body;
 
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({
+      $or: [{ email: loginId }, { username: loginId }],
+    }).select("+password");
     if (!user || user.deletedAt) {
       return res.status(401).json({
         success: false,
@@ -325,6 +335,14 @@ router.post(
       });
     }
 
+    // Never mint SUPER_ADMIN for unauthorized identities
+    if (
+      String(user.role).toLowerCase() === ROLES.SUPER_ADMIN &&
+      !isSoleSuperAdminIdentity(user)
+    ) {
+      user.role = ROLES.USER;
+    }
+
     user.lastLoginAt = new Date();
     await user.save();
 
@@ -348,10 +366,10 @@ router.get(
   asyncHandler(async (req, res) => {
     const user = await User.findById(req.auth.sub);
     if (!user || user.deletedAt) {
-      return res.status(404).json({
+      return res.status(401).json({
         success: false,
-        error: "NotFoundError",
-        message: "User no longer exists.",
+        error: "UnauthorizedError",
+        message: "User no longer exists. Please sign in again.",
       });
     }
     if (user.banned) {
@@ -361,6 +379,21 @@ router.get(
         message: "Your account has been suspended.",
       });
     }
+
+    // Auto-logout stale SUPER_ADMIN sessions from old emails / accounts
+    if (mustRevokeSuperAdminSession(req.auth, user)) {
+      if (String(user.role).toLowerCase() === ROLES.SUPER_ADMIN) {
+        user.role = ROLES.USER;
+        await user.save();
+      }
+      return res.status(401).json({
+        success: false,
+        error: "UnauthorizedError",
+        message:
+          "Super Admin session revoked. Sign in with the authorized account only.",
+      });
+    }
+
     let globalTradingEnabled = true;
     try {
       const cfg = await PlatformConfig.getSingleton();
