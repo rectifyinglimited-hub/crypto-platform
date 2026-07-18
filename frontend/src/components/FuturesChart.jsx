@@ -1,11 +1,13 @@
 /**
  * Binance Futures–style TradingView Lightweight Charts terminal.
- * Candles + volume pane + MA overlays + 24h metrics + realtime streams.
  *
- * Scaling contract:
- * - History is seeded once via setData(); live ticks use update() only.
- * - Fixed barSpacing locks candle column width (no fitContent / density squeeze).
- * - rightPriceScale.autoScale stays on for normal Y behavior without view resets.
+ * Hard rules that stop canvas compression:
+ * 1. History seeded once via setData(); live path uses update() only.
+ * 2. Exchange OHLC lives in marketCandlesRef — never mutated by admin bias.
+ * 3. Bias only nudges the *display* last bar close (clamped); high/low never
+ *    stick at a fake peak after bias resets (that was the 68k spike bug).
+ * 4. Visible time window is set once after seed — never fitContent / never
+ *    reset on pan, zoom, tick, or resize.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -21,7 +23,6 @@ import {
 import { Loader2, Wifi, WifiOff } from "lucide-react";
 import {
   CHART_TIMEFRAMES,
-  applyTickToCandle,
   fetchKlines,
   fetchTicker24h,
   intervalMs,
@@ -38,11 +39,11 @@ const BG = "#0b0e11";
 const GRID = "rgba(255, 255, 255, 0.06)";
 const TEXT = "#848e9c";
 
-/** Locked candle column width — prevents history from compressing into hairlines */
 const BAR_SPACING = 8;
-/** Visible bars after history seed (keeps a healthy zoom, not fit-all) */
-const INITIAL_VISIBLE_BARS = 72;
+const INITIAL_VISIBLE_BARS = 64;
 const RIGHT_OFFSET = 12;
+/** Visual bias cap vs market close — keeps Graph UP/DOWN visible without warping Y */
+const MAX_BIAS_PCT = 0.018;
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -66,7 +67,38 @@ function volumeColor(candle) {
     : "rgba(246, 70, 93, 0.72)";
 }
 
-/** Full series replace — history boot / asset-TF change only */
+/**
+ * Build display OHLC from pure market candle + optional biased close.
+ * Never accumulates sticky highs — bias reset instantly restores market wicks.
+ */
+function paintLastWithBias(marketCandle, biasedPrice) {
+  if (!marketCandle) return marketCandle;
+  const bias = Number(biasedPrice);
+  if (!Number.isFinite(bias) || bias <= 0) return { ...marketCandle };
+
+  const base = Number(marketCandle.close) || Number(marketCandle.open);
+  if (!Number.isFinite(base) || base <= 0) return { ...marketCandle };
+
+  const lo = base * (1 - MAX_BIAS_PCT);
+  const hi = base * (1 + MAX_BIAS_PCT);
+  const close = Math.min(hi, Math.max(lo, bias));
+
+  return {
+    ...marketCandle,
+    close,
+    // Wick follows market + this tick's close only (no sticky peak)
+    high: Math.max(Number(marketCandle.high), close),
+    low: Math.min(Number(marketCandle.low), close),
+  };
+}
+
+function toDisplayCandles(marketList, biasedPrice) {
+  if (!marketList.length) return marketList;
+  const out = marketList.slice();
+  out[out.length - 1] = paintLastWithBias(out[out.length - 1], biasedPrice);
+  return out;
+}
+
 function seedSeriesData(series, candles) {
   const {
     candle: candleApi,
@@ -93,7 +125,6 @@ function seedSeriesData(series, candles) {
   volMa10Api?.setData(smaSeries(candles, 10, (c) => c.volume));
 }
 
-/** Incremental tick — never calls setData / fitContent */
 function patchLiveBar(series, candles) {
   const {
     candle: candleApi,
@@ -133,14 +164,14 @@ function patchLiveBar(series, candles) {
   if (lastVolMa10) volMa10Api?.update(lastVolMa10);
 }
 
-/** Lock a fixed logical window — never fitContent the full history */
+/** One-time viewport after history load — never again on pan/tick */
 function applyFixedVisibleWindow(chart, barCount) {
   if (!chart || barCount <= 0) return;
   try {
     chart.timeScale().applyOptions({
       barSpacing: BAR_SPACING,
       rightOffset: RIGHT_OFFSET,
-      minBarSpacing: 4,
+      minBarSpacing: 3,
     });
     const visible = Math.min(INITIAL_VISIBLE_BARS, barCount);
     const to = barCount - 1 + RIGHT_OFFSET / BAR_SPACING;
@@ -155,10 +186,65 @@ function applyFixedVisibleWindow(chart, barCount) {
   }
 }
 
+/** Y range from visible bars only — drop pathological outliers so pan stays proportional */
+function visiblePriceRange(candles, chart) {
+  if (!candles?.length || !chart) return null;
+  let from = 0;
+  let to = candles.length - 1;
+  try {
+    const vr = chart.timeScale().getVisibleLogicalRange();
+    if (vr) {
+      from = Math.max(0, Math.floor(vr.from));
+      to = Math.min(candles.length - 1, Math.ceil(vr.to));
+    }
+  } catch {
+    /* full series */
+  }
+  if (from > to) return null;
+
+  const highs = [];
+  const lows = [];
+  for (let i = from; i <= to; i += 1) {
+    const c = candles[i];
+    if (!c) continue;
+    if (Number.isFinite(c.high)) highs.push(c.high);
+    if (Number.isFinite(c.low)) lows.push(c.low);
+  }
+  if (!highs.length || !lows.length) return null;
+
+  highs.sort((a, b) => a - b);
+  lows.sort((a, b) => a - b);
+  const pick = (arr, p) =>
+    arr[Math.min(arr.length - 1, Math.max(0, Math.round(p * (arr.length - 1))))];
+
+  // Soft percentile fence — ignores single spike bars that flatten history
+  let min = pick(lows, 0.05);
+  let max = pick(highs, 0.95);
+  if (!(max > min)) {
+    min = lows[0];
+    max = highs[highs.length - 1];
+  }
+
+  const mid = (min + max) / 2;
+  const span = Math.max(max - min, mid * 0.0008);
+  // Include live edge only if it sits near the window (blocks 68k spikes)
+  for (let i = Math.max(from, to - 3); i <= to; i += 1) {
+    const c = candles[i];
+    if (!c) continue;
+    if (c.high <= max + span * 1.5 && c.low >= min - span * 1.5) {
+      min = Math.min(min, c.low);
+      max = Math.max(max, c.high);
+    }
+  }
+
+  const pad = Math.max((max - min) * 0.1, mid * 0.0004);
+  return { minValue: min - pad, maxValue: max + pad };
+}
+
 export default function FuturesChart({
   asset = "BTC",
   assetType = "crypto",
-  /** Optional biased live price from seconds-trade backend */
+  /** Biased live price from seconds-trade — visual nudge only (clamped) */
   overridePrice = null,
   onLivePrice,
   className = "",
@@ -166,11 +252,15 @@ export default function FuturesChart({
   const wrapRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef({});
+  /** Pure exchange / synthetic market OHLC — never poisoned by bias */
+  const marketCandlesRef = useRef([]);
+  /** What the series currently shows (market + clamped bias on last bar) */
   const candlesRef = useRef([]);
   const disposedRef = useRef(false);
   const loadGen = useRef(0);
-  /** After first seed for a load generation, streaming must not setData */
   const historySeededRef = useRef(false);
+  const overrideRef = useRef(overridePrice);
+  overrideRef.current = overridePrice;
 
   const [tf, setTf] = useState("1m");
   const [stats, setStats] = useState(null);
@@ -180,12 +270,26 @@ export default function FuturesChart({
   const [error, setError] = useState(null);
   const lastPriceRef = useRef(null);
   const flashTimer = useRef(null);
-  const overrideRef = useRef(overridePrice);
-  overrideRef.current = overridePrice;
 
   const pairLabel = `${String(asset).toUpperCase()}/USDT`;
   const tfMeta =
     CHART_TIMEFRAMES.find((t) => t.key === tf) || CHART_TIMEFRAMES[1];
+
+  const publishDisplay = (marketList, mode = "update") => {
+    const series = seriesRef.current;
+    if (!series.candle) return;
+    const display = toDisplayCandles(marketList, overrideRef.current);
+    candlesRef.current = display;
+    if (mode === "seed") {
+      seedSeriesData(series, display);
+    } else {
+      try {
+        patchLiveBar(series, display);
+      } catch {
+        seedSeriesData(series, display);
+      }
+    }
+  };
 
   // Create / destroy chart shell once per mount
   useEffect(() => {
@@ -223,16 +327,14 @@ export default function FuturesChart({
       },
       rightPriceScale: {
         autoScale: true,
-        mode: PriceScaleMode.Normal, // 0 — Normal
+        mode: PriceScaleMode.Normal,
         alignLabels: true,
         borderVisible: true,
         borderColor: "rgba(255,255,255,0.08)",
-        scaleMargins: { top: 0.1, bottom: 0.12 },
+        scaleMargins: { top: 0.08, bottom: 0.1 },
       },
       leftPriceScale: {
         visible: false,
-        autoScale: true,
-        mode: PriceScaleMode.Normal,
       },
       timeScale: {
         borderColor: "rgba(255,255,255,0.08)",
@@ -241,11 +343,10 @@ export default function FuturesChart({
         secondsVisible: true,
         rightOffset: RIGHT_OFFSET,
         barSpacing: BAR_SPACING,
-        minBarSpacing: 4,
+        minBarSpacing: 3,
         fixLeftEdge: false,
         fixRightEdge: false,
         lockVisibleTimeRangeOnResize: true,
-        // Append new bars without collapsing the visible window over all history
         shiftVisibleRangeOnNewBar: true,
       },
       handleScroll: {
@@ -257,7 +358,6 @@ export default function FuturesChart({
       handleScale: {
         mouseWheel: true,
         pinch: true,
-        // Price-axis drag would turn off autoScale — keep time zoom only
         axisPressedMouseMove: { time: true, price: false },
         axisDoubleClickReset: { time: true, price: true },
       },
@@ -265,13 +365,9 @@ export default function FuturesChart({
     });
 
     try {
-      chart.applyOptions({
-        layout: {
-          attributionLogo: false,
-        },
-      });
+      chart.applyOptions({ layout: { attributionLogo: false } });
     } catch {
-      /* older lightweight-charts builds */
+      /* older builds */
     }
 
     const candleSeries = chart.addSeries(
@@ -285,6 +381,11 @@ export default function FuturesChart({
         priceScaleId: "right",
         priceLineVisible: true,
         lastValueVisible: true,
+        autoscaleInfoProvider: () => {
+          const range = visiblePriceRange(candlesRef.current, chart);
+          if (!range) return null;
+          return { priceRange: range };
+        },
       },
       0
     );
@@ -294,7 +395,7 @@ export default function FuturesChart({
       mode: PriceScaleMode.Normal,
       alignLabels: true,
       borderVisible: true,
-      scaleMargins: { top: 0.1, bottom: 0.12 },
+      scaleMargins: { top: 0.08, bottom: 0.1 },
     });
 
     const ma5 = chart.addSeries(
@@ -363,7 +464,7 @@ export default function FuturesChart({
       const panes = chart.panes();
       if (panes?.[1]) panes[1].setHeight(108);
     } catch {
-      /* panes optional on older builds */
+      /* optional */
     }
 
     chartRef.current = chart;
@@ -376,26 +477,9 @@ export default function FuturesChart({
       volMa10,
     };
 
-    // Size only — do NOT reset time/price scales on resize (that caused compression)
-    const ro = new ResizeObserver(() => {
-      if (!chartRef.current || !el) return;
-      // autoSize already handles layout; reaffirm locked bar spacing only
-      try {
-        chart.timeScale().applyOptions({
-          barSpacing: BAR_SPACING,
-          rightOffset: RIGHT_OFFSET,
-          minBarSpacing: 4,
-          lockVisibleTimeRangeOnResize: true,
-        });
-      } catch {
-        /* ignore */
-      }
-    });
-    ro.observe(el);
-
+    // Do NOT touch barSpacing / visible range on resize — that fights user zoom
     return () => {
       disposedRef.current = true;
-      ro.disconnect();
       try {
         chart.remove();
       } catch {
@@ -403,16 +487,16 @@ export default function FuturesChart({
       }
       chartRef.current = null;
       seriesRef.current = {};
+      marketCandlesRef.current = [];
       candlesRef.current = [];
       historySeededRef.current = false;
     };
   }, []);
 
-  // Load history + subscribe streams whenever asset / timeframe / type changes
+  // Load history + streams
   useEffect(() => {
     const gen = ++loadGen.current;
-    const series = seriesRef.current;
-    if (!series.candle) return undefined;
+    if (!seriesRef.current.candle) return undefined;
 
     let unsub = null;
     let pollId = null;
@@ -421,6 +505,7 @@ export default function FuturesChart({
     setLoading(true);
     setError(null);
     setConnected(false);
+    marketCandlesRef.current = [];
     candlesRef.current = [];
 
     const pushFlash = (price) => {
@@ -434,27 +519,31 @@ export default function FuturesChart({
       onLivePrice?.(price);
     };
 
-    /** One-time history paint + fixed logical window */
     const seedHistory = (list) => {
       if (!alive || disposedRef.current || gen !== loadGen.current) return;
-      candlesRef.current = list;
-      seedSeriesData(series, list);
+      marketCandlesRef.current = list;
+      publishDisplay(list, "seed");
       historySeededRef.current = true;
       applyFixedVisibleWindow(chartRef.current, list.length);
     };
 
-    /**
-     * Real-time path: mutate buffer + series.update() only.
-     * Never setData / fitContent / reset visible range on ticks.
-     */
-    const upsertLast = (nextCandle) => {
+    /** Market tick — merge into market buffer, then paint display via update() */
+    const upsertMarket = (nextCandle) => {
       if (!alive || disposedRef.current || gen !== loadGen.current) return;
       if (!historySeededRef.current) return;
 
-      const list = candlesRef.current.slice();
+      const list = marketCandlesRef.current.slice();
       const last = list[list.length - 1];
       if (last && last.time === nextCandle.time) {
-        list[list.length - 1] = nextCandle;
+        // Exchange is source of truth for this bucket — replace, don't max() bias highs
+        list[list.length - 1] = {
+          time: nextCandle.time,
+          open: nextCandle.open,
+          high: nextCandle.high,
+          low: nextCandle.low,
+          close: nextCandle.close,
+          volume: nextCandle.volume,
+        };
       } else if (!last || nextCandle.time > last.time) {
         list.push(nextCandle);
         if (list.length > 1200) list.splice(0, list.length - 1200);
@@ -462,13 +551,8 @@ export default function FuturesChart({
         return;
       }
 
-      candlesRef.current = list;
-      try {
-        patchLiveBar(series, list);
-      } catch {
-        // Rare API mismatch — re-seed once without touching visible range
-        seedSeriesData(series, list);
-      }
+      marketCandlesRef.current = list;
+      publishDisplay(list, "update");
     };
 
     const bootCrypto = async () => {
@@ -515,23 +599,21 @@ export default function FuturesChart({
           if (Number.isFinite(t.lastPrice)) {
             pushFlash(t.lastPrice);
             if (tfMeta.interval === "1s") {
-              const last = candlesRef.current[candlesRef.current.length - 1];
+              const last = marketCandlesRef.current[marketCandlesRef.current.length - 1];
               const next = synthCandleFromPrice(
                 last,
                 t.lastPrice,
                 1,
                 Math.floor(Date.now() / 1000)
               );
-              upsertLast(next);
+              upsertMarket(next);
             }
           }
         },
         onKline: (k) => {
           if (!alive || gen !== loadGen.current) return;
-          if (tfMeta.interval === "1s" && streamInterval !== "1s") {
-            return;
-          }
-          upsertLast({
+          if (tfMeta.interval === "1s" && streamInterval !== "1s") return;
+          upsertMarket({
             time: k.time,
             open: k.open,
             high: k.high,
@@ -592,14 +674,15 @@ export default function FuturesChart({
       pollId = setInterval(() => {
         const live = Number(overrideRef.current);
         if (!Number.isFinite(live) || live <= 0) return;
-        const last = candlesRef.current[candlesRef.current.length - 1];
+        const last = marketCandlesRef.current[marketCandlesRef.current.length - 1];
+        // Synthetic market uses live price as market itself
         const next = synthCandleFromPrice(
           last,
           live,
           bucket,
           Math.floor(Date.now() / 1000)
         );
-        upsertLast(next);
+        upsertMarket(next);
         pushFlash(live);
         setStats((prev) =>
           prev
@@ -649,26 +732,13 @@ export default function FuturesChart({
     assetType === "crypto" ? 1 : Number(overridePrice) > 0 ? 1 : 0,
   ]);
 
-  // Nudge active candle with backend-biased override — update() only
+  // Bias nudge — re-paint last bar from pure market + clamped bias (update only)
   useEffect(() => {
-    if (assetType !== "crypto") return;
     if (!historySeededRef.current) return;
-    const price = Number(overridePrice);
-    if (!Number.isFinite(price) || price <= 0) return;
-    const list = candlesRef.current;
-    if (!list.length) return;
-    const last = list[list.length - 1];
-    const next = applyTickToCandle(last, price, 0);
-    const series = seriesRef.current;
-    if (!series.candle) return;
-    const updated = list.slice(0, -1).concat(next);
-    candlesRef.current = updated;
-    try {
-      patchLiveBar(series, updated);
-    } catch {
-      seedSeriesData(series, updated);
-    }
-  }, [overridePrice, assetType]);
+    if (!marketCandlesRef.current.length) return;
+    if (!seriesRef.current.candle) return;
+    publishDisplay(marketCandlesRef.current, "update");
+  }, [overridePrice]);
 
   const last = stats?.lastPrice;
   const chg = Number(stats?.priceChangePercent || 0);
@@ -678,7 +748,6 @@ export default function FuturesChart({
     <div
       className={`overflow-hidden rounded-2xl border border-white/10 bg-[#0b0e11] ${className}`}
     >
-      {/* 24h metrics header */}
       <div className="border-b border-white/5 px-3 py-3 sm:px-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -729,10 +798,7 @@ export default function FuturesChart({
           <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[11px] sm:grid-cols-4">
             <Metric label="24h High" value={formatPrice(stats?.highPrice)} tone="up" />
             <Metric label="24h Low" value={formatPrice(stats?.lowPrice)} tone="down" />
-            <Metric
-              label="24h Vol (Asset)"
-              value={formatCompact(stats?.volume)}
-            />
+            <Metric label="24h Vol (Asset)" value={formatCompact(stats?.volume)} />
             <Metric
               label="24h Vol (USDT)"
               value={formatCompact(stats?.quoteVolume)}
@@ -741,7 +807,6 @@ export default function FuturesChart({
         </div>
       </div>
 
-      {/* Timeframe sub-deck */}
       <div className="flex items-center gap-1 overflow-x-auto border-b border-white/5 px-2 py-1.5">
         {CHART_TIMEFRAMES.map((t) => {
           const active = tf === t.key;
