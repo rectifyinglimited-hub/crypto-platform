@@ -931,70 +931,89 @@ router.get(
   })
 );
 
-// POST /gateway-settings — save/replace platform deposit credentials
+// POST /gateway-settings — save flexible rails + uploads (+ legacy fields)
 router.post(
   "/gateway-settings",
   requireDatabase,
   [
-    body("bankName")
-      .optional({ nullable: true, checkFalsy: true })
-      .isString()
-      .isLength({ max: 120 }),
-    body("accountTitle")
-      .optional({ nullable: true, checkFalsy: true })
-      .isString()
-      .isLength({ max: 120 }),
-    body("accountNumber")
-      .optional({ nullable: true, checkFalsy: true })
-      .isString()
-      .isLength({ max: 60 }),
-    body("iban")
-      .optional({ nullable: true, checkFalsy: true })
-      .isString()
-      .isLength({ max: 40 }),
-    body("easyPaisaNumber")
-      .optional({ nullable: true, checkFalsy: true })
-      .isString()
-      .isLength({ max: 30 }),
-    body("jazzCashNumber")
-      .optional({ nullable: true, checkFalsy: true })
-      .isString()
-      .isLength({ max: 30 }),
-    body("usdtTrc20Address")
-      .optional({ nullable: true, checkFalsy: true })
-      .isString()
-      .isLength({ max: 80 }),
-    body("usdtErc20Address")
-      .optional({ nullable: true, checkFalsy: true })
-      .isString()
-      .isLength({ max: 80 }),
     body("instructions")
       .optional({ nullable: true, checkFalsy: true })
       .isString()
-      .isLength({ max: 800 }),
+      .isLength({ max: 2000 }),
+    body("rails").optional().isArray({ max: 40 }),
+    body("rails.*.id").optional().isString().isLength({ max: 64 }),
+    body("rails.*.label").optional().isString().isLength({ max: 80 }),
+    body("rails.*.value").optional({ nullable: true }).isString().isLength({ max: 500 }),
+    body("uploads").optional().isArray({ max: 8 }),
+    body("uploads.*.id").optional().isString().isLength({ max: 64 }),
+    body("uploads.*.fileName").optional().isString().isLength({ max: 180 }),
+    body("uploads.*.mimeType").optional().isString().isLength({ max: 120 }),
+    body("uploads.*.size").optional().isInt({ min: 0, max: 3_000_000 }),
+    body("uploads.*.dataUrl").optional().isString().isLength({ max: 2_800_000 }),
+    // Legacy flat fields still accepted
+    body("bankName").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 120 }),
+    body("accountTitle").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 120 }),
+    body("accountNumber").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 60 }),
+    body("iban").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 40 }),
+    body("easyPaisaNumber").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 30 }),
+    body("jazzCashNumber").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 30 }),
+    body("usdtTrc20Address").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 80 }),
+    body("usdtErc20Address").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 80 }),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return sendValidationError(res, errors);
 
     const doc = await GatewaySetting.getSingleton();
-    const fields = [
-      "bankName",
-      "accountTitle",
-      "accountNumber",
-      "iban",
-      "easyPaisaNumber",
-      "jazzCashNumber",
-      "usdtTrc20Address",
-      "usdtErc20Address",
-      "instructions",
-    ];
-    for (const f of fields) {
-      if (Object.prototype.hasOwnProperty.call(req.body, f)) {
-        const v = req.body[f];
-        doc[f] = v === "" ? null : v;
+
+    if (Array.isArray(req.body.rails)) {
+      doc.rails = req.body.rails
+        .map((r, i) => ({
+          id: String(r?.id || `rail_${Date.now()}_${i}`).slice(0, 64),
+          label: String(r?.label || "Field").trim().slice(0, 80) || "Field",
+          value: String(r?.value ?? "").trim().slice(0, 500),
+        }))
+        .slice(0, 40);
+      GatewaySetting.syncLegacyFromRails(doc);
+    } else {
+      const fields = [
+        "bankName",
+        "accountTitle",
+        "accountNumber",
+        "iban",
+        "easyPaisaNumber",
+        "jazzCashNumber",
+        "usdtTrc20Address",
+        "usdtErc20Address",
+      ];
+      for (const f of fields) {
+        if (Object.prototype.hasOwnProperty.call(req.body, f)) {
+          const v = req.body[f];
+          doc[f] = v === "" ? null : v;
+        }
       }
     }
+
+    if (Array.isArray(req.body.uploads)) {
+      const allowed = /^(image\/(png|jpeg|jpg|webp|gif)|application\/pdf|text\/plain)$/i;
+      doc.uploads = req.body.uploads
+        .filter((u) => u && typeof u.dataUrl === "string" && u.dataUrl.startsWith("data:"))
+        .filter((u) => allowed.test(String(u.mimeType || "")))
+        .map((u, i) => ({
+          id: String(u.id || `up_${Date.now()}_${i}`).slice(0, 64),
+          fileName: String(u.fileName || "file").slice(0, 180),
+          mimeType: String(u.mimeType || "application/octet-stream").slice(0, 120),
+          size: Math.min(Number(u.size) || 0, 2_500_000),
+          dataUrl: String(u.dataUrl).slice(0, 2_800_000),
+        }))
+        .slice(0, 8);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "instructions")) {
+      const v = req.body.instructions;
+      doc.instructions = v === "" || v == null ? null : String(v).slice(0, 2000);
+    }
+
     doc.updatedBy = req.auth.sub;
     await doc.save();
 

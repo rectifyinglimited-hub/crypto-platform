@@ -55,7 +55,10 @@ export default function App() {
         if (cancelled) return;
         if (res?.user) {
           setUser(res.user);
-          setScreen(SCREEN.DASHBOARD);
+          // Staff land in Admin Console — never the user dashboard
+          setScreen(
+            isStaffRole(res.user.role) ? SCREEN.ADMIN : SCREEN.DASHBOARD
+          );
         } else {
           clearToken();
           setScreen(SCREEN.LANDING);
@@ -104,7 +107,7 @@ export default function App() {
     if (splashTimer.current) clearTimeout(splashTimer.current);
     splashTimer.current = setTimeout(() => {
       splashTimer.current = null;
-      setScreen(SCREEN.DASHBOARD);
+      setScreen(isStaffRole(u?.role) ? SCREEN.ADMIN : SCREEN.DASHBOARD);
     }, SPLASH_MS);
   };
 
@@ -135,7 +138,6 @@ export default function App() {
       if (isStaffRole(user?.role)) setScreen(SCREEN.ADMIN);
     }
   };
-  const goDashboard = () => setScreen(SCREEN.DASHBOARD);
 
   return (
     <AnimatePresence mode="wait">
@@ -200,7 +202,7 @@ export default function App() {
       )}
 
       {screen === SCREEN.ADMIN && (
-        <AdminPanel key="admin" user={user} onExit={goDashboard} />
+        <AdminPanel key="admin" user={user} onExit={handleLogout} />
       )}
     </AnimatePresence>
   );

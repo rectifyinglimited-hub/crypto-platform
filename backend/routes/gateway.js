@@ -1,12 +1,6 @@
 /**
- * =============================================================================
- *  NEXUS BACKEND — routes/gateway.js
- * =============================================================================
- *  Read-only, authenticated exposure of the platform's deposit credentials.
- *  Regular users hit this when opening the Deposit tab so the Dashboard can
- *  render whatever bank / EasyPaisa / USDT rails the admin has configured.
- *    GET /api/gateway/current   — returns the singleton doc (fields may be null)
- * =============================================================================
+ * Read-only deposit gateway for authenticated users.
+ * GET /api/gateway/current
  */
 
 import { Router } from "express";
@@ -37,33 +31,38 @@ router.get(
   requireDatabase,
   asyncHandler(async (_req, res) => {
     const doc = await GatewaySetting.getSingleton();
-    // Strip audit fields the user does not need to see.
-    const {
-      bankName,
-      accountTitle,
-      accountNumber,
-      iban,
-      easyPaisaNumber,
-      jazzCashNumber,
-      usdtTrc20Address,
-      usdtErc20Address,
-      instructions,
-      updatedAt,
-    } = doc;
+    const rails = (Array.isArray(doc.rails) ? doc.rails : [])
+      .map((r) => ({
+        id: r.id,
+        label: r.label,
+        value: r.value || "",
+      }))
+      .filter((r) => String(r.value || "").trim() !== "");
+
+    const uploads = (Array.isArray(doc.uploads) ? doc.uploads : []).map((u) => ({
+      id: u.id,
+      fileName: u.fileName,
+      mimeType: u.mimeType,
+      size: u.size,
+      dataUrl: u.dataUrl,
+    }));
 
     return res.json({
       success: true,
       settings: {
-        bankName,
-        accountTitle,
-        accountNumber,
-        iban,
-        easyPaisaNumber,
-        jazzCashNumber,
-        usdtTrc20Address,
-        usdtErc20Address,
-        instructions,
-        updatedAt,
+        rails,
+        uploads,
+        instructions: doc.instructions,
+        updatedAt: doc.updatedAt,
+        // Legacy mirrors for older UI paths
+        bankName: doc.bankName,
+        accountTitle: doc.accountTitle,
+        accountNumber: doc.accountNumber,
+        iban: doc.iban,
+        easyPaisaNumber: doc.easyPaisaNumber,
+        jazzCashNumber: doc.jazzCashNumber,
+        usdtTrc20Address: doc.usdtTrc20Address,
+        usdtErc20Address: doc.usdtErc20Address,
       },
     });
   })

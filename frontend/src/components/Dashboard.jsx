@@ -519,13 +519,19 @@ const DepositPanel = ({ toast }) => {
     }
   };
 
+  const railList = Array.isArray(gateway?.rails)
+    ? gateway.rails.filter((r) => String(r?.value || "").trim())
+    : [];
+  const uploadList = Array.isArray(gateway?.uploads) ? gateway.uploads : [];
   const hasAnyRail =
     gateway &&
-    (gateway.accountNumber ||
+    (railList.length > 0 ||
+      gateway.accountNumber ||
       gateway.easyPaisaNumber ||
       gateway.jazzCashNumber ||
       gateway.usdtTrc20Address ||
-      gateway.usdtErc20Address);
+      gateway.usdtErc20Address ||
+      uploadList.length > 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -570,93 +576,74 @@ const DepositPanel = ({ toast }) => {
 
       {!gwLoading && hasAnyRail && (
         <div className="mb-4 space-y-2">
-          {(gateway.bankName ||
-            gateway.accountTitle ||
-            gateway.accountNumber ||
-            gateway.iban) && (
-            <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/5 p-3">
-              <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-emerald-300">
-                <Send className="h-3 w-3" /> Bank Transfer
-              </div>
-              <div className="space-y-1 text-xs">
-                {gateway.bankName && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Bank</span>
-                    <span className="font-semibold text-slate-100">
-                      {gateway.bankName}
-                    </span>
-                  </div>
-                )}
-                {gateway.accountTitle && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Account Title</span>
-                    <span className="font-semibold text-slate-100">
-                      {gateway.accountTitle}
-                    </span>
-                  </div>
-                )}
-                {gateway.accountNumber && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-400">Account #</span>
-                    <div className="flex items-center gap-1">
-                      <code className="font-mono text-emerald-200">
-                        {gateway.accountNumber}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          copy(gateway.accountNumber, "Account number")
-                        }
-                        className="rounded p-1 text-emerald-300 hover:bg-white/5"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {gateway.iban && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-400">IBAN</span>
-                    <div className="flex items-center gap-1">
-                      <code className="font-mono text-emerald-200">
-                        {gateway.iban}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => copy(gateway.iban, "IBAN")}
-                        className="rounded p-1 text-emerald-300 hover:bg-white/5"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+          {railList.length > 0 ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {railList.map((r) => (
+                <GatewayField
+                  key={r.id || r.label}
+                  label={r.label || "Detail"}
+                  value={r.value}
+                  onCopy={copy}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <GatewayField
+                label="EasyPaisa"
+                value={gateway.easyPaisaNumber}
+                onCopy={copy}
+              />
+              <GatewayField
+                label="JazzCash"
+                value={gateway.jazzCashNumber}
+                onCopy={copy}
+              />
+              <GatewayField
+                label="USDT · TRC20"
+                value={gateway.usdtTrc20Address}
+                onCopy={copy}
+              />
+              <GatewayField
+                label="USDT · ERC20"
+                value={gateway.usdtErc20Address}
+                onCopy={copy}
+              />
             </div>
           )}
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            <GatewayField
-              label="EasyPaisa"
-              value={gateway.easyPaisaNumber}
-              onCopy={copy}
-            />
-            <GatewayField
-              label="JazzCash"
-              value={gateway.jazzCashNumber}
-              onCopy={copy}
-            />
-            <GatewayField
-              label="USDT · TRC20"
-              value={gateway.usdtTrc20Address}
-              onCopy={copy}
-            />
-            <GatewayField
-              label="USDT · ERC20"
-              value={gateway.usdtErc20Address}
-              onCopy={copy}
-            />
-          </div>
+          {uploadList.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {uploadList.map((u) => (
+                <div
+                  key={u.id}
+                  className="rounded-xl border border-white/5 bg-white/[0.03] p-2"
+                >
+                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-300">
+                    {u.fileName || "Attachment"}
+                  </div>
+                  {String(u.mimeType || "").startsWith("image/") &&
+                  u.dataUrl ? (
+                    <a href={u.dataUrl} target="_blank" rel="noreferrer">
+                      <img
+                        src={u.dataUrl}
+                        alt={u.fileName || "upload"}
+                        className="max-h-40 w-full rounded-lg object-contain"
+                      />
+                    </a>
+                  ) : u.dataUrl ? (
+                    <a
+                      href={u.dataUrl}
+                      download={u.fileName || "file"}
+                      className="text-xs text-cyan-300 underline"
+                    >
+                      Download {u.fileName || "file"}
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
 
           {gateway.instructions && (
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-[11px] text-slate-300 whitespace-pre-wrap">

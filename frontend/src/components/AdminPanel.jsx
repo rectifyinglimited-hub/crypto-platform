@@ -48,6 +48,9 @@ import {
   KeyRound,
   Camera,
   Image as ImageIcon,
+  Upload,
+  LogOut,
+  Pencil,
 } from "lucide-react";
 import { AdminAPI, assetUrl } from "../lib/api.js";
 import AdminChatManager from "./AdminChatManager.jsx";
@@ -1413,78 +1416,122 @@ const TransactionsView = ({
 );
 
 // ---------------------------------------------------------------------------
-// GatewayView — configure the platform-wide deposit credentials
+// GatewayView — flexible named rails + uploads
 // ---------------------------------------------------------------------------
-const GATEWAY_FIELDS = [
-  {
-    key: "bankName",
-    label: "Bank Name",
-    icon: Building2,
-    placeholder: "e.g. Meezan Bank",
-  },
-  {
-    key: "accountTitle",
-    label: "Account Title",
-    icon: Users,
-    placeholder: "Legal account holder name",
-  },
-  {
-    key: "accountNumber",
-    label: "Account Number",
-    icon: Hash,
-    placeholder: "1234567890",
-  },
-  {
-    key: "iban",
-    label: "IBAN (optional)",
-    icon: Hash,
-    placeholder: "PK00 XXXX XXXX XXXX XXXX",
-  },
-  {
-    key: "easyPaisaNumber",
-    label: "EasyPaisa Number",
-    icon: Phone,
-    placeholder: "03XX XXXXXXX",
-  },
-  {
-    key: "jazzCashNumber",
-    label: "JazzCash Number",
-    icon: Phone,
-    placeholder: "03XX XXXXXXX",
-  },
-  {
-    key: "usdtTrc20Address",
-    label: "USDT TRC20 Address",
-    icon: Wallet,
-    placeholder: "T...",
-    mono: true,
-  },
-  {
-    key: "usdtErc20Address",
-    label: "USDT ERC20 Address",
-    icon: Wallet,
-    placeholder: "0x...",
-    mono: true,
-  },
+const DEFAULT_GATEWAY_RAILS = [
+  { id: "bank_name", label: "Bank Name", value: "" },
+  { id: "account_title", label: "Account Title", value: "" },
+  { id: "account_number", label: "Account Number", value: "" },
+  { id: "iban", label: "IBAN (optional)", value: "" },
+  { id: "easypaisa", label: "EasyPaisa Number", value: "" },
+  { id: "jazzcash", label: "JazzCash Number", value: "" },
+  { id: "usdt_trc20", label: "USDT TRC20 Address", value: "" },
+  { id: "usdt_erc20", label: "USDT ERC20 Address", value: "" },
 ];
 
+function railsFromSettings(settings) {
+  if (Array.isArray(settings?.rails) && settings.rails.length) {
+    return settings.rails.map((r) => ({
+      id: r.id || `rail_${Math.random().toString(36).slice(2, 9)}`,
+      label: r.label || "Field",
+      value: r.value || "",
+    }));
+  }
+  // Migrate legacy flat fields into editable rails
+  const legacy = {
+    bank_name: settings?.bankName,
+    account_title: settings?.accountTitle,
+    account_number: settings?.accountNumber,
+    iban: settings?.iban,
+    easypaisa: settings?.easyPaisaNumber,
+    jazzcash: settings?.jazzCashNumber,
+    usdt_trc20: settings?.usdtTrc20Address,
+    usdt_erc20: settings?.usdtErc20Address,
+  };
+  return DEFAULT_GATEWAY_RAILS.map((r) => ({
+    ...r,
+    value: legacy[r.id] != null ? String(legacy[r.id]) : "",
+  }));
+}
+
 const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
-  const [draft, setDraft] = useState(settings || {});
+  const [rails, setRails] = useState(() => railsFromSettings(settings));
+  const [uploads, setUploads] = useState(() =>
+    Array.isArray(settings?.uploads) ? settings.uploads : []
+  );
+  const [instructions, setInstructions] = useState(
+    settings?.instructions || ""
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setDraft(settings || {});
+    setRails(railsFromSettings(settings));
+    setUploads(Array.isArray(settings?.uploads) ? settings.uploads : []);
+    setInstructions(settings?.instructions || "");
   }, [settings]);
 
-  const handleChange = (key) => (e) =>
-    setDraft((d) => ({ ...d, [key]: e.target.value }));
+  const updateRail = (id, patch) => {
+    setRails((list) =>
+      list.map((r) => (r.id === id ? { ...r, ...patch } : r))
+    );
+  };
+
+  const addRail = () => {
+    const id = `custom_${Date.now()}`;
+    setRails((list) => [
+      ...list,
+      { id, label: "New field", value: "" },
+    ]);
+  };
+
+  const removeRail = (id) => {
+    setRails((list) => list.filter((r) => r.id !== id));
+  };
+
+  const onPickFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    const next = [...uploads];
+    for (const file of files) {
+      if (next.length >= 8) break;
+      const okType =
+        /^image\/(png|jpeg|jpg|webp|gif)$/i.test(file.type) ||
+        file.type === "application/pdf" ||
+        file.type === "text/plain";
+      if (!okType) continue;
+      if (file.size > 1_800_000) continue;
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      next.push({
+        id: `up_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        dataUrl,
+      });
+    }
+    setUploads(next);
+  };
+
+  const removeUpload = (id) => {
+    setUploads((list) => list.filter((u) => u.id !== id));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (saving) return;
     setSaving(true);
     try {
-      await onSave(draft);
+      await onSave({
+        rails,
+        uploads,
+        instructions,
+      });
     } finally {
       setSaving(false);
     }
@@ -1503,8 +1550,9 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
             Deposit Gateway Settings
           </h2>
           <p className="text-xs text-slate-500">
-            Save your USDT TRC-20 (and other rails) here. Live Chat → Deposit
-            automatically sends these details to the user.
+            Rename any field, add bank accounts or extra rails, and upload
+            images/PDFs. TRC20 + all filled fields are shown to users and sent
+            in Live Chat → Deposit.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1514,6 +1562,7 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
             </span>
           )}
           <button
+            type="button"
             onClick={onRefresh}
             disabled={loading}
             className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
@@ -1530,40 +1579,145 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
 
       <form
         onSubmit={handleSubmit}
-        className="rounded-2xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-sm"
+        className="space-y-4 rounded-2xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-sm"
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          {GATEWAY_FIELDS.map((f) => (
-            <div key={f.key}>
-              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                {f.label}
-              </label>
-              <div className="flex items-center rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
-                <f.icon className="mr-2 h-4 w-4 shrink-0 text-slate-500" />
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+            Payment fields (name + value)
+          </div>
+          <button
+            type="button"
+            onClick={addRail}
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/15"
+          >
+            <Plus className="h-3 w-3" /> Add field
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {rails.map((r) => (
+            <div
+              key={r.id}
+              className="grid gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_auto]"
+            >
+              <div>
+                <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                  <Pencil className="h-3 w-3" /> Field name
+                </label>
                 <input
-                  value={draft[f.key] || ""}
-                  onChange={handleChange(f.key)}
-                  placeholder={f.placeholder}
-                  className={`w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-600 ${
-                    f.mono ? "font-mono" : ""
-                  }`}
+                  value={r.label}
+                  onChange={(e) => updateRail(r.id, { label: e.target.value })}
+                  placeholder="e.g. HBL Bank / USDT TRC20"
+                  className="w-full rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
                 />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                  Value
+                </label>
+                <input
+                  value={r.value}
+                  onChange={(e) => updateRail(r.id, { value: e.target.value })}
+                  placeholder="Account number, address, phone…"
+                  className="w-full rounded-lg border border-white/5 bg-black/20 px-3 py-2 font-mono text-sm text-slate-100 outline-none placeholder:text-slate-600"
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() => removeRail(r.id)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-rose-400/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15"
+                  title="Remove field"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             </div>
           ))}
+          {!rails.length && (
+            <div className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-slate-500">
+              No fields yet — click Add field to create bank / TRC20 / custom
+              rails.
+            </div>
+          )}
         </div>
 
-        <div className="mt-4">
+        <div>
           <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
             Instructions to display (optional)
           </label>
           <textarea
-            value={draft.instructions || ""}
-            onChange={handleChange("instructions")}
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
             rows={3}
-            placeholder="e.g. After transferring, please include your username in the payment reference."
+            placeholder="e.g. After transferring, send the receipt in Live Chat."
             className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
           />
+        </div>
+
+        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                Uploads / attachments
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Images, PDF, or text — shown on the user Deposit tab (max 8,
+                ~1.8MB each).
+              </p>
+            </div>
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-400/25 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold text-indigo-100 hover:bg-indigo-500/15">
+              <Upload className="h-3.5 w-3.5" />
+              Upload
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain"
+                multiple
+                className="hidden"
+                onChange={onPickFiles}
+              />
+            </label>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {uploads.map((u) => (
+              <div
+                key={u.id}
+                className="flex items-start gap-2 rounded-lg border border-white/5 bg-black/20 p-2"
+              >
+                {String(u.mimeType || "").startsWith("image/") && u.dataUrl ? (
+                  <img
+                    src={u.dataUrl}
+                    alt={u.fileName}
+                    className="h-14 w-14 shrink-0 rounded-md object-cover"
+                  />
+                ) : (
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-md bg-white/5 text-[10px] text-slate-400">
+                    FILE
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs font-medium text-slate-200">
+                    {u.fileName}
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    {u.mimeType} · {Math.round((u.size || 0) / 1024)} KB
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeUpload(u.id)}
+                  className="rounded-md p-1.5 text-rose-300 hover:bg-rose-500/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            {!uploads.length && (
+              <div className="col-span-full text-[11px] text-slate-500">
+                No uploads yet.
+              </div>
+            )}
+          </div>
         </div>
 
         <motion.button
@@ -1571,7 +1725,7 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
           disabled={saving}
           whileHover={!saving ? { scale: 1.01 } : undefined}
           whileTap={!saving ? { scale: 0.99 } : undefined}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 disabled:opacity-70 sm:w-auto sm:px-6"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 disabled:opacity-70 sm:w-auto sm:px-6"
         >
           {saving ? (
             <>
@@ -2426,10 +2580,11 @@ export default function AdminPanel({ user, onExit }) {
 
           <div className="mt-6 border-t border-white/5 pt-4">
             <button
+              type="button"
               onClick={onExit}
               className="flex w-full items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-xs font-medium text-slate-300 hover:bg-white/[0.05]"
             >
-              <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
+              <LogOut className="h-3.5 w-3.5" /> Sign Out
             </button>
           </div>
 
@@ -2455,10 +2610,11 @@ export default function AdminPanel({ user, onExit }) {
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="mb-4 flex flex-wrap gap-2 md:hidden">
             <button
+              type="button"
               onClick={onExit}
               className="flex items-center gap-1 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5 text-[11px] text-slate-300"
             >
-              <ArrowLeft className="h-3 w-3" /> Back
+              <LogOut className="h-3 w-3" /> Sign Out
             </button>
             {nav.map((n) => (
               <button

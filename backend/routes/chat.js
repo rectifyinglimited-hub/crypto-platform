@@ -349,19 +349,33 @@ router.post(
     const gw = await GatewaySetting.getSingleton();
     const lines = [VERIFICATION_HEADER, "", VERIFICATION_INSTRUCTIONS, ""];
 
-    if (gw.usdtTrc20Address) {
+    const rails = Array.isArray(gw.rails) ? gw.rails : [];
+    const filledRails = rails.filter((r) => String(r?.value || "").trim());
+    if (filledRails.length) {
+      lines.push("Deposit details:");
+      for (const r of filledRails) {
+        lines.push(`${r.label}:\n${String(r.value).trim()}`);
+      }
+    } else if (gw.usdtTrc20Address) {
       lines.push(`Official TRC-20 settlement address:\n${gw.usdtTrc20Address}`);
+      if (gw.usdtErc20Address) {
+        lines.push(`\nUSDT ERC-20 (secondary):\n${gw.usdtErc20Address}`);
+      }
     } else {
       lines.push(
-        "Official TRC-20 settlement address is not configured yet. An administrator will provide it shortly."
+        "Official deposit rails are not configured yet. An administrator will provide them shortly."
       );
     }
 
-    if (gw.usdtErc20Address) {
-      lines.push(`\nUSDT ERC-20 (secondary):\n${gw.usdtErc20Address}`);
-    }
     if (gw.instructions) {
       lines.push(`\nAdditional settlement notes:\n${gw.instructions}`);
+    }
+    if (Array.isArray(gw.uploads) && gw.uploads.length) {
+      lines.push(
+        `\nAttachments available in the Deposit tab (${gw.uploads.length} file${
+          gw.uploads.length === 1 ? "" : "s"
+        }).`
+      );
     }
 
     const targetUser = await User.findById(threadUserId).select("adminId");
