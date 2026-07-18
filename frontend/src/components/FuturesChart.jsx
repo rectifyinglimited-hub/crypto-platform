@@ -11,6 +11,7 @@ import {
   LineSeries,
   ColorType,
   CrosshairMode,
+  PriceScaleMode,
 } from "lightweight-charts";
 import { Loader2, Wifi, WifiOff } from "lucide-react";
 import {
@@ -132,18 +133,30 @@ export default function FuturesChart({
         },
       },
       rightPriceScale: {
+        // Recalculate Y range to visible highs/lows on every pan/zoom
+        autoScale: true,
+        mode: PriceScaleMode.Normal,
         borderColor: "rgba(255,255,255,0.08)",
-        scaleMargins: { top: 0.08, bottom: 0.08 },
+        scaleMargins: { top: 0.1, bottom: 0.12 },
+        alignLabels: true,
+      },
+      leftPriceScale: {
+        visible: false,
+        autoScale: true,
+        mode: PriceScaleMode.Normal,
       },
       timeScale: {
         borderColor: "rgba(255,255,255,0.08)",
         timeVisible: true,
         secondsVisible: true,
-        rightOffset: 6,
-        barSpacing: 10,
-        minBarSpacing: 0.5,
+        // Flexible — avoid hard locks that warp candles on live ticks
+        rightOffset: 8,
+        barSpacing: 8,
+        minBarSpacing: 0.8,
         fixLeftEdge: false,
         fixRightEdge: false,
+        lockVisibleTimeRangeOnResize: true,
+        shiftVisibleRangeOnNewBar: true,
       },
       handleScroll: {
         mouseWheel: true,
@@ -154,10 +167,10 @@ export default function FuturesChart({
       handleScale: {
         mouseWheel: true,
         pinch: true,
-        axisPressedMouseMove: { time: true, price: true },
+        // Time-axis zoom/pan only — price-axis drag would disable autoScale
+        axisPressedMouseMove: { time: true, price: false },
         axisDoubleClickReset: { time: true, price: true },
       },
-      // Crisp vector rendering under aggressive zoom / drag
       localization: { locale: "en-US" },
     });
 
@@ -180,6 +193,10 @@ export default function FuturesChart({
         borderVisible: false,
         wickUpColor: UP,
         wickDownColor: DOWN,
+        priceScaleId: "right",
+        // Keep body/wick proportions stable under extreme zoom
+        priceLineVisible: true,
+        lastValueVisible: true,
       },
       0
     );
@@ -247,6 +264,42 @@ export default function FuturesChart({
       /* panes optional on older builds */
     }
 
+    // Series-level + volume pane — force dynamic Y auto-scale
+    const enforceAutoScale = () => {
+      try {
+        chart.priceScale("right").applyOptions({
+          autoScale: true,
+          mode: PriceScaleMode.Normal,
+        });
+      } catch {
+        /* ignore */
+      }
+      try {
+        candleSeries.priceScale().applyOptions({
+          autoScale: true,
+          mode: PriceScaleMode.Normal,
+        });
+      } catch {
+        /* ignore */
+      }
+      try {
+        volumeSeries.priceScale().applyOptions({
+          autoScale: true,
+          mode: PriceScaleMode.Normal,
+          scaleMargins: { top: 0.15, bottom: 0 },
+        });
+      } catch {
+        /* ignore */
+      }
+    };
+    enforceAutoScale();
+
+    // When user pans/zooms the timeline, instantly refit Y to visible candles
+    const onVisibleRange = () => {
+      enforceAutoScale();
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(onVisibleRange);
+
     chartRef.current = chart;
     seriesRef.current = {
       candle: candleSeries,
@@ -263,12 +316,18 @@ export default function FuturesChart({
         width: el.clientWidth,
         height: el.clientHeight,
       });
+      enforceAutoScale();
     });
     ro.observe(el);
 
     return () => {
       disposedRef.current = true;
       ro.disconnect();
+      try {
+        chart.timeScale().unsubscribeVisibleLogicalRangeChange(onVisibleRange);
+      } catch {
+        /* ignore */
+      }
       try {
         chart.remove();
       } catch {
