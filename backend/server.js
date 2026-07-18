@@ -28,6 +28,8 @@ import secondsTradeRoutes, {
   settleExpiredTrades,
 } from "./routes/secondsTrade.js";
 import { initSocket } from "./socket.js";
+import User from "./models/User.js";
+import { ROLES } from "./lib/roles.js";
 
 dotenv.config();
 
@@ -110,6 +112,40 @@ app.use((err, _req, res, _next) => {
   res.status(status).json(payload);
 });
 
+/**
+ * One-shot live migration: promote the configured seed admin email to SUPER_ADMIN
+ * so Admin Manager works without a manual Railway seed run.
+ */
+const ensureSeedSuperAdmin = async () => {
+  try {
+    const email = (
+      process.env.ADMIN_EMAIL ||
+      process.env.SUPER_ADMIN_EMAIL ||
+      "admin@nexus.io"
+    )
+      .toString()
+      .trim()
+      .toLowerCase();
+    if (!email) return;
+    const user = await User.findOne({ email });
+    if (!user || user.deletedAt) return;
+    if (user.role === ROLES.SUPER_ADMIN) return;
+    // Only lift the designated seed email (typically already ADMIN)
+    if (user.role !== ROLES.ADMIN) return;
+    user.role = ROLES.SUPER_ADMIN;
+    user.adminId = null;
+    user.banned = false;
+    await user.save();
+    console.log(
+      `\x1b[32m[migrate]\x1b[0m Promoted ${email} → SUPER_ADMIN for multi-tenant control.`
+    );
+  } catch (err) {
+    console.warn(
+      `\x1b[33m[migrate]\x1b[0m SUPER_ADMIN ensure skipped: ${err?.message || err}`
+    );
+  }
+};
+
 const connectDatabase = async () => {
   try {
     mongoose.set("strictQuery", true);
@@ -119,6 +155,7 @@ const connectDatabase = async () => {
     });
     DB_READY = true;
     console.log(`\x1b[32m[db]\x1b[0m MongoDB connected.`);
+    await ensureSeedSuperAdmin();
 
     mongoose.connection.on("disconnected", () => {
       DB_READY = false;
