@@ -33,7 +33,20 @@ import GatewaySetting from "../models/GatewaySetting.js";
 import PlatformConfig from "../models/PlatformConfig.js";
 import SecondsTrade from "../models/SecondsTrade.js";
 import { requireAuth } from "../middleware/auth.js";
-import { requireAdmin } from "../middleware/admin.js";
+import { requireAdmin, requireSuperAdmin } from "../middleware/admin.js";
+import {
+  tenantDocFilter,
+  tenantUserFilter,
+  assertTenantUser,
+  assertTenantDoc,
+  isUnscoped,
+} from "../middleware/tenant.js";
+import { ROLES } from "../lib/roles.js";
+import {
+  signedBiasForOutcome,
+  outcomeFromGraphDirection,
+  signedBiasForGraph,
+} from "../lib/tradeBias.js";
 import {
   emitChatMessage,
   emitDepositStatus,
@@ -85,14 +98,22 @@ const randomCode = (len = 8) =>
 router.get(
   "/overview",
   requireDatabase,
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const userScope = tenantUserFilter(req);
+    const docScope = tenantDocFilter(req);
+
     const [totalUsers, admins, banned, codes, pendingTx, platform] =
       await Promise.all([
-        User.countDocuments({}),
-        User.countDocuments({ role: "admin" }),
-        User.countDocuments({ banned: true }),
-        InviteCode.find({}).lean(),
-        Transaction.countDocuments({ status: "pending" }),
+        User.countDocuments({ ...userScope, deletedAt: null, role: "user" }),
+        isUnscoped(req)
+          ? User.countDocuments({
+              role: { $in: [ROLES.ADMIN, ROLES.SUPER_ADMIN] },
+              deletedAt: null,
+            })
+          : Promise.resolve(0),
+        User.countDocuments({ ...userScope, banned: true, deletedAt: null }),
+        InviteCode.find(docScope).lean(),
+        Transaction.countDocuments({ ...docScope, status: "pending" }),
         PlatformConfig.getSingleton(),
       ]);
 
@@ -117,6 +138,7 @@ router.get(
         globalTradingEnabled: platform.globalTradingEnabled !== false,
       },
       globalTradingEnabled: platform.globalTradingEnabled !== false,
+      isSuperAdmin: Boolean(req.isSuperAdmin),
     });
   })
 );
@@ -173,14 +195,15 @@ router.put(
       });
     }
 
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({
+    const scoped = await assertTenantUser(req, id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
         success: false,
-        error: "NotFoundError",
-        message: "User not found.",
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
       });
     }
+    const user = scoped.user;
 
     user.tradingAllowed = Boolean(req.body.allowed);
     await user.save();
@@ -209,8 +232,8 @@ router.put(
 router.get(
   "/invite-codes",
   requireDatabase,
-  asyncHandler(async (_req, res) => {
-    const codes = await InviteCode.find({})
+  asyncHandler(async (req, res) => {
+    const codes = await InviteCode.find(tenantDocFilter(req))
       .populate("createdBy", "username email fullName")
       .sort({ createdAt: -1 });
     return res.json({ success: true, codes });
@@ -251,13 +274,33 @@ router.post(
       });
     }
 
+    // Only SUPER_ADMIN may mint ADMIN-role invite codes
+    const codeRole = req.body.role || "user";
+    if (codeRole === "admin" && !req.isSuperAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "ForbiddenError",
+        message: "Only Super Admin can create admin invitation codes.",
+      });
+    }
+
+    // Tenant stamp: sub-admin → self; super-admin may target a specific adminId
+    let tenantId = req.auth.sub;
+    if (req.isSuperAdmin && req.body.adminId && mongoose.isValidObjectId(req.body.adminId)) {
+      tenantId = req.body.adminId;
+    } else if (req.isSuperAdmin && codeRole === "admin") {
+      // New admin will self-own on redeem; stamp creator for audit
+      tenantId = req.auth.sub;
+    }
+
     const created = await InviteCode.create({
       code: rawCode,
-      role: req.body.role || "user",
+      role: codeRole,
       maxUses: req.body.maxUses || 1,
       expiresAt: req.body.expiresAt || null,
       notes: req.body.notes || null,
       createdBy: req.auth.sub,
+      adminId: tenantId,
     });
     return res.status(201).json({ success: true, code: created });
   })
@@ -276,7 +319,7 @@ router.delete(
       });
     }
     const code = await InviteCode.findById(id);
-    if (!code) {
+    if (!code || !assertTenantDoc(req, code)) {
       return res.status(404).json({
         success: false,
         error: "NotFoundError",
@@ -303,10 +346,16 @@ router.get(
   requireDatabase,
   asyncHandler(async (req, res) => {
     const q = (req.query.q || "").toString().trim();
-    const filter = { deletedAt: null };
+    const scope = tenantUserFilter(req);
+    const filter = { deletedAt: null, ...scope };
+    // Sub-admins only manage USER accounts in their tenant
+    if (!isUnscoped(req)) {
+      filter.role = "user";
+    }
     if (q) {
       filter.$and = [
-        { deletedAt: null },
+        { deletedAt: null, ...scope },
+        ...(filter.role ? [{ role: filter.role }] : []),
         {
           $or: [
             { email: { $regex: q, $options: "i" } },
@@ -316,9 +365,11 @@ router.get(
         },
       ];
       delete filter.deletedAt;
+      delete filter.role;
+      Object.keys(scope).forEach((k) => delete filter[k]);
     }
     const users = await User.find(filter).sort({ createdAt: -1 }).limit(500);
-    return res.json({ success: true, users });
+    return res.json({ success: true, users, isSuperAdmin: Boolean(req.isSuperAdmin) });
   })
 );
 
@@ -346,14 +397,15 @@ router.put(
     const amount = Number(req.body.amount);
     const mode = req.body.mode || "set";
 
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({
+    const scoped = await assertTenantUser(req, id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
         success: false,
-        error: "NotFoundError",
-        message: "User not found.",
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
       });
     }
+    const user = scoped.user;
     const current = Number(user.wallet.get(symbol) || 0);
     // High-precision decimals (e.g. 0.09, 10.55) — store exact to 8dp
     const next =
@@ -394,19 +446,30 @@ router.put(
         message: "Invalid user id.",
       });
     }
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({
+    const scoped = await assertTenantUser(req, id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
         success: false,
-        error: "NotFoundError",
-        message: "User not found.",
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
       });
     }
+    const user = scoped.user;
     if (user._id.toString() === req.auth.sub) {
       return res.status(400).json({
         success: false,
         error: "BadRequestError",
         message: "You cannot ban your own account.",
+      });
+    }
+    if (
+      (user.role === ROLES.ADMIN || user.role === ROLES.SUPER_ADMIN) &&
+      !req.isSuperAdmin
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: "ForbiddenError",
+        message: "Cannot ban admin accounts from this panel.",
       });
     }
     const nextBanned =
@@ -434,14 +497,15 @@ router.delete(
         message: "Invalid user id.",
       });
     }
-    const user = await User.findById(id);
-    if (!user || user.deletedAt) {
-      return res.status(404).json({
+    const scoped = await assertTenantUser(req, id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
         success: false,
-        error: "NotFoundError",
-        message: "User not found.",
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
       });
     }
+    const user = scoped.user;
     if (user._id.toString() === req.auth.sub) {
       return res.status(400).json({
         success: false,
@@ -449,7 +513,7 @@ router.delete(
         message: "You cannot delete your own account.",
       });
     }
-    if (user.role === "admin") {
+    if (user.role === ROLES.ADMIN || user.role === ROLES.SUPER_ADMIN) {
       return res.status(400).json({
         success: false,
         error: "BadRequestError",
@@ -495,6 +559,14 @@ router.put(
       });
     }
 
+    const scoped = await assertTenantUser(req, id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
+        success: false,
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
+      });
+    }
     const user = await User.findById(id).select("+password");
     if (!user || user.deletedAt) {
       return res.status(404).json({
@@ -541,14 +613,15 @@ router.put(
       });
     }
 
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({
+    const scoped = await assertTenantUser(req, id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
         success: false,
-        error: "NotFoundError",
-        message: "User not found.",
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
       });
     }
+    const user = scoped.user;
 
     user.tradeControlState = req.body.state;
     user.tradeControlPercentage = Number(req.body.percentage);
@@ -576,12 +649,12 @@ router.get(
   asyncHandler(async (req, res) => {
     const status = req.query.status;
     const kind = req.query.kind;
-    const filter = {};
+    const filter = { ...tenantDocFilter(req) };
     if (status) filter.status = status;
     if (kind) filter.kind = kind;
 
     const transactions = await Transaction.find(filter)
-      .populate("user", "username email fullName")
+      .populate("user", "username email fullName adminId")
       .sort({ createdAt: -1 })
       .limit(500);
     return res.json({ success: true, transactions });
@@ -615,7 +688,7 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
   }
 
   const tx = await Transaction.findById(id);
-  if (!tx) {
+  if (!tx || !assertTenantDoc(req, tx)) {
     return res.status(404).json({
       success: false,
       error: "NotFoundError",
@@ -776,7 +849,8 @@ router.get(
   requireDatabase,
   asyncHandler(async (req, res) => {
     const status = (req.query.status || "pending").toString();
-    const filter = { "kyc.status": status };
+    const filter = { "kyc.status": status, deletedAt: null, ...tenantUserFilter(req) };
+    if (!isUnscoped(req)) filter.role = "user";
     const users = await User.find(filter).sort({ "kyc.submittedAt": -1 }).limit(200);
     return res.json({ success: true, users });
   })
@@ -808,14 +882,15 @@ router.patch(
       });
     }
 
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({
+    const scoped = await assertTenantUser(req, id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
         success: false,
-        error: "NotFoundError",
-        message: "User not found.",
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
       });
     }
+    const user = scoped.user;
 
     if (!user.kyc || user.kyc.status !== "pending") {
       return res.status(409).json({
@@ -960,11 +1035,17 @@ const serializeAdminTrade = (t, userDoc) => {
 router.get(
   "/seconds-trades/active",
   requireDatabase,
-  asyncHandler(async (_req, res) => {
-    const trades = await SecondsTrade.find({ status: "open" })
+  asyncHandler(async (req, res) => {
+    const trades = await SecondsTrade.find({
+      status: "open",
+      ...tenantDocFilter(req),
+    })
       .sort({ openedAt: -1 })
       .limit(200)
-      .populate("user", "fullName username email tradeControlState tradeControlPercentage");
+      .populate(
+        "user",
+        "fullName username email tradeControlState tradeControlPercentage adminId"
+      );
 
     res.json({
       success: true,
@@ -989,14 +1070,15 @@ router.get(
       });
     }
 
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({
+    const scoped = await assertTenantUser(req, req.params.id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
         success: false,
-        error: "NotFoundError",
-        message: "User not found.",
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
       });
     }
+    const user = scoped.user;
 
     const [openTrades, recentTrades, recentTx, pendingTx] = await Promise.all([
       SecondsTrade.find({ user: user._id, status: "open" }).sort({
@@ -1036,6 +1118,7 @@ router.get(
         trc20Address: user.trc20Address || null,
         profileCompletedAt: user.profileCompletedAt || null,
         role: user.role,
+        adminId: user.adminId || null,
         banned: user.banned,
         tradingAllowed: user.tradingAllowed !== false,
         tradeControlState: user.tradeControlState,
@@ -1080,7 +1163,7 @@ router.put(
     }
 
     const trade = await SecondsTrade.findById(req.params.id);
-    if (!trade) {
+    if (!trade || !assertTenantDoc(req, trade)) {
       return res.status(404).json({
         success: false,
         error: "NotFoundError",
@@ -1126,22 +1209,15 @@ router.put(
 
     trade.forcedOutcome = req.body.outcome;
     trade.forcedAmount = parseFloat(rawAmt);
-    // Soft initial bias — background ramp climbs gradually (no spike)
-    trade.priceBiasPercent =
-      req.body.outcome === "win"
-        ? Math.max(Number(trade.priceBiasPercent || 0), 0.08)
-        : Math.min(Number(trade.priceBiasPercent || 0), -0.08);
+    // Direction-aware soft bias: WIN+long↑ WIN+short↓ LOSS+long↓ LOSS+short↑
+    const seed = signedBiasForOutcome(trade.direction, req.body.outcome, 0.08);
+    trade.priceBiasPercent = seed;
     await trade.save();
 
     const user = await User.findById(trade.user);
     if (user) {
       if (!user.chartBias) user.chartBias = new Map();
-      const cur = Number(user.chartBias.get(trade.asset) || 0);
-      if (req.body.outcome === "win") {
-        user.chartBias.set(trade.asset, Math.max(cur, 0.08));
-      } else {
-        user.chartBias.set(trade.asset, Math.min(cur, -0.08));
-      }
+      user.chartBias.set(trade.asset, seed);
       user.markModified("chartBias");
       await user.save();
     }
@@ -1191,7 +1267,11 @@ router.put(
     }
 
     const trade = await SecondsTrade.findById(req.params.id);
-    if (!trade || (trade.status !== "open" && trade.status !== "settling")) {
+    if (
+      !trade ||
+      !assertTenantDoc(req, trade) ||
+      (trade.status !== "open" && trade.status !== "settling")
+    ) {
       return res.status(404).json({
         success: false,
         error: "NotFoundError",
@@ -1199,7 +1279,7 @@ router.put(
       });
     }
 
-    // Graph HIGH / LOW — lock WIN or LOSS (NO early settle).
+    // Graph HIGH / LOW — price direction + outcome derived from trade side.
     // Candles drift gradually; trade settles only when timer hits 0.
     const goingUp = req.body.direction === "up";
     const goingDown = req.body.direction === "down";
@@ -1208,19 +1288,12 @@ router.put(
       trade.priceBiasPercent = 0;
       trade.forcedOutcome = null;
       trade.forcedAmount = null;
-    } else if (goingUp) {
-      trade.forcedOutcome = "win";
-      // Soft start — ramp climbs over remaining seconds (no abrupt jump)
-      trade.priceBiasPercent = Math.max(
-        Number(trade.priceBiasPercent || 0),
-        0.08
+    } else if (goingUp || goingDown) {
+      trade.forcedOutcome = outcomeFromGraphDirection(
+        trade.direction,
+        req.body.direction
       );
-    } else if (goingDown) {
-      trade.forcedOutcome = "loss";
-      trade.priceBiasPercent = Math.min(
-        Number(trade.priceBiasPercent || 0),
-        -0.08
-      );
+      trade.priceBiasPercent = signedBiasForGraph(req.body.direction, 0.08);
     }
 
     // Optional Manual Balance Add from live card (precise float)
@@ -1241,13 +1314,10 @@ router.put(
     const user = await User.findById(trade.user);
     if (user) {
       if (!user.chartBias) user.chartBias = new Map();
-      const cur = Number(user.chartBias.get(trade.asset) || 0);
       if (req.body.direction === "reset") {
         user.chartBias.set(trade.asset, 0);
-      } else if (goingUp) {
-        user.chartBias.set(trade.asset, Math.max(cur, 0.08));
-      } else if (goingDown) {
-        user.chartBias.set(trade.asset, Math.min(cur, -0.08));
+      } else {
+        user.chartBias.set(trade.asset, Number(trade.priceBiasPercent || 0));
       }
       user.markModified("chartBias");
       await user.save();
@@ -1257,10 +1327,13 @@ router.put(
       0,
       Math.ceil((new Date(trade.expiresAt).getTime() - Date.now()) / 1000)
     );
+    const outcomeLabel = trade.forcedOutcome
+      ? trade.forcedOutcome.toUpperCase()
+      : "CLEAR";
     const label = goingUp
-      ? `Graph HIGH · WIN locked · candles rising · settles in ${remSec}s`
+      ? `Graph HIGH · ${outcomeLabel} · candles rising · settles in ${remSec}s`
       : goingDown
-        ? `Graph LOW · LOSS locked · candles falling · settles in ${remSec}s`
+        ? `Graph LOW · ${outcomeLabel} · candles falling · settles in ${remSec}s`
         : "Graph bias reset.";
 
     res.json({
@@ -1299,14 +1372,15 @@ router.put(
       });
     }
 
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({
+    const scoped = await assertTenantUser(req, req.params.id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
         success: false,
-        error: "NotFoundError",
-        message: "User not found.",
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
       });
     }
+    const user = scoped.user;
 
     const symbol = String(req.body.symbol).toUpperCase();
     const step = Number(req.body.step) || 0.35;
@@ -1329,4 +1403,195 @@ router.put(
   })
 );
 
+// ---------------------------------------------------------------------------
+// SUPER ADMIN — Admin Manager suite
+// ---------------------------------------------------------------------------
+const sanitizeAdmin = (u) => {
+  const obj = u.toObject ? u.toObject({ virtuals: true }) : { ...u };
+  delete obj.password;
+  delete obj.__v;
+  if (obj.wallet instanceof Map) obj.wallet = Object.fromEntries(obj.wallet);
+  obj.id = obj._id?.toString?.() || obj._id;
+  return obj;
+};
+
+router.get(
+  "/managers",
+  requireDatabase,
+  requireSuperAdmin,
+  asyncHandler(async (_req, res) => {
+    const admins = await User.find({
+      role: ROLES.ADMIN,
+      deletedAt: null,
+    })
+      .sort({ createdAt: -1 })
+      .limit(500);
+
+    const withCounts = await Promise.all(
+      admins.map(async (a) => {
+        const [userCount, openTrades, pendingTx] = await Promise.all([
+          User.countDocuments({ adminId: a._id, role: "user", deletedAt: null }),
+          SecondsTrade.countDocuments({ adminId: a._id, status: "open" }),
+          Transaction.countDocuments({
+            adminId: a._id,
+            status: "pending",
+            kind: { $in: ["deposit", "withdrawal"] },
+          }),
+        ]);
+        return {
+          ...sanitizeAdmin(a),
+          stats: { userCount, openTrades, pendingTx },
+        };
+      })
+    );
+
+    return res.json({ success: true, admins: withCounts });
+  })
+);
+
+router.post(
+  "/managers",
+  requireDatabase,
+  requireSuperAdmin,
+  [
+    body("fullName").trim().isLength({ min: 2, max: 80 }),
+    body("username")
+      .trim()
+      .matches(/^[a-zA-Z0-9_.-]{3,24}$/),
+    body("email").trim().isEmail().normalizeEmail(),
+    body("password")
+      .isLength({ min: 8, max: 128 })
+      .withMessage("Password must be at least 8 characters."),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const { fullName, username, email, password } = req.body;
+    const clash = await User.findOne({
+      $or: [{ email }, { username: username.toLowerCase() }],
+    }).lean();
+    if (clash) {
+      return res.status(409).json({
+        success: false,
+        error: "ConflictError",
+        message: "An account with that email or username already exists.",
+      });
+    }
+
+    const hashed = await bcrypt.hash(password, 12);
+    const admin = await User.create({
+      fullName,
+      username: username.toLowerCase(),
+      email,
+      password: hashed,
+      role: ROLES.ADMIN,
+      adminId: null,
+      banned: false,
+    });
+    admin.adminId = admin._id;
+    await admin.save();
+
+    // Seed a starter invite code owned by this admin
+    const seedCode = randomCode(8);
+    await InviteCode.create({
+      code: seedCode,
+      role: "user",
+      maxUses: 100,
+      createdBy: req.auth.sub,
+      adminId: admin._id,
+      notes: `Starter code for @${admin.username}`,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Admin account created.",
+      admin: sanitizeAdmin(admin),
+      starterInviteCode: seedCode,
+    });
+  })
+);
+
+router.put(
+  "/managers/:id/ban",
+  requireDatabase,
+  requireSuperAdmin,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid admin id.",
+      });
+    }
+    const admin = await User.findById(id);
+    if (!admin || admin.role !== ROLES.ADMIN) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "Admin not found.",
+      });
+    }
+    if (String(admin._id) === String(req.auth.sub)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "You cannot suspend your own account.",
+      });
+    }
+    const nextBanned =
+      typeof req.body.banned === "boolean" ? req.body.banned : !admin.banned;
+    admin.banned = nextBanned;
+    await admin.save();
+    return res.json({
+      success: true,
+      message: nextBanned ? "Admin suspended." : "Admin reactivated.",
+      admin: sanitizeAdmin(admin),
+    });
+  })
+);
+
+router.put(
+  "/managers/:id",
+  requireDatabase,
+  requireSuperAdmin,
+  [
+    body("fullName").optional().trim().isLength({ min: 2, max: 80 }),
+    body("password").optional().isLength({ min: 8, max: 128 }),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid admin id.",
+      });
+    }
+    const admin = await User.findById(id).select("+password");
+    if (!admin || admin.role !== ROLES.ADMIN) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "Admin not found.",
+      });
+    }
+    if (req.body.fullName) admin.fullName = req.body.fullName.trim();
+    if (req.body.password) {
+      admin.password = await bcrypt.hash(req.body.password, 12);
+    }
+    await admin.save();
+    return res.json({
+      success: true,
+      message: "Admin updated.",
+      admin: sanitizeAdmin(admin),
+    });
+  })
+);
+
 export default router;
+

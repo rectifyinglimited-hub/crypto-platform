@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Settings,
 } from "lucide-react";
+import { isStaffRole } from "../lib/roles.js";
 
 const NAV = [
   { key: "home", label: "Home", icon: Home },
@@ -213,7 +214,7 @@ export default function AppShell({
                     <ShieldCheck className="h-4 w-4 text-emerald-300" />
                     KYC Verification
                   </button>
-                  {user?.role === "admin" && (
+                  {isStaffRole(user?.role) && (
                     <button
                       type="button"
                       onClick={() => {
@@ -357,7 +358,7 @@ export default function AppShell({
                     onDrawerClose();
                   }}
                 />
-                {user?.role === "admin" && (
+                {isStaffRole(user?.role) && (
                   <DrawerItem
                     icon={ShieldCheck}
                     label="Admin Console"

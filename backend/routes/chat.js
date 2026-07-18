@@ -22,6 +22,7 @@ import {
   UPLOADS_DIR,
 } from "../middleware/upload.js";
 import { emitChatMessage } from "../socket.js";
+import { isStaffRole, isSuperAdminRole } from "../lib/roles.js";
 
 const router = Router();
 
@@ -56,10 +57,17 @@ const requireDatabase = (_req, res, next) => {
 
 async function resolveSender(req) {
   const dbUser = await User.findById(req.auth.sub).select(
-    "role deletedAt banned"
+    "role deletedAt banned adminId"
   );
-  const isAdmin = dbUser?.role === "admin";
-  return { isAdmin, dbUser };
+  const isAdmin = isStaffRole(dbUser?.role);
+  return { isAdmin, dbUser, isSuperAdmin: isSuperAdminRole(dbUser?.role) };
+}
+
+async function assertChatTenantAccess(req, threadUserId, sender) {
+  if (!sender?.isAdmin || sender.isSuperAdmin) return true;
+  const target = await User.findById(threadUserId).select("adminId");
+  if (!target) return false;
+  return String(target.adminId || "") === String(req.auth.sub);
 }
 
 function persistBase64Image(dataUrl) {
@@ -101,9 +109,11 @@ async function createAttachmentMessage({
   adminAuthor,
   caption,
   attachmentUrl,
+  adminId = null,
 }) {
   const msg = await Message.create({
     user: threadUserId,
+    adminId,
     from,
     body: caption || "Transaction receipt attached",
     messageType: "text",
@@ -138,10 +148,12 @@ router.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) return sendValidationError(res, errors);
 
-    const { isAdmin } = await resolveSender(req);
+    const sender = await resolveSender(req);
+    const { isAdmin } = sender;
     let threadUserId;
     let from;
     let adminAuthor = null;
+    let adminId = null;
 
     if (isAdmin) {
       threadUserId = req.body.userId;
@@ -152,11 +164,21 @@ router.post(
           message: "Admin messages require a target `userId`.",
         });
       }
+      const allowed = await assertChatTenantAccess(req, threadUserId, sender);
+      if (!allowed) {
+        return res.status(404).json({
+          success: false,
+          error: "NotFoundError",
+          message: "Target user not found.",
+        });
+      }
       from = "admin";
       adminAuthor = req.auth.sub;
+      adminId = sender.isSuperAdmin ? null : req.auth.sub;
     } else {
       threadUserId = req.auth.sub;
       from = "user";
+      adminId = sender.dbUser?.adminId || null;
     }
 
     const exists = await User.exists({
@@ -171,8 +193,15 @@ router.post(
       });
     }
 
+    // Prefer denormalized tenant from target user when admin replies
+    if (isAdmin) {
+      const target = await User.findById(threadUserId).select("adminId");
+      adminId = target?.adminId || adminId;
+    }
+
     const msg = await Message.create({
       user: threadUserId,
+      adminId,
       from,
       body: req.body.body,
       messageType: "text",
@@ -214,10 +243,12 @@ router.post(
     });
   },
   asyncHandler(async (req, res) => {
-    const { isAdmin } = await resolveSender(req);
+    const sender = await resolveSender(req);
+    const { isAdmin } = sender;
     let threadUserId;
     let from;
     let adminAuthor = null;
+    let adminId = null;
 
     if (isAdmin) {
       threadUserId = req.body.userId;
@@ -228,11 +259,22 @@ router.post(
           message: "Admin image messages require a target `userId`.",
         });
       }
+      const allowed = await assertChatTenantAccess(req, threadUserId, sender);
+      if (!allowed) {
+        return res.status(404).json({
+          success: false,
+          error: "NotFoundError",
+          message: "Target user not found.",
+        });
+      }
       from = "admin";
       adminAuthor = req.auth.sub;
+      const target = await User.findById(threadUserId).select("adminId");
+      adminId = target?.adminId || null;
     } else {
       threadUserId = req.auth.sub;
       from = "user";
+      adminId = sender.dbUser?.adminId || null;
     }
 
     let attachmentUrl = null;
@@ -261,6 +303,7 @@ router.post(
       adminAuthor,
       caption,
       attachmentUrl,
+      adminId,
     });
 
     return res.status(201).json({ success: true, message: msg });
@@ -275,7 +318,8 @@ router.post(
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    const { isAdmin } = await resolveSender(req);
+    const sender = await resolveSender(req);
+    const { isAdmin } = sender;
     const threadUserId = isAdmin ? req.body.userId : req.auth.sub;
     if (!threadUserId || !mongoose.isValidObjectId(threadUserId)) {
       return res.status(400).json({
@@ -290,6 +334,16 @@ router.post(
         error: "ForbiddenError",
         message: "Forbidden.",
       });
+    }
+    if (isAdmin) {
+      const allowed = await assertChatTenantAccess(req, threadUserId, sender);
+      if (!allowed) {
+        return res.status(404).json({
+          success: false,
+          error: "NotFoundError",
+          message: "Target user not found.",
+        });
+      }
     }
 
     const gw = await GatewaySetting.getSingleton();
@@ -310,8 +364,10 @@ router.post(
       lines.push(`\nAdditional settlement notes:\n${gw.instructions}`);
     }
 
+    const targetUser = await User.findById(threadUserId).select("adminId");
     const msg = await Message.create({
       user: threadUserId,
+      adminId: targetUser?.adminId || null,
       from: "admin",
       body: lines.join("\n"),
       messageType: "system",
@@ -354,7 +410,18 @@ router.get(
         message: "Invalid userId.",
       });
     }
-    const { isAdmin } = await resolveSender(req);
+    const sender = await resolveSender(req);
+    const { isAdmin } = sender;
+    if (isAdmin) {
+      const allowed = await assertChatTenantAccess(req, userId, sender);
+      if (!allowed) {
+        return res.status(404).json({
+          success: false,
+          error: "NotFoundError",
+          message: "Thread not found.",
+        });
+      }
+    }
     if (!isAdmin && userId !== req.auth.sub) {
       return res.status(403).json({
         success: false,
@@ -395,8 +462,8 @@ router.get(
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    const { isAdmin } = await resolveSender(req);
-    if (!isAdmin) {
+    const sender = await resolveSender(req);
+    if (!sender.isAdmin) {
       return res.status(403).json({
         success: false,
         error: "ForbiddenError",
@@ -404,7 +471,7 @@ router.get(
       });
     }
 
-    const threads = await Message.aggregate([
+    const pipeline = [
       { $sort: { createdAt: -1 } },
       {
         $group: {
@@ -438,20 +505,33 @@ router.get(
       },
       { $unwind: "$user" },
       { $match: { "user.deletedAt": null } },
-      {
-        $project: {
-          _id: 1,
-          unread: 1,
-          total: 1,
-          lastMessage: 1,
-          "user._id": 1,
-          "user.fullName": 1,
-          "user.username": 1,
-          "user.email": 1,
-          "user.role": 1,
+    ];
+
+    // Sub-admin privacy: only threads for users sealed to this adminId
+    if (!sender.isSuperAdmin) {
+      pipeline.push({
+        $match: {
+          "user.adminId": new mongoose.Types.ObjectId(req.auth.sub),
         },
+      });
+    }
+
+    pipeline.push({
+      $project: {
+        _id: 1,
+        unread: 1,
+        total: 1,
+        lastMessage: 1,
+        "user._id": 1,
+        "user.fullName": 1,
+        "user.username": 1,
+        "user.email": 1,
+        "user.role": 1,
+        "user.adminId": 1,
       },
-    ]);
+    });
+
+    const threads = await Message.aggregate(pipeline);
 
     return res.json({ success: true, threads });
   })

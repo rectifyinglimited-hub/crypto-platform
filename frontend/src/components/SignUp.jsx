@@ -56,6 +56,9 @@ const COUNTRIES = [
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const usernameRegex = /^[a-zA-Z0-9_.-]{3,24}$/;
 
+const INVITE_REQUIRED_MESSAGE =
+  "Valid Invitation Code is required to create an account.";
+
 const validate = (v) => {
   const e = {};
   if (!v.fullName || v.fullName.trim().length < 2)
@@ -75,6 +78,8 @@ const validate = (v) => {
     e.confirmPassword = "Passwords do not match.";
   if (v.phone && v.phone.replace(/\D/g, "").length < 4)
     e.phone = "Phone looks too short.";
+  if (!v.inviteCode || !String(v.inviteCode).trim())
+    e.inviteCode = INVITE_REQUIRED_MESSAGE;
   return e;
 };
 
@@ -105,6 +110,7 @@ const Field = ({
   inputMode,
   disabled,
   accent = "indigo",
+  required = false,
 }) => {
   const [focused, setFocused] = useState(false);
   const showError = touched && error;
@@ -124,6 +130,11 @@ const Field = ({
         className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400"
       >
         {label}
+        {required && (
+          <span className="ml-0.5 text-rose-500" aria-hidden="true">
+            *
+          </span>
+        )}
       </label>
       <motion.div
         initial={false}
@@ -386,7 +397,7 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
         password: values.password,
         phone: values.phone || null,
         country: values.country || null,
-        inviteCode: values.inviteCode || null,
+        inviteCode: String(values.inviteCode || "").trim().toUpperCase(),
       });
 
       // Strict success contract — must have a token AND a user object.
@@ -405,10 +416,14 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
       // Small delay so the user sees the success toast before we transition.
       setTimeout(() => onSignUpSuccess?.(res.user), 550);
     } catch (err) {
-      const message =
-        err?.message ||
-        (Array.isArray(err?.details) && err.details[0]?.message) ||
-        "Registration failed. Please try again.";
+      const inviteDenied =
+        /invitation code/i.test(String(err?.message || "")) ||
+        err?.error === "ForbiddenError";
+      const message = inviteDenied
+        ? INVITE_REQUIRED_MESSAGE
+        : err?.message ||
+          (Array.isArray(err?.details) && err.details[0]?.message) ||
+          "Registration failed. Please try again.";
       setToast({ kind: "error", message });
     } finally {
       setSubmitting(false);
@@ -562,8 +577,10 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
 
                 <Field
                   id="inviteCode"
-                  label="Invite code (optional)"
+                  label="Invitation Code"
                   icon={Ticket}
+                  required
+                  autoComplete="off"
                   {...bind("inviteCode")}
                 />
 

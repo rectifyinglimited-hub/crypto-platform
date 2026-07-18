@@ -48,7 +48,7 @@ const JWT_TTL = process.env.JWT_TTL || "7d";
 const BCRYPT_ROUNDS = 12;
 
 const INVITE_REQUIRED_MESSAGE =
-  "Registration Denied: A verified admin invitation code is strictly required.";
+  "Valid Invitation Code is required to create an account.";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -86,6 +86,7 @@ const signToken = (user) =>
       email: user.email,
       username: user.username,
       role: user.role,
+      adminId: user.adminId ? String(user.adminId) : null,
     },
     JWT_SECRET,
     { expiresIn: JWT_TTL }
@@ -238,7 +239,12 @@ router.post(
       });
     }
 
-    // 3) Create account with role from invite code
+    // 3) Create account with role from invite code + tenant stamp
+    // Parent ADMIN id: invite.adminId → invite.createdBy (fallback)
+    const parentAdminId = inviteDoc.adminId || inviteDoc.createdBy || null;
+    const grantedRole =
+      inviteDoc.role === "admin" ? "admin" : "user";
+
     const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const user = await User.create({
       fullName,
@@ -248,8 +254,18 @@ router.post(
       phone: phone || null,
       country: country || null,
       inviteCode: inviteDoc.code,
-      role: inviteDoc.role || "user",
+      role: grantedRole,
+      // Stamp tenant: USERs map to parent admin; new ADMINs self-own their tenant
+      adminId:
+        grantedRole === "admin"
+          ? null // set to self after create
+          : parentAdminId,
     });
+
+    if (grantedRole === "admin") {
+      user.adminId = user._id;
+      await user.save();
+    }
 
     // 4) Consume the invite code (audit trail)
     inviteDoc.usedBy = inviteDoc.usedBy || [];

@@ -21,6 +21,8 @@ import SecondsTrade from "../models/SecondsTrade.js";
 import Transaction from "../models/Transaction.js";
 import PlatformConfig from "../models/PlatformConfig.js";
 import { requireAuth } from "../middleware/auth.js";
+import { signedBiasForOutcome } from "../lib/tradeBias.js";
+import { emitChartResync, emitWalletUpdate } from "../socket.js";
 
 const router = Router();
 
@@ -456,6 +458,7 @@ export async function settleTrade(
       await fresh.save();
       await Transaction.create({
         user: fresh._id,
+        adminId: trade.adminId || fresh.adminId || null,
         kind: "trade",
         side: trade.direction === "long" ? "buy" : "sell",
         symbol: trade.asset,
@@ -477,6 +480,7 @@ export async function settleTrade(
       await fresh.save();
       await Transaction.create({
         user: fresh._id,
+        adminId: trade.adminId || fresh.adminId || null,
         kind: "trade",
         side: trade.direction === "long" ? "buy" : "sell",
         symbol: trade.asset,
@@ -492,6 +496,7 @@ export async function settleTrade(
       payout = 0;
       await Transaction.create({
         user: fresh._id,
+        adminId: trade.adminId || fresh.adminId || null,
         kind: "trade",
         side: trade.direction === "long" ? "buy" : "sell",
         symbol: trade.asset,
@@ -509,7 +514,7 @@ export async function settleTrade(
     trade.settleReason = reason;
     await trade.save();
 
-    // Soft-reset chart bias after settle so next trade starts clean
+    // Soft-reset chart bias after settle — snap terminal back to live feed
     try {
       const u2 = await User.findById(trade.user);
       if (u2?.chartBias?.set) {
@@ -517,6 +522,21 @@ export async function settleTrade(
         u2.markModified("chartBias");
         await u2.save();
       }
+      // Release override lock the millisecond settlement completes
+      emitChartResync(trade.user, {
+        asset: trade.asset,
+        exitPrice: trade.exitPrice,
+        status: trade.status,
+        tradeId: String(trade._id),
+      });
+      const wallet =
+        u2?.wallet instanceof Map
+          ? Object.fromEntries(u2.wallet)
+          : { ...(u2?.wallet || {}) };
+      emitWalletUpdate(trade.user, wallet, {
+        reason: "seconds_settle",
+        tradeId: String(trade._id),
+      });
     } catch {
       /* ignore */
     }
@@ -531,7 +551,7 @@ export async function settleTrade(
 export async function settleExpiredTrades() {
   if (mongoose.connection.readyState !== 1) return 0;
 
-  // Gradually ramp chart bias for Graph UP/DOWN / Force locks (no violent spikes)
+  // Gradually ramp chart bias — direction-aware for BUY LONG / SELL SHORT
   try {
     const forcedOpen = await SecondsTrade.find({
       status: "open",
@@ -548,27 +568,30 @@ export async function settleExpiredTrades() {
       const rampWindow = Math.max(1, expires - opened);
       const progress = Math.min(1, Math.max(0, (Date.now() - opened) / rampWindow));
 
-      // Ease-in-out toward ~1.6% by expiry — subtle, not abrupt
+      // Ease-in-out toward ~1.6% by expiry — signed by direction + outcome
       const peak = 1.6;
       const eased =
         progress < 0.5
           ? 2 * progress * progress
           : 1 - Math.pow(-2 * progress + 2, 2) / 2;
       const wiggle = Math.sin(Date.now() / 2400) * 0.06;
-      let target =
-        t.forcedOutcome === "win"
-          ? eased * peak + wiggle
-          : -(eased * peak + wiggle);
+      const signedPeak = signedBiasForOutcome(
+        t.direction,
+        t.forcedOutcome,
+        eased * peak + Math.abs(wiggle)
+      );
+      // Soft floor once locked (preserve sign)
+      let target = signedBiasForOutcome(
+        t.direction,
+        t.forcedOutcome,
+        Math.max(0.08, Math.abs(signedPeak))
+      );
 
-      // Soft floor once locked
-      if (t.forcedOutcome === "win") target = Math.max(0.08, target);
-      else target = Math.min(-0.08, target);
-
-      // Single source of truth — avoid double-applying user + trade bias
       const cur = Number(t.priceBiasPercent || user.chartBias.get(t.asset) || 0);
-      const maxStep = 0.07; // ~0.07% per settler tick (~1s) → smooth climb
+      const maxStep = 0.07;
       let next = cur;
-      if (t.forcedOutcome === "win") {
+      const goingUp = target > 0;
+      if (goingUp) {
         if (cur < target) next = Math.min(target, cur + maxStep);
         else next = target + (Math.random() - 0.5) * 0.03;
         next = Math.max(0.06, next);
@@ -580,10 +603,10 @@ export async function settleExpiredTrades() {
 
       // Near expiry, hold direction with micro-fluctuation only
       if (remainingMs < 1500) {
-        next =
-          t.forcedOutcome === "win"
-            ? Math.max(0.4, cur + (Math.random() - 0.5) * 0.02)
-            : Math.min(-0.4, cur + (Math.random() - 0.5) * 0.02);
+        const hold = signedBiasForOutcome(t.direction, t.forcedOutcome, 0.4);
+        next = hold + (Math.random() - 0.5) * 0.02;
+        if (hold > 0) next = Math.max(0.4, next);
+        else next = Math.min(-0.4, next);
       }
 
       next = Number(next.toFixed(4));
@@ -832,8 +855,11 @@ router.post(
     const openedAt = new Date();
     const expiresAt = new Date(openedAt.getTime() + durationSec * 1000);
 
+    const tenantId = user.adminId || null;
+
     const trade = await SecondsTrade.create({
       user: user._id,
+      adminId: tenantId,
       asset,
       assetType,
       direction,
@@ -848,6 +874,7 @@ router.post(
 
     await Transaction.create({
       user: user._id,
+      adminId: tenantId,
       kind: "trade",
       side: direction === "long" ? "buy" : "sell",
       symbol: asset,

@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { isStaffRole } from "../lib/roles.js";
 import {
   Wallet,
   TrendingUp,
@@ -1374,7 +1375,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
       />
 
       {/* Single floating Live Chat — Deposit CTA opens it */}
-      {me?.role !== "admin" && (
+      {!isStaffRole(me?.role) && (
         <LiveChatWidget
           user={me}
           contextHint={chatHint || (tab === "wallet" ? "deposit" : null)}

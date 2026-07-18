@@ -54,6 +54,7 @@ import AdminChatManager from "./AdminChatManager.jsx";
 import UserControlRoom, {
   ActiveTradesAlertBar,
 } from "./UserControlRoom.jsx";
+import { isStaffRole, isSuperAdminRole, roleLabel } from "../lib/roles.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -950,12 +951,12 @@ const UserRow = ({
           <div className="mt-1 flex gap-1">
             <span
               className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider ${
-                user.role === "admin"
+                isStaffRole(user.role)
                   ? "border-indigo-400/25 bg-indigo-500/15 text-indigo-300"
                   : "border-slate-400/20 bg-slate-500/10 text-slate-300"
               }`}
             >
-              {user.role}
+              {roleLabel(user.role)}
             </span>
             <span
               className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider ${
@@ -1113,7 +1114,7 @@ const UserRow = ({
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => onDeleteUser?.(user)}
-          disabled={user._id === currentUserId || user.role === "admin"}
+          disabled={user._id === currentUserId || isStaffRole(user.role)}
           className="flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-600/20 px-2 py-1 text-[10px] font-medium text-rose-200 disabled:opacity-40"
         >
           <Trash2 className="h-3 w-3" /> Delete
@@ -1830,6 +1831,198 @@ const KycView = ({
 // ---------------------------------------------------------------------------
 // Main AdminPanel
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Admin Manager — SUPER_ADMIN only
+// ---------------------------------------------------------------------------
+const AdminManagerView = ({ toast }) => {
+  const [admins, setAdmins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    fullName: "",
+    username: "",
+    email: "",
+    password: "",
+  });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await AdminAPI.listManagers();
+      setAdmins(res.admins || []);
+    } catch (err) {
+      toast?.("error", err?.message || "Failed to load admins.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await AdminAPI.createManager(form);
+      setAdmins((prev) => [res.admin, ...prev]);
+      setForm({ fullName: "", username: "", email: "", password: "" });
+      toast?.(
+        "success",
+        res.starterInviteCode
+          ? `Admin created · starter invite ${res.starterInviteCode}`
+          : res.message || "Admin created."
+      );
+    } catch (err) {
+      toast?.("error", err?.message || "Failed to create admin.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBan = async (a) => {
+    try {
+      const res = await AdminAPI.banManager(a._id || a.id, !a.banned);
+      setAdmins((prev) =>
+        prev.map((x) =>
+          (x._id || x.id) === (a._id || a.id) ? { ...x, ...res.admin } : x
+        )
+      );
+      toast?.("success", res.message || "Admin updated.");
+    } catch (err) {
+      toast?.("error", err?.message || "Failed to update admin.");
+    }
+  };
+
+  return (
+    <motion.div
+      variants={viewVariants}
+      initial="hidden"
+      animate="show"
+      exit="exit"
+      className="space-y-5"
+    >
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Admin Manager</h2>
+        <p className="text-xs text-slate-500">
+          Generate, suspend, and monitor tenant ADMIN accounts. Each admin only
+          sees their own users, chats, and payment logs.
+        </p>
+      </div>
+
+      <form
+        onSubmit={handleCreate}
+        className="grid gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-4 sm:grid-cols-2"
+      >
+        <input
+          required
+          placeholder="Full name"
+          value={form.fullName}
+          onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
+        />
+        <input
+          required
+          placeholder="Username"
+          value={form.username}
+          onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
+        />
+        <input
+          required
+          type="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
+        />
+        <input
+          required
+          type="password"
+          placeholder="Password (min 8)"
+          value={form.password}
+          onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
+        />
+        <div className="sm:col-span-2">
+          <button
+            type="submit"
+            disabled={busy}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-emerald-400 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Create ADMIN
+          </button>
+        </div>
+      </form>
+
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-slate-500">{admins.length} admin accounts</div>
+        <button
+          type="button"
+          onClick={load}
+          className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-slate-300"
+        >
+          <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {admins.map((a) => (
+            <div
+              key={a._id || a.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">{a.fullName}</div>
+                <div className="text-[11px] text-slate-500">
+                  @{a.username} · {a.email}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-slate-400">
+                  <span>{a.stats?.userCount ?? 0} users</span>
+                  <span>{a.stats?.openTrades ?? 0} open trades</span>
+                  <span>{a.stats?.pendingTx ?? 0} pending tx</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                    a.banned
+                      ? "border-rose-400/30 bg-rose-500/15 text-rose-300"
+                      : "border-emerald-400/30 bg-emerald-500/15 text-emerald-300"
+                  }`}
+                >
+                  {a.banned ? "Suspended" : "Active"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleBan(a)}
+                  className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-slate-200 hover:bg-white/5"
+                >
+                  {a.banned ? "Reactivate" : "Suspend"}
+                </button>
+              </div>
+            </div>
+          ))}
+          {!admins.length && (
+            <div className="rounded-2xl border border-dashed border-white/10 py-10 text-center text-sm text-slate-500">
+              No ADMIN accounts yet. Create one above.
+            </div>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 export default function AdminPanel({ user, onExit }) {
   const [section, setSection] = useState("overview");
   const [toast, setToast] = useState({ kind: null, message: "" });
@@ -2151,8 +2344,12 @@ export default function AdminPanel({ user, onExit }) {
     }
   };
 
+  const superAdmin = isSuperAdminRole(user?.role);
   const nav = [
     { key: "overview", label: "Overview", icon: LayoutDashboard },
+    ...(superAdmin
+      ? [{ key: "managers", label: "Admin Manager", icon: UserCog }]
+      : []),
     { key: "codes", label: "Invite Codes", icon: Ticket },
     { key: "users", label: "Users", icon: Users },
     { key: "kyc", label: "KYC Review", icon: BadgeCheck },
@@ -2247,7 +2444,7 @@ export default function AdminPanel({ user, onExit }) {
                 </div>
                 <div className="truncate text-[10px] text-slate-500">
                   <UserCog className="mr-1 inline h-2.5 w-2.5" />
-                  Administrator
+                  {roleLabel(user?.role)}
                 </div>
               </div>
             </div>
@@ -2296,6 +2493,9 @@ export default function AdminPanel({ user, onExit }) {
                   onGlobalTradingToggle={handleGlobalTradingToggle}
                 />
               </div>
+            )}
+            {section === "managers" && superAdmin && (
+              <AdminManagerView key="managers" toast={say} />
             )}
             {section === "codes" && (
               <InviteCodesView

@@ -8,7 +8,7 @@
  *    AUTH     → Sign In / Register gate
  *    SPLASH   → animated Nexus wordmark after successful auth (1.5–2s)
  *    DASHBOARD → authenticated user hub
- *    ADMIN    → admin console (requires role === 'admin')
+ *    ADMIN    → admin console (requires ADMIN or SUPER_ADMIN)
  * =============================================================================
  */
 
@@ -22,6 +22,7 @@ import SplashScreen from "./components/SplashScreen.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
 import { AuthAPI, getToken, clearToken } from "./lib/api.js";
+import { isStaffRole } from "./lib/roles.js";
 
 const SCREEN = {
   BOOT: "boot",
@@ -127,11 +128,11 @@ export default function App() {
       const res = await AuthAPI.me();
       const u = res?.user;
       if (u) setUser(u);
-      if (u?.role === "admin") {
+      if (isStaffRole(u?.role)) {
         setScreen(SCREEN.ADMIN);
       }
     } catch {
-      if (user?.role === "admin") setScreen(SCREEN.ADMIN);
+      if (isStaffRole(user?.role)) setScreen(SCREEN.ADMIN);
     }
   };
   const goDashboard = () => setScreen(SCREEN.DASHBOARD);

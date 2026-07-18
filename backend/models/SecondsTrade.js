@@ -18,6 +18,13 @@ const SecondsTradeSchema = new Schema(
       required: true,
       index: true,
     },
+    /** Tenant seal — parent ADMIN for trade-order isolation */
+    adminId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
     asset: {
       type: String,
       required: true,

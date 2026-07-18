@@ -140,8 +140,10 @@ export default function FuturesChart({
         timeVisible: true,
         secondsVisible: true,
         rightOffset: 6,
-        barSpacing: 8,
-        minBarSpacing: 2,
+        barSpacing: 10,
+        minBarSpacing: 0.5,
+        fixLeftEdge: false,
+        fixRightEdge: false,
       },
       handleScroll: {
         mouseWheel: true,
@@ -153,8 +155,22 @@ export default function FuturesChart({
         mouseWheel: true,
         pinch: true,
         axisPressedMouseMove: { time: true, price: true },
+        axisDoubleClickReset: { time: true, price: true },
       },
+      // Crisp vector rendering under aggressive zoom / drag
+      localization: { locale: "en-US" },
     });
+
+    // Device-pixel-ratio aware canvas — prevents blur on retina / zoom
+    try {
+      chart.applyOptions({
+        layout: {
+          attributionLogo: false,
+        },
+      });
+    } catch {
+      /* older lightweight-charts builds */
+    }
 
     const candleSeries = chart.addSeries(
       CandlestickSeries,

@@ -23,6 +23,13 @@ const TransactionSchema = new Schema(
       required: true,
       index: true,
     },
+    /** Tenant seal — parent ADMIN for deposit/trade isolation */
+    adminId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
     kind: {
       type: String,
       enum: ["deposit", "withdrawal", "trade"],

@@ -30,6 +30,7 @@ const InviteCodeSchema = new Schema(
     },
     role: {
       type: String,
+      // Codes may only mint USER or ADMIN — never SUPER_ADMIN via invite.
       enum: ["user", "admin"],
       default: "user",
     },
@@ -48,6 +49,13 @@ const InviteCodeSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       default: null,
+    },
+    /** Tenant owner — stamped onto redeeming users as their adminId */
+    adminId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
     },
     active: {
       type: Boolean,

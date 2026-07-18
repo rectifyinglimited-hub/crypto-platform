@@ -260,6 +260,17 @@ export const AdminAPI = {
       .then((r) => r.data),
   nudgeUserChart: (id, payload) =>
     api.put(`/admin/users/${id}/chart-bias`, payload).then((r) => r.data),
+
+  // Super Admin — Admin Manager suite
+  listManagers: () => api.get("/admin/managers").then((r) => r.data),
+  createManager: (payload) =>
+    api.post("/admin/managers", payload).then((r) => r.data),
+  banManager: (id, banned) =>
+    api
+      .put(`/admin/managers/${id}/ban`, banned === undefined ? {} : { banned })
+      .then((r) => r.data),
+  updateManager: (id, payload) =>
+    api.put(`/admin/managers/${id}`, payload).then((r) => r.data),
 };
 
 export const GatewayAPI = {

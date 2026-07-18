@@ -83,6 +83,17 @@ const UserSchema = new Schema(
       default: null,
       uppercase: true,
     },
+    /**
+     * Multi-tenant seal — ObjectId of the parent ADMIN who owns this user.
+     * SUPER_ADMIN accounts leave this null. Sub-ADMIN accounts may self-reference
+     * or leave null; their invited USERs always stamp the inviting admin's id.
+     */
+    adminId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
     password: {
       type: String,
       required: [true, "Password is required."],
@@ -91,8 +102,10 @@ const UserSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["user", "admin"],
+      // SUPER_ADMIN · ADMIN · USER (stored lowercase)
+      enum: ["super_admin", "admin", "user"],
       default: "user",
+      index: true,
     },
     banned: {
       type: Boolean,

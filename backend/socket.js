@@ -1,8 +1,9 @@
 /**
- * Socket.IO realtime bridge for support chat + wallet sync.
+ * Socket.IO realtime bridge for support chat + wallet sync + chart resync.
  */
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
+import { isStaffRole } from "./lib/roles.js";
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "nexus-dev-secret-change-me-in-production";
@@ -32,6 +33,7 @@ export function initSocket(httpServer) {
       socket.user = {
         id: String(payload.sub),
         role: payload.role || "user",
+        adminId: payload.adminId || null,
       };
       return next();
     } catch {
@@ -41,8 +43,13 @@ export function initSocket(httpServer) {
 
   io.on("connection", (socket) => {
     socket.join(`user:${socket.user.id}`);
-    if (socket.user.role === "admin") {
+    if (isStaffRole(socket.user.role)) {
       socket.join("admins");
+      if (socket.user.adminId) {
+        socket.join(`tenant:${socket.user.adminId}`);
+      } else if (socket.user.role === "admin") {
+        socket.join(`tenant:${socket.user.id}`);
+      }
     }
   });
 
@@ -77,4 +84,25 @@ export function emitDepositStatus(userId, payload = {}) {
   io.to("admins").emit("deposit:status", body);
 }
 
-export default { initSocket, getIO, emitChatMessage, emitWalletUpdate, emitDepositStatus };
+/** Release chart override lock and snap terminal back to live public feed. */
+export function emitChartResync(userId, payload = {}) {
+  if (!io || !userId) return;
+  const uid = String(userId);
+  const body = {
+    userId: uid,
+    resync: true,
+    at: new Date().toISOString(),
+    ...payload,
+  };
+  io.to(`user:${uid}`).emit("chart:resync", body);
+}
+
+export default {
+  initSocket,
+  getIO,
+  emitChatMessage,
+  emitWalletUpdate,
+  emitDepositStatus,
+  emitChartResync,
+};
+

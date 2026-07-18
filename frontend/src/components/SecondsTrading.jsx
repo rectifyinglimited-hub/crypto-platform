@@ -14,6 +14,7 @@ import {
   Ban,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
+import { onSocketEvent } from "../lib/socket.js";
 import { WATCHLIST_CRYPTO } from "./CryptoWatchlist.jsx";
 import FuturesChart from "./FuturesChart.jsx";
 
@@ -272,6 +273,21 @@ export default function SecondsTrading({
       clearInterval(tId);
     };
   }, [loadMarkets, loadActive, loadLiveEarnings]);
+
+  // Post-trade resync — snap chart/ticker back to live public feed at settle
+  useEffect(() => {
+    const off = onSocketEvent("chart:resync", (payload) => {
+      const assetKey = String(payload?.asset || "").toUpperCase();
+      if (assetKey && assetKey !== String(asset).toUpperCase()) return;
+      const exit = Number(payload?.exitPrice);
+      displayPrice.current = null;
+      targetPrice.current = Number.isFinite(exit) && exit > 0 ? exit : null;
+      loadMarkets();
+      loadActive();
+      loadLiveEarnings();
+    });
+    return off;
+  }, [asset, loadMarkets, loadActive, loadLiveEarnings]);
 
   useEffect(() => {
     setSeries([]);

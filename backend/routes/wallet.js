@@ -98,8 +98,10 @@ router.post(
     if (!errors.isEmpty()) return sendValidationError(res, errors);
 
     const symbol = req.body.symbol.toUpperCase();
+    const owner = await User.findById(req.auth.sub).select("adminId");
     const tx = await Transaction.create({
       user: req.auth.sub,
+      adminId: owner?.adminId || null,
       kind: "deposit",
       symbol,
       amount: Number(req.body.amount),
@@ -156,9 +158,12 @@ router.post(
     const symbol = (req.body.symbol || "USDT").toString().toUpperCase();
     const network = (req.body.network || "TRC20").toString().toUpperCase();
     const proofUrl = proofPublicUrl(req.file.filename);
+    const owner = await User.findById(req.auth.sub).select("adminId");
+    const tenantId = owner?.adminId || null;
 
     const tx = await Transaction.create({
       user: req.auth.sub,
+      adminId: tenantId,
       kind: "deposit",
       symbol,
       amount,
@@ -171,6 +176,7 @@ router.post(
 
     const msg = await Message.create({
       user: req.auth.sub,
+      adminId: tenantId,
       from: "user",
       body: `Settlement receipt submitted · $${amount.toFixed(2)} ${symbol} (${network})\nStatus: Pending Verification / Awaiting Admin Approval`,
       messageType: "deposit_proof",
@@ -234,8 +240,10 @@ router.post(
     user.markModified("wallet");
     await user.save();
 
+    const owner = await User.findById(req.auth.sub).select("adminId");
     const tx = await Transaction.create({
       user: req.auth.sub,
+      adminId: owner?.adminId || null,
       kind: "withdrawal",
       symbol,
       amount,

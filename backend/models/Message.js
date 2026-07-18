@@ -18,6 +18,13 @@ const MessageSchema = new Schema(
       required: true,
       index: true,
     },
+    /** Tenant seal — parent ADMIN for cross-admin privacy */
+    adminId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
     from: {
       type: String,
       enum: ["user", "admin"],
