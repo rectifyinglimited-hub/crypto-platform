@@ -1,6 +1,11 @@
 /**
  * Binance Futures–style TradingView Lightweight Charts terminal.
  * Candles + volume pane + MA overlays + 24h metrics + realtime streams.
+ *
+ * Scaling contract:
+ * - History is seeded once via setData(); live ticks use update() only.
+ * - Fixed barSpacing locks candle column width (no fitContent / density squeeze).
+ * - rightPriceScale.autoScale stays on for normal Y behavior without view resets.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -32,7 +37,12 @@ const DOWN = "#f6465d";
 const BG = "#0b0e11";
 const GRID = "rgba(255, 255, 255, 0.06)";
 const TEXT = "#848e9c";
-const CROSS = "#b7bdc6";
+
+/** Locked candle column width — prevents history from compressing into hairlines */
+const BAR_SPACING = 8;
+/** Visible bars after history seed (keeps a healthy zoom, not fit-all) */
+const INITIAL_VISIBLE_BARS = 72;
+const RIGHT_OFFSET = 12;
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -50,7 +60,22 @@ function formatCompact(n) {
   return v.toFixed(2);
 }
 
-function rebuildOverlays(candleApi, volApi, ma5Api, ma10Api, volMa5Api, volMa10Api, candles) {
+function volumeColor(candle) {
+  return candle.close >= candle.open
+    ? "rgba(14, 203, 129, 0.72)"
+    : "rgba(246, 70, 93, 0.72)";
+}
+
+/** Full series replace — history boot / asset-TF change only */
+function seedSeriesData(series, candles) {
+  const {
+    candle: candleApi,
+    volume: volApi,
+    ma5: ma5Api,
+    ma10: ma10Api,
+    volMa5: volMa5Api,
+    volMa10: volMa10Api,
+  } = series;
   if (!candleApi) return;
   candleApi.setData(
     candles.map(({ time, open, high, low, close }) => ({
@@ -68,6 +93,68 @@ function rebuildOverlays(candleApi, volApi, ma5Api, ma10Api, volMa5Api, volMa10A
   volMa10Api?.setData(smaSeries(candles, 10, (c) => c.volume));
 }
 
+/** Incremental tick — never calls setData / fitContent */
+function patchLiveBar(series, candles) {
+  const {
+    candle: candleApi,
+    volume: volApi,
+    ma5: ma5Api,
+    ma10: ma10Api,
+    volMa5: volMa5Api,
+    volMa10: volMa10Api,
+  } = series;
+  if (!candleApi || !candles.length) return;
+
+  const next = candles[candles.length - 1];
+  candleApi.update({
+    time: next.time,
+    open: next.open,
+    high: next.high,
+    low: next.low,
+    close: next.close,
+  });
+  volApi?.update({
+    time: next.time,
+    value: next.volume,
+    color: volumeColor(next),
+  });
+
+  const ma5Pts = smaSeries(candles, 5);
+  const ma10Pts = smaSeries(candles, 10);
+  const volMa5Pts = smaSeries(candles, 5, (c) => c.volume);
+  const volMa10Pts = smaSeries(candles, 10, (c) => c.volume);
+  const lastMa5 = ma5Pts[ma5Pts.length - 1];
+  const lastMa10 = ma10Pts[ma10Pts.length - 1];
+  const lastVolMa5 = volMa5Pts[volMa5Pts.length - 1];
+  const lastVolMa10 = volMa10Pts[volMa10Pts.length - 1];
+  if (lastMa5) ma5Api?.update(lastMa5);
+  if (lastMa10) ma10Api?.update(lastMa10);
+  if (lastVolMa5) volMa5Api?.update(lastVolMa5);
+  if (lastVolMa10) volMa10Api?.update(lastVolMa10);
+}
+
+/** Lock a fixed logical window — never fitContent the full history */
+function applyFixedVisibleWindow(chart, barCount) {
+  if (!chart || barCount <= 0) return;
+  try {
+    chart.timeScale().applyOptions({
+      barSpacing: BAR_SPACING,
+      rightOffset: RIGHT_OFFSET,
+      minBarSpacing: 4,
+    });
+    const visible = Math.min(INITIAL_VISIBLE_BARS, barCount);
+    const to = barCount - 1 + RIGHT_OFFSET / BAR_SPACING;
+    const from = Math.max(-RIGHT_OFFSET / BAR_SPACING, to - visible);
+    chart.timeScale().setVisibleLogicalRange({ from, to });
+  } catch {
+    try {
+      chart.timeScale().scrollToRealTime();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 export default function FuturesChart({
   asset = "BTC",
   assetType = "crypto",
@@ -82,6 +169,8 @@ export default function FuturesChart({
   const candlesRef = useRef([]);
   const disposedRef = useRef(false);
   const loadGen = useRef(0);
+  /** After first seed for a load generation, streaming must not setData */
+  const historySeededRef = useRef(false);
 
   const [tf, setTf] = useState("1m");
   const [stats, setStats] = useState(null);
@@ -133,12 +222,12 @@ export default function FuturesChart({
         },
       },
       rightPriceScale: {
-        // Recalculate Y range to visible highs/lows on every pan/zoom
         autoScale: true,
-        mode: PriceScaleMode.Normal,
+        mode: PriceScaleMode.Normal, // 0 — Normal
+        alignLabels: true,
+        borderVisible: true,
         borderColor: "rgba(255,255,255,0.08)",
         scaleMargins: { top: 0.1, bottom: 0.12 },
-        alignLabels: true,
       },
       leftPriceScale: {
         visible: false,
@@ -147,15 +236,16 @@ export default function FuturesChart({
       },
       timeScale: {
         borderColor: "rgba(255,255,255,0.08)",
+        borderVisible: true,
         timeVisible: true,
         secondsVisible: true,
-        // Flexible — avoid hard locks that warp candles on live ticks
-        rightOffset: 8,
-        barSpacing: 8,
-        minBarSpacing: 0.8,
+        rightOffset: RIGHT_OFFSET,
+        barSpacing: BAR_SPACING,
+        minBarSpacing: 4,
         fixLeftEdge: false,
         fixRightEdge: false,
         lockVisibleTimeRangeOnResize: true,
+        // Append new bars without collapsing the visible window over all history
         shiftVisibleRangeOnNewBar: true,
       },
       handleScroll: {
@@ -167,14 +257,13 @@ export default function FuturesChart({
       handleScale: {
         mouseWheel: true,
         pinch: true,
-        // Time-axis zoom/pan only — price-axis drag would disable autoScale
+        // Price-axis drag would turn off autoScale — keep time zoom only
         axisPressedMouseMove: { time: true, price: false },
         axisDoubleClickReset: { time: true, price: true },
       },
       localization: { locale: "en-US" },
     });
 
-    // Device-pixel-ratio aware canvas — prevents blur on retina / zoom
     try {
       chart.applyOptions({
         layout: {
@@ -194,12 +283,19 @@ export default function FuturesChart({
         wickUpColor: UP,
         wickDownColor: DOWN,
         priceScaleId: "right",
-        // Keep body/wick proportions stable under extreme zoom
         priceLineVisible: true,
         lastValueVisible: true,
       },
       0
     );
+
+    candleSeries.priceScale().applyOptions({
+      autoScale: true,
+      mode: PriceScaleMode.Normal,
+      alignLabels: true,
+      borderVisible: true,
+      scaleMargins: { top: 0.1, bottom: 0.12 },
+    });
 
     const ma5 = chart.addSeries(
       LineSeries,
@@ -234,6 +330,12 @@ export default function FuturesChart({
       1
     );
 
+    volumeSeries.priceScale().applyOptions({
+      autoScale: true,
+      mode: PriceScaleMode.Normal,
+      scaleMargins: { top: 0.15, bottom: 0 },
+    });
+
     const volMa5 = chart.addSeries(
       LineSeries,
       {
@@ -264,42 +366,6 @@ export default function FuturesChart({
       /* panes optional on older builds */
     }
 
-    // Series-level + volume pane — force dynamic Y auto-scale
-    const enforceAutoScale = () => {
-      try {
-        chart.priceScale("right").applyOptions({
-          autoScale: true,
-          mode: PriceScaleMode.Normal,
-        });
-      } catch {
-        /* ignore */
-      }
-      try {
-        candleSeries.priceScale().applyOptions({
-          autoScale: true,
-          mode: PriceScaleMode.Normal,
-        });
-      } catch {
-        /* ignore */
-      }
-      try {
-        volumeSeries.priceScale().applyOptions({
-          autoScale: true,
-          mode: PriceScaleMode.Normal,
-          scaleMargins: { top: 0.15, bottom: 0 },
-        });
-      } catch {
-        /* ignore */
-      }
-    };
-    enforceAutoScale();
-
-    // When user pans/zooms the timeline, instantly refit Y to visible candles
-    const onVisibleRange = () => {
-      enforceAutoScale();
-    };
-    chart.timeScale().subscribeVisibleLogicalRangeChange(onVisibleRange);
-
     chartRef.current = chart;
     seriesRef.current = {
       candle: candleSeries,
@@ -310,24 +376,26 @@ export default function FuturesChart({
       volMa10,
     };
 
+    // Size only — do NOT reset time/price scales on resize (that caused compression)
     const ro = new ResizeObserver(() => {
       if (!chartRef.current || !el) return;
-      chart.applyOptions({
-        width: el.clientWidth,
-        height: el.clientHeight,
-      });
-      enforceAutoScale();
+      // autoSize already handles layout; reaffirm locked bar spacing only
+      try {
+        chart.timeScale().applyOptions({
+          barSpacing: BAR_SPACING,
+          rightOffset: RIGHT_OFFSET,
+          minBarSpacing: 4,
+          lockVisibleTimeRangeOnResize: true,
+        });
+      } catch {
+        /* ignore */
+      }
     });
     ro.observe(el);
 
     return () => {
       disposedRef.current = true;
       ro.disconnect();
-      try {
-        chart.timeScale().unsubscribeVisibleLogicalRangeChange(onVisibleRange);
-      } catch {
-        /* ignore */
-      }
       try {
         chart.remove();
       } catch {
@@ -336,25 +404,20 @@ export default function FuturesChart({
       chartRef.current = null;
       seriesRef.current = {};
       candlesRef.current = [];
+      historySeededRef.current = false;
     };
   }, []);
 
   // Load history + subscribe streams whenever asset / timeframe / type changes
   useEffect(() => {
     const gen = ++loadGen.current;
-    const {
-      candle,
-      ma5,
-      ma10,
-      volume,
-      volMa5,
-      volMa10,
-    } = seriesRef.current;
-    if (!candle) return undefined;
+    const series = seriesRef.current;
+    if (!series.candle) return undefined;
 
     let unsub = null;
     let pollId = null;
     let alive = true;
+    historySeededRef.current = false;
     setLoading(true);
     setError(null);
     setConnected(false);
@@ -371,14 +434,23 @@ export default function FuturesChart({
       onLivePrice?.(price);
     };
 
-    const paint = (list) => {
+    /** One-time history paint + fixed logical window */
+    const seedHistory = (list) => {
       if (!alive || disposedRef.current || gen !== loadGen.current) return;
       candlesRef.current = list;
-      rebuildOverlays(candle, volume, ma5, ma10, volMa5, volMa10, list);
+      seedSeriesData(series, list);
+      historySeededRef.current = true;
+      applyFixedVisibleWindow(chartRef.current, list.length);
     };
 
+    /**
+     * Real-time path: mutate buffer + series.update() only.
+     * Never setData / fitContent / reset visible range on ticks.
+     */
     const upsertLast = (nextCandle) => {
       if (!alive || disposedRef.current || gen !== loadGen.current) return;
+      if (!historySeededRef.current) return;
+
       const list = candlesRef.current.slice();
       const last = list[list.length - 1];
       if (last && last.time === nextCandle.time) {
@@ -389,26 +461,13 @@ export default function FuturesChart({
       } else {
         return;
       }
-      paint(list);
-      // Hot-path update for current bar (smoother than full setData each tick)
+
+      candlesRef.current = list;
       try {
-        candle.update({
-          time: nextCandle.time,
-          open: nextCandle.open,
-          high: nextCandle.high,
-          low: nextCandle.low,
-          close: nextCandle.close,
-        });
-        volume.update({
-          time: nextCandle.time,
-          value: nextCandle.volume,
-          color:
-            nextCandle.close >= nextCandle.open
-              ? "rgba(14, 203, 129, 0.72)"
-              : "rgba(246, 70, 93, 0.72)",
-        });
+        patchLiveBar(series, list);
       } catch {
-        paint(list);
+        // Rare API mismatch — re-seed once without touching visible range
+        seedSeriesData(series, list);
       }
     };
 
@@ -422,7 +481,6 @@ export default function FuturesChart({
       try {
         klines = await fetchKlines(symbol, interval, limit);
       } catch (err) {
-        // Some venues reject 1s — fall back to 1m history + live ticker ticks
         if (interval === "1s") {
           interval = "1m";
           limit = 500;
@@ -434,8 +492,7 @@ export default function FuturesChart({
       const ticker = await fetchTicker24h(symbol).catch(() => null);
       if (!alive || gen !== loadGen.current) return;
 
-      paint(klines);
-      chartRef.current?.timeScale().scrollToRealTime();
+      seedHistory(klines);
 
       if (ticker) {
         setStats(ticker);
@@ -444,7 +501,6 @@ export default function FuturesChart({
         pushFlash(klines[klines.length - 1].close);
       }
 
-      // For 1s view after fallback, synthesize second buckets from ticker/@trade via kline_1m + ticker close
       const streamInterval = tfMeta.interval === "1s" ? "1s" : interval;
 
       unsub = subscribeBinanceMarket({
@@ -473,7 +529,6 @@ export default function FuturesChart({
         onKline: (k) => {
           if (!alive || gen !== loadGen.current) return;
           if (tfMeta.interval === "1s" && streamInterval !== "1s") {
-            // Prefer ticker-built 1s bars when 1s kline stream is unavailable
             return;
           }
           upsertLast({
@@ -490,7 +545,6 @@ export default function FuturesChart({
     };
 
     const bootSynthetic = async () => {
-      // Stocks / offline: seed from overridePrice and keep updating buckets
       const seed = Number(overrideRef.current);
       if (!Number.isFinite(seed) || seed <= 0) {
         setError("Waiting for live price…");
@@ -517,15 +571,13 @@ export default function FuturesChart({
         });
         px = close;
       }
-      // Deduplicate times
       const dedup = [];
       for (const c of seedBars) {
         const last = dedup[dedup.length - 1];
         if (last && last.time === c.time) dedup[dedup.length - 1] = c;
         else dedup.push(c);
       }
-      paint(dedup);
-      chartRef.current?.timeScale().scrollToRealTime();
+      seedHistory(dedup);
       setStats({
         lastPrice: seed,
         highPrice: Math.max(...dedup.map((d) => d.high)),
@@ -569,7 +621,6 @@ export default function FuturesChart({
       } catch (err) {
         if (alive && gen === loadGen.current) {
           setError(err?.message || "Chart feed unavailable");
-          // Fallback synthetic if Binance blocked
           try {
             await bootSynthetic();
             setError(null);
@@ -588,7 +639,6 @@ export default function FuturesChart({
       if (pollId) clearInterval(pollId);
       if (flashTimer.current) clearTimeout(flashTimer.current);
     };
-    // Re-boot synthetic charts once a live price becomes available
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     asset,
@@ -599,29 +649,24 @@ export default function FuturesChart({
     assetType === "crypto" ? 1 : Number(overridePrice) > 0 ? 1 : 0,
   ]);
 
-  // Nudge active candle with backend-biased override price (crypto trade control)
+  // Nudge active candle with backend-biased override — update() only
   useEffect(() => {
     if (assetType !== "crypto") return;
+    if (!historySeededRef.current) return;
     const price = Number(overridePrice);
     if (!Number.isFinite(price) || price <= 0) return;
     const list = candlesRef.current;
     if (!list.length) return;
     const last = list[list.length - 1];
     const next = applyTickToCandle(last, price, 0);
-    const { candle, volume, ma5, ma10, volMa5, volMa10 } = seriesRef.current;
-    if (!candle) return;
+    const series = seriesRef.current;
+    if (!series.candle) return;
     const updated = list.slice(0, -1).concat(next);
     candlesRef.current = updated;
     try {
-      candle.update({
-        time: next.time,
-        open: next.open,
-        high: next.high,
-        low: next.low,
-        close: next.close,
-      });
+      patchLiveBar(series, updated);
     } catch {
-      rebuildOverlays(candle, volume, ma5, ma10, volMa5, volMa10, updated);
+      seedSeriesData(series, updated);
     }
   }, [overridePrice, assetType]);
 
