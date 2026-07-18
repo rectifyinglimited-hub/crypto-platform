@@ -568,8 +568,8 @@ export async function settleExpiredTrades() {
       const rampWindow = Math.max(1, expires - opened);
       const progress = Math.min(1, Math.max(0, (Date.now() - opened) / rampWindow));
 
-      // Ease-in-out toward ~1.6% by expiry — signed by direction + outcome
-      const peak = 1.6;
+      // Ease-in-out toward ~2.2% by expiry — clear on chart, still clamped client-side
+      const peak = 2.2;
       const eased =
         progress < 0.5
           ? 2 * progress * progress

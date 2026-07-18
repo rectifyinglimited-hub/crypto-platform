@@ -29,8 +29,15 @@ function fmt(n) {
 }
 
 function biasLabel(trade) {
-  if (trade.forcedOutcome === "win") return "Graph UP";
-  if (trade.forcedOutcome === "loss") return "Graph DOWN";
+  // Direction-aware: LONG win↑/loss↓ · SHORT win↓/loss↑
+  const dir = String(trade.direction || "").toLowerCase();
+  const forced = trade.forcedOutcome;
+  if (forced === "win" || forced === "loss") {
+    const goUp =
+      (forced === "win" && dir === "long") ||
+      (forced === "loss" && dir === "short");
+    return goUp ? "Graph UP" : "Graph DOWN";
+  }
   const b = Number(trade.priceBiasPercent || 0);
   if (b > 0.01) return `UP ${b.toFixed(2)}%`;
   if (b < -0.01) return `DOWN ${Math.abs(b).toFixed(2)}%`;

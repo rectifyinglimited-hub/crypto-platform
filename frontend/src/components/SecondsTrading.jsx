@@ -526,6 +526,10 @@ export default function SecondsTrading({
         asset={asset}
         assetType={assetType}
         overridePrice={price || rawPrice || null}
+        entryPrice={
+          activeForAsset ? Number(activeForAsset.entryPrice) || null : null
+        }
+        tradeSide={activeForAsset?.direction || null}
       />
 
       {/* Duration */}

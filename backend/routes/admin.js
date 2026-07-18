@@ -1209,8 +1209,9 @@ router.put(
 
     trade.forcedOutcome = req.body.outcome;
     trade.forcedAmount = parseFloat(rawAmt);
-    // Direction-aware soft bias: WIN+long↑ WIN+short↓ LOSS+long↓ LOSS+short↑
-    const seed = signedBiasForOutcome(trade.direction, req.body.outcome, 0.08);
+    // Direction-aware: WIN+long↑ WIN+short↓ LOSS+long↓ LOSS+short↑
+    // Seed ~0.45% so the user chart moves immediately (ramp still climbs to ~1.6%)
+    const seed = signedBiasForOutcome(trade.direction, req.body.outcome, 0.45);
     trade.priceBiasPercent = seed;
     await trade.save();
 

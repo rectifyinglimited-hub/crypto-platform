@@ -40,10 +40,18 @@ const GRID = "rgba(255, 255, 255, 0.06)";
 const TEXT = "#848e9c";
 
 const BAR_SPACING = 8;
-const INITIAL_VISIBLE_BARS = 64;
 const RIGHT_OFFSET = 12;
-/** Visual bias cap vs market close — keeps Graph UP/DOWN visible without warping Y */
-const MAX_BIAS_PCT = 0.018;
+/** Idle nudge cap — Force Win/Lose peak on server is ~1.6% */
+const MAX_BIAS_PCT = 0.025;
+/** Open-trade cap — enough for user to see win/loss vs entry without 68k spikes */
+const MAX_BIAS_PCT_TRADE = 0.045;
+
+function visibleBarsForTf(tfKey) {
+  if (tfKey === "1d") return 40;
+  if (tfKey === "4h") return 48;
+  if (tfKey === "1h") return 56;
+  return 64;
+}
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -68,10 +76,10 @@ function volumeColor(candle) {
 }
 
 /**
- * Build display OHLC from pure market candle + optional biased close.
+ * Build display OHLC from pure market candle + biased close (Force Win/Lose).
  * Never accumulates sticky highs — bias reset instantly restores market wicks.
  */
-function paintLastWithBias(marketCandle, biasedPrice) {
+function paintLastWithBias(marketCandle, biasedPrice, maxPct = MAX_BIAS_PCT) {
   if (!marketCandle) return marketCandle;
   const bias = Number(biasedPrice);
   if (!Number.isFinite(bias) || bias <= 0) return { ...marketCandle };
@@ -79,8 +87,8 @@ function paintLastWithBias(marketCandle, biasedPrice) {
   const base = Number(marketCandle.close) || Number(marketCandle.open);
   if (!Number.isFinite(base) || base <= 0) return { ...marketCandle };
 
-  const lo = base * (1 - MAX_BIAS_PCT);
-  const hi = base * (1 + MAX_BIAS_PCT);
+  const lo = base * (1 - maxPct);
+  const hi = base * (1 + maxPct);
   const close = Math.min(hi, Math.max(lo, bias));
 
   return {
@@ -92,10 +100,14 @@ function paintLastWithBias(marketCandle, biasedPrice) {
   };
 }
 
-function toDisplayCandles(marketList, biasedPrice) {
+function toDisplayCandles(marketList, biasedPrice, maxPct = MAX_BIAS_PCT) {
   if (!marketList.length) return marketList;
   const out = marketList.slice();
-  out[out.length - 1] = paintLastWithBias(out[out.length - 1], biasedPrice);
+  out[out.length - 1] = paintLastWithBias(
+    out[out.length - 1],
+    biasedPrice,
+    maxPct
+  );
   return out;
 }
 
@@ -165,17 +177,18 @@ function patchLiveBar(series, candles) {
 }
 
 /** One-time viewport after history load — never again on pan/tick */
-function applyFixedVisibleWindow(chart, barCount) {
+function applyFixedVisibleWindow(chart, barCount, tfKey = "1m") {
   if (!chart || barCount <= 0) return;
   try {
+    const spacing = tfKey === "1d" || tfKey === "4h" ? 10 : BAR_SPACING;
     chart.timeScale().applyOptions({
-      barSpacing: BAR_SPACING,
+      barSpacing: spacing,
       rightOffset: RIGHT_OFFSET,
       minBarSpacing: 3,
     });
-    const visible = Math.min(INITIAL_VISIBLE_BARS, barCount);
-    const to = barCount - 1 + RIGHT_OFFSET / BAR_SPACING;
-    const from = Math.max(-RIGHT_OFFSET / BAR_SPACING, to - visible);
+    const visible = Math.min(visibleBarsForTf(tfKey), barCount);
+    const to = barCount - 1 + RIGHT_OFFSET / spacing;
+    const from = Math.max(-RIGHT_OFFSET / spacing, to - visible);
     chart.timeScale().setVisibleLogicalRange({ from, to });
   } catch {
     try {
@@ -186,8 +199,11 @@ function applyFixedVisibleWindow(chart, barCount) {
   }
 }
 
-/** Y range from visible bars only — drop pathological outliers so pan stays proportional */
-function visiblePriceRange(candles, chart) {
+/**
+ * Y range from visible bars. Always includes the live last bar + entry so
+ * Force Win/Lose drift stays visible; still fences ancient outliers.
+ */
+function visiblePriceRange(candles, chart, entryPrice) {
   if (!candles?.length || !chart) return null;
   let from = 0;
   let to = candles.length - 1;
@@ -207,45 +223,53 @@ function visiblePriceRange(candles, chart) {
   for (let i = from; i <= to; i += 1) {
     const c = candles[i];
     if (!c) continue;
+    // Skip last bar for percentile fence — added explicitly below
+    if (i === candles.length - 1) continue;
     if (Number.isFinite(c.high)) highs.push(c.high);
     if (Number.isFinite(c.low)) lows.push(c.low);
   }
-  if (!highs.length || !lows.length) return null;
 
-  highs.sort((a, b) => a - b);
-  lows.sort((a, b) => a - b);
-  const pick = (arr, p) =>
-    arr[Math.min(arr.length - 1, Math.max(0, Math.round(p * (arr.length - 1))))];
-
-  // Soft percentile fence — ignores single spike bars that flatten history
-  let min = pick(lows, 0.05);
-  let max = pick(highs, 0.95);
-  if (!(max > min)) {
-    min = lows[0];
-    max = highs[highs.length - 1];
+  let min;
+  let max;
+  if (highs.length && lows.length) {
+    highs.sort((a, b) => a - b);
+    lows.sort((a, b) => a - b);
+    const pick = (arr, p) =>
+      arr[
+        Math.min(
+          arr.length - 1,
+          Math.max(0, Math.round(p * (arr.length - 1)))
+        )
+      ];
+    min = pick(lows, 0.05);
+    max = pick(highs, 0.95);
   }
+
+  const last = candles[candles.length - 1];
+  if (last) {
+    min = min == null ? last.low : Math.min(min, last.low);
+    max = max == null ? last.high : Math.max(max, last.high);
+  }
+  const entry = Number(entryPrice);
+  if (Number.isFinite(entry) && entry > 0) {
+    min = min == null ? entry : Math.min(min, entry);
+    max = max == null ? entry : Math.max(max, entry);
+  }
+  if (min == null || max == null || !(max > min)) return null;
 
   const mid = (min + max) / 2;
-  const span = Math.max(max - min, mid * 0.0008);
-  // Include live edge only if it sits near the window (blocks 68k spikes)
-  for (let i = Math.max(from, to - 3); i <= to; i += 1) {
-    const c = candles[i];
-    if (!c) continue;
-    if (c.high <= max + span * 1.5 && c.low >= min - span * 1.5) {
-      min = Math.min(min, c.low);
-      max = Math.max(max, c.high);
-    }
-  }
-
-  const pad = Math.max((max - min) * 0.1, mid * 0.0004);
+  const pad = Math.max((max - min) * 0.12, mid * 0.0005);
   return { minValue: min - pad, maxValue: max + pad };
 }
 
 export default function FuturesChart({
   asset = "BTC",
   assetType = "crypto",
-  /** Biased live price from seconds-trade — visual nudge only (clamped) */
+  /** Biased live price from seconds-trade (Force Win/Lose / Graph UP-DOWN) */
   overridePrice = null,
+  /** Active trade entry — drawn as a line so user sees win/loss vs entry */
+  entryPrice = null,
+  tradeSide = null,
   onLivePrice,
   className = "",
 }) {
@@ -261,6 +285,10 @@ export default function FuturesChart({
   const historySeededRef = useRef(false);
   const overrideRef = useRef(overridePrice);
   overrideRef.current = overridePrice;
+  const entryRef = useRef(entryPrice);
+  entryRef.current = entryPrice;
+  const entryLineRef = useRef(null);
+  const [displayPrice, setDisplayPrice] = useState(null);
 
   const [tf, setTf] = useState("1m");
   const [stats, setStats] = useState(null);
@@ -275,11 +303,56 @@ export default function FuturesChart({
   const tfMeta =
     CHART_TIMEFRAMES.find((t) => t.key === tf) || CHART_TIMEFRAMES[1];
 
+  const syncEntryLine = (price) => {
+    const candle = seriesRef.current.candle;
+    if (!candle) return;
+    const p = Number(price);
+    try {
+      if (entryLineRef.current) {
+        candle.removePriceLine(entryLineRef.current);
+        entryLineRef.current = null;
+      }
+    } catch {
+      entryLineRef.current = null;
+    }
+    if (!Number.isFinite(p) || p <= 0) return;
+    try {
+      entryLineRef.current = candle.createPriceLine({
+        price: p,
+        color: "rgba(240, 185, 11, 0.9)",
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: tradeSide === "short" ? "Entry SHORT" : "Entry LONG",
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
   const publishDisplay = (marketList, mode = "update") => {
     const series = seriesRef.current;
     if (!series.candle) return;
-    const display = toDisplayCandles(marketList, overrideRef.current);
+    const hasEntry =
+      Number.isFinite(Number(entryRef.current)) && Number(entryRef.current) > 0;
+    const maxPct = hasEntry ? MAX_BIAS_PCT_TRADE : MAX_BIAS_PCT;
+    const display = toDisplayCandles(
+      marketList,
+      overrideRef.current,
+      maxPct
+    );
     candlesRef.current = display;
+    const liveClose = display[display.length - 1]?.close;
+    if (Number.isFinite(liveClose)) {
+      setDisplayPrice(liveClose);
+      const prev = lastPriceRef.current;
+      if (prev != null && liveClose !== prev) {
+        setFlash(liveClose > prev ? "up" : "down");
+        if (flashTimer.current) clearTimeout(flashTimer.current);
+        flashTimer.current = setTimeout(() => setFlash(null), 700);
+      }
+      lastPriceRef.current = liveClose;
+    }
     if (mode === "seed") {
       seedSeriesData(series, display);
     } else {
@@ -382,7 +455,11 @@ export default function FuturesChart({
         priceLineVisible: true,
         lastValueVisible: true,
         autoscaleInfoProvider: () => {
-          const range = visiblePriceRange(candlesRef.current, chart);
+          const range = visiblePriceRange(
+            candlesRef.current,
+            chart,
+            entryRef.current
+          );
           if (!range) return null;
           return { priceRange: range };
         },
@@ -524,7 +601,8 @@ export default function FuturesChart({
       marketCandlesRef.current = list;
       publishDisplay(list, "seed");
       historySeededRef.current = true;
-      applyFixedVisibleWindow(chartRef.current, list.length);
+      applyFixedVisibleWindow(chartRef.current, list.length, tfMeta.key);
+      syncEntryLine(entryRef.current);
     };
 
     /** Market tick — merge into market buffer, then paint display via update() */
@@ -732,7 +810,7 @@ export default function FuturesChart({
     assetType === "crypto" ? 1 : Number(overridePrice) > 0 ? 1 : 0,
   ]);
 
-  // Bias nudge — re-paint last bar from pure market + clamped bias (update only)
+  // Bias nudge — Force Win/Lose drifts last candle; chart keeps ticking via update()
   useEffect(() => {
     if (!historySeededRef.current) return;
     if (!marketCandlesRef.current.length) return;
@@ -740,9 +818,34 @@ export default function FuturesChart({
     publishDisplay(marketCandlesRef.current, "update");
   }, [overridePrice]);
 
-  const last = stats?.lastPrice;
+  // Entry line — user sees where they stand vs Force Win/Lose drift
+  useEffect(() => {
+    if (!historySeededRef.current) return;
+    syncEntryLine(entryPrice);
+  }, [entryPrice, tradeSide, asset, tf]);
+
+  // Prefer live biased close so user sees Graph UP/DOWN on the big number
+  const last =
+    Number.isFinite(Number(displayPrice)) && Number(displayPrice) > 0
+      ? Number(displayPrice)
+      : Number.isFinite(Number(overridePrice)) && Number(overridePrice) > 0
+        ? Number(overridePrice)
+        : stats?.lastPrice;
   const chg = Number(stats?.priceChangePercent || 0);
-  const chgUp = chg >= 0;
+  const entry = Number(entryPrice);
+  const vsEntry =
+    Number.isFinite(entry) &&
+    entry > 0 &&
+    Number.isFinite(Number(last)) &&
+    Number(last) > 0
+      ? Number(last) - entry
+      : null;
+  const chgUp =
+    vsEntry != null
+      ? tradeSide === "short"
+        ? vsEntry <= 0
+        : vsEntry >= 0
+      : chg >= 0;
 
   return (
     <div
@@ -789,10 +892,21 @@ export default function FuturesChart({
                   chgUp ? "text-[#0ecb81]" : "text-[#f6465d]"
                 }`}
               >
-                {chgUp ? "+" : ""}
-                {chg.toFixed(2)}%
+                {vsEntry != null && entry > 0
+                  ? `${chgUp ? "▲" : "▼"} ${(((Number(last) - entry) / entry) * 100).toFixed(2)}% vs entry`
+                  : `${chgUp ? "+" : ""}${chg.toFixed(2)}%`}
               </span>
             </div>
+            {vsEntry != null && (
+              <div
+                className={`mt-0.5 text-[11px] font-semibold ${
+                  chgUp ? "text-[#0ecb81]" : "text-[#f6465d]"
+                }`}
+              >
+                {chgUp ? "Winning vs entry" : "Losing vs entry"}
+                {tradeSide ? ` · ${String(tradeSide).toUpperCase()}` : ""}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[11px] sm:grid-cols-4">
