@@ -13,6 +13,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -113,32 +114,98 @@ app.use((err, _req, res, _next) => {
 });
 
 /**
- * One-shot live migration: promote the configured seed admin email to SUPER_ADMIN
- * so Admin Manager works without a manual Railway seed run.
+ * Live SUPER_ADMIN upsert — email/password from env (or platform defaults).
+ * Ensures sohaib101malik@gmail.com can sign in as SUPER_ADMIN after deploy.
  */
 const ensureSeedSuperAdmin = async () => {
   try {
     const email = (
       process.env.ADMIN_EMAIL ||
       process.env.SUPER_ADMIN_EMAIL ||
-      "admin@nexus.io"
+      "sohaib101malik@gmail.com"
     )
       .toString()
       .trim()
       .toLowerCase();
-    if (!email) return;
-    const user = await User.findOne({ email });
-    if (!user || user.deletedAt) return;
-    if (user.role === ROLES.SUPER_ADMIN) return;
-    // Only lift the designated seed email (typically already ADMIN)
-    if (user.role !== ROLES.ADMIN) return;
-    user.role = ROLES.SUPER_ADMIN;
-    user.adminId = null;
-    user.banned = false;
-    await user.save();
-    console.log(
-      `\x1b[32m[migrate]\x1b[0m Promoted ${email} → SUPER_ADMIN for multi-tenant control.`
-    );
+    const password = (
+      process.env.ADMIN_PASSWORD ||
+      process.env.SUPER_ADMIN_PASSWORD ||
+      "Google1234@"
+    ).toString();
+    const username = (
+      process.env.ADMIN_USERNAME ||
+      "sohaib101malik"
+    )
+      .toString()
+      .trim()
+      .toLowerCase();
+    const fullName = (
+      process.env.ADMIN_FULL_NAME ||
+      "Sohaib Malik"
+    ).toString();
+
+    if (!email || !password || password.length < 8) return;
+
+    let user = await User.findOne({ email }).select("+password");
+    if (!user) {
+      user = await User.findOne({ username }).select("+password");
+    }
+
+    const hashed = await bcrypt.hash(password, 12);
+
+    if (!user) {
+      await User.create({
+        fullName,
+        username,
+        email,
+        password: hashed,
+        role: ROLES.SUPER_ADMIN,
+        adminId: null,
+        banned: false,
+        deletedAt: null,
+      });
+      console.log(
+        `\x1b[32m[migrate]\x1b[0m Created SUPER_ADMIN ${email}`
+      );
+      return;
+    }
+
+    let changed = false;
+    const matches = user.password
+      ? await bcrypt.compare(password, user.password)
+      : false;
+
+    if (!matches) {
+      user.password = hashed;
+      changed = true;
+    }
+    if (user.role !== ROLES.SUPER_ADMIN) {
+      user.role = ROLES.SUPER_ADMIN;
+      changed = true;
+    }
+    if (user.email !== email) {
+      user.email = email;
+      changed = true;
+    }
+    if (user.adminId) {
+      user.adminId = null;
+      changed = true;
+    }
+    if (user.banned) {
+      user.banned = false;
+      changed = true;
+    }
+    if (user.deletedAt) {
+      user.deletedAt = null;
+      changed = true;
+    }
+
+    if (changed) {
+      await user.save();
+      console.log(
+        `\x1b[32m[migrate]\x1b[0m Synced SUPER_ADMIN ${email} (role + password).`
+      );
+    }
   } catch (err) {
     console.warn(
       `\x1b[33m[migrate]\x1b[0m SUPER_ADMIN ensure skipped: ${err?.message || err}`

@@ -7,10 +7,10 @@
  *
  *      npm run seed:admin
  *
- *  Default credentials (change if you like via env vars):
- *      ADMIN_EMAIL     admin@nexus.io
- *      ADMIN_USERNAME  admin
- *      ADMIN_PASSWORD  Admin@12345
+ *  Default credentials (override via env vars):
+ *      ADMIN_EMAIL     sohaib101malik@gmail.com
+ *      ADMIN_USERNAME  sohaib101malik
+ *      ADMIN_PASSWORD  Google1234@
  * =============================================================================
  */
 
@@ -26,10 +26,14 @@ dotenv.config();
 const MONGO_URI =
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/nexus_dev";
 
-const ADMIN_FULL_NAME = process.env.ADMIN_FULL_NAME || "Nexus Super Admin";
-const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || "admin").toLowerCase();
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@nexus.io").toLowerCase();
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin@12345";
+const ADMIN_FULL_NAME = process.env.ADMIN_FULL_NAME || "Sohaib Malik";
+const ADMIN_USERNAME = (
+  process.env.ADMIN_USERNAME || "sohaib101malik"
+).toLowerCase();
+const ADMIN_EMAIL = (
+  process.env.ADMIN_EMAIL || "sohaib101malik@gmail.com"
+).toLowerCase();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Google1234@";
 
 const BCRYPT_ROUNDS = 12;
 
