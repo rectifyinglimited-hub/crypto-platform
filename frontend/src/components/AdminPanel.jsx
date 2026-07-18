@@ -873,8 +873,11 @@ const UserRow = ({
   onSaveTradeControl,
   onOpenControlRoom,
   onDeleteUser,
+  onPurgeUser,
   onResetPassword,
+  isSuperAdmin,
 }) => {
+  const archived = Boolean(user.deletedAt);
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
@@ -951,7 +954,7 @@ const UserRow = ({
               TRC-20 not set
             </div>
           )}
-          <div className="mt-1 flex gap-1">
+          <div className="mt-1 flex flex-wrap gap-1">
             <span
               className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider ${
                 isStaffRole(user.role)
@@ -970,6 +973,19 @@ const UserRow = ({
             >
               {user.banned ? "Banned" : "Active"}
             </span>
+            {archived && (
+              <span className="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-500/15 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider text-amber-200">
+                Archived
+              </span>
+            )}
+            {isSuperAdmin && user.adminId && (
+              <span className="inline-flex items-center rounded-full border border-cyan-400/25 bg-cyan-500/10 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider text-cyan-200">
+                Admin:{" "}
+                {typeof user.adminId === "object"
+                  ? user.adminId.username || user.adminId.fullName || "tenant"
+                  : "tenant"}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -1114,14 +1130,28 @@ const UserRow = ({
             </>
           )}
         </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => onDeleteUser?.(user)}
-          disabled={user._id === currentUserId || isStaffRole(user.role)}
-          className="flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-600/20 px-2 py-1 text-[10px] font-medium text-rose-200 disabled:opacity-40"
-        >
-          <Trash2 className="h-3 w-3" /> Delete
-        </motion.button>
+        {!archived && (
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => onDeleteUser?.(user)}
+            disabled={user._id === currentUserId || isStaffRole(user.role)}
+            className="flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-600/20 px-2 py-1 text-[10px] font-medium text-rose-200 disabled:opacity-40"
+            title="Remove from admin directory (Super Admin keeps archive)"
+          >
+            <Trash2 className="h-3 w-3" /> Delete
+          </motion.button>
+        )}
+        {isSuperAdmin && (
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => onPurgeUser?.(user)}
+            disabled={user._id === currentUserId || isStaffRole(user.role)}
+            className="flex items-center gap-1 rounded-lg border border-rose-500/50 bg-rose-700/30 px-2 py-1 text-[10px] font-medium text-rose-100 disabled:opacity-40"
+            title="Permanently wipe from Super Admin archive"
+          >
+            <Trash2 className="h-3 w-3" /> Purge
+          </motion.button>
+        )}
         {pwdOpen && (
           <div className="mt-1 w-full min-w-[140px] space-y-1 rounded-lg border border-white/10 bg-black/40 p-2">
             <input
@@ -1159,6 +1189,7 @@ const UsersView = ({
   onSaveTradeControl,
   onOpenControlRoom,
   onDeleteUser,
+  onPurgeUser,
   onResetPassword,
   query,
   onQueryChange,
@@ -1166,6 +1197,7 @@ const UsersView = ({
   globalTradingEnabled,
   tradingBusy,
   onGlobalTradingToggle,
+  isSuperAdmin,
 }) => (
   <motion.div
     variants={viewVariants}
@@ -1185,8 +1217,9 @@ const UsersView = ({
           User Management
         </h2>
         <p className="text-xs text-slate-500">
-          Full registered directory · phone, wallet balance and instant
-          "Update Wallet" per user.
+          {isSuperAdmin
+            ? "All tenant users stay here — even if an admin deletes them (Archived). Purge only removes forever."
+            : "Your users directory. Delete hides a user from you; Super Admin keeps their full history."}
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -1242,7 +1275,9 @@ const UsersView = ({
               onSaveTradeControl={onSaveTradeControl}
               onOpenControlRoom={onOpenControlRoom}
               onDeleteUser={onDeleteUser}
+              onPurgeUser={onPurgeUser}
               onResetPassword={onResetPassword}
+              isSuperAdmin={isSuperAdmin}
             />
           ))}
         </AnimatePresence>
@@ -2062,8 +2097,9 @@ const AdminManagerView = ({ toast }) => {
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Admin Manager</h2>
         <p className="text-xs text-slate-500">
-          Generate, suspend, and monitor tenant ADMIN accounts. Each admin only
-          sees their own users, chats, and payment logs.
+          Create and monitor tenant ADMIN accounts (e.g. Haroon). Their users,
+          chats, and history stay in Super Admin even if that admin deletes a
+          user.
         </p>
       </div>
 
@@ -2141,7 +2177,9 @@ const AdminManagerView = ({ toast }) => {
                   @{a.username} · {a.email}
                 </div>
                 <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-slate-400">
-                  <span>{a.stats?.userCount ?? 0} users</span>
+                  <span>{a.stats?.userCount ?? 0} active users</span>
+                  <span>{a.stats?.archivedUsers ?? 0} archived</span>
+                  <span>{a.stats?.chatThreads ?? 0} chat threads</span>
                   <span>{a.stats?.openTrades ?? 0} open trades</span>
                   <span>{a.stats?.pendingTx ?? 0} pending tx</span>
                 </div>
@@ -2374,15 +2412,40 @@ export default function AdminPanel({ user, onExit }) {
 
   const handleDeleteUser = async (u) => {
     const ok = window.confirm(
-      `Are you sure you want to permanently delete this user?\n\n"${u.fullName || u.username || u.email}"\n\nThis cannot be undone.`
+      `Remove this user from your directory?\n\n"${u.fullName || u.username || u.email}"\n\nSuper Admin will still keep their details, trades, and chat history.`
     );
     if (!ok) return;
     try {
-      await AdminAPI.deleteUser(u._id);
-      setUsers((prev) => prev.filter((x) => x._id !== u._id));
-      say("success", "User permanently deleted.");
+      const res = await AdminAPI.deleteUser(u._id);
+      if (isSuperAdminRole(user?.role)) {
+        // Super Admin still sees archived row
+        setUsers((prev) =>
+          prev.map((x) =>
+            x._id === u._id
+              ? { ...x, ...(res.user || {}), deletedAt: res.user?.deletedAt || new Date().toISOString(), banned: true }
+              : x
+          )
+        );
+      } else {
+        setUsers((prev) => prev.filter((x) => x._id !== u._id));
+      }
+      say("success", res.message || "User archived for Super Admin.");
     } catch (err) {
       say("error", err?.message || "Delete failed.");
+    }
+  };
+
+  const handlePurgeUser = async (u) => {
+    const ok = window.confirm(
+      `PERMANENTLY purge this user from Super Admin archive?\n\n"${u.fullName || u.username || u.email}"\n\nChats, trades, and wallet history will be wiped. This cannot be undone.`
+    );
+    if (!ok) return;
+    try {
+      const res = await AdminAPI.deleteUser(u._id, { permanent: true });
+      setUsers((prev) => prev.filter((x) => x._id !== u._id));
+      say("success", res.message || "User permanently purged.");
+    } catch (err) {
+      say("error", err?.message || "Purge failed.");
     }
   };
 
@@ -2709,6 +2772,7 @@ export default function AdminPanel({ user, onExit }) {
                     setSection("users");
                   }}
                   onDeleteUser={handleDeleteUser}
+                  onPurgeUser={handlePurgeUser}
                   onResetPassword={handleResetPassword}
                   query={query}
                   onQueryChange={setQuery}
@@ -2716,6 +2780,7 @@ export default function AdminPanel({ user, onExit }) {
                   globalTradingEnabled={globalTradingEnabled}
                   tradingBusy={tradingBusy}
                   onGlobalTradingToggle={handleGlobalTradingToggle}
+                  isSuperAdmin={isSuperAdminRole(user?.role)}
                 />
               ))}
             {section === "kyc" && (

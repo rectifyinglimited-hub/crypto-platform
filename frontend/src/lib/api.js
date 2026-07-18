@@ -179,9 +179,14 @@ export const AdminAPI = {
   deleteInviteCode: (id) =>
     api.delete(`/admin/invite-codes/${id}`).then((r) => r.data),
 
-  listUsers: (q = "") =>
+  listUsers: (q = "", { includeDeleted } = {}) =>
     api
-      .get("/admin/users", { params: q ? { q } : {} })
+      .get("/admin/users", {
+        params: {
+          ...(q ? { q } : {}),
+          ...(includeDeleted === false ? { includeDeleted: "0" } : {}),
+        },
+      })
       .then((r) => r.data),
   updateBalance: (id, payload) =>
     api.put(`/admin/users/${id}/balance`, payload).then((r) => r.data),
@@ -189,8 +194,13 @@ export const AdminAPI = {
     api
       .put(`/admin/users/${id}/ban`, banned === undefined ? {} : { banned })
       .then((r) => r.data),
-  deleteUser: (id) =>
-    api.delete(`/admin/users/${id}`).then((r) => r.data),
+  /** Soft-delete for admins; Super Admin may pass { permanent: true } to purge */
+  deleteUser: (id, { permanent = false } = {}) =>
+    api
+      .delete(`/admin/users/${id}`, {
+        params: permanent ? { permanent: "1" } : {},
+      })
+      .then((r) => r.data),
   resetUserPassword: (id, newPassword) =>
     api
       .put(`/admin/users/${id}/password`, { newPassword })

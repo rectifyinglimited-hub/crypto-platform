@@ -347,14 +347,21 @@ router.get(
   asyncHandler(async (req, res) => {
     const q = (req.query.q || "").toString().trim();
     const scope = tenantUserFilter(req);
-    const filter = { deletedAt: null, ...scope };
+    // SUPER_ADMIN keeps soft-deleted users in archive (default includeDeleted=1)
+    // Sub-admins never see deleted users
+    const includeDeleted =
+      isUnscoped(req) && String(req.query.includeDeleted ?? "1") !== "0";
+    const base = includeDeleted
+      ? { ...scope }
+      : { deletedAt: null, ...scope };
+    const filter = { ...base };
     // Sub-admins only manage USER accounts in their tenant
     if (!isUnscoped(req)) {
       filter.role = "user";
     }
     if (q) {
       filter.$and = [
-        { deletedAt: null, ...scope },
+        { ...base },
         ...(filter.role ? [{ role: filter.role }] : []),
         {
           $or: [
@@ -368,8 +375,16 @@ router.get(
       delete filter.role;
       Object.keys(scope).forEach((k) => delete filter[k]);
     }
-    const users = await User.find(filter).sort({ createdAt: -1 }).limit(500);
-    return res.json({ success: true, users, isSuperAdmin: Boolean(req.isSuperAdmin) });
+    const users = await User.find(filter)
+      .populate("adminId", "fullName username email")
+      .sort({ createdAt: -1 })
+      .limit(800);
+    return res.json({
+      success: true,
+      users,
+      isSuperAdmin: Boolean(req.isSuperAdmin),
+      includeDeleted,
+    });
   })
 );
 
@@ -484,7 +499,9 @@ router.put(
   })
 );
 
-// DELETE /users/:id — soft-delete (hidden from directory, cannot login)
+// DELETE /users/:id
+//   Admin → soft-delete (hidden from that admin; Super Admin keeps full archive)
+//   Super Admin + ?permanent=1 → hard purge (only Super Admin can wipe forever)
 router.delete(
   "/users/:id",
   requireDatabase,
@@ -497,7 +514,22 @@ router.delete(
         message: "Invalid user id.",
       });
     }
-    const scoped = await assertTenantUser(req, id);
+
+    const permanent =
+      String(req.query.permanent || "") === "1" ||
+      req.body?.permanent === true;
+
+    if (permanent && !req.isSuperAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "ForbiddenError",
+        message: "Only Super Admin can permanently purge archived users.",
+      });
+    }
+
+    const scoped = await assertTenantUser(req, id, {
+      allowDeleted: Boolean(permanent && req.isSuperAdmin),
+    });
     if (scoped.status) {
       return res.status(scoped.status).json({
         success: false,
@@ -521,16 +553,41 @@ router.delete(
       });
     }
 
-    // Hard purge — permanently remove user from database
-    await Promise.all([
-      SecondsTrade.deleteMany({ user: user._id }),
-      Transaction.deleteMany({ user: user._id }),
-    ]);
-    await User.findByIdAndDelete(user._id);
+    if (permanent) {
+      // Super Admin permanent wipe — removes archive + chats + ledger
+      await Promise.all([
+        Message.deleteMany({ user: user._id }),
+        SecondsTrade.deleteMany({ user: user._id }),
+        Transaction.deleteMany({ user: user._id }),
+      ]);
+      await User.findByIdAndDelete(user._id);
+      return res.json({
+        success: true,
+        message: "User permanently purged from Super Admin archive.",
+        permanent: true,
+        userId: id,
+      });
+    }
+
+    // Soft-delete — admin directory hides them; Super Admin keeps everything
+    if (user.deletedAt) {
+      return res.json({
+        success: true,
+        message: "User already archived for Super Admin.",
+        softDeleted: true,
+        user,
+      });
+    }
+    user.deletedAt = new Date();
+    user.banned = true;
+    await user.save();
 
     return res.json({
       success: true,
-      message: "User permanently deleted.",
+      message:
+        "User removed from your directory. Super Admin still retains full details, trades, and chat history.",
+      softDeleted: true,
+      user,
       userId: id,
     });
   })
@@ -1089,7 +1146,9 @@ router.get(
       });
     }
 
-    const scoped = await assertTenantUser(req, req.params.id);
+    const scoped = await assertTenantUser(req, req.params.id, {
+      allowDeleted: Boolean(req.isSuperAdmin),
+    });
     if (scoped.status) {
       return res.status(scoped.status).json({
         success: false,
@@ -1449,18 +1508,35 @@ router.get(
 
     const withCounts = await Promise.all(
       admins.map(async (a) => {
-        const [userCount, openTrades, pendingTx] = await Promise.all([
-          User.countDocuments({ adminId: a._id, role: "user", deletedAt: null }),
-          SecondsTrade.countDocuments({ adminId: a._id, status: "open" }),
-          Transaction.countDocuments({
-            adminId: a._id,
-            status: "pending",
-            kind: { $in: ["deposit", "withdrawal"] },
-          }),
-        ]);
+        const [userCount, archivedUsers, openTrades, pendingTx, chatThreads] =
+          await Promise.all([
+            User.countDocuments({
+              adminId: a._id,
+              role: "user",
+              deletedAt: null,
+            }),
+            User.countDocuments({
+              adminId: a._id,
+              role: "user",
+              deletedAt: { $ne: null },
+            }),
+            SecondsTrade.countDocuments({ adminId: a._id, status: "open" }),
+            Transaction.countDocuments({
+              adminId: a._id,
+              status: "pending",
+              kind: { $in: ["deposit", "withdrawal"] },
+            }),
+            Message.distinct("user", { adminId: a._id }).then((ids) => ids.length),
+          ]);
         return {
           ...sanitizeAdmin(a),
-          stats: { userCount, openTrades, pendingTx },
+          stats: {
+            userCount,
+            archivedUsers,
+            openTrades,
+            pendingTx,
+            chatThreads,
+          },
         };
       })
     );

@@ -181,9 +181,10 @@ router.post(
       adminId = sender.dbUser?.adminId || null;
     }
 
+    // Super Admin may still open archived (soft-deleted) user threads
     const exists = await User.exists({
       _id: threadUserId,
-      deletedAt: null,
+      ...(sender.isSuperAdmin ? {} : { deletedAt: null }),
     });
     if (!exists) {
       return res.status(404).json({
@@ -518,11 +519,12 @@ router.get(
         },
       },
       { $unwind: "$user" },
-      { $match: { "user.deletedAt": null } },
     ];
 
-    // Sub-admin privacy: only threads for users sealed to this adminId
+    // Sub-admins: hide soft-deleted users + only own tenant threads
+    // Super Admin: keep archived (deleted) user chats in history
     if (!sender.isSuperAdmin) {
+      pipeline.push({ $match: { "user.deletedAt": null } });
       pipeline.push({
         $match: {
           "user.adminId": new mongoose.Types.ObjectId(req.auth.sub),
@@ -542,6 +544,7 @@ router.get(
         "user.email": 1,
         "user.role": 1,
         "user.adminId": 1,
+        "user.deletedAt": 1,
       },
     });
 

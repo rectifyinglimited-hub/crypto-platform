@@ -49,13 +49,19 @@ export function tenantUserFilter(req) {
 
 /**
  * Load a user and enforce tenant ownership. Returns { user } or { status, message }.
+ * SUPER_ADMIN may pass { allowDeleted: true } to open soft-deleted archive records.
+ * Sub-admins never see soft-deleted users.
  */
-export async function assertTenantUser(req, userId) {
+export async function assertTenantUser(req, userId, { allowDeleted = false } = {}) {
   if (!mongoose.isValidObjectId(userId)) {
     return { status: 400, message: "Invalid user id." };
   }
   const user = await User.findById(userId);
-  if (!user || user.deletedAt) {
+  if (!user) {
+    return { status: 404, message: "User not found." };
+  }
+  const canSeeDeleted = allowDeleted && isUnscoped(req);
+  if (user.deletedAt && !canSeeDeleted) {
     return { status: 404, message: "User not found." };
   }
   if (isUnscoped(req)) return { user };

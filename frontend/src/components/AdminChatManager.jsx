@@ -460,8 +460,15 @@ export default function AdminChatManager() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="truncate text-xs font-semibold">
-                          {t.user?.fullName}
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <div className="truncate text-xs font-semibold">
+                            {t.user?.fullName}
+                          </div>
+                          {t.user?.deletedAt && (
+                            <span className="shrink-0 rounded border border-amber-400/30 bg-amber-500/15 px-1 text-[8px] font-semibold uppercase text-amber-200">
+                              Archived
+                            </span>
+                          )}
                         </div>
                         <div className="shrink-0 text-[9px] uppercase tracking-widest text-slate-500">
                           {timeAgo(t.lastMessage?.createdAt)}
@@ -510,6 +517,7 @@ export default function AdminChatManager() {
                   </div>
                   <div className="text-[10px] uppercase tracking-widest text-slate-500">
                     @{selected.username} · {selected.email}
+                    {selected.deletedAt ? " · Archived (kept for Super Admin)" : ""}
                   </div>
                 </div>
               </div>
