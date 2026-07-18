@@ -30,6 +30,7 @@ import {
   subscribeBinanceMarket,
   synthCandleFromPrice,
   toBinanceSymbol,
+  toUnixSeconds,
   toVolumeBars,
 } from "../lib/binanceMarket.js";
 
@@ -47,7 +48,8 @@ const MAX_BIAS_PCT = 0.025;
 const MAX_BIAS_PCT_TRADE = 0.045;
 
 function visibleBarsForTf(tfKey) {
-  if (tfKey === "1d") return 40;
+  // 15d / 1d daily candles — show a clean ~15 trading-day window by default
+  if (tfKey === "15d" || tfKey === "1d") return 15;
   if (tfKey === "4h") return 48;
   if (tfKey === "1h") return 56;
   return 64;
@@ -180,7 +182,8 @@ function patchLiveBar(series, candles) {
 function applyFixedVisibleWindow(chart, barCount, tfKey = "1m") {
   if (!chart || barCount <= 0) return;
   try {
-    const spacing = tfKey === "1d" || tfKey === "4h" ? 10 : BAR_SPACING;
+    const spacing =
+      tfKey === "15d" || tfKey === "1d" || tfKey === "4h" ? 12 : BAR_SPACING;
     chart.timeScale().applyOptions({
       barSpacing: spacing,
       rightOffset: RIGHT_OFFSET,
@@ -290,7 +293,8 @@ export default function FuturesChart({
   const entryLineRef = useRef(null);
   const [displayPrice, setDisplayPrice] = useState(null);
 
-  const [tf, setTf] = useState("1m");
+  /** First paint: 15 daily Binance candles */
+  const [tf, setTf] = useState("15d");
   const [stats, setStats] = useState(null);
   const [flash, setFlash] = useState(null);
   const [connected, setConnected] = useState(false);
@@ -691,8 +695,10 @@ export default function FuturesChart({
         onKline: (k) => {
           if (!alive || gen !== loadGen.current) return;
           if (tfMeta.interval === "1s" && streamInterval !== "1s") return;
+          const t = toUnixSeconds(k.time);
+          if (!t) return;
           upsertMarket({
-            time: k.time,
+            time: t,
             open: k.open,
             high: k.high,
             low: k.low,
@@ -824,18 +830,20 @@ export default function FuturesChart({
     syncEntryLine(entryPrice);
   }, [entryPrice, tradeSide, asset, tf]);
 
-  // Prefer live biased close so user sees Graph UP/DOWN on the big number
-  const last =
-    Number.isFinite(Number(displayPrice)) && Number(displayPrice) > 0
+  const entry = Number(entryPrice);
+  const hasOpenTrade = Number.isFinite(entry) && entry > 0 && tradeSide;
+  // Live Binance ticker when idle; biased display only while a trade is open
+  const last = hasOpenTrade
+    ? Number.isFinite(Number(displayPrice)) && Number(displayPrice) > 0
       ? Number(displayPrice)
       : Number.isFinite(Number(overridePrice)) && Number(overridePrice) > 0
         ? Number(overridePrice)
-        : stats?.lastPrice;
+        : stats?.lastPrice
+    : stats?.lastPrice ??
+      (Number.isFinite(Number(displayPrice)) ? Number(displayPrice) : null);
   const chg = Number(stats?.priceChangePercent || 0);
-  const entry = Number(entryPrice);
   const vsEntry =
-    Number.isFinite(entry) &&
-    entry > 0 &&
+    hasOpenTrade &&
     Number.isFinite(Number(last)) &&
     Number(last) > 0
       ? Number(last) - entry

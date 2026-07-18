@@ -12,6 +12,8 @@ export const CHART_TIMEFRAMES = [
   { key: "15m", label: "15m", interval: "15m", limit: 500 },
   { key: "1h", label: "1h", interval: "1h", limit: 500 },
   { key: "4h", label: "4h", interval: "4h", limit: 500 },
+  /** Default user view — ~15 daily Binance candles */
+  { key: "15d", label: "15d", interval: "1d", limit: 30 },
   { key: "1d", label: "1d", interval: "1d", limit: 365 },
 ];
 
@@ -37,6 +39,18 @@ export function intervalMs(interval) {
   return map[interval] || 60_000;
 }
 
+/** Normalize exchange timestamps to unix seconds (never leave ms → “future” dates). */
+export function toUnixSeconds(raw) {
+  let t = Number(raw);
+  if (!Number.isFinite(t) || t <= 0) return 0;
+  // ms epoch (~1.7e12) → seconds
+  if (t > 1e12) t = Math.floor(t / 1000);
+  // reject absurd future (> 2 days ahead)
+  const maxOk = Math.floor(Date.now() / 1000) + 2 * 86400;
+  if (t > maxOk) return 0;
+  return Math.floor(t);
+}
+
 /** Binance kline row → candle + volume */
 export function parseKlineRow(row) {
   const openTime = Number(row[0]);
@@ -45,7 +59,7 @@ export function parseKlineRow(row) {
   const low = Number(row[3]);
   const close = Number(row[4]);
   const volume = Number(row[5]);
-  const time = Math.floor(openTime / 1000);
+  const time = toUnixSeconds(openTime);
   return {
     time,
     open,
@@ -63,7 +77,9 @@ export async function fetchKlines(symbol, interval, limit = 500) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Klines ${res.status}`);
   const rows = await res.json();
-  return (Array.isArray(rows) ? rows : []).map(parseKlineRow);
+  return (Array.isArray(rows) ? rows : [])
+    .map(parseKlineRow)
+    .filter((c) => c.time > 0 && Number.isFinite(c.close));
 }
 
 export async function fetchTicker24h(symbol) {

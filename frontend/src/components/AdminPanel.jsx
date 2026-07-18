@@ -1793,9 +1793,10 @@ const isImagePreview = (v) =>
   typeof v === "string" &&
   (v.startsWith("data:image") ||
     v.startsWith("blob:") ||
+    v.startsWith("/uploads/") ||
     /^https?:\/\//i.test(v));
 
-const KycMediaThumb = ({ src, label, icon: Icon, accent }) => {
+const KycMediaThumb = ({ src, label, icon: Icon, accent, onOpen }) => {
   const showImg = isImagePreview(src);
   return (
     <div
@@ -1804,19 +1805,27 @@ const KycMediaThumb = ({ src, label, icon: Icon, accent }) => {
       <div className="flex items-center gap-1.5 border-b border-white/5 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
         <Icon className="h-3 w-3" />
         {label}
+        {showImg && (
+          <span className="ml-auto text-[8px] font-medium normal-case tracking-normal text-cyan-400/80">
+            Click to enlarge
+          </span>
+        )}
       </div>
       {showImg ? (
         <button
           type="button"
-          onClick={() => window.open(src, "_blank", "noopener,noreferrer")}
-          className="block w-full"
-          title="Open full size"
+          onClick={() => onOpen?.({ src, label })}
+          className="group relative block w-full cursor-zoom-in"
+          title="Click to open full size"
         >
           <img
             src={src}
             alt={label}
-            className="h-36 w-full object-cover object-top"
+            className="h-36 w-full object-cover object-top transition group-hover:opacity-90"
           />
+          <span className="pointer-events-none absolute inset-0 grid place-items-center bg-black/0 text-[11px] font-semibold text-white opacity-0 transition group-hover:bg-black/35 group-hover:opacity-100">
+            Open full photo
+          </span>
         </button>
       ) : (
         <div className="flex h-36 flex-col items-center justify-center gap-2 px-3 text-center text-[10px] text-slate-500">
@@ -1830,6 +1839,41 @@ const KycMediaThumb = ({ src, label, icon: Icon, accent }) => {
   );
 };
 
+/** Full-screen lightbox — works with data: URLs (window.open often blocks them) */
+const KycLightbox = ({ item, onClose }) => {
+  if (!item?.src) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.label || "KYC photo"}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20"
+      >
+        Close
+      </button>
+      <div
+        className="max-h-[90vh] max-w-[min(960px,96vw)] overflow-auto rounded-2xl border border-white/10 bg-slate-950 p-2 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+          {item.label}
+        </div>
+        <img
+          src={item.src}
+          alt={item.label || "KYC"}
+          className="max-h-[80vh] w-full object-contain"
+        />
+      </div>
+    </div>
+  );
+};
+
 const KycView = ({
   requests,
   loading,
@@ -1837,18 +1881,24 @@ const KycView = ({
   onReview,
   filter,
   onFilterChange,
-}) => (
+}) => {
+  const [lightbox, setLightbox] = useState(null);
+
+  return (
   <motion.div
     variants={viewVariants}
     initial="hidden"
     animate="show"
     exit="exit"
   >
+    {lightbox && (
+      <KycLightbox item={lightbox} onClose={() => setLightbox(null)} />
+    )}
     <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">KYC Review</h2>
         <p className="text-xs text-slate-500">
-          Review document + selfie side-by-side, then approve or decline.
+          Click document or selfie to open full size, then approve or decline.
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -1966,16 +2016,32 @@ const KycView = ({
             {/* Document + Selfie side-by-side */}
             <div className="grid grid-cols-2 gap-2">
               <KycMediaThumb
-                src={u.kyc?.documentPreview}
+                src={
+                  isImagePreview(u.kyc?.documentPreview)
+                    ? u.kyc.documentPreview.startsWith("data:") ||
+                      /^https?:\/\//i.test(u.kyc.documentPreview)
+                      ? u.kyc.documentPreview
+                      : assetUrl(u.kyc.documentPreview)
+                    : u.kyc?.documentPreview
+                }
                 label="Document Photo"
                 icon={ImageIcon}
                 accent="border-indigo-400/20"
+                onOpen={setLightbox}
               />
               <KycMediaThumb
-                src={u.kyc?.selfiePreview}
+                src={
+                  isImagePreview(u.kyc?.selfiePreview)
+                    ? u.kyc.selfiePreview.startsWith("data:") ||
+                      /^https?:\/\//i.test(u.kyc.selfiePreview)
+                      ? u.kyc.selfiePreview
+                      : assetUrl(u.kyc.selfiePreview)
+                    : u.kyc?.selfiePreview
+                }
                 label="Selfie Photo"
                 icon={Camera}
                 accent="border-emerald-400/30 ring-1 ring-emerald-400/15"
+                onOpen={setLightbox}
               />
             </div>
 
@@ -2015,11 +2081,9 @@ const KycView = ({
       </div>
     )}
   </motion.div>
-);
+  );
+};
 
-// ---------------------------------------------------------------------------
-// Main AdminPanel
-// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Admin Manager — SUPER_ADMIN only
 // ---------------------------------------------------------------------------
