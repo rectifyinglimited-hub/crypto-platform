@@ -1154,6 +1154,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onLogout={handleLogout}
         onOpenAdmin={onOpenAdmin}
         onOpenKyc={() => setKycOpen(true)}
+        onOpenChat={() => setChatOpenSignal((n) => n + 1)}
         walletUsdt={walletUsdt}
       >
         {/* Unverified restriction banner — clears instantly when KYC is approved */}

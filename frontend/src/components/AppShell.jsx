@@ -19,6 +19,7 @@ import {
   Settings,
 } from "lucide-react";
 import { isStaffRole } from "../lib/roles.js";
+import NotificationBell from "./NotificationBell.jsx";
 
 const NAV = [
   { key: "home", label: "Home", icon: Home },
@@ -84,6 +85,7 @@ export default function AppShell({
   onLogout,
   onOpenAdmin,
   onOpenKyc,
+  onOpenChat,
   walletUsdt,
   children,
 }) {
@@ -174,6 +176,13 @@ export default function AppShell({
                 </span>
               </button>
             )}
+            <NotificationBell
+              userId={user?._id || user?.id}
+              mode="user"
+              onSelect={(n) => {
+                if (n?.meta?.kind === "chat") onOpenChat?.();
+              }}
+            />
           <div className="relative" ref={menuRef}>
             <AvatarBadge
               user={user}

@@ -55,6 +55,7 @@ import {
 import { AdminAPI, AuthAPI, assetUrl } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
 import AdminChatManager from "./AdminChatManager.jsx";
+import NotificationBell from "./NotificationBell.jsx";
 import UserControlRoom, {
   ActiveTradesAlertBar,
 } from "./UserControlRoom.jsx";
@@ -2800,11 +2801,23 @@ export default function AdminPanel({ user, onExit }) {
 
         {/* Main */}
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mb-4 flex flex-wrap gap-2 md:hidden">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <NotificationBell
+              userId={user?._id || user?.id}
+              mode="staff"
+              onSelect={(n) => {
+                if (n?.meta?.kind === "chat") {
+                  setSection("chat");
+                } else if (n?.meta?.kind === "trade_open" && n?.meta?.userId) {
+                  setControlRoomUserId(String(n.meta.userId));
+                  setSection("users");
+                }
+              }}
+            />
             <button
               type="button"
               onClick={onExit}
-              className="flex items-center gap-1 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5 text-[11px] text-slate-300"
+              className="flex items-center gap-1 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5 text-[11px] text-slate-300 md:hidden"
             >
               <LogOut className="h-3 w-3" /> Sign Out
             </button>
@@ -2812,7 +2825,7 @@ export default function AdminPanel({ user, onExit }) {
               <button
                 key={n.key}
                 onClick={() => setSection(n.key)}
-                className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] ${
+                className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] md:hidden ${
                   section === n.key
                     ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
                     : "border-white/5 bg-white/[0.02] text-slate-300"
@@ -2821,6 +2834,9 @@ export default function AdminPanel({ user, onExit }) {
                 <n.icon className="h-3 w-3" /> {n.label}
               </button>
             ))}
+            <div className="ml-auto hidden text-[11px] text-slate-500 md:block">
+              Alerts · chat & trades
+            </div>
           </div>
 
           <AnimatePresence mode="wait">
