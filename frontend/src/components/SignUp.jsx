@@ -416,14 +416,17 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
       // Small delay so the user sees the success toast before we transition.
       setTimeout(() => onSignUpSuccess?.(res.user), 550);
     } catch (err) {
+      const serverMsg = String(err?.message || "");
+      const alreadyUsed = /already been used/i.test(serverMsg);
       const inviteDenied =
-        /invitation code/i.test(String(err?.message || "")) ||
-        err?.error === "ForbiddenError";
-      const message = inviteDenied
-        ? INVITE_REQUIRED_MESSAGE
-        : err?.message ||
-          (Array.isArray(err?.details) && err.details[0]?.message) ||
-          "Registration failed. Please try again.";
+        /invitation code/i.test(serverMsg) || err?.error === "ForbiddenError";
+      const message = alreadyUsed
+        ? serverMsg
+        : inviteDenied
+          ? INVITE_REQUIRED_MESSAGE
+          : serverMsg ||
+            (Array.isArray(err?.details) && err.details[0]?.message) ||
+            "Registration failed. Please try again.";
       setToast({ kind: "error", message });
     } finally {
       setSubmitting(false);
