@@ -54,6 +54,9 @@ const BCRYPT_ROUNDS = 12;
 
 const INVITE_REQUIRED_MESSAGE =
   "Valid Invitation Code is required to create an account.";
+/** Single-use policy — once redeemed, nobody else can register with it */
+const INVITE_USED_MESSAGE =
+  "This invitation code has already been used. Please request a new invitation code from your admin.";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -123,13 +126,15 @@ const sanitizeUser = (user) => {
  */
 const requireActiveInviteCode = async (raw) => {
   const denial = { status: 403, message: INVITE_REQUIRED_MESSAGE };
+  const used = { status: 403, message: INVITE_USED_MESSAGE };
   if (typeof raw !== "string" || !raw.trim()) throw denial;
 
   const code = await InviteCode.findOne({ code: raw.trim().toUpperCase() });
   if (!code) throw denial;
   if (!code.active) throw denial;
   if (code.expiresAt && new Date(code.expiresAt) < new Date()) throw denial;
-  if ((code.usedBy?.length || 0) >= (code.maxUses || 1)) throw denial;
+  // Platform policy: every invite is single-use (ignore legacy maxUses > 1)
+  if ((code.usedBy?.length || 0) >= 1) throw used;
 
   return code;
 };
@@ -272,10 +277,31 @@ router.post(
       await user.save();
     }
 
-    // 4) Consume the invite code (audit trail)
-    inviteDoc.usedBy = inviteDoc.usedBy || [];
-    inviteDoc.usedBy.push({ user: user._id, at: new Date() });
-    await inviteDoc.save();
+    // 4) Atomic single-use consume — blocks a second registrant on the same code
+    const consumed = await InviteCode.findOneAndUpdate(
+      {
+        _id: inviteDoc._id,
+        active: true,
+        $expr: {
+          $lt: [{ $size: { $ifNull: ["$usedBy", []] } }, 1],
+        },
+      },
+      {
+        $push: { usedBy: { user: user._id, at: new Date() } },
+        $set: { active: false, maxUses: 1 },
+      },
+      { new: true }
+    );
+
+    if (!consumed) {
+      // Race / already used — roll back the new account so no orphan login
+      await User.deleteOne({ _id: user._id });
+      return res.status(403).json({
+        success: false,
+        error: "ForbiddenError",
+        message: INVITE_USED_MESSAGE,
+      });
+    }
 
     // 5) Mark first login + sign JWT
     user.lastLoginAt = new Date();

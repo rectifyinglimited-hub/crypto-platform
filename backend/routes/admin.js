@@ -120,7 +120,8 @@ router.get(
     const activeCodes = codes.filter((c) => {
       if (!c.active) return false;
       if (c.expiresAt && new Date(c.expiresAt) < new Date()) return false;
-      if ((c.usedBy?.length || 0) >= (c.maxUses || 1)) return false;
+      // Single-use policy — any redemption exhausts the code
+      if ((c.usedBy?.length || 0) >= 1) return false;
       return true;
     }).length;
 
@@ -251,7 +252,6 @@ router.post(
       .matches(/^[A-Z0-9-]+$/i)
       .withMessage("Code may only contain letters, numbers, dashes."),
     body("role").optional().isIn(["user", "admin"]),
-    body("maxUses").optional().isInt({ min: 1, max: 1_000_000 }),
     body("expiresAt")
       .optional({ nullable: true, checkFalsy: true })
       .isISO8601(),
@@ -293,16 +293,21 @@ router.post(
       tenantId = req.auth.sub;
     }
 
+    // Always single-use — one registration per code
     const created = await InviteCode.create({
       code: rawCode,
       role: codeRole,
-      maxUses: req.body.maxUses || 1,
+      maxUses: 1,
       expiresAt: req.body.expiresAt || null,
       notes: req.body.notes || null,
       createdBy: req.auth.sub,
       adminId: tenantId,
     });
-    return res.status(201).json({ success: true, code: created });
+    return res.status(201).json({
+      success: true,
+      message: "Single-use invitation code created.",
+      code: created,
+    });
   })
 );
 
@@ -1588,15 +1593,15 @@ router.post(
     admin.adminId = admin._id;
     await admin.save();
 
-    // Seed a starter invite code owned by this admin
+    // Seed one single-use invite for this admin's first user
     const seedCode = randomCode(8);
     await InviteCode.create({
       code: seedCode,
       role: "user",
-      maxUses: 100,
+      maxUses: 1,
       createdBy: req.auth.sub,
       adminId: admin._id,
-      notes: `Starter code for @${admin.username}`,
+      notes: `Starter single-use code for @${admin.username}`,
     });
 
     return res.status(201).json({

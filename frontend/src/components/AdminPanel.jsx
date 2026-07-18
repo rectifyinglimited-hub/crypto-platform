@@ -372,7 +372,6 @@ const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
   const [form, setForm] = useState({
     code: "",
     role: "user",
-    maxUses: 1,
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -385,10 +384,9 @@ const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
       await onCreate({
         code: form.code || null,
         role: form.role,
-        maxUses: Number(form.maxUses) || 1,
         notes: form.notes || null,
       });
-      setForm({ code: "", role: "user", maxUses: 1, notes: "" });
+      setForm({ code: "", role: "user", notes: "" });
     } finally {
       setSubmitting(false);
     }
@@ -415,7 +413,8 @@ const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
             Invitation Code Manager
           </h2>
           <p className="text-xs text-slate-500">
-            Generate custom codes, control roles, and audit redemptions.
+            Each code is single-use — once a user registers with it, nobody else
+            can reuse it. Generate a new code for every new account.
           </p>
         </div>
         <button
@@ -472,17 +471,11 @@ const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
           </div>
           <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              Max Uses
+              Uses
             </label>
-            <input
-              type="number"
-              min="1"
-              value={form.maxUses}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, maxUses: e.target.value }))
-              }
-              className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none"
-            />
+            <div className="flex h-[38px] items-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-200">
+              1 use only
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
@@ -491,7 +484,7 @@ const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
             <input
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="e.g. Q3 partner batch"
+              placeholder="e.g. for user Ali"
               className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
             />
           </div>
@@ -556,7 +549,9 @@ const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
                   {c.role}
                 </div>
                 <div className="col-span-2 text-slate-300">
-                  {(c.usedBy?.length || 0)}/{c.maxUses}
+                  {(c.usedBy?.length || 0) >= 1
+                    ? "Used (1/1)"
+                    : "Available (0/1)"}
                 </div>
                 <div className="col-span-2">
                   <StatusBadge status={c.status} />

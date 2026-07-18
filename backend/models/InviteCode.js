@@ -5,11 +5,11 @@
  *  Invite-code registry used by the Admin Panel.
  *    • `code`        unique short string (uppercase).
  *    • `role`        role granted to accounts that redeem this code.
- *    • `maxUses`     hard cap on redemptions.
- *    • `usedBy`      audit trail of which users consumed the code.
- *    • `active`      soft flag to disable without deleting.
+ *    • `maxUses`     always 1 (single-use policy).
+ *    • `usedBy`      audit trail of which user consumed the code.
+ *    • `active`      soft flag; set false after successful redeem.
  *    • `expiresAt`   optional expiry.
- *  Virtual `status` computes: active | disabled | expired | used.
+ *  Virtual `status` computes: active | disabled | expired | exhausted.
  * =============================================================================
  */
 
@@ -38,6 +38,7 @@ const InviteCodeSchema = new Schema(
       type: Number,
       default: 1,
       min: 1,
+      max: 1, // platform policy: one registration per code
     },
     usedBy: [
       {
@@ -84,9 +85,11 @@ InviteCodeSchema.virtual("uses").get(function () {
 });
 
 InviteCodeSchema.virtual("status").get(function () {
-  if (!this.active) return "disabled";
+  if (!this.active) {
+    return (this.usedBy?.length || 0) >= 1 ? "exhausted" : "disabled";
+  }
   if (this.expiresAt && this.expiresAt < new Date()) return "expired";
-  if ((this.usedBy?.length || 0) >= this.maxUses) return "exhausted";
+  if ((this.usedBy?.length || 0) >= 1) return "exhausted";
   return "active";
 });
 
