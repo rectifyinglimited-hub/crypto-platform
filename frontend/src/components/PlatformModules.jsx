@@ -238,7 +238,7 @@ function pseudoChange(id) {
   return (h / 1000) * 8 - 4;
 }
 
-export function MarketPage({ onNavigate }) {
+export function MarketPage({ onNavigate, onTradePair }) {
   const { items, loading } = useCatalog("market_pair");
   const [cat, setCat] = useState("Crypto");
   const [q, setQ] = useState("");
@@ -251,6 +251,24 @@ export function MarketPage({ onNavigate }) {
       String(it.meta?.base || "").toLowerCase().includes(s)
     );
   });
+
+  const openTrade = (it) => {
+    const category = it.meta?.category || cat || "Crypto";
+    const base = String(it.meta?.base || it.title?.split("/")?.[0] || "BTC")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+    const payload = {
+      asset: category === "Crypto" && base ? base : "BTC",
+      assetType: "crypto",
+      pair: it.title,
+      category,
+    };
+    if (typeof onTradePair === "function") {
+      onTradePair(payload);
+      return;
+    }
+    onNavigate?.("delivery");
+  };
 
   return (
     <div>
@@ -322,8 +340,8 @@ export function MarketPage({ onNavigate }) {
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
-                        onClick={() => onNavigate?.(cat === "Forex" ? "delivery" : "spot")}
-                        className="rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/15"
+                        onClick={() => openTrade(it)}
+                        className="rounded-lg border border-cyan-400/30 bg-gradient-to-r from-cyan-500/20 to-teal-500/15 px-3.5 py-1.5 text-xs font-bold text-cyan-200 shadow-sm transition hover:from-cyan-500/30 hover:to-teal-500/25"
                       >
                         Trade
                       </button>
@@ -345,7 +363,7 @@ export function MarketPage({ onNavigate }) {
 // ---------------------------------------------------------------------------
 const SPOT_COINS_FALLBACK = ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE", "SOL"];
 
-export function SpotTradePage({ onToast, onWalletUpdate }) {
+export function SpotTradePage({ onToast, onWalletUpdate, onOpenTradeDesk }) {
   const { items: pairs } = useCatalog("market_pair");
   const spotCoins = useMemo(() => {
     const fromCat = pairs
@@ -403,6 +421,18 @@ export function SpotTradePage({ onToast, onWalletUpdate }) {
   return (
     <div className="mx-auto max-w-lg">
       <PageHeader icon={Repeat} title="Spot Trade" subtitle="Simplified market buy / sell" />
+      {typeof onOpenTradeDesk === "function" && (
+        <button
+          type="button"
+          onClick={() =>
+            onOpenTradeDesk({ asset: symbol, assetType: "crypto", pair: `${symbol}/USDT` })
+          }
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 py-2.5 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15"
+        >
+          <LineChart className="h-4 w-4" />
+          Open {symbol} chart & Delivery trade
+        </button>
+      )}
       <Card>
         <input
           value={coinQ}
@@ -478,7 +508,7 @@ export function SpotTradePage({ onToast, onWalletUpdate }) {
 // ---------------------------------------------------------------------------
 // 3. PerpetualTradePage
 // ---------------------------------------------------------------------------
-export function PerpetualTradePage({ onToast, onWalletUpdate }) {
+export function PerpetualTradePage({ onToast, onWalletUpdate, onOpenTradeDesk }) {
   const { items: pairs } = useCatalog("market_pair");
   const coinList = useMemo(() => {
     const fromCat = pairs
@@ -535,6 +565,18 @@ export function PerpetualTradePage({ onToast, onWalletUpdate }) {
   return (
     <div className="mx-auto max-w-lg">
       <PageHeader icon={TrendingUp} title="Perpetual" subtitle="Market long / short with leverage" />
+      {typeof onOpenTradeDesk === "function" && (
+        <button
+          type="button"
+          onClick={() =>
+            onOpenTradeDesk({ asset: symbol, assetType: "crypto", pair: `${symbol}/USDT` })
+          }
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 py-2.5 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15"
+        >
+          <LineChart className="h-4 w-4" />
+          Open {symbol} chart & Delivery trade
+        </button>
+      )}
       <Card>
         <input
           value={coinQ}

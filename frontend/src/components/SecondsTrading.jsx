@@ -144,10 +144,20 @@ export default function SecondsTrading({
   onWalletUpdate,
   onToast,
   tradingSuspended = false,
+  initialAsset = null,
+  initialAssetType = "crypto",
 }) {
-  const [assetType, setAssetType] = useState("crypto");
-  const [asset, setAsset] = useState("BTC");
-  const [assetQuery, setAssetQuery] = useState("");
+  const [assetType, setAssetType] = useState(
+    initialAssetType === "stock" ? "stock" : "crypto"
+  );
+  const [asset, setAsset] = useState(
+    String(initialAsset || "BTC").toUpperCase()
+  );
+  const [assetQuery, setAssetQuery] = useState(
+    initialAsset && initialAssetType !== "stock"
+      ? String(initialAsset).toUpperCase()
+      : ""
+  );
   const [cryptoList, setCryptoList] = useState(CRYPTO_FALLBACK);
   const [markets, setMarkets] = useState([]);
   const [series, setSeries] = useState([]);
@@ -363,14 +373,25 @@ export default function SecondsTrading({
     []
   );
 
+  // Apply asset picked from Market / Spot / nav
+  useEffect(() => {
+    if (!initialAsset) return;
+    const next = String(initialAsset).toUpperCase();
+    const type = initialAssetType === "stock" ? "stock" : "crypto";
+    setAssetType(type);
+    setAsset(next);
+    if (type === "crypto") setAssetQuery(next);
+  }, [initialAsset, initialAssetType]);
+
   // Watchlist / external asset pick
   useEffect(() => {
     const onSelect = (e) => {
       const next = e?.detail?.asset;
       const type = e?.detail?.assetType || "crypto";
       if (!next) return;
-      setAssetType(type);
+      setAssetType(type === "stock" ? "stock" : "crypto");
       setAsset(String(next).toUpperCase());
+      if (type !== "stock") setAssetQuery(String(next).toUpperCase());
     };
     window.addEventListener("nexus:select-asset", onSelect);
     return () => window.removeEventListener("nexus:select-asset", onSelect);
@@ -482,6 +503,29 @@ export default function SecondsTrading({
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-[#0d1424]/80 px-4 py-3">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
+            Delivery trade desk
+          </div>
+          <div className="mt-0.5 text-lg font-bold text-white">
+            {asset}
+            <span className="ml-1 text-sm font-medium text-slate-500">/ USDT</span>
+          </div>
+        </div>
+        <div
+          className={`rounded-xl px-3 py-1.5 font-mono text-sm font-semibold tabular-nums ${
+            priceFlash === "up"
+              ? "bg-emerald-500/15 text-emerald-300"
+              : priceFlash === "down"
+                ? "bg-rose-500/15 text-rose-300"
+                : "bg-white/5 text-slate-200"
+          }`}
+        >
+          {rawPrice ? formatPrice(price || rawPrice) : "—"}
+        </div>
+      </div>
+
       {/* Trading wallet + Live Earnings */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-emerald-500/5 p-4">

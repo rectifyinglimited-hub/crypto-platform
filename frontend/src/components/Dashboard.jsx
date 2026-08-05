@@ -1009,6 +1009,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const [chatOpenSignal, setChatOpenSignal] = useState(0);
   const [chatHint, setChatHint] = useState(null);
   const [assetsView, setAssetsView] = useState("overview");
+  const [tradeIntent, setTradeIntent] = useState(null); // { asset, assetType, pair }
 
   const goPage = (p) => {
     setPage(p);
@@ -1017,12 +1018,41 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     else if (p === "assets") setTab("wallet");
     else if (p === "account") setTab("settings");
     else if (p === "home") setTab("home");
+    else if (p === "spot" || p === "perpetual" || p === "market") setTab("trading");
   };
 
   const say = useCallback((kind, message) => {
     setToast({ kind, message });
     setTimeout(() => setToast({ kind: null, message: "" }), 2600);
   }, []);
+
+  const openTradeDesk = useCallback(
+    (payload = {}) => {
+      const asset = String(payload.asset || "BTC").toUpperCase();
+      const assetType = payload.assetType === "stock" ? "stock" : "crypto";
+      setTradeIntent({
+        asset,
+        assetType,
+        pair: payload.pair || `${asset}/USDT`,
+        category: payload.category || "Crypto",
+        at: Date.now(),
+      });
+      setMode("trade");
+      setPage("delivery");
+      setTab("trading");
+      // Also broadcast for any already-mounted listeners
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("nexus:select-asset", {
+            detail: { asset, assetType },
+          })
+        );
+      }, 80);
+      const label = payload.pair || `${asset}/USDT`;
+      say("success", `Opening trade desk · ${label}`);
+    },
+    [say]
+  );
 
   const openDepositSection = useCallback(() => {
     setAssetsView("deposit");
@@ -1182,6 +1212,9 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           if (m === "nft" && page !== "nft" && page !== "nft_mine") {
             setPage("nft");
           }
+          if (m === "trade" && (page === "nft" || page === "nft_mine")) {
+            openTradeDesk({ asset: "BTC", assetType: "crypto" });
+          }
         }}
         walletUsdt={walletUsdt}
         onLogout={handleLogout}
@@ -1224,15 +1257,55 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               )}
             </motion.div>
           )}
-          {page === "market" && <MarketPage key="market" onToast={say} onNavigate={goPage} user={me} />}
-          {page === "spot" && <SpotTradePage key="spot" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
-          {page === "perpetual" && <PerpetualTradePage key="perpetual" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
+          {page === "market" && (
+            <MarketPage
+              key="market"
+              onToast={say}
+              onNavigate={goPage}
+              onTradePair={openTradeDesk}
+              user={me}
+            />
+          )}
+          {page === "spot" && (
+            <SpotTradePage
+              key="spot"
+              onToast={say}
+              user={me}
+              onWalletUpdate={handleUserUpdate}
+              onOpenTradeDesk={openTradeDesk}
+            />
+          )}
+          {page === "perpetual" && (
+            <PerpetualTradePage
+              key="perpetual"
+              onToast={say}
+              user={me}
+              onWalletUpdate={handleUserUpdate}
+              onOpenTradeDesk={openTradeDesk}
+            />
+          )}
           {page === "delivery" && (
-            <motion.div key="delivery" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-2">
+            <motion.div
+              key={`delivery-${tradeIntent?.at || "desk"}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mx-auto grid max-w-[1400px] gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.7fr)]"
+            >
               <div className="min-w-0 space-y-4">
-                <SecondsTrading walletUsdt={walletUsdt} onWalletUpdate={handleUserUpdate} onToast={say} tradingSuspended={tradingSuspended} />
+                <SecondsTrading
+                  walletUsdt={walletUsdt}
+                  onWalletUpdate={handleUserUpdate}
+                  onToast={say}
+                  tradingSuspended={tradingSuspended}
+                  initialAsset={tradeIntent?.asset || "BTC"}
+                  initialAssetType={tradeIntent?.assetType || "crypto"}
+                />
               </div>
-              <div className="space-y-4"><CryptoWatchlist /><MarketActivity /></div>
+              <div className="space-y-4">
+                <CryptoWatchlist />
+                <MarketActivity />
+              </div>
             </motion.div>
           )}
           {page === "c2c" && <C2CPage key="c2c" onToast={say} user={me} />}

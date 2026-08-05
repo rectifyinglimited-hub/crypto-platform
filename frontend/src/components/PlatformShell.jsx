@@ -75,21 +75,36 @@ function TradeDropdown({ item, active, page, onPageChange }) {
 
   return (
     <div className="relative shrink-0" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition lg:px-3.5 lg:text-sm ${
+      <div
+        className={`inline-flex items-stretch overflow-hidden rounded-xl ${
           active
             ? "bg-cyan-500/15 text-cyan-300"
             : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
         }`}
       >
-        <Icon className="h-4 w-4" />
-        {item.label}
-        <ChevronDown
-          className={`h-3 w-3 transition ${open ? "rotate-180" : ""}`}
-        />
-      </button>
+        <button
+          type="button"
+          onClick={() => {
+            // Main Trade click → open Delivery desk (chart + buy/sell)
+            onPageChange("delivery");
+            setOpen(false);
+          }}
+          className="inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs font-semibold transition lg:px-3.5 lg:text-sm"
+        >
+          <Icon className="h-4 w-4" />
+          {item.label}
+        </button>
+        <button
+          type="button"
+          aria-label="Trade menu"
+          onClick={() => setOpen((v) => !v)}
+          className="border-l border-white/10 px-2 py-2 transition hover:bg-white/5"
+        >
+          <ChevronDown
+            className={`h-3 w-3 transition ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
       <AnimatePresence>
         {open && (
           <motion.div
@@ -97,8 +112,11 @@ function TradeDropdown({ item, active, page, onPageChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.14 }}
-            className="absolute left-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#0c1222] py-1 shadow-2xl shadow-black/50"
+            className="absolute left-0 z-50 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#0c1222] py-1 shadow-2xl shadow-black/50"
           >
+            <div className="px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Trade desk
+            </div>
             {item.children.map((c) => (
               <button
                 key={c.key}
@@ -107,13 +125,16 @@ function TradeDropdown({ item, active, page, onPageChange }) {
                   onPageChange(c.key);
                   setOpen(false);
                 }}
-                className={`flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm transition ${
+                className={`flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm transition ${
                   page === c.key
                     ? "bg-cyan-500/10 text-cyan-300"
                     : "text-slate-300 hover:bg-white/5 hover:text-white"
                 }`}
               >
-                {c.label}
+                <span>{c.label}</span>
+                {c.key === "delivery" && (
+                  <span className="text-[10px] text-cyan-400/80">Chart</span>
+                )}
               </button>
             ))}
           </motion.div>
