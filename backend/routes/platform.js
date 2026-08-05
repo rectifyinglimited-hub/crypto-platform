@@ -681,7 +681,7 @@ router.post(
       accountName: String(req.body.accountName || "").trim(),
       accountNumber: String(req.body.accountNumber || "").trim(),
       iban: String(req.body.iban || "").trim(),
-      currency: String(req.body.currency || "PKR").trim(),
+      currency: String(req.body.currency || "USD").trim(),
       createdAt: new Date(),
     };
     if (!card.bankName || !card.accountNumber) {

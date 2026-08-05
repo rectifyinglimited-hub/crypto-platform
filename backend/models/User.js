@@ -215,7 +215,7 @@ const UserSchema = new Schema(
           accountName: String,
           accountNumber: String,
           iban: String,
-          currency: { type: String, default: "PKR" },
+          currency: { type: String, default: "USD" },
           createdAt: { type: Date, default: Date.now },
         },
       ],

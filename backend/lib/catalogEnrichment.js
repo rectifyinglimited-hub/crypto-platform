@@ -209,13 +209,33 @@ export async function ensureCatalogEnrichment(adminId = null) {
     }
   }
 
-  // Globalize legacy PK local payment labels on C2C ads
-  await PlatformCatalog.updateMany(
-    {
-      ...filter,
-      kind: "c2c_ad",
-      "meta.payment": { $in: ["Bank Transfer", "Easypaisa", "EasyPaisa", "JazzCash"] },
-    },
-    { $set: { "meta.payment": "Merchant Deposit", "meta.fiat": "USD" } }
-  );
+  // Globalize legacy C2C ads — remove PKR / local payment wording
+  const c2cAds = await PlatformCatalog.find({
+    ...filter,
+    kind: "c2c_ad",
+  });
+  for (const doc of c2cAds) {
+    const title = String(doc.title || "");
+    const fiat = String(doc.meta?.fiat || "");
+    const payment = String(doc.meta?.payment || "");
+    const needsFix =
+      /PKR/i.test(title) ||
+      /PKR/i.test(fiat) ||
+      /PKR/i.test(String(doc.subtitle || "")) ||
+      /easypaisa|jazzcash|bank transfer/i.test(payment) ||
+      fiat.toUpperCase() === "PKR";
+
+    if (!needsFix) continue;
+
+    const isSell = /sell/i.test(title) || doc.meta?.side === "buy";
+    doc.title = isSell ? "USDT · Sell (USD)" : "USDT · Buy (USD)";
+    doc.subtitle = "Global merchant desk";
+    if (!doc.meta) doc.meta = {};
+    doc.meta.fiat = "USD";
+    doc.meta.payment = "Merchant Deposit";
+    if (doc.meta.min == null) doc.meta.min = 50;
+    if (doc.meta.max == null) doc.meta.max = 50000;
+    doc.markModified("meta");
+    await doc.save();
+  }
 }

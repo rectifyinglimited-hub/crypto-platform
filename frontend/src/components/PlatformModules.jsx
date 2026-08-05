@@ -1866,7 +1866,7 @@ function PaymentSection({ cards, onToast, onChanged }) {
     accountName: "",
     accountNumber: "",
     iban: "",
-    currency: "PKR",
+    currency: "USD",
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -1878,7 +1878,7 @@ function PaymentSection({ cards, onToast, onChanged }) {
       await PlatformAPI.addBankCard(form);
       onToast?.("success", "Bank card saved.");
       onChanged?.();
-      setForm({ bankName: "", accountName: "", accountNumber: "", iban: "", currency: "PKR" });
+      setForm({ bankName: "", accountName: "", accountNumber: "", iban: "", currency: "USD" });
     } catch (err) {
       onToast?.("error", err?.message || "Failed to save card.");
     } finally {
