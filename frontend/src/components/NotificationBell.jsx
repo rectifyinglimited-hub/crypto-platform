@@ -183,7 +183,7 @@ export default function NotificationBell({
         add({
           id: `trade-settle-${t._id}`,
           type: "trade_win",
-          title: "Trade won",
+          title: "Trade profit",
           body: `${t.asset || "Trade"} · +$${amount}`,
           createdAt: t.settledAt || new Date().toISOString(),
           meta: { kind: "trade_settle", tradeId: String(t._id) },
@@ -196,10 +196,43 @@ export default function NotificationBell({
         add({
           id: `trade-settle-${t._id}`,
           type: "trade_loss",
-          title: "Trade lost",
+          title: "Trade loss",
           body: `${t.asset || "Trade"} · −$${loss}`,
           createdAt: t.settledAt || new Date().toISOString(),
           meta: { kind: "trade_settle", tradeId: String(t._id) },
+        });
+      }
+    });
+
+    const offDeposit = onSocketEvent("deposit:status", (payload) => {
+      if (mode !== "user") return;
+      if (payload?.userId && String(payload.userId) !== uid) return;
+      const status = String(payload?.status || payload?.action || "").toUpperCase();
+      const amt = Number(payload?.amount || 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      const id =
+        payload?.transactionId ||
+        payload?.transaction?._id ||
+        `${Date.now()}`;
+      if (status === "APPROVED" || status === "APPROVE") {
+        add({
+          id: `deposit-${id}`,
+          type: "trade_win",
+          title: "Deposit approved",
+          body: `$${amt} credited to your Trading Wallet`,
+          createdAt: new Date().toISOString(),
+          meta: { kind: "deposit", transactionId: String(id) },
+        });
+      } else if (status === "REJECTED" || status === "REJECT") {
+        add({
+          id: `deposit-${id}`,
+          type: "trade_loss",
+          title: "Deposit rejected",
+          body: "Your deposit was declined. Balance unchanged.",
+          createdAt: new Date().toISOString(),
+          meta: { kind: "deposit", transactionId: String(id) },
         });
       }
     });
@@ -208,6 +241,7 @@ export default function NotificationBell({
       offChat();
       offTradeOpen();
       offTradeSettled();
+      offDeposit();
     };
   }, [uid, mode, add]);
 

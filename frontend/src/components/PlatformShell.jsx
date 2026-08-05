@@ -216,6 +216,8 @@ export default function PlatformShell({
   onLogout,
   onOpenAccount,
   onOpenKyc,
+  onOpenChat,
+  onNotificationSelect,
   children,
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -254,7 +256,14 @@ export default function PlatformShell({
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-2.5">
-            <NotificationBell userId={user?._id || user?.id} mode="user" />
+            <NotificationBell
+              userId={user?._id || user?.id}
+              mode="user"
+              onSelect={(n) => {
+                onNotificationSelect?.(n);
+                if (n?.type === "chat") onOpenChat?.(n);
+              }}
+            />
 
             {walletUsdt != null && (
               <button

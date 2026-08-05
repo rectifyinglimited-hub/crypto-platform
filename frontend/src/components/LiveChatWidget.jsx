@@ -132,10 +132,32 @@ export default function LiveChatWidget({
     if (!openSignal || openSignal === lastOpenSignal.current) return;
     lastOpenSignal.current = openSignal;
     setOpen(true);
-    setMenuStep("menu");
     setDraft("");
     setStatusBanner(null);
-  }, [openSignal]);
+    if (contextHint === "deposit") {
+      setMenuStep("deposit");
+      // Load rails + post deposit details into thread
+      (async () => {
+        try {
+          const res = await GatewayAPI.current();
+          setGateway(res.settings || null);
+        } catch {
+          setGateway(null);
+        }
+        try {
+          const res = await ChatAPI.depositDetails();
+          if (res.message) {
+            setMessages((prev) => mergeMessages(prev, res.message));
+          }
+          if (res.settings) setGateway(res.settings);
+        } catch {
+          /* local gateway panel still works */
+        }
+      })();
+    } else {
+      setMenuStep("menu");
+    }
+  }, [openSignal, contextHint]);
 
   useEffect(() => {
     try {
@@ -144,11 +166,6 @@ export default function LiveChatWidget({
       /* ignore */
     }
   }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (contextHint === "deposit") setMenuStep("menu");
-  }, [open, contextHint]);
 
   const load = async () => {
     if (!userId) return;

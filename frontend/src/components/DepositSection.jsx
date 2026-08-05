@@ -1,5 +1,6 @@
 /**
- * Global merchant deposit panel — rails come from admin Gateway settings only.
+ * Global merchant deposit panel — rails from admin Gateway.
+ * Opens Live Chat so the user can send deposit screenshots.
  */
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
@@ -29,7 +30,7 @@ function GatewayField({ label, value, onCopy }) {
   );
 }
 
-export default function DepositSection({ toast }) {
+export default function DepositSection({ toast, onOpenLiveChat }) {
   const [symbol, setSymbol] = useState("USDT");
   const [amount, setAmount] = useState("");
   const [txHash, setTxHash] = useState("");
@@ -53,6 +54,12 @@ export default function DepositSection({ toast }) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Auto-open Live Chat when user lands on Deposit
+  useEffect(() => {
+    onOpenLiveChat?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const copy = (value, label) => {
@@ -87,9 +94,14 @@ export default function DepositSection({ toast }) {
         network: "MANUAL",
         txHash: txHash || null,
       });
-      toast?.("success", res.message || "Deposit submitted.");
+      toast?.(
+        "success",
+        res.message ||
+          "Deposit request sent. Attach your receipt screenshot in Live Chat."
+      );
       setAmount("");
       setTxHash("");
+      onOpenLiveChat?.();
     } catch (err) {
       toast?.("error", err?.message || "Deposit failed.");
     } finally {
@@ -180,12 +192,21 @@ export default function DepositSection({ toast }) {
         </div>
       )}
 
-      <div className="mb-4 flex items-start gap-2 rounded-xl border border-teal-400/25 bg-teal-500/10 p-3 text-[11px] text-teal-100">
-        <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-300" />
-        <span>
-          After transferring, submit the request below (and optionally notify support via Live Chat
-          with your receipt).
-        </span>
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-teal-400/25 bg-teal-500/10 p-3 text-[11px] text-teal-100 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-2">
+          <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-300" />
+          <span>
+            Transfer funds, submit the request below, then send your receipt screenshot in Live Chat.
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => onOpenLiveChat?.()}
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-teal-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-teal-950"
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Open Live Chat
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">

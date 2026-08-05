@@ -2010,6 +2010,7 @@ export function AssetsHubPage({
   onToast,
   onOpenKyc,
   onOpenDeposit,
+  onOpenLiveChat,
   onOpenWithdraw,
   onWalletUpdate,
   onOpenAccount,
@@ -2026,6 +2027,15 @@ export function AssetsHubPage({
   const openDeposit = () => {
     setView("deposit");
     onOpenDeposit?.();
+    onOpenLiveChat?.();
+  };
+
+  const goView = (key) => {
+    setView(key);
+    if (key === "deposit") {
+      onOpenDeposit?.();
+      onOpenLiveChat?.();
+    }
   };
 
   const load = useCallback(() => {
@@ -2061,7 +2071,7 @@ export function AssetsHubPage({
                 <button
                   key={m.key}
                   type="button"
-                  onClick={() => setView(m.key)}
+                  onClick={() => goView(m.key)}
                   className={`flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
                     active ? "bg-cyan-500/15 text-cyan-300" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
                   }`}
@@ -2089,7 +2099,9 @@ export function AssetsHubPage({
                   onConvert={() => setView("convert")}
                 />
               )}
-              {view === "deposit" && <DepositSection toast={onToast} />}
+              {view === "deposit" && (
+                <DepositSection toast={onToast} onOpenLiveChat={onOpenLiveChat} />
+              )}
               {view === "assets" && (
                 <AssetsSection accounts={accounts} onToast={onToast} onChanged={refreshAfterChange} />
               )}

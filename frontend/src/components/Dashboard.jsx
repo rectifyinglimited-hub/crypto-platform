@@ -1052,12 +1052,25 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     [say]
   );
 
+  const openLiveChat = useCallback((hint = "deposit") => {
+    setChatHint(hint || "deposit");
+    setChatOpenSignal((n) => n + 1);
+  }, []);
+
   const openDepositSection = useCallback(() => {
     setAssetsView("deposit");
     setPage("assets");
     setTab("wallet");
-    say("success", "Opening Deposit section…");
-  }, [say]);
+    openLiveChat("deposit");
+  }, [openLiveChat]);
+
+  useEffect(() => {
+    const onOpenChat = (e) => {
+      openLiveChat(e?.detail?.hint || "deposit");
+    };
+    window.addEventListener("nexus:open-chat", onOpenChat);
+    return () => window.removeEventListener("nexus:open-chat", onOpenChat);
+  }, [openLiveChat]);
 
   const wallet = useMemo(() => {
     const w = me?.wallet;
@@ -1218,6 +1231,12 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onLogout={handleLogout}
         onOpenAccount={() => goPage("account")}
         onOpenKyc={() => setKycOpen(true)}
+        onOpenChat={() => openLiveChat("service")}
+        onNotificationSelect={(n) => {
+          if (n?.type === "chat" || n?.meta?.kind === "chat") {
+            openLiveChat("service");
+          }
+        }}
       >
         {me?.kyc?.status !== "approved" && page !== "assets" && (
           <motion.button
@@ -1328,6 +1347,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               onToast={say}
               onOpenKyc={() => setKycOpen(true)}
               onOpenDeposit={openDepositSection}
+              onOpenLiveChat={() => openLiveChat("deposit")}
               onOpenWithdraw={() => {}}
               onWalletUpdate={handleUserUpdate}
               initialView={assetsView}
