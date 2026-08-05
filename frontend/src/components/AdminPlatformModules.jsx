@@ -1,5 +1,5 @@
 /**
- * Admin control for CXM platform catalog — full edit of prices, meta, images.
+ * Platform Modules — simple field editors (no JSON/code for admins).
  */
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -18,69 +18,402 @@ import {
 import { PlatformAPI, ChatAPI, assetUrl } from "../lib/api.js";
 
 const KINDS = [
-  "nft",
-  "c2c_ad",
-  "carbon_etf",
-  "copy_trader",
-  "loan_plan",
-  "market_pair",
+  { id: "nft", label: "NFT" },
+  { id: "c2c_ad", label: "C2C Rates" },
+  { id: "carbon_etf", label: "Carbon ETF" },
+  { id: "copy_trader", label: "Copy Trade" },
+  { id: "loan_plan", label: "Loan Interest" },
+  { id: "market_pair", label: "Market Pairs" },
 ];
 
-const META_TEMPLATES = {
-  nft: { rarity: "Rare", collection: "Nexus" },
-  c2c_ad: {
-    side: "sell",
-    asset: "USDT",
-    fiat: "USD",
-    min: 50,
-    max: 50000,
-    payment: "Merchant Deposit",
-  },
-  carbon_etf: {
-    tier: "Balanced",
-    hashRate: "10TH/s",
-    cycleDays: 7,
-    dailyPct: 1.5,
-    earlyExitFeePct: 10,
-  },
-  copy_trader: {
-    winRate: 65,
-    followers: 100,
-    minCopy: 50,
-    profitSharePct: 10,
-    bio: "Professional desk",
-    equityHistory: [100, 104, 102, 110, 115, 112, 120, 128, 125, 135],
-    tradeHistory: [
-      { pair: "BTC/USDT", side: "long", pnlPct: 2.4, note: "Breakout long" },
-      { pair: "ETH/USDT", side: "short", pnlPct: -0.8, note: "Scalp" },
-      { pair: "SOL/USDT", side: "long", pnlPct: 3.1, note: "Trend follow" },
-    ],
-  },
-  loan_plan: {
-    dailyInterestPct: 0.15,
-    interestFreeDays: 0,
-    minAmount: 50,
-    maxAmount: 50000,
-    maxDays: 90,
-  },
-  market_pair: { category: "Crypto", base: "BTC", quote: "USDT" },
-};
-
-function metaToText(meta) {
-  try {
-    return JSON.stringify(meta || {}, null, 2);
-  } catch {
-    return "{}";
+function emptyFields(kind) {
+  const base = { title: "", subtitle: "", price: "", imageUrl: "" };
+  switch (kind) {
+    case "nft":
+      return { ...base, rarity: "Rare", collection: "Nexus" };
+    case "c2c_ad":
+      return {
+        ...base,
+        title: "USDT · Buy (USD)",
+        price: "1",
+        side: "sell",
+        asset: "USDT",
+        fiat: "USD",
+        min: "50",
+        max: "50000",
+        payment: "Merchant Deposit",
+      };
+    case "carbon_etf":
+      return {
+        ...base,
+        tier: "Balanced",
+        hashRate: "10TH/s",
+        cycleDays: "7",
+        dailyPct: "1.5",
+        earlyExitFeePct: "10",
+      };
+    case "copy_trader":
+      return {
+        ...base,
+        winRate: "65",
+        followers: "100",
+        minCopy: "50",
+        profitSharePct: "10",
+        bio: "",
+        equityCsv: "100,104,102,110,115,112,120,128,125,135,140,138,145,150",
+        tradesText:
+          "BTC/USDT|long|2.4|Breakout\nETH/USDT|short|-0.8|Scalp\nSOL/USDT|long|3.1|Trend",
+      };
+    case "loan_plan":
+      return {
+        ...base,
+        title: "Standard Loan",
+        dailyInterestPct: "0.15",
+        interestFreeDays: "0",
+        minAmount: "50",
+        maxAmount: "50000",
+        maxDays: "90",
+      };
+    case "market_pair":
+      return {
+        ...base,
+        title: "BTC/USDT",
+        category: "Crypto",
+        base: "BTC",
+        quote: "USDT",
+      };
+    default:
+      return base;
   }
 }
 
-function parseMeta(text) {
-  try {
-    const v = JSON.parse(text || "{}");
-    return typeof v === "object" && v ? v : {};
-  } catch {
-    return null;
+function itemToFields(it) {
+  const m = it.meta || {};
+  const base = {
+    title: it.title || "",
+    subtitle: it.subtitle || "",
+    price: String(it.price ?? ""),
+    imageUrl: it.imageUrl || "",
+  };
+  switch (it.kind) {
+    case "nft":
+      return {
+        ...base,
+        rarity: m.rarity || "Rare",
+        collection: m.collection || "Nexus",
+      };
+    case "c2c_ad":
+      return {
+        ...base,
+        side: m.side || "sell",
+        asset: m.asset || "USDT",
+        fiat: m.fiat || "USD",
+        min: String(m.min ?? 50),
+        max: String(m.max ?? 50000),
+        payment: m.payment || "Merchant Deposit",
+      };
+    case "carbon_etf":
+      return {
+        ...base,
+        tier: m.tier || "Balanced",
+        hashRate: m.hashRate || "",
+        cycleDays: String(m.cycleDays ?? 7),
+        dailyPct: String(m.dailyPct ?? 1),
+        earlyExitFeePct: String(m.earlyExitFeePct ?? 10),
+      };
+    case "copy_trader":
+      return {
+        ...base,
+        winRate: String(m.winRate ?? 65),
+        followers: String(m.followers ?? 0),
+        minCopy: String(m.minCopy ?? 50),
+        profitSharePct: String(m.profitSharePct ?? 10),
+        bio: m.bio || "",
+        equityCsv: Array.isArray(m.equityHistory)
+          ? m.equityHistory.join(",")
+          : "100,105,110,115,120",
+        tradesText: Array.isArray(m.tradeHistory)
+          ? m.tradeHistory
+              .map(
+                (t) =>
+                  `${t.pair || "BTC/USDT"}|${t.side || "long"}|${t.pnlPct ?? 0}|${
+                    t.note || ""
+                  }`
+              )
+              .join("\n")
+          : "",
+      };
+    case "loan_plan":
+      return {
+        ...base,
+        dailyInterestPct: String(m.dailyInterestPct ?? 0.15),
+        interestFreeDays: String(m.interestFreeDays ?? 0),
+        minAmount: String(m.minAmount ?? 50),
+        maxAmount: String(m.maxAmount ?? 50000),
+        maxDays: String(m.maxDays ?? 90),
+      };
+    case "market_pair":
+      return {
+        ...base,
+        category: m.category || "Crypto",
+        base: m.base || "BTC",
+        quote: m.quote || "USDT",
+      };
+    default:
+      return base;
   }
+}
+
+function fieldsToPayload(kind, f) {
+  const price = Number(f.price || 0);
+  let meta = {};
+  switch (kind) {
+    case "nft":
+      meta = { rarity: f.rarity, collection: f.collection };
+      break;
+    case "c2c_ad":
+      meta = {
+        side: f.side,
+        asset: f.asset || "USDT",
+        fiat: f.fiat || "USD",
+        min: Number(f.min || 50),
+        max: Number(f.max || 50000),
+        payment: f.payment || "Merchant Deposit",
+      };
+      break;
+    case "carbon_etf":
+      meta = {
+        tier: f.tier,
+        hashRate: f.hashRate,
+        cycleDays: Number(f.cycleDays || 7),
+        dailyPct: Number(f.dailyPct || 0),
+        earlyExitFeePct: Number(f.earlyExitFeePct || 0),
+      };
+      break;
+    case "copy_trader": {
+      const equityHistory = String(f.equityCsv || "")
+        .split(/[,\s]+/)
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n));
+      const tradeHistory = String(f.tradesText || "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [pair, side, pnlPct, note] = line.split("|").map((s) => s.trim());
+          return {
+            pair: pair || "BTC/USDT",
+            side: side || "long",
+            pnlPct: Number(pnlPct || 0),
+            note: note || "",
+          };
+        });
+      meta = {
+        winRate: Number(f.winRate || 0),
+        followers: Number(f.followers || 0),
+        minCopy: Number(f.minCopy || 0),
+        profitSharePct: Number(f.profitSharePct || 0),
+        bio: f.bio || "",
+        equityHistory: equityHistory.length
+          ? equityHistory
+          : [100, 105, 110, 115, 120],
+        tradeHistory,
+      };
+      break;
+    }
+    case "loan_plan":
+      meta = {
+        dailyInterestPct: Number(f.dailyInterestPct || 0),
+        interestFreeDays: Number(f.interestFreeDays || 0),
+        minAmount: Number(f.minAmount || 50),
+        maxAmount: Number(f.maxAmount || 50000),
+        maxDays: Number(f.maxDays || 90),
+      };
+      break;
+    case "market_pair":
+      meta = {
+        category: f.category || "Crypto",
+        base: f.base || "BTC",
+        quote: f.quote || "USDT",
+      };
+      break;
+    default:
+      break;
+  }
+  return {
+    kind,
+    title: f.title,
+    subtitle: f.subtitle,
+    price,
+    imageUrl: f.imageUrl || null,
+    meta,
+    enabled: true,
+  };
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block text-[11px]">
+      <span className="mb-1 block font-semibold text-slate-400">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const inputCls =
+  "w-full rounded-lg border border-white/10 bg-[#0c1222] px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/40";
+
+function KindFields({ kind, form, setForm }) {
+  const set = (k, v) => setForm({ ...form, [k]: v });
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Field label="Name / Title">
+          <input className={inputCls} value={form.title} onChange={(e) => set("title", e.target.value)} />
+        </Field>
+        <Field label="Subtitle">
+          <input className={inputCls} value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} />
+        </Field>
+        <Field label={kind === "c2c_ad" ? "Rate (price)" : "Price (USDT)"}>
+          <input className={inputCls} type="number" step="any" value={form.price} onChange={(e) => set("price", e.target.value)} />
+        </Field>
+      </div>
+
+      {(kind === "nft" || kind === "copy_trader") && (
+        <Field label="Image URL">
+          <input className={inputCls} value={form.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="Or use Upload pic" />
+        </Field>
+      )}
+
+      {kind === "nft" && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Field label="Rarity">
+            <input className={inputCls} value={form.rarity} onChange={(e) => set("rarity", e.target.value)} />
+          </Field>
+          <Field label="Collection">
+            <input className={inputCls} value={form.collection} onChange={(e) => set("collection", e.target.value)} />
+          </Field>
+        </div>
+      )}
+
+      {kind === "c2c_ad" && (
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Field label="Side (merchant)">
+            <select className={inputCls} value={form.side} onChange={(e) => set("side", e.target.value)}>
+              <option value="sell">sell = User Buy</option>
+              <option value="buy">buy = User Sell</option>
+            </select>
+          </Field>
+          <Field label="Fiat">
+            <input className={inputCls} value={form.fiat} onChange={(e) => set("fiat", e.target.value)} />
+          </Field>
+          <Field label="Payment label">
+            <input className={inputCls} value={form.payment} onChange={(e) => set("payment", e.target.value)} />
+          </Field>
+          <Field label="Min limit">
+            <input className={inputCls} type="number" value={form.min} onChange={(e) => set("min", e.target.value)} />
+          </Field>
+          <Field label="Max limit">
+            <input className={inputCls} type="number" value={form.max} onChange={(e) => set("max", e.target.value)} />
+          </Field>
+          <Field label="Asset">
+            <input className={inputCls} value={form.asset} onChange={(e) => set("asset", e.target.value)} />
+          </Field>
+        </div>
+      )}
+
+      {kind === "carbon_etf" && (
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Field label="Tier name">
+            <input className={inputCls} value={form.tier} onChange={(e) => set("tier", e.target.value)} />
+          </Field>
+          <Field label="Hash rate text">
+            <input className={inputCls} value={form.hashRate} onChange={(e) => set("hashRate", e.target.value)} />
+          </Field>
+          <Field label="Cycle days">
+            <input className={inputCls} type="number" value={form.cycleDays} onChange={(e) => set("cycleDays", e.target.value)} />
+          </Field>
+          <Field label="Daily dividend %">
+            <input className={inputCls} type="number" step="any" value={form.dailyPct} onChange={(e) => set("dailyPct", e.target.value)} />
+          </Field>
+          <Field label="Early exit fee %">
+            <input className={inputCls} type="number" step="any" value={form.earlyExitFeePct} onChange={(e) => set("earlyExitFeePct", e.target.value)} />
+          </Field>
+        </div>
+      )}
+
+      {kind === "copy_trader" && (
+        <div className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-4">
+            <Field label="Win rate %">
+              <input className={inputCls} type="number" value={form.winRate} onChange={(e) => set("winRate", e.target.value)} />
+            </Field>
+            <Field label="Followers">
+              <input className={inputCls} type="number" value={form.followers} onChange={(e) => set("followers", e.target.value)} />
+            </Field>
+            <Field label="Min copy $">
+              <input className={inputCls} type="number" value={form.minCopy} onChange={(e) => set("minCopy", e.target.value)} />
+            </Field>
+            <Field label="Profit share %">
+              <input className={inputCls} type="number" value={form.profitSharePct} onChange={(e) => set("profitSharePct", e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Bio (shown to user)">
+            <input className={inputCls} value={form.bio} onChange={(e) => set("bio", e.target.value)} />
+          </Field>
+          <Field label="Equity graph numbers (comma separated)">
+            <input className={inputCls} value={form.equityCsv} onChange={(e) => set("equityCsv", e.target.value)} placeholder="100,105,110,120" />
+          </Field>
+          <Field label="Trade history (one per line: PAIR|side|pnl%|note)">
+            <textarea
+              className={`${inputCls} h-24 font-mono`}
+              value={form.tradesText}
+              onChange={(e) => set("tradesText", e.target.value)}
+              spellCheck={false}
+            />
+          </Field>
+        </div>
+      )}
+
+      {kind === "loan_plan" && (
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Field label="Daily interest % (e.g. 0.15 or 2)">
+            <input className={inputCls} type="number" step="any" value={form.dailyInterestPct} onChange={(e) => set("dailyInterestPct", e.target.value)} />
+          </Field>
+          <Field label="Interest-free days">
+            <input className={inputCls} type="number" value={form.interestFreeDays} onChange={(e) => set("interestFreeDays", e.target.value)} />
+          </Field>
+          <Field label="Max term days">
+            <input className={inputCls} type="number" value={form.maxDays} onChange={(e) => set("maxDays", e.target.value)} />
+          </Field>
+          <Field label="Min amount $">
+            <input className={inputCls} type="number" value={form.minAmount} onChange={(e) => set("minAmount", e.target.value)} />
+          </Field>
+          <Field label="Max amount $">
+            <input className={inputCls} type="number" value={form.maxAmount} onChange={(e) => set("maxAmount", e.target.value)} />
+          </Field>
+        </div>
+      )}
+
+      {kind === "market_pair" && (
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Field label="Category">
+            <select className={inputCls} value={form.category} onChange={(e) => set("category", e.target.value)}>
+              <option>Crypto</option>
+              <option>Forex</option>
+            </select>
+          </Field>
+          <Field label="Base">
+            <input className={inputCls} value={form.base} onChange={(e) => set("base", e.target.value)} />
+          </Field>
+          <Field label="Quote">
+            <input className={inputCls} value={form.quote} onChange={(e) => set("quote", e.target.value)} />
+          </Field>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AdminPlatformModules({ toast }) {
@@ -90,17 +423,10 @@ export default function AdminPlatformModules({ toast }) {
   const [orders, setOrders] = useState([]);
   const [borrowers, setBorrowers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    subtitle: "",
-    price: "",
-    imageUrl: "",
-    metaText: metaToText(META_TEMPLATES.nft),
-  });
+  const [form, setForm] = useState(() => emptyFields("nft"));
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [uploading, setUploading] = useState(null);
-
   const say = toast || (() => {});
 
   const loadCatalog = useCallback(async () => {
@@ -146,75 +472,30 @@ export default function AdminPlatformModules({ toast }) {
   }, [tab, loadCatalog, loadOrders, loadBorrowers]);
 
   useEffect(() => {
-    setForm({
-      title: "",
-      subtitle: "",
-      price: "",
-      imageUrl: "",
-      metaText: metaToText(META_TEMPLATES[kind] || {}),
-    });
+    setForm(emptyFields(kind));
     setEditId(null);
     setEditForm(null);
   }, [kind]);
 
   const createItem = async () => {
-    const meta = parseMeta(form.metaText);
-    if (!meta) {
-      say("error", "Meta JSON is invalid.");
+    if (!form.title.trim()) {
+      say("error", "Enter a name/title.");
       return;
     }
     try {
-      await PlatformAPI.adminCreateCatalog({
-        kind,
-        title: form.title,
-        subtitle: form.subtitle,
-        price: Number(form.price || 0),
-        imageUrl: form.imageUrl || null,
-        enabled: true,
-        meta,
-      });
-      say("success", "Catalog item created.");
-      setForm({
-        title: "",
-        subtitle: "",
-        price: "",
-        imageUrl: "",
-        metaText: metaToText(META_TEMPLATES[kind] || {}),
-      });
+      await PlatformAPI.adminCreateCatalog(fieldsToPayload(kind, form));
+      say("success", "Added.");
+      setForm(emptyFields(kind));
       loadCatalog();
     } catch (err) {
       say("error", err?.message || "Create failed.");
     }
   };
 
-  const startEdit = (it) => {
-    setEditId(it._id);
-    setEditForm({
-      title: it.title || "",
-      subtitle: it.subtitle || "",
-      price: String(it.price ?? ""),
-      imageUrl: it.imageUrl || "",
-      metaText: metaToText(it.meta || META_TEMPLATES[it.kind] || {}),
-      enabled: it.enabled !== false,
-    });
-  };
-
   const saveEdit = async () => {
     if (!editId || !editForm) return;
-    const meta = parseMeta(editForm.metaText);
-    if (!meta) {
-      say("error", "Meta JSON is invalid.");
-      return;
-    }
     try {
-      await PlatformAPI.adminUpdateCatalog(editId, {
-        title: editForm.title,
-        subtitle: editForm.subtitle,
-        price: Number(editForm.price || 0),
-        imageUrl: editForm.imageUrl || null,
-        enabled: editForm.enabled,
-        meta,
-      });
+      await PlatformAPI.adminUpdateCatalog(editId, fieldsToPayload(kind, editForm));
       say("success", "Saved.");
       setEditId(null);
       setEditForm(null);
@@ -228,103 +509,40 @@ export default function AdminPlatformModules({ toast }) {
     if (!file) return;
     setUploading(itemId || "new");
     try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const res = await ChatAPI.uploadImage(fd);
-      const url = res.url || res.path || res.imageUrl || res.data?.url;
-      if (!url) throw new Error("Upload returned no URL.");
-      if (itemId) {
-        await PlatformAPI.adminUpdateCatalog(itemId, { imageUrl: url });
-        say("success", "Image uploaded.");
-        loadCatalog();
-      } else {
-        setForm((f) => ({ ...f, imageUrl: url }));
-        say("success", "Image ready — create the item.");
-      }
-    } catch (err) {
-      // fallback: base64 data URL stored in imageUrl
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
       try {
-        const dataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+        const fd = new FormData();
+        fd.append("image", file);
+        const res = await ChatAPI.uploadImage(fd);
+        const url = res.url || res.path || res.imageUrl || dataUrl;
+        if (itemId) {
+          await PlatformAPI.adminUpdateCatalog(itemId, { imageUrl: url });
+          loadCatalog();
+        } else if (editForm) {
+          setEditForm({ ...editForm, imageUrl: url });
+        } else {
+          setForm({ ...form, imageUrl: url });
+        }
+        say("success", "Picture saved.");
+      } catch {
         if (itemId) {
           await PlatformAPI.adminUpdateCatalog(itemId, { imageUrl: dataUrl });
-          say("success", "Image saved.");
           loadCatalog();
         } else {
-          setForm((f) => ({ ...f, imageUrl: dataUrl }));
-          say("success", "Image ready — create the item.");
+          setForm({ ...form, imageUrl: dataUrl });
         }
-      } catch {
-        say("error", err?.message || "Image upload failed.");
+        say("success", "Picture saved.");
       }
+    } catch (err) {
+      say("error", err?.message || "Upload failed.");
     } finally {
       setUploading(null);
     }
-  };
-
-  const clearImage = async (itemId) => {
-    try {
-      await PlatformAPI.adminUpdateCatalog(itemId, { imageUrl: null });
-      say("success", "Image removed.");
-      loadCatalog();
-    } catch (err) {
-      say("error", err?.message || "Failed to remove image.");
-    }
-  };
-
-  const toggleEnabled = async (it) => {
-    try {
-      await PlatformAPI.adminUpdateCatalog(it._id, { enabled: !it.enabled });
-      loadCatalog();
-    } catch (err) {
-      say("error", err?.message || "Update failed.");
-    }
-  };
-
-  const removeItem = async (id) => {
-    if (!confirm("Delete this catalog item?")) return;
-    try {
-      await PlatformAPI.adminDeleteCatalog(id);
-      say("success", "Deleted.");
-      loadCatalog();
-    } catch (err) {
-      say("error", err?.message || "Delete failed.");
-    }
-  };
-
-  const reviewOrder = async (id, status) => {
-    try {
-      await PlatformAPI.adminReviewOrder(id, { status });
-      say("success", `Order ${status}.`);
-      loadOrders();
-    } catch (err) {
-      say("error", err?.message || "Review failed.");
-    }
-  };
-
-  const reviewBorrower = async (userId, action) => {
-    try {
-      await PlatformAPI.adminReviewBorrower(userId, { action });
-      say("success", `Borrower KYC ${action}d.`);
-      loadBorrowers();
-    } catch (err) {
-      say("error", err?.message || "Review failed.");
-    }
-  };
-
-  const kindHint = {
-    nft: "Edit title, price, image. Meta: rarity, collection.",
-    c2c_ad: "Edit price (rate). Meta: side, fiat, min, max, payment.",
-    carbon_etf: "Edit name, price, dailyPct, cycleDays, hashRate in meta.",
-    copy_trader:
-      "Edit name + meta.winRate, profitSharePct, equityHistory[], tradeHistory[].",
-    loan_plan:
-      "Edit meta.dailyInterestPct (e.g. 0.15 = 0.15%/day), min/max amount, maxDays.",
-    market_pair: "Edit pair title + meta.category / base / quote.",
   };
 
   return (
@@ -333,7 +551,7 @@ export default function AdminPlatformModules({ toast }) {
         <Package className="h-4 w-4 text-cyan-300" />
         <h2 className="text-lg font-semibold">Platform Modules</h2>
         <span className="text-[11px] text-slate-500">
-          NFT · C2C rates · Carbon ETF · Copy Trade · Loan interest
+          Simple edit — no code. Pick a section, fill fields, Save.
         </span>
       </div>
 
@@ -374,49 +592,26 @@ export default function AdminPlatformModules({ toast }) {
           <div className="flex flex-wrap gap-2">
             {KINDS.map((k) => (
               <button
-                key={k}
+                key={k.id}
                 type="button"
-                onClick={() => setKind(k)}
-                className={`rounded-lg px-2.5 py-1 text-[11px] font-medium ${
-                  kind === k
+                onClick={() => setKind(k.id)}
+                className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold ${
+                  kind === k.id
                     ? "bg-emerald-500/20 text-emerald-200"
                     : "bg-white/5 text-slate-400"
                 }`}
               >
-                {k}
+                {k.label}
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-slate-500">{kindHint[kind]}</p>
 
-          <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-            <div className="grid gap-2 sm:grid-cols-3">
-              <input
-                className="rounded-lg border border-white/10 bg-[#0c1222] px-3 py-2 text-xs"
-                placeholder="Title / Name"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-              <input
-                className="rounded-lg border border-white/10 bg-[#0c1222] px-3 py-2 text-xs"
-                placeholder="Subtitle"
-                value={form.subtitle}
-                onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
-              />
-              <input
-                className="rounded-lg border border-white/10 bg-[#0c1222] px-3 py-2 text-xs"
-                placeholder="Price USDT / Rate"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
-              />
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+              Add new · {KINDS.find((k) => k.id === kind)?.label}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#0c1222] px-3 py-2 text-xs"
-                placeholder="Image URL (or upload)"
-                value={form.imageUrl}
-                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-              />
+            <KindFields kind={kind} form={form} setForm={setForm} />
+            <div className="flex flex-wrap gap-2">
               <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-[11px] font-semibold text-cyan-200">
                 <ImagePlus className="h-3.5 w-3.5" />
                 {uploading === "new" ? "…" : "Upload pic"}
@@ -427,20 +622,14 @@ export default function AdminPlatformModules({ toast }) {
                   onChange={(e) => uploadImage(null, e.target.files?.[0])}
                 />
               </label>
+              <button
+                type="button"
+                onClick={createItem}
+                className="inline-flex items-center gap-1 rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-950"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add
+              </button>
             </div>
-            <textarea
-              className="h-28 w-full rounded-lg border border-white/10 bg-[#0c1222] px-3 py-2 font-mono text-[11px] text-slate-300"
-              value={form.metaText}
-              onChange={(e) => setForm({ ...form, metaText: e.target.value })}
-              spellCheck={false}
-            />
-            <button
-              type="button"
-              onClick={createItem}
-              className="inline-flex items-center justify-center gap-1 rounded-lg bg-cyan-500 px-3 py-2 text-xs font-bold text-slate-950"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add {kind}
-            </button>
           </div>
 
           {loading ? (
@@ -463,16 +652,13 @@ export default function AdminPlatformModules({ toast }) {
                       />
                     ) : (
                       <div className="grid h-12 w-12 place-items-center rounded-lg bg-white/5 text-[10px] text-slate-500">
-                        No img
+                        —
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-white">
-                        {it.title}
-                      </div>
+                      <div className="text-sm font-semibold text-white">{it.title}</div>
                       <div className="text-[11px] text-slate-500">
-                        {it.kind} · ${Number(it.price || 0)} ·{" "}
-                        {it.enabled ? "ON" : "OFF"}
+                        ${Number(it.price || 0)} · {it.enabled ? "ON" : "OFF"}
                         {it.meta?.dailyInterestPct != null
                           ? ` · interest ${it.meta.dailyInterestPct}%/d`
                           : ""}
@@ -483,11 +669,15 @@ export default function AdminPlatformModules({ toast }) {
                     </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        editId === it._id
-                          ? (setEditId(null), setEditForm(null))
-                          : startEdit(it)
-                      }
+                      onClick={() => {
+                        if (editId === it._id) {
+                          setEditId(null);
+                          setEditForm(null);
+                        } else {
+                          setEditId(it._id);
+                          setEditForm(itemToFields(it));
+                        }
+                      }}
                       className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-cyan-200"
                     >
                       <Pencil className="inline h-3 w-3" /> Edit
@@ -503,30 +693,29 @@ export default function AdminPlatformModules({ toast }) {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) =>
-                          uploadImage(it._id, e.target.files?.[0])
-                        }
+                        onChange={(e) => uploadImage(it._id, e.target.files?.[0])}
                       />
                     </label>
-                    {it.imageUrl && (
-                      <button
-                        type="button"
-                        onClick={() => clearImage(it._id)}
-                        className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-amber-200"
-                      >
-                        Clear pic
-                      </button>
-                    )}
                     <button
                       type="button"
-                      onClick={() => toggleEnabled(it)}
+                      onClick={async () => {
+                        await PlatformAPI.adminUpdateCatalog(it._id, {
+                          enabled: !it.enabled,
+                        });
+                        loadCatalog();
+                      }}
                       className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-slate-300"
                     >
                       {it.enabled ? "Disable" : "Enable"}
                     </button>
                     <button
                       type="button"
-                      onClick={() => removeItem(it._id)}
+                      onClick={async () => {
+                        if (!confirm("Delete?")) return;
+                        await PlatformAPI.adminDeleteCatalog(it._id);
+                        say("success", "Deleted.");
+                        loadCatalog();
+                      }}
                       className="rounded-lg p-1.5 text-rose-300 hover:bg-rose-500/10"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -534,63 +723,15 @@ export default function AdminPlatformModules({ toast }) {
                   </div>
 
                   {editId === it._id && editForm && (
-                    <div className="mt-3 space-y-2 border-t border-white/5 pt-3">
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        <input
-                          className="rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs"
-                          value={editForm.title}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, title: e.target.value })
-                          }
-                        />
-                        <input
-                          className="rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs"
-                          value={editForm.subtitle}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              subtitle: e.target.value,
-                            })
-                          }
-                        />
-                        <input
-                          className="rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs"
-                          value={editForm.price}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, price: e.target.value })
-                          }
-                          placeholder="Price / rate"
-                        />
-                      </div>
-                      <input
-                        className="w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs"
-                        value={editForm.imageUrl}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            imageUrl: e.target.value,
-                          })
-                        }
-                        placeholder="Image URL"
-                      />
-                      <textarea
-                        className="h-36 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 font-mono text-[11px]"
-                        value={editForm.metaText}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            metaText: e.target.value,
-                          })
-                        }
-                        spellCheck={false}
-                      />
+                    <div className="mt-3 space-y-3 border-t border-white/5 pt-3">
+                      <KindFields kind={kind} form={editForm} setForm={setEditForm} />
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={saveEdit}
                           className="inline-flex items-center gap-1 rounded-lg bg-teal-400 px-3 py-1.5 text-[11px] font-bold text-slate-950"
                         >
-                          <Save className="h-3 w-3" /> Save changes
+                          <Save className="h-3 w-3" /> Save
                         </button>
                         <button
                           type="button"
@@ -609,7 +750,7 @@ export default function AdminPlatformModules({ toast }) {
               ))}
               {!items.length && (
                 <div className="py-8 text-center text-sm text-slate-500">
-                  No items for this kind yet.
+                  No items yet — use Add above.
                 </div>
               )}
             </div>
@@ -629,22 +770,31 @@ export default function AdminPlatformModules({ toast }) {
                   {o.kind} · {o.user?.username || o.user?.email || "user"}
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  ${Number(o.amount || 0)} · {o.status} ·{" "}
-                  {o.catalog?.title || o.symbol || "—"}
+                  ${Number(o.amount || 0)} · {o.status}
                 </div>
               </div>
               {o.status === "pending" && (
                 <>
                   <button
                     type="button"
-                    onClick={() => reviewOrder(o._id, "active")}
+                    onClick={async () => {
+                      await PlatformAPI.adminReviewOrder(o._id, { status: "active" });
+                      say("success", "Approved.");
+                      loadOrders();
+                    }}
                     className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-200"
                   >
                     <CheckCircle2 className="h-3 w-3" /> Approve
                   </button>
                   <button
                     type="button"
-                    onClick={() => reviewOrder(o._id, "rejected")}
+                    onClick={async () => {
+                      await PlatformAPI.adminReviewOrder(o._id, {
+                        status: "rejected",
+                      });
+                      say("success", "Rejected.");
+                      loadOrders();
+                    }}
                     className="inline-flex items-center gap-1 rounded-lg bg-rose-500/20 px-2 py-1 text-[11px] text-rose-200"
                   >
                     <XCircle className="h-3 w-3" /> Reject
@@ -654,9 +804,7 @@ export default function AdminPlatformModules({ toast }) {
             </div>
           ))}
           {!orders.length && !loading && (
-            <div className="py-8 text-center text-sm text-slate-500">
-              No platform orders yet.
-            </div>
+            <div className="py-8 text-center text-sm text-slate-500">No orders.</div>
           )}
         </div>
       )}
@@ -666,40 +814,45 @@ export default function AdminPlatformModules({ toast }) {
           {borrowers.map((u) => (
             <div
               key={u._id}
-              className="rounded-xl border border-white/10 bg-[#0c1222] px-3 py-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#0c1222] px-3 py-3"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-white">
-                    {u.fullName || u.username}
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {u.email} · ID: {u.borrowerKyc?.idType}{" "}
-                    {u.borrowerKyc?.idNumber}
-                  </div>
+              <div>
+                <div className="text-sm font-semibold text-white">
+                  {u.fullName || u.username}
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => reviewBorrower(u._id, "approve")}
-                    className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-bold text-slate-950"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => reviewBorrower(u._id, "reject")}
-                    className="rounded-lg border border-rose-400/30 px-3 py-1.5 text-[11px] text-rose-300"
-                  >
-                    Reject
-                  </button>
-                </div>
+                <div className="text-[11px] text-slate-500">{u.email}</div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await PlatformAPI.adminReviewBorrower(u._id, {
+                      action: "approve",
+                    });
+                    loadBorrowers();
+                  }}
+                  className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-bold text-slate-950"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await PlatformAPI.adminReviewBorrower(u._id, {
+                      action: "reject",
+                    });
+                    loadBorrowers();
+                  }}
+                  className="rounded-lg border border-rose-400/30 px-3 py-1.5 text-[11px] text-rose-300"
+                >
+                  Reject
+                </button>
               </div>
             </div>
           ))}
           {!borrowers.length && !loading && (
             <div className="py-8 text-center text-sm text-slate-500">
-              No pending borrower verifications.
+              No pending borrower KYC.
             </div>
           )}
         </div>

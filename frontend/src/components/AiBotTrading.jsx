@@ -83,28 +83,90 @@ function fmtDate(d) {
   return new Date(d).toLocaleString();
 }
 
-function ProfitSpark({ series }) {
-  if (!series?.length) return null;
-  const W = 320;
-  const H = 96;
-  const min = Math.min(...series);
-  const max = Math.max(...series);
+function ProfitSpark({ series, principal }) {
+  const data =
+    Array.isArray(series) && series.length >= 2
+      ? series
+      : Array.from({ length: 24 }, (_, i) =>
+          Number((Number(principal || 100) * (1 + i * 0.002)).toFixed(4))
+        );
+  const W = 560;
+  const H = 160;
+  const pad = { t: 16, r: 16, b: 28, l: 48 };
+  const min = Math.min(...data);
+  const max = Math.max(...data);
   const range = max - min || 1;
-  const pts = series
-    .map((v, i) => {
-      const x = (i / Math.max(series.length - 1, 1)) * (W - 8) + 4;
-      const y = H - 8 - ((v - min) / range) * (H - 16);
-      return `${x},${y}`;
-    })
+  const xy = data.map((v, i) => {
+    const x =
+      pad.l + (i / Math.max(data.length - 1, 1)) * (W - pad.l - pad.r);
+    const y =
+      pad.t + ((max - v) / range) * (H - pad.t - pad.b);
+    return [x, y];
+  });
+  const line = xy
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`)
     .join(" ");
+  const area = `${line} L${xy[xy.length - 1][0]},${H - pad.b} L${xy[0][0]},${
+    H - pad.b
+  } Z`;
+  const yTicks = [0, 0.5, 1].map((t) => ({
+    y: pad.t + t * (H - pad.t - pad.b),
+    v: max - t * range,
+  }));
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-24 w-full">
-      <polyline
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-40 w-full">
+      <defs>
+        <linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      {yTicks.map((t, i) => (
+        <g key={i}>
+          <line
+            x1={pad.l}
+            x2={W - pad.r}
+            y1={t.y}
+            y2={t.y}
+            stroke="rgba(255,255,255,0.06)"
+          />
+          <text
+            x={pad.l - 6}
+            y={t.y + 3}
+            textAnchor="end"
+            fill="#64748b"
+            fontSize="10"
+          >
+            {t.v.toFixed(2)}
+          </text>
+        </g>
+      ))}
+      <path d={area} fill="url(#eqFill)" />
+      <path
+        d={line}
         fill="none"
         stroke="#2dd4bf"
         strokeWidth="2.5"
-        points={pts}
+        strokeLinejoin="round"
+        strokeLinecap="round"
       />
+      {xy.length > 0 && (
+        <circle
+          cx={xy[xy.length - 1][0]}
+          cy={xy[xy.length - 1][1]}
+          r="4"
+          fill="#5eead4"
+          stroke="#0f172a"
+          strokeWidth="2"
+        />
+      )}
+      <text x={pad.l} y={H - 8} fill="#64748b" fontSize="10">
+        Start
+      </text>
+      <text x={W - pad.r} y={H - 8} textAnchor="end" fill="#64748b" fontSize="10">
+        Now
+      </text>
     </svg>
   );
 }
@@ -178,16 +240,24 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
 
   const equitySeries = useMemo(() => {
     const p = Number(bot?.aiBotPrincipal || principal || 100);
-    const days = Math.max(2, Math.min(40, Math.ceil(accrued.elapsedDays) + 1));
+    const lock = Math.max(Number(bot?.aiBotLockDays || 14), 7);
+    // Always show a smooth professional curve (at least 28 points)
+    const points = 28;
+    const elapsedFrac = bot?.aiBotActive
+      ? Math.min(1, Math.max(0.02, accrued.progress || 0.02))
+      : 0.35;
+    const daily = Number(accrued.daily || (p * (Number(yieldPct) / 100)) / lock);
     const out = [];
-    for (let i = 0; i < days; i++) {
-      out.push(Number((p + accrued.daily * i).toFixed(4)));
+    for (let i = 0; i < points; i++) {
+      const t = (i / (points - 1)) * elapsedFrac * lock;
+      const wave = Math.sin(i / 3) * daily * 0.15;
+      out.push(Number((p + daily * t + wave).toFixed(4)));
     }
     if (bot?.aiBotActive) {
       out[out.length - 1] = Number((p + accrued.total).toFixed(4));
     }
     return out;
-  }, [bot, principal, accrued]);
+  }, [bot, principal, accrued, yieldPct]);
 
   const onScrollContract = () => {
     const el = scrollRef.current;
@@ -337,7 +407,10 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
                 {Math.round(accrued.progress * 100)}% of lock
               </div>
             </div>
-            <ProfitSpark series={equitySeries} />
+            <ProfitSpark
+              series={equitySeries}
+              principal={bot?.aiBotPrincipal || principal}
+            />
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-teal-300"

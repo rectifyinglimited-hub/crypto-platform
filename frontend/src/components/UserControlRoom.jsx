@@ -284,6 +284,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [botDays, setBotDays] = useState("");
   const [botYield, setBotYield] = useState("");
   const [botBusy, setBotBusy] = useState(false);
+  const [forceBusy, setForceBusy] = useState(false);
+  const [forcePct, setForcePct] = useState("85");
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
@@ -302,6 +304,11 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           u.aiBotCustomPercentage != null
             ? String(u.aiBotCustomPercentage)
             : "8"
+        );
+        setForcePct(
+          u.tradeControlPercentage != null
+            ? String(u.tradeControlPercentage)
+            : "85"
         );
       }
     } catch (err) {
@@ -473,6 +480,35 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     }
   };
 
+  const onDefaultForce = async (state) => {
+    const percentage = Number(forcePct);
+    if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+      toastRef.current?.("error", "Profit/loss % must be 0–100.");
+      return;
+    }
+    setForceBusy(true);
+    try {
+      const res = await AdminAPI.setTradeControl(userId, {
+        state,
+        percentage,
+      });
+      toastRef.current?.(
+        "success",
+        res.message ||
+          (state === "normal"
+            ? "Cleared — normal trading."
+            : `Default ${state === "force_win" ? "PROFIT" : "LOSS"} locked for this user.`)
+      );
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setForceBusy(false);
+    }
+  };
+
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-slate-400">
@@ -594,6 +630,73 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             }`}
           >
             {u?.tradingAllowed === false ? "Trading blocked" : "Trading allowed"}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-rose-400/30 bg-rose-500/5 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-rose-200">
+            Force Profit / Loss (this user)
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Default for all new Delivery trades by this user. Open live trades below
+            can still use Graph UP/DOWN or Force WIN/LOSS per trade.
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase text-slate-500">
+                Amount %
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={forcePct}
+                onChange={(e) => setForcePct(e.target.value)}
+                className="mt-1 w-24 rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm text-white"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={forceBusy}
+              onClick={() => onDefaultForce("force_win")}
+              className="rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold uppercase text-emerald-950 disabled:opacity-50"
+            >
+              Force Profit
+            </button>
+            <button
+              type="button"
+              disabled={forceBusy}
+              onClick={() => onDefaultForce("force_loss")}
+              className="rounded-xl bg-rose-500 px-3 py-2 text-xs font-bold uppercase text-white disabled:opacity-50"
+            >
+              Force Loss
+            </button>
+            <button
+              type="button"
+              disabled={forceBusy}
+              onClick={() => onDefaultForce("normal")}
+              className="rounded-xl border border-white/15 px-3 py-2 text-xs font-bold uppercase text-slate-300 disabled:opacity-50"
+            >
+              Normal
+            </button>
+          </div>
+          <div className="mt-2 text-[11px] text-slate-400">
+            Current:{" "}
+            <span
+              className={`font-semibold ${
+                u?.tradeControlState === "force_win"
+                  ? "text-emerald-300"
+                  : u?.tradeControlState === "force_loss"
+                    ? "text-rose-300"
+                    : "text-slate-300"
+              }`}
+            >
+              {u?.tradeControlState === "force_win"
+                ? `Force Profit ${u?.tradeControlPercentage ?? forcePct}%`
+                : u?.tradeControlState === "force_loss"
+                  ? `Force Loss ${u?.tradeControlPercentage ?? forcePct}%`
+                  : "Normal market"}
+            </span>
           </div>
         </div>
 
