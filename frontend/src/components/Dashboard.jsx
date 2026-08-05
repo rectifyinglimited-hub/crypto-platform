@@ -1231,6 +1231,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onLogout={handleLogout}
         onOpenAccount={() => goPage("account")}
         onOpenKyc={() => setKycOpen(true)}
+        onOpenDeposit={openDepositSection}
         onOpenChat={() => openLiveChat("service")}
         onNotificationSelect={(n) => {
           if (n?.type === "chat" || n?.meta?.kind === "chat") {

@@ -175,6 +175,18 @@ select option {
   background-repeat: no-repeat;
 }
 
+@media (max-width: 767px) {
+  .nx-bg-shell {
+    background-attachment: scroll;
+  }
+
+  /* App-like touch: remove tap flash on iOS */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
 .nx-bg-auth {
   background-color: #06080f;
   background-image:
