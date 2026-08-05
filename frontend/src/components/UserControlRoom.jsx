@@ -18,9 +18,12 @@ import {
   X,
   ArrowDownToLine,
   ArrowUpFromLine,
+  Bot,
 } from "lucide-react";
-import { AdminAPI, assetUrl } from "../lib/api.js";
+import { AdminAPI, AiBotAPI, assetUrl } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
+
+const AI_BOT_DAY_PRESETS = [7, 15, 30, 40, 60, 90];
 
 function fmt(n) {
   return Number(n || 0).toLocaleString(undefined, {
@@ -278,6 +281,9 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [topUpBusy, setTopUpBusy] = useState(false);
   const [txBusy, setTxBusy] = useState(null);
   const [accessBusy, setAccessBusy] = useState(false);
+  const [botDays, setBotDays] = useState("");
+  const [botYield, setBotYield] = useState("");
+  const [botBusy, setBotBusy] = useState(false);
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
@@ -285,6 +291,19 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     try {
       const res = await AdminAPI.userControlRoom(userId);
       setData(res);
+      const u = res?.user;
+      if (u) {
+        setBotDays(
+          u.aiBotAssignedLockDays != null
+            ? String(u.aiBotAssignedLockDays)
+            : ""
+        );
+        setBotYield(
+          u.aiBotCustomPercentage != null
+            ? String(u.aiBotCustomPercentage)
+            : "8"
+        );
+      }
     } catch (err) {
       if (err?.canceled) return;
       if (!silent && err?.message) {
@@ -423,6 +442,37 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     }
   };
 
+  const onAssignAiBot = async () => {
+    const days = Number(botDays);
+    const pct = Number(botYield);
+    if (!Number.isFinite(days) || days < 1) {
+      toastRef.current?.("error", "Select or enter lock days (e.g. 40).");
+      return;
+    }
+    if (!Number.isFinite(pct) || pct < 0 || pct > 500) {
+      toastRef.current?.("error", "Enter a valid yield % (0–500).");
+      return;
+    }
+    setBotBusy(true);
+    try {
+      const res = await AiBotAPI.adminSetUserBot(userId, {
+        aiBotAssignedLockDays: days,
+        aiBotCustomPercentage: pct,
+      });
+      toastRef.current?.(
+        "success",
+        res.message || `AI Bot assigned: ${days} days · ${pct}% yield.`
+      );
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setBotBusy(false);
+    }
+  };
+
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-slate-400">
@@ -544,6 +594,101 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             }`}
           >
             {u?.tradingAllowed === false ? "Trading blocked" : "Trading allowed"}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-teal-400/30 bg-teal-500/5 p-3">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-teal-300">
+            <Bot className="h-3.5 w-3.5" />
+            AI Bot Assign (this user)
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Select days and yield, then Assign — user AI Bot page will show this
+            lock period (user cannot change days).
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {AI_BOT_DAY_PRESETS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setBotDays(String(d))}
+                className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
+                  String(botDays) === String(d)
+                    ? "border-teal-400/40 bg-teal-500/20 text-teal-200"
+                    : "border-white/10 text-slate-400 hover:bg-white/5"
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase text-slate-500">
+                Lock days
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={3650}
+                value={botDays}
+                onChange={(e) => setBotDays(e.target.value)}
+                placeholder="e.g. 40"
+                className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm text-white outline-none focus:border-teal-400/40"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase text-slate-500">
+                Yield %
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={500}
+                step="any"
+                value={botYield}
+                onChange={(e) => setBotYield(e.target.value)}
+                placeholder="8"
+                className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm text-white outline-none focus:border-teal-400/40"
+              />
+            </label>
+            <div className="flex items-end">
+              <button
+                type="button"
+                disabled={botBusy}
+                onClick={onAssignAiBot}
+                className="w-full rounded-xl bg-teal-400 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-950 disabled:opacity-50 sm:w-auto"
+              >
+                {botBusy ? (
+                  <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                ) : (
+                  "Assign & Activate"
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-2 text-[11px] text-slate-400">
+            Status:{" "}
+            {u?.aiBotAssignedLockDays ? (
+              <span className="font-semibold text-teal-300">
+                Assigned {u.aiBotAssignedLockDays} days · yield{" "}
+                {u.aiBotCustomPercentage ?? 8}%
+                {u.aiBotActive
+                  ? ` · contract active until ${
+                      u.aiBotEndDate
+                        ? new Date(u.aiBotEndDate).toLocaleDateString()
+                        : "—"
+                    }`
+                  : " · waiting for user to start"}
+              </span>
+            ) : (
+              <span className="font-semibold text-amber-300">
+                Not assigned yet
+              </span>
+            )}
           </div>
         </div>
 
