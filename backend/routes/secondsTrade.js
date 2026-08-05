@@ -23,11 +23,11 @@ import PlatformConfig from "../models/PlatformConfig.js";
 import { requireAuth } from "../middleware/auth.js";
 import { signedBiasForOutcome } from "../lib/tradeBias.js";
 import {
-  emitChartResync,
-  emitWalletUpdate,
-  emitTradeOpened,
-  emitTradeSettled,
-} from "../socket.js";
+  resolveAlgoOutcome,
+  rollWinPercentage,
+  defaultAlgoMatrix,
+} from "../lib/tradeAlgo.js";
+import { emitChartResync, emitWalletUpdate, emitTradeOpened, emitTradeSettled } from "../socket.js";
 
 const router = Router();
 
@@ -400,12 +400,52 @@ export async function settleTrade(
     outcome = "loss";
     reason = "user_force_loss";
   } else {
-    const rose = exitPrice >= trade.entryPrice;
-    const won =
-      (trade.direction === "long" && rose) ||
-      (trade.direction === "short" && !rose);
-    outcome = won ? "win" : "loss";
-    reason = "market";
+    // Dynamic algorithmic matrix (when global trading ON, no manual force)
+    let algoApplied = false;
+    try {
+      const platform = await PlatformConfig.getSingleton();
+      if (platform.globalTradingEnabled !== false) {
+        const matrix = {
+          ...defaultAlgoMatrix(),
+          ...(platform.algoMatrix?.toObject?.() || platform.algoMatrix || {}),
+        };
+        const cursor =
+          user.tradeAlgoCursor?.toObject?.() || user.tradeAlgoCursor || {};
+        const resolved = resolveAlgoOutcome({
+          stake: trade.stake,
+          matrix,
+          cursor,
+        });
+        if (resolved.outcome === "win" || resolved.outcome === "loss") {
+          outcome = resolved.outcome;
+          reason = resolved.reason;
+          algoApplied = true;
+          if (resolved.cursorPatch) {
+            user.tradeAlgoCursor = resolved.cursorPatch;
+            user.markModified("tradeAlgoCursor");
+            await user.save();
+          }
+        } else if (matrix.enabled && Number.isFinite(Number(matrix.winPercentage))) {
+          const rolled = rollWinPercentage(matrix.winPercentage);
+          if (rolled) {
+            outcome = rolled;
+            reason = "algo_win_pct";
+            algoApplied = true;
+          }
+        }
+      }
+    } catch {
+      /* fall through to market */
+    }
+
+    if (!algoApplied) {
+      const rose = exitPrice >= trade.entryPrice;
+      const won =
+        (trade.direction === "long" && rose) ||
+        (trade.direction === "short" && !rose);
+      outcome = won ? "win" : "loss";
+      reason = "market";
+    }
   }
 
   // Align displayed exit with outcome for chart consistency

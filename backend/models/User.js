@@ -128,6 +128,42 @@ const UserSchema = new Schema(
       max: 100,
       default: 5,
     },
+    /**
+     * AI Bot Trading — lock contract state (mirrors active AiBotContract).
+     */
+    aiBotActive: { type: Boolean, default: false, index: true },
+    aiBotLockDays: { type: Number, default: null },
+    aiBotStartDate: { type: Date, default: null },
+    aiBotEndDate: { type: Date, default: null },
+    /** Admin-set target return % for this user's AI bot */
+    aiBotCustomPercentage: {
+      type: Number,
+      min: 0,
+      max: 500,
+      default: 8,
+    },
+    aiBotPrincipal: { type: Number, default: 0 },
+    aiBotContractId: {
+      type: Schema.Types.ObjectId,
+      ref: "AiBotContract",
+      default: null,
+    },
+    aiBotContractAcceptedAt: { type: Date, default: null },
+    /** Cursor for algorithmic win/loss sequences */
+    tradeAlgoCursor: {
+      type: {
+        lowIndex: { type: Number, default: 0 },
+        highIndex: { type: Number, default: 0 },
+        lastStake: { type: Number, default: null },
+        sameStakeCount: { type: Number, default: 0 },
+      },
+      default: () => ({
+        lowIndex: 0,
+        highIndex: 0,
+        lastStake: null,
+        sameStakeCount: 0,
+      }),
+    },
     /** Per-user trading access — false blocks Buy Long / Sell Short */
     tradingAllowed: {
       type: Boolean,

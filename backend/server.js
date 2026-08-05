@@ -29,6 +29,7 @@ import secondsTradeRoutes, {
   settleExpiredTrades,
 } from "./routes/secondsTrade.js";
 import platformRoutes from "./routes/platform.js";
+import aiBotRoutes from "./routes/aiBot.js";
 import { initSocket } from "./socket.js";
 import User from "./models/User.js";
 import { ROLES } from "./lib/roles.js";
@@ -93,6 +94,7 @@ app.use("/api/staking", stakingRoutes);
 app.use("/api/gateway", gatewayRoutes);
 app.use("/api/seconds-trade", secondsTradeRoutes);
 app.use("/api/platform", platformRoutes);
+app.use("/api/ai-bot", aiBotRoutes);
 
 // 404
 app.use((req, res) => {

@@ -57,6 +57,7 @@ import {
   NftMarketPage,
   AssetsHubPage,
 } from "./PlatformModules.jsx";
+import AiBotTradingPage from "./AiBotTrading.jsx";
 import HomeLanding from "./HomeLanding.jsx";
 import SecondsTrading from "./SecondsTrading.jsx";
 import CryptoWatchlist from "./CryptoWatchlist.jsx";
@@ -1234,6 +1235,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           {page === "c2c" && <C2CPage key="c2c" onToast={say} user={me} />}
           {page === "carbon" && <CarbonEtfPage key="carbon" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
           {page === "ai" && <AiComputePage key="ai" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
+          {page === "aibot" && (
+            <AiBotTradingPage
+              key="aibot"
+              user={me}
+              onToast={say}
+              onWalletUpdate={handleUserUpdate}
+            />
+          )}
           {page === "ico" && <IcoPage key="ico" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
           {page === "copy" && <CopyTradePage key="copy" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
           {page === "loan" && <LoanPage key="loan" onToast={say} user={me} />}

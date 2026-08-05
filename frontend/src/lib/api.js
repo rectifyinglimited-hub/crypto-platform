@@ -393,6 +393,29 @@ export const PlatformAPI = {
     api.get(`/platform/admin/user-assets/${userId}`).then((r) => r.data),
 };
 
+/** AI Bot Trading + algorithm matrix */
+export const AiBotAPI = {
+  config: () => api.get("/ai-bot/config").then((r) => r.data),
+  activate: (payload) =>
+    api.post("/ai-bot/activate", payload).then((r) => r.data),
+  claim: () => api.post("/ai-bot/claim").then((r) => r.data),
+  adminContracts: (status) =>
+    api
+      .get("/ai-bot/admin/contracts", {
+        params: status ? { status } : {},
+      })
+      .then((r) => r.data),
+  adminActiveUsers: () =>
+    api.get("/ai-bot/admin/active-users").then((r) => r.data),
+  adminMatrix: () => api.get("/ai-bot/admin/matrix").then((r) => r.data),
+  adminSaveMatrix: (payload) =>
+    api.put("/ai-bot/admin/matrix", payload).then((r) => r.data),
+  adminSetYield: (userId, aiBotCustomPercentage) =>
+    api
+      .patch(`/ai-bot/admin/users/${userId}/yield`, { aiBotCustomPercentage })
+      .then((r) => r.data),
+};
+
 /** Absolute URL for /uploads/... proof images */
 export const assetUrl = (path) => {
   if (!path) return "";
