@@ -29,42 +29,51 @@ const PAIRS = [
 const ADVANTAGES = [
   {
     icon: Zap,
-    title: "Institutional Latency Execution",
-    body: "Order routing tuned for sub-second decision loops — price vectors refresh every tick so your directional calls meet the market as it moves.",
+    title: "Multi-market execution",
+    body: "Delivery, Spot, and Perpetual desks in one terminal — live prices, clear timers, and instant settlement feedback on every position.",
   },
   {
     icon: Timer,
-    title: "Advanced Seconds Settlement Engine",
-    body: "Fixed-duration long and short contracts settle the instant the timer hits zero, with transparent WIN / LOSS outcomes in your activity feed.",
+    title: "AI Bot & smart products",
+    body: "Lock capital into AI Bot contracts with legal terms, or explore Carbon ETF, ICO, Copy Trade, and Loan products with admin-controlled yields.",
   },
   {
     icon: ShieldCheck,
-    title: "Secured Wallet Infrastructure",
-    body: "Session-protected balances, TRC-20 withdrawal rails, and identity controls keep your workspace locked down without slowing execution.",
+    title: "Secure assets & KYC",
+    body: "Trading Wallet, sub-accounts, deposit via support chat, crypto withdraw rails, and identity verification with ID Card or Driving License.",
   },
 ];
 
 const WORKFLOW = [
   {
     step: "01",
-    title: "Create your account",
-    body: "Register with an invite code and sign in to unlock your trading wallet.",
+    title: "Register with invite",
+    body: "Create your account using a valid invitation code and sign in to your private workspace.",
   },
   {
     step: "02",
-    title: "Fund & configure",
-    body: "Deposit USDT, set your TRC-20 address, and complete verification when ready.",
+    title: "Verify & fund",
+    body: "Complete KYC when prompted, deposit USDT through Live Chat, and keep your withdrawal address ready.",
   },
   {
     step: "03",
-    title: "Pick a market",
-    body: "Select a major pair, watch the live chart, and choose duration plus stake.",
+    title: "Trade or lock",
+    body: "Open Delivery trades, browse Markets, or activate AI Bot Trading after accepting the risk disclosure.",
   },
   {
     step: "04",
-    title: "Execute & settle",
-    body: "Buy Long or Sell Short — settlement resolves automatically when time expires.",
+    title: "Manage assets",
+    body: "Transfer between Spot / Delivery / NFT accounts, convert pairs, and track activity from Assets.",
   },
+];
+
+const PLATFORM_MODULES = [
+  { title: "Delivery", body: "Fixed-time long/short with live chart bias and countdown settlement." },
+  { title: "AI Bot Trading", body: "Contract-bound lock periods with admin-set target yield percentages." },
+  { title: "Assets Hub", body: "Balances, transfer, convert, bank cards, and verification in one place." },
+  { title: "Market Desk", body: "Forex & crypto pairs with quick jump into Spot, Perpetual, or Delivery." },
+  { title: "Earn & Raise", body: "Carbon Rights ETF, ICO subscriptions, Copy Trade, and Loan center." },
+  { title: "Support", body: "Live chat deposits, notifications bell, and tenant-aware admin review." },
 ];
 
 function formatPrice(n) {
@@ -393,7 +402,7 @@ function MarketShowcase() {
     <section id="markets" className="space-y-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-400/90">
+          <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-400/90">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
@@ -432,9 +441,9 @@ function MarketShowcase() {
               role="tab"
               aria-selected={active}
               onClick={() => setSelected(symbol)}
-              className={`rounded-2xl border p-3.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 ${
+              className={`rounded-2xl border p-3.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/40 ${
                 active
-                  ? "border-amber-400/40 bg-amber-500/10"
+                  ? "border-teal-400/40 bg-teal-500/10"
                   : "border-white/10 bg-[#0d1424] hover:border-white/20"
               }`}
             >
@@ -491,7 +500,7 @@ function MarketShowcase() {
         >
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-xl bg-amber-500/15 text-xs font-bold text-amber-200 ring-1 ring-amber-400/25">
+              <div className="grid h-11 w-11 place-items-center rounded-xl bg-teal-500/15 text-xs font-bold text-amber-200 ring-1 ring-teal-400/25">
                 {meta.symbol}
               </div>
               <div>
@@ -541,38 +550,35 @@ function MarketShowcase() {
 
 export default function PublicLanding({ onSignIn, onRegister }) {
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#070a12] text-slate-100">
+    <div className="nx-page relative min-h-screen w-full overflow-x-hidden">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,_rgba(245,158,11,0.12),_transparent_45%),radial-gradient(ellipse_at_80%_10%,_rgba(16,185,129,0.08),_transparent_40%),linear-gradient(180deg,#0a0f1a_0%,#070a12_40%,#05080f_100%)]" />
+        <div className="absolute inset-0 bg-nx-hero" />
         <div
-          className="absolute inset-0 opacity-[0.035]"
+          className="absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
+              "linear-gradient(rgba(255,255,255,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.09) 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#070a12]/85 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#06080f]/90 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6 lg:px-8">
-          <div className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
-            Nexus
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 text-sm font-black text-slate-950 shadow-glow">
+              N
+            </div>
+            <div className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
+              Nexus
+            </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={onSignIn}
-              className="rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white transition hover:border-white/30 hover:bg-white/10 sm:px-4 sm:text-sm"
-            >
+            <button type="button" onClick={onSignIn} className="nx-btn-ghost !py-2 !text-xs sm:!text-sm">
               Sign In
             </button>
-            <button
-              type="button"
-              onClick={onRegister}
-              className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-3.5 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-amber-500/20 transition hover:from-amber-300 hover:to-amber-400 sm:px-4 sm:text-sm"
-            >
+            <button type="button" onClick={onRegister} className="nx-btn-primary !py-2 !text-xs sm:!text-sm">
               Register
             </button>
           </div>
@@ -580,13 +586,14 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </header>
 
       <main className="relative z-10 mx-auto max-w-6xl space-y-14 px-4 pb-20 pt-8 sm:px-6 sm:pt-12 lg:px-8 lg:pt-14">
-        {/* Hero — brand first, one CTA group, no clutter */}
-        <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#121a2b] via-[#0c1422] to-[#070d16] px-5 py-10 sm:px-10 sm:py-14 md:px-14 md:py-16">
+        {/* Hero — brand first */}
+        <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#121826] via-[#0d121c] to-[#06080f] px-5 py-10 sm:px-10 sm:py-14 md:px-14 md:py-16">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-amber-500/15 blur-3xl" />
-            <div className="absolute -bottom-24 left-0 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-teal-500/20 blur-3xl" />
+            <div className="absolute -bottom-24 left-0 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
           </div>
           <div className="relative z-10 max-w-2xl">
+            <div className="nx-chip mb-4">Digital asset exchange</div>
             <motion.h1
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
@@ -601,7 +608,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               transition={{ delay: 0.08, duration: 0.5 }}
               className="mt-4 text-lg font-medium text-slate-100 sm:text-xl"
             >
-              Trade crypto seconds with institutional clarity.
+              The widely trusted digital asset exchange for active traders.
             </motion.p>
             <motion.p
               initial={{ opacity: 0, y: 10 }}
@@ -609,8 +616,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               transition={{ delay: 0.14, duration: 0.45 }}
               className="mt-3 max-w-lg text-sm leading-relaxed text-slate-400 sm:text-base"
             >
-              Live major-pair feeds, fixed-time long/short execution, and
-              settlement you can trust — built for serious traders.
+              Delivery trading, AI Bot locks, multi-wallet Assets, Market desk,
+              and support-backed deposits — professional tools with clear risk
+              controls in every session.
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -618,19 +626,11 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               transition={{ delay: 0.2, duration: 0.45 }}
               className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
             >
-              <button
-                type="button"
-                onClick={onRegister}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-3.5 text-sm font-bold text-slate-950 shadow-lg shadow-amber-500/25 transition hover:from-amber-300 hover:to-amber-400"
-              >
-                Open account
+              <button type="button" onClick={onRegister} className="nx-btn-primary !px-6 !py-3.5">
+                Trade now
                 <ArrowRight className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                onClick={onSignIn}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
-              >
+              <button type="button" onClick={onSignIn} className="nx-btn-ghost !px-6 !py-3.5">
                 Sign In
               </button>
             </motion.div>
@@ -643,10 +643,10 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         <section>
           <div className="mb-5 max-w-xl">
             <h2 className="font-display text-xl font-semibold text-white md:text-2xl">
-              Built for precision
+              Why traders choose Nexus
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Platform advantages that keep every session sharp and secure.
+              Execution speed, product depth, and custody controls designed for daily use.
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
@@ -659,7 +659,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
                 transition={{ delay: 0.05 * i, duration: 0.4 }}
                 className="rounded-2xl border border-white/10 bg-[#0d1424] p-5 md:p-6"
               >
-                <div className="grid h-11 w-11 place-items-center rounded-xl bg-amber-500/15 text-amber-300">
+                <div className="grid h-11 w-11 place-items-center rounded-xl bg-teal-500/15 text-teal-300">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-4 text-sm font-semibold leading-snug text-white md:text-base">
@@ -673,12 +673,32 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           </div>
         </section>
 
+        {/* Platform modules */}
+        <section>
+          <div className="mb-5 max-w-2xl">
+            <h2 className="font-display text-xl font-semibold text-white md:text-2xl">
+              Everything in one terminal
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Trade, earn, verify, and manage assets without leaving Nexus.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {PLATFORM_MODULES.map((m) => (
+              <div key={m.title} className="nx-card p-4 md:p-5">
+                <h3 className="text-sm font-semibold text-white">{m.title}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{m.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* How it works */}
         <section>
           <div className="mb-5 flex items-end justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-semibold text-white md:text-2xl">
-                How Exchange Trading Works
+                How to get started
               </h2>
               <p className="mt-1 text-sm text-slate-500">
                 Four steps from signup to settled outcome.
@@ -696,7 +716,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
                 transition={{ delay: 0.06 * i }}
                 className="relative rounded-2xl border border-white/10 bg-[#0d1424] p-4 md:p-5"
               >
-                <div className="font-display text-2xl font-bold text-amber-400/80">
+                <div className="font-display text-2xl font-bold text-teal-400/80">
                   {step}
                 </div>
                 <h3 className="mt-2 text-sm font-semibold text-white">{title}</h3>
@@ -712,16 +732,15 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </section>
 
         {/* Closing CTA */}
-        <section className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-[#0d1424] to-transparent px-5 py-8 text-center sm:px-8">
-          <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-xl bg-amber-500/15 text-amber-300">
+        <section className="rounded-2xl border border-teal-400/20 bg-gradient-to-br from-teal-500/10 via-[#0d1424] to-transparent px-5 py-8 text-center sm:px-8">
+          <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-xl bg-teal-500/15 text-teal-300">
             <Lock className="h-5 w-5" />
           </div>
           <h2 className="font-display text-lg font-semibold text-white md:text-xl">
-            Ready to enter the terminal?
+            Ready to trade on Nexus?
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-            Sign in to your workspace or register a new Nexus account to start
-            trading major pairs with live settlement.
+            Create your invite-gated account, verify identity when required, and access Delivery, AI Bot, Assets, and the full market desk.
           </p>
           <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <button
@@ -734,7 +753,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             <button
               type="button"
               onClick={onRegister}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-300 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-teal-300 sm:w-auto"
             >
               Register
               <ArrowRight className="h-4 w-4" />
@@ -744,7 +763,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </main>
 
       <footer className="relative z-10 border-t border-white/5 py-6 text-center text-[11px] text-slate-600">
-        © {new Date().getFullYear()} Nexus · Seconds exchange platform
+        © {new Date().getFullYear()} Nexus · Digital asset exchange · Trade · Earn · Secure
       </footer>
     </div>
   );

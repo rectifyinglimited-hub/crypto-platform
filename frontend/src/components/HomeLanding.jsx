@@ -32,64 +32,64 @@ const OVERVIEW_ASSETS = [
 const CORP_PILLARS = [
   {
     icon: Zap,
-    title: "Institutional Latency Execution",
-    body: "Latency-aware price trajectories and order loops built for professional terminal workflows.",
+    title: "Full exchange desk",
+    body: "Delivery, Spot, Perpetual, Market, C2C, and NFT tools in a single dark terminal built for clarity.",
   },
   {
     icon: Activity,
-    title: "Advanced Seconds Settlement Engine",
-    body: "Fixed-duration contracts resolve the moment the timer hits zero with clear WIN / LOSS outcomes.",
+    title: "AI Bot & earn products",
+    body: "Contract-bound AI Bot locks, Carbon ETF, ICO, Copy Trade, and Loan — with admin-controlled yields.",
   },
   {
     icon: ShieldCheck,
-    title: "Secured Wallet Infrastructure",
-    body: "Identity verification, TRC-20 wallet controls, and session-protected balances for every trader.",
+    title: "Assets & verification",
+    body: "Sub-accounts, convert/transfer, Live Chat deposits, and KYC with ID Card or Driving License.",
   },
 ];
 
 const WORKFLOW = [
   {
     step: "01",
-    title: "Select a market",
-    body: "Choose a major pair from the live overview or Trading watchlist.",
+    title: "Open any market",
+    body: "Use the top nav to jump between Market, Delivery, Spot, or AI Bot Trading.",
   },
   {
     step: "02",
-    title: "Set stake & duration",
-    body: "Pick your seconds window and size the position from your Trading Wallet.",
+    title: "Size & confirm",
+    body: "Set stake or lock amount from your Trading Wallet — balances stay visible in Assets.",
   },
   {
     step: "03",
-    title: "Buy Long or Sell Short",
-    body: "Execute a directional call — the live chart updates every second.",
+    title: "Execute with clarity",
+    body: "Delivery settles on the timer; AI Bot requires a signed risk disclosure before lock.",
   },
   {
     step: "04",
-    title: "Automatic settlement",
-    body: "When the timer ends, profit or loss posts to Live Earnings and Market Activity.",
+    title: "Track everything",
+    body: "Notifications, Market Activity, and Assets logs keep wins, losses, and claims visible.",
   },
 ];
 
 const FEATURES = [
   {
     icon: CandlestickChart,
-    title: "Seconds Trading",
-    body: "Fixed-time long and short positions with live market feeds and precise countdown settlement.",
+    title: "Delivery trading",
+    body: "Fixed-time long and short positions with live charts and countdown settlement.",
   },
   {
     icon: BarChart3,
-    title: "Live Market Overview",
-    body: "Second-by-second tick streams across major crypto pairs with interactive chart switching.",
+    title: "Market overview",
+    body: "Live crypto and forex-style pairs with one-click navigation into trade modes.",
   },
   {
     icon: Zap,
-    title: "Instant Settlement",
-    body: "Trades resolve the moment the timer hits zero — with clear WIN / LOSS outcomes in Market Activity.",
+    title: "AI Bot Trading",
+    body: "Legal contract modal, lock periods, and admin-set target return percentages.",
   },
   {
     icon: Globe2,
-    title: "Global Markets",
-    body: "Trade major crypto pairs and select equities from a single responsive terminal.",
+    title: "Assets hub",
+    body: "Spot, Delivery, NFT, and funding balances with transfer, convert, and bank cards.",
   },
 ];
 

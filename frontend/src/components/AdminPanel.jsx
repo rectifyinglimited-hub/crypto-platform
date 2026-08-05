@@ -2717,12 +2717,12 @@ export default function AdminPanel({ user, onExit }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="relative min-h-screen w-full overflow-hidden bg-[#070915] text-slate-100"
+      className="relative min-h-screen w-full overflow-hidden bg-nx-bg text-slate-100"
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-indigo-600/15 blur-3xl" />
-        <div className="absolute -right-24 top-1/3 h-[26rem] w-[26rem] rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-teal-600/10 blur-3xl" />
+        <div className="absolute -right-24 top-1/3 h-[26rem] w-[26rem] rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute -bottom-40 left-1/3 h-96 w-96 rounded-full bg-emerald-500/5 blur-3xl" />
       </div>
 
       <Toast

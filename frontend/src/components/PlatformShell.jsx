@@ -205,8 +205,8 @@ export default function PlatformShell({
   const kycApproved = user?.kyc?.status === "approved";
 
   return (
-    <div className="min-h-screen w-full bg-[#070a12] text-slate-100">
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#070a12]/95 backdrop-blur-xl">
+    <div className="nx-page relative min-h-screen w-full bg-nx-bg text-slate-100">
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#06080f]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-3 px-4 sm:px-6 lg:px-8">
           <button
             type="button"
@@ -222,10 +222,10 @@ export default function PlatformShell({
             onClick={() => onPageChange?.("home")}
             className="flex shrink-0 items-center gap-2"
           >
-            <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-cyan-400 to-teal-500 text-sm font-black text-slate-950 shadow-lg shadow-cyan-500/20">
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-sm font-black text-slate-950 shadow-glow">
               N
             </div>
-            <span className="hidden text-base font-black tracking-tight text-white sm:inline">
+            <span className="hidden font-display text-base font-bold tracking-tight text-white sm:inline">
               Nexus
             </span>
           </button>

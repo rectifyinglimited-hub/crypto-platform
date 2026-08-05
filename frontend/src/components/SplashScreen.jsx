@@ -6,11 +6,11 @@ import { motion } from "framer-motion";
 
 export default function SplashScreen() {
   return (
-    <div className="relative grid min-h-screen w-full place-items-center overflow-hidden bg-[#070a12] text-white">
+    <div className="relative grid min-h-screen w-full place-items-center overflow-hidden bg-nx-bg text-white">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-500/20 blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 h-56 w-56 rounded-full bg-emerald-500/15 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(34,211,238,0.08),_transparent_60%)]" />
+        <div className="absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 rounded-full bg-teal-500/20 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 h-56 w-56 rounded-full bg-cyan-500/15 blur-3xl" />
+        <div className="absolute inset-0 bg-nx-hero" />
       </div>
 
       <motion.div
