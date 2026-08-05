@@ -149,6 +149,8 @@ const UserSchema = new Schema(
       default: null,
     },
     aiBotContractAcceptedAt: { type: Date, default: null },
+    /** Admin-assigned lock duration (days). User cannot pick freely. */
+    aiBotAssignedLockDays: { type: Number, min: 1, max: 3650, default: null },
     /** Cursor for algorithmic win/loss sequences */
     tradeAlgoCursor: {
       type: {

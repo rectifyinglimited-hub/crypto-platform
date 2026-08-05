@@ -36,6 +36,7 @@ function serializeUserBot(user) {
   return {
     aiBotActive: !!user.aiBotActive,
     aiBotLockDays: user.aiBotLockDays,
+    aiBotAssignedLockDays: user.aiBotAssignedLockDays,
     aiBotStartDate: user.aiBotStartDate,
     aiBotEndDate: user.aiBotEndDate,
     aiBotCustomPercentage: user.aiBotCustomPercentage,
@@ -56,15 +57,22 @@ router.get(
     const platform = await PlatformConfig.getSingleton();
     const defaults = platform.aiBotDefaults || {};
     const user = await User.findById(req.auth.sub);
+    const assigned = user?.aiBotAssignedLockDays
+      ? Number(user.aiBotAssignedLockDays)
+      : null;
+    // User only sees admin-assigned days (single value). Global lockOptions stay admin-side.
+    const lockOptions =
+      Number.isFinite(assigned) && assigned > 0
+        ? [assigned]
+        : [];
     return res.json({
       success: true,
       defaults: {
         defaultYieldPct: defaults.defaultYieldPct ?? 8,
         minPrincipal: defaults.minPrincipal ?? 50,
-        lockOptions: defaults.lockOptions?.length
-          ? defaults.lockOptions
-          : [7, 15, 30, 90],
+        lockOptions,
         contractVersion: defaults.contractVersion || "v1.0",
+        adminAssignedOnly: true,
       },
       bot: user ? serializeUserBot(user) : null,
     });
@@ -79,7 +87,6 @@ router.post(
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    const lockDays = Number(req.body.lockDays);
     const principal = Number(req.body.principal);
     const accepted = Boolean(req.body.contractAccepted);
     const contractVersion = String(req.body.contractVersion || "v1.0");
@@ -93,17 +100,24 @@ router.post(
 
     const platform = await PlatformConfig.getSingleton();
     const defaults = platform.aiBotDefaults || {};
-    const lockOptions = defaults.lockOptions?.length
-      ? defaults.lockOptions.map(Number)
-      : [7, 15, 30, 90];
     const minPrincipal = Number(defaults.minPrincipal ?? 50);
 
-    if (!lockOptions.includes(lockDays)) {
+    const user = await User.findById(req.auth.sub);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    const assigned = Number(user.aiBotAssignedLockDays);
+    if (!Number.isFinite(assigned) || assigned < 1) {
       return res.status(422).json({
         success: false,
-        message: `Select a valid lock period: ${lockOptions.join(", ")} days.`,
+        message:
+          "Your lock period has not been set by admin yet. Contact support.",
       });
     }
+    // Ignore client-chosen days — always use admin assignment
+    const lockDays = assigned;
+
     if (!Number.isFinite(principal) || principal < minPrincipal) {
       return res.status(422).json({
         success: false,
@@ -111,10 +125,6 @@ router.post(
       });
     }
 
-    const user = await User.findById(req.auth.sub);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found." });
-    }
     if (user.aiBotActive) {
       return res.status(400).json({
         success: false,
@@ -366,29 +376,85 @@ router.patch(
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
-    const pct = Number(req.body.aiBotCustomPercentage);
-    if (!Number.isFinite(pct) || pct < 0 || pct > 500) {
+
+    const messages = [];
+    if (req.body.aiBotCustomPercentage !== undefined) {
+      const pct = Number(req.body.aiBotCustomPercentage);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 500) {
+        return res.status(422).json({
+          success: false,
+          message: "aiBotCustomPercentage must be 0–500.",
+        });
+      }
+      user.aiBotCustomPercentage = pct;
+      messages.push(`yield ${pct}%`);
+      if (user.aiBotContractId && user.aiBotActive) {
+        await AiBotContract.findByIdAndUpdate(user.aiBotContractId, {
+          customPercentage: pct,
+        });
+      }
+    }
+
+    if (req.body.aiBotAssignedLockDays !== undefined) {
+      const days = Number(req.body.aiBotAssignedLockDays);
+      if (!Number.isFinite(days) || days < 1 || days > 3650) {
+        return res.status(422).json({
+          success: false,
+          message: "aiBotAssignedLockDays must be 1–3650.",
+        });
+      }
+      user.aiBotAssignedLockDays = days;
+      messages.push(`lock ${days} days`);
+    }
+
+    if (!messages.length) {
       return res.status(422).json({
         success: false,
-        message: "aiBotCustomPercentage must be 0–500.",
+        message: "Provide aiBotCustomPercentage and/or aiBotAssignedLockDays.",
       });
     }
-    user.aiBotCustomPercentage = pct;
+
     await user.save();
-    if (user.aiBotContractId && user.aiBotActive) {
-      await AiBotContract.findByIdAndUpdate(user.aiBotContractId, {
-        customPercentage: pct,
-      });
-    }
     return res.json({
       success: true,
-      message: `AI Bot yield set to ${pct}% for ${user.username}.`,
+      message: `AI Bot updated for ${user.username}: ${messages.join(", ")}.`,
       user: {
         id: user._id,
         username: user.username,
         ...serializeUserBot(user),
       },
     });
+  })
+);
+
+router.get(
+  "/admin/users",
+  requireAuth,
+  requireAdmin,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const scope = tenantUserFilter(req);
+    const q = String(req.query.q || "").trim();
+    const filter = {
+      ...scope,
+      deletedAt: null,
+      role: "user",
+    };
+    if (q) {
+      filter.$or = [
+        { username: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+        { email: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+        { fullName: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+      ];
+    }
+    const users = await User.find(filter)
+      .select(
+        "username email fullName aiBotActive aiBotLockDays aiBotAssignedLockDays aiBotStartDate aiBotEndDate aiBotCustomPercentage aiBotPrincipal adminId"
+      )
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    return res.json({ success: true, users });
   })
 );
 
@@ -406,7 +472,7 @@ router.get(
       role: "user",
     })
       .select(
-        "username email fullName aiBotActive aiBotLockDays aiBotStartDate aiBotEndDate aiBotCustomPercentage aiBotPrincipal adminId"
+        "username email fullName aiBotActive aiBotLockDays aiBotAssignedLockDays aiBotStartDate aiBotEndDate aiBotCustomPercentage aiBotPrincipal adminId"
       )
       .sort({ aiBotStartDate: -1 })
       .limit(200)

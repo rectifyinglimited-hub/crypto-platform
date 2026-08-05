@@ -30,14 +30,14 @@ const UploadSchema = new Schema(
 );
 
 const DEFAULT_RAILS = [
+  { id: "merchant_name", label: "Merchant / Company Name", value: "" },
   { id: "bank_name", label: "Bank Name", value: "" },
   { id: "account_title", label: "Account Title", value: "" },
-  { id: "account_number", label: "Account Number", value: "" },
-  { id: "iban", label: "IBAN (optional)", value: "" },
-  { id: "easypaisa", label: "EasyPaisa Number", value: "" },
-  { id: "jazzcash", label: "JazzCash Number", value: "" },
+  { id: "account_number", label: "Account Number / IBAN", value: "" },
+  { id: "swift", label: "SWIFT / BIC (optional)", value: "" },
   { id: "usdt_trc20", label: "USDT TRC20 Address", value: "" },
   { id: "usdt_erc20", label: "USDT ERC20 Address", value: "" },
+  { id: "usdt_bep20", label: "USDT BEP20 Address", value: "" },
 ];
 
 const LEGACY_MAP = {
@@ -45,8 +45,6 @@ const LEGACY_MAP = {
   account_title: "accountTitle",
   account_number: "accountNumber",
   iban: "iban",
-  easypaisa: "easyPaisaNumber",
-  jazzcash: "jazzCashNumber",
   usdt_trc20: "usdtTrc20Address",
   usdt_erc20: "usdtErc20Address",
 };

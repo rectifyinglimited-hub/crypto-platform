@@ -1455,14 +1455,14 @@ const TransactionsView = ({
 // GatewayView — flexible named rails + uploads
 // ---------------------------------------------------------------------------
 const DEFAULT_GATEWAY_RAILS = [
+  { id: "merchant_name", label: "Merchant / Company Name", value: "" },
   { id: "bank_name", label: "Bank Name", value: "" },
   { id: "account_title", label: "Account Title", value: "" },
-  { id: "account_number", label: "Account Number", value: "" },
-  { id: "iban", label: "IBAN (optional)", value: "" },
-  { id: "easypaisa", label: "EasyPaisa Number", value: "" },
-  { id: "jazzcash", label: "JazzCash Number", value: "" },
+  { id: "account_number", label: "Account Number / IBAN", value: "" },
+  { id: "swift", label: "SWIFT / BIC (optional)", value: "" },
   { id: "usdt_trc20", label: "USDT TRC20 Address", value: "" },
   { id: "usdt_erc20", label: "USDT ERC20 Address", value: "" },
+  { id: "usdt_bep20", label: "USDT BEP20 Address", value: "" },
 ];
 
 function railsFromSettings(settings) {
@@ -1473,16 +1473,16 @@ function railsFromSettings(settings) {
       value: r.value || "",
     }));
   }
-  // Migrate legacy flat fields into editable rails
+  // Migrate legacy flat fields into editable rails (no EasyPaisa / JazzCash)
   const legacy = {
+    merchant_name: "",
     bank_name: settings?.bankName,
     account_title: settings?.accountTitle,
-    account_number: settings?.accountNumber,
-    iban: settings?.iban,
-    easypaisa: settings?.easyPaisaNumber,
-    jazzcash: settings?.jazzCashNumber,
+    account_number: settings?.accountNumber || settings?.iban,
+    swift: "",
     usdt_trc20: settings?.usdtTrc20Address,
     usdt_erc20: settings?.usdtErc20Address,
+    usdt_bep20: "",
   };
   return DEFAULT_GATEWAY_RAILS.map((r) => ({
     ...r,

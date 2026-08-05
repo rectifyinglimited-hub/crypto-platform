@@ -113,8 +113,8 @@ function persistToasted(set) {
 }
 
 const DURATIONS = [60, 90, 120];
-const CRYPTO = WATCHLIST_CRYPTO;
 const STOCKS = ["AAPL", "TSLA", "AMZN", "NVDA", "GOOGL"];
+const CRYPTO_FALLBACK = WATCHLIST_CRYPTO;
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -147,6 +147,8 @@ export default function SecondsTrading({
 }) {
   const [assetType, setAssetType] = useState("crypto");
   const [asset, setAsset] = useState("BTC");
+  const [assetQuery, setAssetQuery] = useState("");
+  const [cryptoList, setCryptoList] = useState(CRYPTO_FALLBACK);
   const [markets, setMarkets] = useState([]);
   const [series, setSeries] = useState([]);
   const [duration, setDuration] = useState(60);
@@ -164,7 +166,17 @@ export default function SecondsTrading({
   const lastTickPrice = useRef(null);
   const flashTimer = useRef(null);
 
-  const assets = assetType === "crypto" ? CRYPTO : STOCKS;
+  const assets =
+    assetType === "crypto"
+      ? cryptoList.length
+        ? cryptoList
+        : CRYPTO_FALLBACK
+      : STOCKS;
+  const filteredAssets = assetQuery.trim()
+    ? assets.filter((a) =>
+        a.toLowerCase().includes(assetQuery.trim().toLowerCase())
+      )
+    : assets;
 
   const market = useMemo(
     () => markets.find((m) => m.asset === asset),
@@ -185,6 +197,10 @@ export default function SecondsTrading({
       const res = await SecondsTradeAPI.markets();
       const list = res.markets || [];
       setMarkets(list);
+      const cryptos = list
+        .filter((x) => x.assetType === "crypto")
+        .map((x) => x.asset);
+      if (cryptos.length) setCryptoList(cryptos);
       const m = list.find((x) => x.asset === asset);
       if (m?.price) {
         targetPrice.current = m.price;
@@ -533,22 +549,39 @@ export default function SecondsTrading({
         ))}
       </div>
 
-      {/* Asset chips — scrollable 50+ crypto pairs */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {assets.map((a) => (
-          <button
-            key={a}
-            type="button"
-            onClick={() => setAsset(a)}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ${
-              asset === a
-                ? "bg-cyan-500/20 text-cyan-200 ring-1 ring-cyan-400/40"
-                : "bg-white/5 text-slate-400"
-            }`}
-          >
-            {a}
-          </button>
-        ))}
+      {/* Asset picker — searchable for 400+ crypto */}
+      <div className="space-y-2">
+        {assetType === "crypto" && (
+          <input
+            value={assetQuery}
+            onChange={(e) => setAssetQuery(e.target.value)}
+            placeholder={`Search ${assets.length} coins…`}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-500/40"
+          />
+        )}
+        <div className="flex max-h-28 flex-wrap gap-2 overflow-y-auto pb-1">
+          {(assetType === "crypto" ? filteredAssets.slice(0, 80) : assets).map(
+            (a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setAsset(a)}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ${
+                  asset === a
+                    ? "bg-cyan-500/20 text-cyan-200 ring-1 ring-cyan-400/40"
+                    : "bg-white/5 text-slate-400"
+                }`}
+              >
+                {a}
+              </button>
+            )
+          )}
+        </div>
+        {assetType === "crypto" && filteredAssets.length > 80 && (
+          <div className="text-[10px] text-slate-500">
+            Showing 80 of {filteredAssets.length} — type to filter.
+          </div>
+        )}
       </div>
 
       {/* Binance Futures–style TradingView chart */}

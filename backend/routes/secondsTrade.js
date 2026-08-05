@@ -28,135 +28,18 @@ import {
   defaultAlgoMatrix,
 } from "../lib/tradeAlgo.js";
 import { emitChartResync, emitWalletUpdate, emitTradeOpened, emitTradeSettled } from "../socket.js";
+import {
+  CRYPTO_ASSETS_UNIQUE as CRYPTO_ASSETS,
+  STOCK_ASSETS,
+  FALLBACK_PRICES,
+  fallbackPrice,
+} from "../lib/tradeAssets.js";
 
 const router = Router();
 
 const DEFAULT_PAYOUT = 85;
 const MIN_DURATION = 10;
 const MAX_DURATION = 3600;
-
-const CRYPTO_ASSETS = [
-  "BTC",
-  "ETH",
-  "SOL",
-  "XRP",
-  "ADA",
-  "DOGE",
-  "DOT",
-  "SHIB",
-  "LTC",
-  "BNB",
-  "AVAX",
-  "LINK",
-  "UNI",
-  "ATOM",
-  "NEAR",
-  "APT",
-  "ARB",
-  "OP",
-  "SUI",
-  "TON",
-  "TRX",
-  "ICP",
-  "FIL",
-  "AAVE",
-  "MKR",
-  "CRV",
-  "SAND",
-  "MANA",
-  "AXS",
-  "GALA",
-  "PEPE",
-  "WIF",
-  "BONK",
-  "FLOKI",
-  "INJ",
-  "SEI",
-  "TIA",
-  "RENDER",
-  "FET",
-  "IMX",
-  "STX",
-  "ALGO",
-  "XLM",
-  "VET",
-  "HBAR",
-  "RUNE",
-  "FTM",
-  "EGLD",
-  "THETA",
-  "FLOW",
-  "GRT",
-  "LDO",
-  "ENS",
-  "APE",
-  "CHZ",
-];
-const STOCK_ASSETS = ["AAPL", "TSLA", "AMZN", "NVDA", "GOOGL"];
-
-/** Fallback reference prices when external feed is unavailable */
-const FALLBACK_PRICES = {
-  BTC: 68000,
-  ETH: 3500,
-  SOL: 145,
-  BNB: 580,
-  XRP: 0.62,
-  ADA: 0.45,
-  DOGE: 0.12,
-  DOT: 6.5,
-  SHIB: 0.000018,
-  LTC: 85,
-  AVAX: 28,
-  LINK: 14,
-  UNI: 9,
-  ATOM: 7,
-  NEAR: 5,
-  APT: 8,
-  ARB: 0.85,
-  OP: 1.6,
-  SUI: 1.8,
-  TON: 5.5,
-  TRX: 0.14,
-  ICP: 9,
-  FIL: 4.5,
-  AAVE: 95,
-  MKR: 1400,
-  CRV: 0.45,
-  SAND: 0.35,
-  MANA: 0.4,
-  AXS: 5.5,
-  GALA: 0.03,
-  PEPE: 0.00001,
-  WIF: 1.8,
-  BONK: 0.00002,
-  FLOKI: 0.00015,
-  INJ: 22,
-  SEI: 0.4,
-  TIA: 6,
-  RENDER: 6.5,
-  FET: 1.4,
-  IMX: 1.2,
-  STX: 1.5,
-  ALGO: 0.18,
-  XLM: 0.11,
-  VET: 0.03,
-  HBAR: 0.07,
-  RUNE: 4.5,
-  FTM: 0.55,
-  EGLD: 32,
-  THETA: 1.5,
-  FLOW: 0.7,
-  GRT: 0.2,
-  LDO: 1.4,
-  ENS: 18,
-  APE: 1.1,
-  CHZ: 0.08,
-  AAPL: 210,
-  TSLA: 250,
-  AMZN: 190,
-  NVDA: 120,
-  GOOGL: 175,
-};
 
 /** Cached Binance all-ticker snapshot (refreshed ~1s) */
 let binanceTickerCache = { at: 0, map: null };
@@ -302,7 +185,7 @@ async function fetchLivePrice(asset, tickerMap) {
     }
   }
   // Stocks / fallback — mild random walk around seed
-  const base = FALLBACK_PRICES[sym] || 100;
+  const base = fallbackPrice(sym);
   const jitter = 1 + (Math.random() - 0.5) * 0.004;
   const p = base * jitter;
   return Number(p.toFixed(priceDecimals(sym, p)));

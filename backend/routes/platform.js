@@ -10,6 +10,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 import { tenantDocFilter } from "../middleware/tenant.js";
 import { isSuperAdminRole } from "../lib/roles.js";
+import { ensureCatalogEnrichment } from "../lib/catalogEnrichment.js";
 
 const router = Router();
 
@@ -193,18 +194,32 @@ const DEFAULT_SEED = [
   },
   {
     kind: "c2c_ad",
-    title: "USDT · Buy (PKR)",
-    subtitle: "Merchant desk",
-    price: 280,
-    meta: { side: "sell", asset: "USDT", fiat: "PKR", min: 50, max: 5000, payment: "Bank Transfer" },
+    title: "USDT · Buy (USD)",
+    subtitle: "Global merchant desk",
+    price: 1,
+    meta: {
+      side: "sell",
+      asset: "USDT",
+      fiat: "USD",
+      min: 50,
+      max: 50000,
+      payment: "Merchant Deposit",
+    },
     sortOrder: 1,
   },
   {
     kind: "c2c_ad",
-    title: "USDT · Sell (PKR)",
-    subtitle: "Merchant desk",
-    price: 275,
-    meta: { side: "buy", asset: "USDT", fiat: "PKR", min: 50, max: 5000, payment: "Easypaisa" },
+    title: "USDT · Sell (USD)",
+    subtitle: "Global merchant desk",
+    price: 1,
+    meta: {
+      side: "buy",
+      asset: "USDT",
+      fiat: "USD",
+      min: 50,
+      max: 50000,
+      payment: "Merchant Deposit",
+    },
     sortOrder: 2,
   },
   {
@@ -263,6 +278,8 @@ router.get(
     const tenant = user?.adminId || null;
     await ensureSeed(null);
     if (tenant) await ensureSeed(tenant);
+    await ensureCatalogEnrichment(null);
+    if (tenant) await ensureCatalogEnrichment(tenant);
 
     const kind = req.query.kind ? String(req.query.kind) : null;
     const filter = {

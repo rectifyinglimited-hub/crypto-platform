@@ -8,7 +8,7 @@
  * =============================================================================
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { isStaffRole } from "../lib/roles.js";
 import {
@@ -1008,25 +1008,28 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const [toast, setToast] = useState({ kind: null, message: "" });
   const [chatOpenSignal, setChatOpenSignal] = useState(0);
   const [chatHint, setChatHint] = useState(null);
+  const [assetsView, setAssetsView] = useState("overview");
 
   const goPage = (p) => {
     setPage(p);
+    if (p === "assets") setAssetsView("overview");
     if (p === "delivery") setTab("trading");
     else if (p === "assets") setTab("wallet");
     else if (p === "account") setTab("settings");
     else if (p === "home") setTab("home");
   };
 
-  const openDepositChat = () => {
-    setChatHint("deposit");
-    setChatOpenSignal((n) => n + 1);
-    say("success", "Opening Live Chat to arrange your deposit…");
-  };
-
-  const say = (kind, message) => {
+  const say = useCallback((kind, message) => {
     setToast({ kind, message });
     setTimeout(() => setToast({ kind: null, message: "" }), 2600);
-  };
+  }, []);
+
+  const openDepositSection = useCallback(() => {
+    setAssetsView("deposit");
+    setPage("assets");
+    setTab("wallet");
+    say("success", "Opening Deposit section…");
+  }, [say]);
 
   const wallet = useMemo(() => {
     const w = me?.wallet;
@@ -1250,7 +1253,16 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             <NftMarketPage key="nft" onToast={say} user={me} onWalletUpdate={handleUserUpdate} mineOnly={page === "nft_mine"} />
           )}
           {page === "assets" && (
-            <AssetsHubPage key="assets" user={me} onToast={say} onOpenKyc={() => setKycOpen(true)} onOpenDeposit={openDepositChat} onOpenWithdraw={() => {}} onWalletUpdate={handleUserUpdate} />
+            <AssetsHubPage
+              key={`assets-${assetsView}`}
+              user={me}
+              onToast={say}
+              onOpenKyc={() => setKycOpen(true)}
+              onOpenDeposit={openDepositSection}
+              onOpenWithdraw={() => {}}
+              onWalletUpdate={handleUserUpdate}
+              initialView={assetsView}
+            />
           )}
           {page === "account" && (
             <motion.div key="account" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-2xl space-y-4">

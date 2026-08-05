@@ -414,6 +414,12 @@ export const AiBotAPI = {
     api
       .patch(`/ai-bot/admin/users/${userId}/yield`, { aiBotCustomPercentage })
       .then((r) => r.data),
+  adminSetUserBot: (userId, payload) =>
+    api.patch(`/ai-bot/admin/users/${userId}/yield`, payload).then((r) => r.data),
+  adminSearchUsers: (q = "") =>
+    api
+      .get("/ai-bot/admin/users", { params: q ? { q } : {} })
+      .then((r) => r.data),
 };
 
 /** Absolute URL for /uploads/... proof images */

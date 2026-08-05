@@ -4,7 +4,7 @@
  * Rendered by Dashboard.jsx inside <PlatformShell>.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Loader2,
@@ -40,6 +40,7 @@ import {
   Plus,
 } from "lucide-react";
 import { PlatformAPI } from "../lib/api.js";
+import DepositSection from "./DepositSection.jsx";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -240,24 +241,46 @@ function pseudoChange(id) {
 export function MarketPage({ onNavigate }) {
   const { items, loading } = useCatalog("market_pair");
   const [cat, setCat] = useState("Crypto");
-  const filtered = items.filter((it) => (it.meta?.category || "Crypto") === cat);
+  const [q, setQ] = useState("");
+  const filtered = items.filter((it) => {
+    if ((it.meta?.category || "Crypto") !== cat) return false;
+    if (!q.trim()) return true;
+    const s = q.trim().toLowerCase();
+    return (
+      String(it.title || "").toLowerCase().includes(s) ||
+      String(it.meta?.base || "").toLowerCase().includes(s)
+    );
+  });
 
   return (
     <div>
-      <PageHeader icon={LineChart} title="Market" subtitle="Live pairs across Forex & Crypto" />
-      <div className="mb-4 inline-flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
-        {["Crypto", "Forex"].map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setCat(c)}
-            className={`rounded-lg px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
-              cat === c ? "bg-cyan-500/15 text-cyan-300" : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            {c}
-          </button>
-        ))}
+      <PageHeader
+        icon={LineChart}
+        title="Market"
+        subtitle={`${items.length || "…"} pairs across Forex & Crypto`}
+      />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="inline-flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+          {["Crypto", "Forex"].map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCat(c)}
+              className={`rounded-lg px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                cat === c ? "bg-cyan-500/15 text-cyan-300" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search pair…"
+          className="min-w-[160px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-500/40"
+        />
+        <div className="text-[11px] text-slate-500">{filtered.length} shown</div>
       </div>
       <Card className="overflow-hidden !p-0">
         {loading ? (
@@ -265,8 +288,9 @@ export function MarketPage({ onNavigate }) {
         ) : filtered.length === 0 ? (
           <EmptyState icon={LineChart} label="No pairs listed yet." />
         ) : (
+          <div className="max-h-[70vh] overflow-y-auto">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 bg-[#0d1424]">
               <tr className="border-b border-white/5 text-left text-[10px] uppercase tracking-widest text-slate-500">
                 <th className="px-4 py-3 font-semibold">Pair</th>
                 <th className="hidden px-4 py-3 font-semibold sm:table-cell">Category</th>
@@ -309,6 +333,7 @@ export function MarketPage({ onNavigate }) {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
     </div>
@@ -318,14 +343,34 @@ export function MarketPage({ onNavigate }) {
 // ---------------------------------------------------------------------------
 // 2. SpotTradePage
 // ---------------------------------------------------------------------------
-const SPOT_COINS = ["BTC", "ETH", "SOL"];
+const SPOT_COINS_FALLBACK = ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE", "SOL"];
 
 export function SpotTradePage({ onToast, onWalletUpdate }) {
+  const { items: pairs } = useCatalog("market_pair");
+  const spotCoins = useMemo(() => {
+    const fromCat = pairs
+      .filter((p) => (p.meta?.category || "Crypto") === "Crypto")
+      .map((p) => p.meta?.base)
+      .filter(Boolean);
+    const uniq = [...new Set(fromCat.map((s) => String(s).toUpperCase()))];
+    return uniq.length ? uniq.slice(0, 120) : SPOT_COINS_FALLBACK;
+  }, [pairs]);
   const [symbol, setSymbol] = useState("BTC");
   const [side, setSide] = useState("buy");
   const [amount, setAmount] = useState("");
   const [assets, setAssets] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [coinQ, setCoinQ] = useState("");
+
+  useEffect(() => {
+    if (spotCoins.length && !spotCoins.includes(symbol)) {
+      setSymbol(spotCoins[0]);
+    }
+  }, [spotCoins, symbol]);
+
+  const shownCoins = coinQ.trim()
+    ? spotCoins.filter((c) => c.toLowerCase().includes(coinQ.trim().toLowerCase()))
+    : spotCoins;
 
   const loadAssets = useCallback(() => {
     PlatformAPI.assets().then(setAssets).catch(() => {});
@@ -359,8 +404,14 @@ export function SpotTradePage({ onToast, onWalletUpdate }) {
     <div className="mx-auto max-w-lg">
       <PageHeader icon={Repeat} title="Spot Trade" subtitle="Simplified market buy / sell" />
       <Card>
-        <div className="mb-4 grid grid-cols-3 gap-2">
-          {SPOT_COINS.map((c) => (
+        <input
+          value={coinQ}
+          onChange={(e) => setCoinQ(e.target.value)}
+          placeholder={`Search ${spotCoins.length} coins…`}
+          className="mb-3 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-slate-200 outline-none"
+        />
+        <div className="mb-4 grid max-h-40 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+          {shownCoins.slice(0, 60).map((c) => (
             <button
               key={c}
               type="button"
@@ -428,12 +479,25 @@ export function SpotTradePage({ onToast, onWalletUpdate }) {
 // 3. PerpetualTradePage
 // ---------------------------------------------------------------------------
 export function PerpetualTradePage({ onToast, onWalletUpdate }) {
+  const { items: pairs } = useCatalog("market_pair");
+  const coinList = useMemo(() => {
+    const fromCat = pairs
+      .filter((p) => (p.meta?.category || "Crypto") === "Crypto")
+      .map((p) => p.meta?.base)
+      .filter(Boolean);
+    const uniq = [...new Set(fromCat.map((s) => String(s).toUpperCase()))];
+    return uniq.length ? uniq.slice(0, 120) : SPOT_COINS_FALLBACK;
+  }, [pairs]);
   const [symbol, setSymbol] = useState("BTC");
   const [side, setSide] = useState("long");
   const [leverage, setLeverage] = useState(10);
   const [amount, setAmount] = useState("");
   const [assets, setAssets] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [coinQ, setCoinQ] = useState("");
+  const shown = coinQ.trim()
+    ? coinList.filter((c) => c.toLowerCase().includes(coinQ.trim().toLowerCase()))
+    : coinList;
 
   const loadAssets = useCallback(() => {
     PlatformAPI.assets().then(setAssets).catch(() => {});
@@ -472,8 +536,14 @@ export function PerpetualTradePage({ onToast, onWalletUpdate }) {
     <div className="mx-auto max-w-lg">
       <PageHeader icon={TrendingUp} title="Perpetual" subtitle="Market long / short with leverage" />
       <Card>
-        <div className="mb-4 grid grid-cols-3 gap-2">
-          {SPOT_COINS.map((c) => (
+        <input
+          value={coinQ}
+          onChange={(e) => setCoinQ(e.target.value)}
+          placeholder={`Search ${coinList.length} coins…`}
+          className="mb-3 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-slate-200 outline-none"
+        />
+        <div className="mb-4 grid max-h-40 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+          {shown.slice(0, 60).map((c) => (
             <button
               key={c}
               type="button"
@@ -1390,6 +1460,7 @@ export function NftMarketPage({ onToast, onWalletUpdate, mineOnly = false }) {
 // ---------------------------------------------------------------------------
 const ASSETS_MENU = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
+  { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
   { key: "assets", label: "Assets", icon: Wallet },
   { key: "logs", label: "Logs", icon: History },
   { key: "security", label: "Security", icon: Lock },
@@ -1928,10 +1999,20 @@ export function AssetsHubPage({
   onOpenWithdraw,
   onWalletUpdate,
   onOpenAccount,
+  initialView = "overview",
 }) {
-  const [view, setView] = useState("overview");
+  const [view, setView] = useState(initialView || "overview");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (initialView) setView(initialView);
+  }, [initialView]);
+
+  const openDeposit = () => {
+    setView("deposit");
+    onOpenDeposit?.();
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1988,12 +2069,13 @@ export function AssetsHubPage({
                 <OverviewSection
                   total={total}
                   accounts={accounts}
-                  onOpenDeposit={onOpenDeposit}
+                  onOpenDeposit={openDeposit}
                   onOpenWithdraw={onOpenWithdraw}
                   onTransfer={() => setView("assets")}
                   onConvert={() => setView("convert")}
                 />
               )}
+              {view === "deposit" && <DepositSection toast={onToast} />}
               {view === "assets" && (
                 <AssetsSection accounts={accounts} onToast={onToast} onChanged={refreshAfterChange} />
               )}

@@ -1,5 +1,6 @@
 /**
  * AI Bot Trading — legal contract modal + lock activation + claim.
+ * Lock days are admin-assigned only (user cannot pick freely).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,7 +8,6 @@ import {
   Bot,
   Loader2,
   ShieldCheck,
-  Lock,
   FileText,
   X,
   CheckCircle2,
@@ -22,11 +22,11 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "2. Nature of the Service",
-    body: `AI Bot Trading is an automated capital-lock product. Funds you allocate are deducted from your Trading Wallet for the selected lock period. Yield is a target metric configured by Platform administrators and is not a bank deposit, insurance product, or guaranteed return. Past illustrative performance does not predict future results.`,
+    body: `AI Bot Trading is an automated capital-lock product. Funds you allocate are deducted from your Trading Wallet for the assigned lock period. Yield is a target metric configured by Platform administrators and is not a bank deposit, insurance product, or guaranteed return. Past illustrative performance does not predict future results.`,
   },
   {
     title: "3. Lock Periods",
-    body: `You may select an available lock duration (for example 7, 15, 30, or 90 days). During the lock, principal is unavailable for withdrawal, spot conversion, or delivery trading. Early termination is not permitted except where the Platform expressly cancels a contract for compliance or operational reasons.`,
+    body: `Lock duration is assigned exclusively by your Platform administrator for your account. You cannot select an alternate period. During the lock, principal is unavailable for withdrawal, spot conversion, or delivery trading. Early termination is not permitted except where the Platform expressly cancels a contract for compliance or operational reasons.`,
   },
   {
     title: "4. Yield & Custom Percentage",
@@ -62,7 +62,7 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "12. Acknowledgement",
-    body: `By checking the agreement box and selecting Confirm & Start AI Trading, you confirm that you have scrolled through and read this Agreement, understand the lock period and yield mechanics, accept all risk disclosures, and authorize deduction of principal from your Trading Wallet for the chosen duration.`,
+    body: `By checking the agreement box and selecting Confirm & Start AI Trading, you confirm that you have scrolled through and read this Agreement, understand the admin-assigned lock period and yield mechanics, accept all risk disclosures, and authorize deduction of principal from your Trading Wallet for the assigned duration.`,
   },
 ];
 
@@ -83,12 +83,14 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
   const [bot, setBot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [lockDays, setLockDays] = useState(7);
+  const [lockDays, setLockDays] = useState(null);
   const [principal, setPrincipal] = useState("100");
   const [agreed, setAgreed] = useState(false);
   const [scrolledEnd, setScrolledEnd] = useState(false);
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef(null);
+  const toastRef = useRef(onToast);
+  toastRef.current = onToast;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,14 +98,17 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
       const res = await AiBotAPI.config();
       setConfig(res.defaults);
       setBot(res.bot);
-      const opts = res.defaults?.lockOptions || [7, 15, 30, 90];
-      setLockDays(opts[0] || 7);
+      const assigned =
+        res.bot?.aiBotAssignedLockDays ??
+        res.defaults?.lockOptions?.[0] ??
+        null;
+      setLockDays(assigned);
     } catch (err) {
-      onToast?.("error", err?.message || "Failed to load AI Bot config.");
+      toastRef.current?.("error", err?.message || "Failed to load AI Bot config.");
     } finally {
       setLoading(false);
     }
-  }, [onToast]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -117,6 +122,13 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
   };
 
   const openModal = () => {
+    if (!lockDays) {
+      toastRef.current?.(
+        "error",
+        "Admin has not assigned your lock days yet. Contact support."
+      );
+      return;
+    }
     setAgreed(false);
     setScrolledEnd(false);
     setModalOpen(true);
@@ -125,7 +137,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
     }, 50);
   };
 
-  const canConfirm = agreed && scrolledEnd && !busy;
+  const canConfirm = agreed && scrolledEnd && !busy && !!lockDays;
 
   const activate = async () => {
     if (!canConfirm) return;
@@ -139,10 +151,10 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
       });
       setBot(res.bot);
       if (res.wallet) onWalletUpdate?.({ wallet: res.wallet });
-      onToast?.("success", res.message || "AI Bot activated.");
+      toastRef.current?.("success", res.message || "AI Bot activated.");
       setModalOpen(false);
     } catch (err) {
-      onToast?.("error", err?.message || "Activation failed.");
+      toastRef.current?.("error", err?.message || "Activation failed.");
     } finally {
       setBusy(false);
     }
@@ -154,15 +166,14 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
       const res = await AiBotAPI.claim();
       setBot(res.bot);
       if (res.wallet) onWalletUpdate?.({ wallet: res.wallet });
-      onToast?.("success", res.message || "Claimed.");
+      toastRef.current?.("success", res.message || "Claimed.");
     } catch (err) {
-      onToast?.("error", err?.message || "Claim failed.");
+      toastRef.current?.("error", err?.message || "Claim failed.");
     } finally {
       setBusy(false);
     }
   };
 
-  const lockOptions = config?.lockOptions || [7, 15, 30, 90];
   const yieldPct =
     bot?.aiBotCustomPercentage ??
     user?.aiBotCustomPercentage ??
@@ -196,7 +207,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
               Algorithmic lock contracts
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Lock USDT for a fixed period under a legally binding risk disclosure.
+              Lock USDT for an admin-assigned period under a legally binding risk disclosure.
               Target yield is set by your administrator ({yieldPct}% illustrative).
             </p>
           </div>
@@ -204,7 +215,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
       </div>
 
       {bot?.aiBotActive ? (
-        <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-5 space-y-4">
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-[#0d1424] p-5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-300">
               Active
@@ -237,29 +248,16 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
           )}
         </div>
       ) : (
-        <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-5 space-y-4">
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-[#0d1424] p-5">
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
+            <div>
               <span className="text-[11px] font-semibold uppercase text-slate-500">
-                Lock duration
+                Lock duration (admin assigned)
               </span>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {lockOptions.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setLockDays(d)}
-                    className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
-                      lockDays === d
-                        ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
-                        : "border-white/10 text-slate-400"
-                    }`}
-                  >
-                    {d} Days
-                  </button>
-                ))}
+              <div className="mt-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-100">
+                {lockDays ? `${lockDays} Days` : "Not assigned yet — contact admin"}
               </div>
-            </label>
+            </div>
             <label className="block">
               <span className="text-[11px] font-semibold uppercase text-slate-500">
                 Principal (USDT)
@@ -279,7 +277,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
           <button
             type="button"
             onClick={openModal}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3.5 text-sm font-bold text-slate-950 sm:w-auto sm:px-8"
+            disabled={!lockDays}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3.5 text-sm font-bold text-slate-950 disabled:opacity-50 sm:w-auto sm:px-8"
           >
             <FileText className="h-4 w-4" />
             Review contract & start AI Trading
@@ -334,42 +333,33 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
                   </section>
                 ))}
                 <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-[12px] text-amber-100/90">
-                  Selected lock: <strong>{lockDays} days</strong> · Principal:{" "}
+                  Assigned lock: <strong>{lockDays} days</strong> · Principal:{" "}
                   <strong>{fmtUsd(principal)}</strong> · Target yield:{" "}
                   <strong>{yieldPct}%</strong>
                 </div>
               </div>
 
               <div className="space-y-3 border-t border-white/5 px-4 py-3">
-                {!scrolledEnd && (
-                  <div className="text-[11px] text-amber-300/90">
-                    Scroll through the full contract to enable confirmation.
-                  </div>
-                )}
-                <label className="flex cursor-pointer items-start gap-2.5 text-[13px] text-slate-200">
+                <label className="flex items-start gap-2 text-[12px] text-slate-300">
                   <input
                     type="checkbox"
                     checked={agreed}
                     disabled={!scrolledEnd}
                     onChange={(e) => setAgreed(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-white/20"
+                    className="mt-0.5"
                   />
                   <span>
-                    I have read, understood, and agree to the AI Algorithmic Trading
-                    Terms & Risk Disclosure.
+                    I have read the full Agreement{!scrolledEnd ? " (scroll to the end first)" : ""}{" "}
+                    and accept all terms and risk disclosures.
                   </span>
                 </label>
                 <button
                   type="button"
                   disabled={!canConfirm}
                   onClick={activate}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3 text-sm font-bold text-slate-950 disabled:opacity-40"
                 >
-                  {busy ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Lock className="h-4 w-4" />
-                  )}
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Confirm & Start AI Trading
                 </button>
               </div>
@@ -383,9 +373,11 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
 
 function Stat({ label, value }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
-      <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-bold text-white">{value}</div>
+    <div className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </div>
+      <div className="mt-0.5 text-sm font-semibold text-white">{value}</div>
     </div>
   );
 }
