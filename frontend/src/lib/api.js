@@ -399,6 +399,7 @@ export const AiBotAPI = {
   activate: (payload) =>
     api.post("/ai-bot/activate", payload).then((r) => r.data),
   claim: () => api.post("/ai-bot/claim").then((r) => r.data),
+  cancel: () => api.post("/ai-bot/cancel").then((r) => r.data),
   adminContracts: (status) =>
     api
       .get("/ai-bot/admin/contracts", {

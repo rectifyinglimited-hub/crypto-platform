@@ -270,6 +270,74 @@ router.post(
   })
 );
 
+// ---------------------------------------------------------------------------
+// POST /cancel — early cancel: forfeit yield + 15% principal penalty
+// ---------------------------------------------------------------------------
+router.post(
+  "/cancel",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const user = await User.findById(req.auth.sub);
+    if (!user || !user.aiBotActive) {
+      return res.status(400).json({
+        success: false,
+        message: "No active AI Bot contract to cancel.",
+      });
+    }
+
+    const principal = Number(user.aiBotPrincipal || 0);
+    const penalty = Number((principal * 0.15).toFixed(8));
+    const refund = Number(Math.max(0, principal - penalty).toFixed(8));
+
+    if (!(user.wallet instanceof Map)) user.wallet = new Map();
+    const usdt = Number(user.wallet.get("USDT") || 0);
+    user.wallet.set("USDT", Number((usdt + refund).toFixed(8)));
+    user.markModified("wallet");
+
+    const contractId = user.aiBotContractId;
+    user.aiBotActive = false;
+    user.aiBotLockDays = null;
+    user.aiBotStartDate = null;
+    user.aiBotEndDate = null;
+    user.aiBotPrincipal = 0;
+    user.aiBotContractId = null;
+    user.aiBotContractAcceptedAt = null;
+    await user.save();
+
+    if (contractId) {
+      await AiBotContract.findByIdAndUpdate(contractId, {
+        status: "cancelled",
+        claimedAt: new Date(),
+        payoutAmount: refund,
+      });
+    }
+
+    await Transaction.create({
+      user: user._id,
+      adminId: user.adminId || null,
+      kind: "trade",
+      side: "sell",
+      symbol: "AI-BOT",
+      amount: refund,
+      usdValue: refund,
+      status: "completed",
+      reviewerNote: `AI Bot cancel · forfeit yield · 15% penalty $${penalty} · refund $${refund}`,
+    });
+
+    return res.json({
+      success: true,
+      message: `Cancelled. Yield forfeited. 15% penalty ($${penalty.toFixed(
+        2
+      )}) deducted. Refunded $${refund.toFixed(2)}.`,
+      penalty,
+      refund,
+      wallet: walletObj(user.wallet),
+      bot: serializeUserBot(user),
+    });
+  })
+);
+
 // ===========================================================================
 // ADMIN
 // ===========================================================================

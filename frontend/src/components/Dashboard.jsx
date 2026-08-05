@@ -50,8 +50,6 @@ import {
   PerpetualTradePage,
   C2CPage,
   CarbonEtfPage,
-  AiComputePage,
-  IcoPage,
   CopyTradePage,
   LoanPage,
   NftMarketPage,
@@ -1310,7 +1308,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           )}
           {page === "c2c" && <C2CPage key="c2c" onToast={say} user={me} />}
           {page === "carbon" && <CarbonEtfPage key="carbon" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
-          {page === "ai" && <AiComputePage key="ai" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
           {page === "aibot" && (
             <AiBotTradingPage
               key="aibot"
@@ -1319,7 +1316,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               onWalletUpdate={handleUserUpdate}
             />
           )}
-          {page === "ico" && <IcoPage key="ico" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
           {page === "copy" && <CopyTradePage key="copy" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
           {page === "loan" && <LoanPage key="loan" onToast={say} user={me} />}
           {(page === "nft" || page === "nft_mine") && (

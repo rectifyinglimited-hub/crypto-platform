@@ -148,6 +148,7 @@ export function buildNftSeed(count = 40) {
       title: `${collection} ${name} #${1000 + n}`,
       subtitle: `${rarity} · ${collection}`,
       price,
+      imageUrl: `https://picsum.photos/seed/nexus-nft-${n}/640/640`,
       meta: { rarity, collection, edition: n },
       enabled: true,
       featured: n <= 8,
@@ -206,6 +207,57 @@ export async function ensureCatalogEnrichment(adminId = null) {
       await PlatformCatalog.insertMany(toInsert, { ordered: false }).catch(
         () => {}
       );
+    }
+  }
+
+  // Backfill NFT images if missing
+  const nftsMissingImg = await PlatformCatalog.find({
+    ...filter,
+    kind: "nft",
+    $or: [{ imageUrl: null }, { imageUrl: "" }, { imageUrl: { $exists: false } }],
+  }).limit(80);
+  for (const doc of nftsMissingImg) {
+    const seed =
+      doc.meta?.edition ||
+      String(doc.title || "")
+        .replace(/\W+/g, "")
+        .slice(-4) ||
+      doc._id.toString().slice(-4);
+    doc.imageUrl = `https://picsum.photos/seed/nexus-${seed}/640/640`;
+    await doc.save();
+  }
+
+  // Ensure copy traders have demo equity/trade history for user graphs
+  const traders = await PlatformCatalog.find({
+    ...filter,
+    kind: "copy_trader",
+  });
+  for (const doc of traders) {
+    if (!doc.meta) doc.meta = {};
+    let changed = false;
+    if (!Array.isArray(doc.meta.equityHistory) || doc.meta.equityHistory.length < 5) {
+      const base = 100 + (String(doc.title || "").length % 20);
+      doc.meta.equityHistory = Array.from({ length: 14 }, (_, i) =>
+        Number((base + Math.sin(i / 2) * 8 + i * 1.4).toFixed(2))
+      );
+      changed = true;
+    }
+    if (!Array.isArray(doc.meta.tradeHistory) || !doc.meta.tradeHistory.length) {
+      doc.meta.tradeHistory = [
+        { pair: "BTC/USDT", side: "long", pnlPct: 2.1, note: "Breakout" },
+        { pair: "ETH/USDT", side: "short", pnlPct: -0.6, note: "Scalp" },
+        { pair: "SOL/USDT", side: "long", pnlPct: 3.4, note: "Trend" },
+        { pair: "XRP/USDT", side: "long", pnlPct: 1.2, note: "Range" },
+      ];
+      changed = true;
+    }
+    if (!doc.meta.bio) {
+      doc.meta.bio = `${doc.title || "Desk"} — admin-managed copy strategy.`;
+      changed = true;
+    }
+    if (changed) {
+      doc.markModified("meta");
+      await doc.save();
     }
   }
 

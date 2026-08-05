@@ -1,8 +1,8 @@
 /**
- * AI Bot Trading — legal contract modal + lock activation + claim.
- * Lock days are admin-assigned only (user cannot pick freely).
+ * AI Bot Trading — professional desk: accrued profit, equity graph,
+ * assigned lock, cancel with 15% penalty (T&Cs).
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot,
@@ -12,57 +12,62 @@ import {
   X,
   CheckCircle2,
   Clock,
+  Ban,
+  TrendingUp,
 } from "lucide-react";
 import { AiBotAPI } from "../lib/api.js";
+
+const CANCEL_PENALTY_PCT = 15;
+const TRADE_PAIR = "BTC/USDT";
 
 const CONTRACT_SECTIONS = [
   {
     title: "1. Parties & Scope",
-    body: `This AI Algorithmic Trading Agreement ("Agreement") is entered into between you ("User", "you") and Nexus / the platform operator ("Platform", "we"). By activating an AI Bot Trading position you appoint the Platform's automated systems to allocate locked capital according to algorithmic strategies disclosed herein. This Agreement governs all AI Bot locks, yields, risk disclosures, and claims.`,
+    body: `This AI Algorithmic Trading Agreement ("Agreement") is entered into between you ("User") and Nexus ("Platform"). By activating an AI Bot you authorize algorithmic capital lock and yield targeting as disclosed herein.`,
   },
   {
     title: "2. Nature of the Service",
-    body: `AI Bot Trading is an automated capital-lock product. Funds you allocate are deducted from your Trading Wallet for the assigned lock period. Yield is a target metric configured by Platform administrators and is not a bank deposit, insurance product, or guaranteed return. Past illustrative performance does not predict future results.`,
+    body: `Funds allocated are deducted from your Trading Wallet for the admin-assigned lock period. Target yield is set by administrators and is illustrative — not a bank deposit or guaranteed return.`,
   },
   {
-    title: "3. Lock Periods",
-    body: `Lock duration is assigned exclusively by your Platform administrator for your account. You cannot select an alternate period. During the lock, principal is unavailable for withdrawal, spot conversion, or delivery trading. Early termination is not permitted except where the Platform expressly cancels a contract for compliance or operational reasons.`,
+    title: "3. Lock Periods (Admin Assigned)",
+    body: `Lock duration is assigned exclusively by your administrator. Once the contract is active you cannot change the lock period, principal, or trade pair.`,
   },
   {
-    title: "4. Yield & Custom Percentage",
-    body: `Target return is expressed as a percentage of locked principal ("aiBotCustomPercentage"). Administrators may set a global default and/or a user-specific percentage. At maturity you may claim principal plus calculated yield. Yield accrues only if the contract remains active through the end date and claim is submitted successfully.`,
+    title: "4. Yield & Daily Profit Display",
+    body: `Target return is a percentage of locked principal. The Platform may display accrued / daily illustrative profit and an equity graph for transparency. Accrued amounts become claimable only after the lock end date if the contract remains active.`,
   },
   {
-    title: "5. Risk Disclosure",
-    body: `Algorithmic trading involves substantial risk of loss. Market volatility, liquidity gaps, model error, latency, custody events, network outages, and regulatory action may reduce or eliminate expected yield. You may lose part or all of locked principal if the Platform is required to reverse or adjust balances under fraud, chargeback, or force-majeure policies.`,
+    title: "5. Early Cancellation Penalty",
+    body: `If you cancel an active AI Bot before the end date: (a) you forfeit all target / accrued yield; (b) a penalty of ${CANCEL_PENALTY_PCT}% of your locked principal is deducted; (c) only the remaining principal (after the ${CANCEL_PENALTY_PCT}% deduction) is returned to your Trading Wallet. Example: $100 principal cancelled early → $15 penalty → $85 refunded, $0 yield.`,
   },
   {
-    title: "6. No Investment Advice",
-    body: `Nothing in the AI Bot interface constitutes investment, legal, tax, or accounting advice. You are solely responsible for assessing suitability relative to your financial condition, risk tolerance, and local law. If you do not understand the risks, do not activate an AI Bot.`,
+    title: "6. Risk Disclosure",
+    body: `Algorithmic trading involves substantial risk of loss. Market volatility, model error, outages, and regulatory action may reduce or eliminate expected yield.`,
   },
   {
-    title: "7. KYC, Sanctions & Eligibility",
-    body: `You represent that you are of legal age, not subject to sanctions, and that funds are lawfully obtained. The Platform may suspend AI Bot activation or claims pending identity verification, enhanced due diligence, or regulatory requests.`,
+    title: "7. No Investment Advice",
+    body: `Nothing herein is investment, legal, or tax advice. You alone assess suitability.`,
   },
   {
-    title: "8. Operational Controls",
-    body: `The Platform may pause global trading, adjust algorithmic matrices for standard trades, modify AI Bot defaults, or refuse new locks to protect market integrity. Existing active locks will be honored according to their recorded start/end dates and yield percentage unless prohibited by law.`,
+    title: "8. KYC & Eligibility",
+    body: `You represent you are of legal age, not sanctioned, and funds are lawfully obtained.`,
   },
   {
-    title: "9. Taxes & Reporting",
-    body: `You are responsible for any taxes arising from yields or currency conversions. The Platform may provide transaction records but does not withhold taxes unless required by applicable law.`,
+    title: "9. Operational Controls",
+    body: `The Platform may pause trading, adjust defaults, or refuse new locks. Active locks follow recorded dates unless prohibited by law.`,
   },
   {
     title: "10. Limitation of Liability",
-    body: `To the maximum extent permitted by law, the Platform's aggregate liability arising from AI Bot Trading is limited to the principal amount of the affected contract. We are not liable for indirect, incidental, special, consequential, or punitive damages, including lost profits or opportunity costs.`,
+    body: `Aggregate liability for AI Bot Trading is limited to the principal of the affected contract, less any lawful penalties.`,
   },
   {
     title: "11. Dispute Resolution",
-    body: `Disputes should first be raised via Support Chat. Unresolved disputes may be submitted to binding arbitration or courts of competent jurisdiction as specified in the Platform Terms of Service. Electronic acceptance (checkbox + timestamp) constitutes a valid signature.`,
+    body: `Raise disputes via Support Chat first. Electronic acceptance constitutes a valid signature.`,
   },
   {
     title: "12. Acknowledgement",
-    body: `By checking the agreement box and selecting Confirm & Start AI Trading, you confirm that you have scrolled through and read this Agreement, understand the admin-assigned lock period and yield mechanics, accept all risk disclosures, and authorize deduction of principal from your Trading Wallet for the assigned duration.`,
+    body: `By confirming you have read this Agreement including the ${CANCEL_PENALTY_PCT}% early-cancel penalty, accept all risk disclosures, and authorize deduction of principal for the assigned duration.`,
   },
 ];
 
@@ -78,16 +83,44 @@ function fmtDate(d) {
   return new Date(d).toLocaleString();
 }
 
+function ProfitSpark({ series }) {
+  if (!series?.length) return null;
+  const W = 320;
+  const H = 96;
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const range = max - min || 1;
+  const pts = series
+    .map((v, i) => {
+      const x = (i / Math.max(series.length - 1, 1)) * (W - 8) + 4;
+      const y = H - 8 - ((v - min) / range) * (H - 16);
+      return `${x},${y}`;
+    })
+    .join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-24 w-full">
+      <polyline
+        fill="none"
+        stroke="#2dd4bf"
+        strokeWidth="2.5"
+        points={pts}
+      />
+    </svg>
+  );
+}
+
 export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
   const [config, setConfig] = useState(null);
   const [bot, setBot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [lockDays, setLockDays] = useState(null);
   const [principal, setPrincipal] = useState("100");
   const [agreed, setAgreed] = useState(false);
   const [scrolledEnd, setScrolledEnd] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(Date.now());
   const scrollRef = useRef(null);
   const toastRef = useRef(onToast);
   toastRef.current = onToast;
@@ -114,11 +147,54 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const yieldPct =
+    bot?.aiBotCustomPercentage ??
+    user?.aiBotCustomPercentage ??
+    config?.defaultYieldPct ??
+    8;
+
+  const accrued = useMemo(() => {
+    if (!bot?.aiBotActive || !bot.aiBotStartDate || !bot.aiBotLockDays) {
+      return { daily: 0, total: 0, elapsedDays: 0, progress: 0 };
+    }
+    const start = new Date(bot.aiBotStartDate).getTime();
+    const end = bot.aiBotEndDate
+      ? new Date(bot.aiBotEndDate).getTime()
+      : start + bot.aiBotLockDays * 86400000;
+    const elapsedMs = Math.max(0, Math.min(now, end) - start);
+    const elapsedDays = elapsedMs / 86400000;
+    const principalN = Number(bot.aiBotPrincipal || 0);
+    const totalTarget = principalN * (Number(yieldPct) / 100);
+    const daily = bot.aiBotLockDays > 0 ? totalTarget / bot.aiBotLockDays : 0;
+    const total = Math.min(totalTarget, daily * elapsedDays);
+    const progress = Math.min(1, elapsedDays / bot.aiBotLockDays);
+    return { daily, total, elapsedDays, progress, totalTarget };
+  }, [bot, yieldPct, now]);
+
+  const equitySeries = useMemo(() => {
+    const p = Number(bot?.aiBotPrincipal || principal || 100);
+    const days = Math.max(2, Math.min(40, Math.ceil(accrued.elapsedDays) + 1));
+    const out = [];
+    for (let i = 0; i < days; i++) {
+      out.push(Number((p + accrued.daily * i).toFixed(4)));
+    }
+    if (bot?.aiBotActive) {
+      out[out.length - 1] = Number((p + accrued.total).toFixed(4));
+    }
+    return out;
+  }, [bot, principal, accrued]);
+
   const onScrollContract = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 24;
-    if (atEnd) setScrolledEnd(true);
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 24) {
+      setScrolledEnd(true);
+    }
   };
 
   const openModal = () => {
@@ -132,9 +208,6 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
     setAgreed(false);
     setScrolledEnd(false);
     setModalOpen(true);
-    setTimeout(() => {
-      if (scrollRef.current) scrollRef.current.scrollTop = 0;
-    }, 50);
   };
 
   const canConfirm = agreed && scrolledEnd && !busy && !!lockDays;
@@ -174,11 +247,21 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
     }
   };
 
-  const yieldPct =
-    bot?.aiBotCustomPercentage ??
-    user?.aiBotCustomPercentage ??
-    config?.defaultYieldPct ??
-    8;
+  const cancel = async () => {
+    setBusy(true);
+    try {
+      const res = await AiBotAPI.cancel();
+      setBot(res.bot);
+      if (res.wallet) onWalletUpdate?.({ wallet: res.wallet });
+      toastRef.current?.("success", res.message || "Cancelled.");
+      setCancelOpen(false);
+    } catch (err) {
+      toastRef.current?.("error", err?.message || "Cancel failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const matured =
     bot?.aiBotActive &&
     bot?.aiBotEndDate &&
@@ -207,8 +290,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
               Algorithmic lock contracts
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Lock USDT for an admin-assigned period under a legally binding risk disclosure.
-              Target yield is set by your administrator ({yieldPct}% illustrative).
+              Admin-assigned lock · live accrued profit · equity graph. Early cancel
+              forfeits yield and deducts {CANCEL_PENALTY_PCT}% of principal.
             </p>
           </div>
         </div>
@@ -220,16 +303,49 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
             <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-300">
               Active
             </span>
+            <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-200">
+              Trading {TRADE_PAIR}
+            </span>
             <span className="text-xs text-slate-500">
-              Contract accepted {fmtDate(bot.aiBotContractAcceptedAt)}
+              Started {fmtDate(bot.aiBotStartDate)}
             </span>
           </div>
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Principal" value={fmtUsd(bot.aiBotPrincipal)} />
             <Stat label="Lock" value={`${bot.aiBotLockDays} days`} />
-            <Stat label="Target yield" value={`${bot.aiBotCustomPercentage}%`} />
+            <Stat label="Target yield" value={`${yieldPct}%`} />
             <Stat label="Ends" value={fmtDate(bot.aiBotEndDate)} />
           </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Stat label="Daily profit (illustrative)" value={fmtUsd(accrued.daily)} accent />
+            <Stat label="Accrued so far" value={fmtUsd(accrued.total)} accent />
+            <Stat
+              label="Target at maturity"
+              value={fmtUsd(accrued.totalTarget)}
+            />
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                <TrendingUp className="h-3.5 w-3.5 text-teal-300" />
+                Equity graph · {TRADE_PAIR}
+              </div>
+              <div className="text-[10px] text-slate-500">
+                {Math.round(accrued.progress * 100)}% of lock
+              </div>
+            </div>
+            <ProfitSpark series={equitySeries} />
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-teal-300"
+                style={{ width: `${Math.round(accrued.progress * 100)}%` }}
+              />
+            </div>
+          </div>
+
           {matured ? (
             <button
               type="button"
@@ -241,9 +357,18 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
               Claim principal + yield
             </button>
           ) : (
-            <div className="flex items-center gap-2 text-sm text-amber-200/90">
-              <Clock className="h-4 w-4" />
-              Lock in progress — claim unlocks after end date.
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 text-sm text-amber-200/90">
+                <Clock className="h-4 w-4" />
+                Lock in progress — claim unlocks after end date.
+              </div>
+              <button
+                type="button"
+                onClick={() => setCancelOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-200"
+              >
+                <Ban className="h-3.5 w-3.5" /> Cancel early
+              </button>
             </div>
           )}
         </div>
@@ -270,7 +395,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
                 className="mt-2 w-full rounded-xl border border-white/10 bg-[#070a12] px-3 py-2.5 text-sm text-white"
               />
               <div className="mt-1 text-[11px] text-slate-500">
-                Min {fmtUsd(config?.minPrincipal || 50)} · Target yield {yieldPct}%
+                Min {fmtUsd(config?.minPrincipal || 50)} · Target yield {yieldPct}% · Pair{" "}
+                {TRADE_PAIR}
               </div>
             </label>
           </div>
@@ -308,7 +434,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
                       AI Algorithmic Trading Terms & Risk Disclosure
                     </div>
                     <div className="text-[10px] text-slate-500">
-                      Version {config?.contractVersion || "v1.0"} · Scroll to the end to continue
+                      Version {config?.contractVersion || "v1.0"} · Scroll to the end
                     </div>
                   </div>
                 </div>
@@ -320,7 +446,6 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-
               <div
                 ref={scrollRef}
                 onScroll={onScrollContract}
@@ -334,11 +459,12 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
                 ))}
                 <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-[12px] text-amber-100/90">
                   Assigned lock: <strong>{lockDays} days</strong> · Principal:{" "}
-                  <strong>{fmtUsd(principal)}</strong> · Target yield:{" "}
-                  <strong>{yieldPct}%</strong>
+                  <strong>{fmtUsd(principal)}</strong> · Yield:{" "}
+                  <strong>{yieldPct}%</strong> · Pair: <strong>{TRADE_PAIR}</strong>
+                  <br />
+                  Early cancel = no profit + {CANCEL_PENALTY_PCT}% principal deduction.
                 </div>
               </div>
-
               <div className="space-y-3 border-t border-white/5 px-4 py-3">
                 <label className="flex items-start gap-2 text-[12px] text-slate-300">
                   <input
@@ -349,8 +475,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
                     className="mt-0.5"
                   />
                   <span>
-                    I have read the full Agreement{!scrolledEnd ? " (scroll to the end first)" : ""}{" "}
-                    and accept all terms and risk disclosures.
+                    I have read the full Agreement including the {CANCEL_PENALTY_PCT}%
+                    cancel penalty{!scrolledEnd ? " (scroll to the end first)" : ""}.
                   </span>
                 </label>
                 <button
@@ -367,17 +493,63 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {cancelOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-3"
+          >
+            <div className="w-full max-w-md rounded-2xl border border-rose-400/30 bg-[#0c1222] p-5">
+              <h3 className="text-lg font-bold text-white">Cancel AI Bot early?</h3>
+              <p className="mt-2 text-sm text-slate-400">
+                You will <strong className="text-rose-300">forfeit all yield</strong> and
+                pay a <strong className="text-rose-300">{CANCEL_PENALTY_PCT}% penalty</strong>{" "}
+                on principal (
+                {fmtUsd(Number(bot?.aiBotPrincipal || 0) * (CANCEL_PENALTY_PCT / 100))}
+                ). Refund ≈{" "}
+                {fmtUsd(Number(bot?.aiBotPrincipal || 0) * (1 - CANCEL_PENALTY_PCT / 100))}.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCancelOpen(false)}
+                  className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-slate-300"
+                >
+                  Keep contract
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={cancel}
+                  className="flex-1 rounded-xl bg-rose-500 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Confirm cancel"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, accent }) {
   return (
     <div className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5">
       <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
         {label}
       </div>
-      <div className="mt-0.5 text-sm font-semibold text-white">{value}</div>
+      <div
+        className={`mt-0.5 text-sm font-semibold ${
+          accent ? "text-teal-300" : "text-white"
+        }`}
+      >
+        {value}
+      </div>
     </div>
   );
 }

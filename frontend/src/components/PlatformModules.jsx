@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Loader2,
   X,
@@ -39,8 +39,9 @@ import {
   Send,
   Plus,
 } from "lucide-react";
-import { PlatformAPI } from "../lib/api.js";
+import { PlatformAPI, assetUrl } from "../lib/api.js";
 import DepositSection from "./DepositSection.jsx";
+import CopyTradeModule from "./CopyTradeModule.jsx";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -1041,68 +1042,19 @@ export function IcoPage({ onToast, onWalletUpdate }) {
 // ---------------------------------------------------------------------------
 export function CopyTradePage({ onToast, onWalletUpdate }) {
   const { items, loading } = useCatalog("copy_trader");
-  const [active, setActive] = useState(null);
-
   return (
-    <div>
-      <PageHeader icon={Copy} title="Copy Trade" subtitle="Follow top-performing desks" />
-      {loading ? (
-        <LoadingBlock />
-      ) : items.length === 0 ? (
-        <EmptyState icon={Copy} label="No traders available." />
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((it) => (
-            <Card key={it._id}>
-              <div className="mb-3 flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-cyan-500/30 to-teal-500/20 font-bold text-cyan-200">
-                  {it.title?.[0]}
-                </div>
-                <div>
-                  <div className="font-semibold text-white">{it.title}</div>
-                  <div className="text-[11px] text-slate-500">{it.meta?.followers} followers</div>
-                </div>
-              </div>
-              <div className="mb-3 grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <div className="text-slate-500">Win rate</div>
-                  <div className="font-bold text-emerald-400">{it.meta?.winRate}%</div>
-                </div>
-                <div>
-                  <div className="text-slate-500">Profit share</div>
-                  <div className="font-bold text-white">{it.meta?.profitSharePct}%</div>
-                </div>
-              </div>
-              <button type="button" onClick={() => setActive(it)} className={`${PRIMARY_BTN} w-full`}>
-                Follow
-              </button>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <OrderModal
-        key={active?._id || "copy-modal"}
-        open={!!active}
-        onClose={() => setActive(null)}
-        title={`Follow ${active?.title || ""}`}
-        subtitle={`Minimum copy amount ${fmtUsd(active?.meta?.minCopy || 0)}`}
-        minAmount={active?.meta?.minCopy}
-        submitLabel="Follow trader"
-        onSubmit={async (amt) => {
-          if (!amt || amt <= 0) return;
-          try {
-            const res = await PlatformAPI.order({ kind: "copy_trade", catalogId: active._id, amount: amt });
-            onToast?.("success", res.message || "Now following trader.");
-            onWalletUpdate?.({ wallet: res.wallet, accounts: res.accounts });
-            setActive(null);
-          } catch (err) {
-            onToast?.("error", err?.message || "Follow failed.");
-            throw err;
-          }
-        }}
-      />
-    </div>
+    <CopyTradeModule
+      items={items}
+      loading={loading}
+      PageHeader={PageHeader}
+      Card={Card}
+      LoadingBlock={LoadingBlock}
+      EmptyState={EmptyState}
+      OrderModal={OrderModal}
+      PRIMARY_BTN={PRIMARY_BTN}
+      onToast={onToast}
+      onWalletUpdate={onWalletUpdate}
+    />
   );
 }
 
@@ -1396,17 +1348,20 @@ export function LoanPage({ onToast, user, onWalletUpdate }) {
             </div>
             <div className="space-y-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs">
               <div className="flex justify-between text-slate-400">
-                <span>Daily interest</span>
-                <span className="text-white">{dailyPct}%</span>
+                <span>Daily interest (admin set)</span>
+                <span className="font-semibold text-teal-300">{dailyPct}% / day</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>Interest total</span>
+                <span>After {days} days interest</span>
                 <span className="text-white">{fmtUsd(interest)}</span>
               </div>
               <div className="flex justify-between border-t border-white/5 pt-1.5 font-semibold text-white">
-                <span>Total repayment</span>
+                <span>Total to repay</span>
                 <span className="text-cyan-300">{fmtUsd(totalRepay)}</span>
               </div>
+              <p className="pt-1 text-[10px] text-slate-500">
+                Example: loan {fmtUsd(amt || 0)} for {days}d → repay {fmtUsd(totalRepay)} (admin rate {dailyPct}% daily).
+              </p>
             </div>
 
             {!approved && (
@@ -1446,10 +1401,26 @@ export function NftMarketPage({ onToast, onWalletUpdate, mineOnly = false }) {
         <EmptyState icon={ImageIcon} label="No NFTs listed." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((it) => (
+          {items.map((it) => {
+            const img = it.imageUrl ? assetUrl(it.imageUrl) || it.imageUrl : null;
+            return (
             <Card key={it._id} className="overflow-hidden !p-0">
-              <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-cyan-500/20 via-teal-500/10 to-transparent">
-                <ImageIcon className="h-10 w-10 text-cyan-300/50" />
+              <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-cyan-500/20 via-teal-500/10 to-transparent">
+                {img ? (
+                  <img
+                    src={img}
+                    alt={it.title}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <ImageIcon className="h-10 w-10 text-cyan-300/50" />
+                  </div>
+                )}
               </div>
               <div className="p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
@@ -1469,7 +1440,8 @@ export function NftMarketPage({ onToast, onWalletUpdate, mineOnly = false }) {
                 </button>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
