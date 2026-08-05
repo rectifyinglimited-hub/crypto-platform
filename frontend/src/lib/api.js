@@ -345,6 +345,54 @@ export const WalletAPI = {
     api.get("/wallet/transactions", { params }).then((r) => r.data),
 };
 
+/** CXM-style platform modules */
+export const PlatformAPI = {
+  catalog: (kind) =>
+    api
+      .get("/platform/catalog", { params: kind ? { kind } : {} })
+      .then((r) => r.data),
+  assets: () => api.get("/platform/assets").then((r) => r.data),
+  transfer: (payload) =>
+    api.post("/platform/transfer", payload).then((r) => r.data),
+  convert: (payload) =>
+    api.post("/platform/convert", payload).then((r) => r.data),
+  order: (payload) => api.post("/platform/order", payload).then((r) => r.data),
+  orders: (kind) =>
+    api
+      .get("/platform/orders", { params: kind ? { kind } : {} })
+      .then((r) => r.data),
+  submitBorrowerKyc: (payload) =>
+    api.post("/platform/borrower-kyc", payload).then((r) => r.data),
+  addBankCard: (payload) =>
+    api.post("/platform/bank-cards", payload).then((r) => r.data),
+  addWithdrawAddress: (payload) =>
+    api.post("/platform/withdraw-addresses", payload).then((r) => r.data),
+  adminCatalog: (kind) =>
+    api
+      .get("/platform/admin/catalog", { params: kind ? { kind } : {} })
+      .then((r) => r.data),
+  adminCreateCatalog: (payload) =>
+    api.post("/platform/admin/catalog", payload).then((r) => r.data),
+  adminUpdateCatalog: (id, payload) =>
+    api.patch(`/platform/admin/catalog/${id}`, payload).then((r) => r.data),
+  adminDeleteCatalog: (id) =>
+    api.delete(`/platform/admin/catalog/${id}`).then((r) => r.data),
+  adminOrders: (params = {}) =>
+    api.get("/platform/admin/orders", { params }).then((r) => r.data),
+  adminReviewOrder: (id, payload) =>
+    api.patch(`/platform/admin/orders/${id}`, payload).then((r) => r.data),
+  adminBorrowerKyc: (status = "pending") =>
+    api
+      .get("/platform/admin/borrower-kyc", { params: { status } })
+      .then((r) => r.data),
+  adminReviewBorrower: (userId, payload) =>
+    api
+      .patch(`/platform/admin/borrower-kyc/${userId}`, payload)
+      .then((r) => r.data),
+  adminUserAssets: (userId) =>
+    api.get(`/platform/admin/user-assets/${userId}`).then((r) => r.data),
+};
+
 /** Absolute URL for /uploads/... proof images */
 export const assetUrl = (path) => {
   if (!path) return "";

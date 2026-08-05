@@ -28,6 +28,7 @@ import gatewayRoutes from "./routes/gateway.js";
 import secondsTradeRoutes, {
   settleExpiredTrades,
 } from "./routes/secondsTrade.js";
+import platformRoutes from "./routes/platform.js";
 import { initSocket } from "./socket.js";
 import User from "./models/User.js";
 import { ROLES } from "./lib/roles.js";
@@ -91,6 +92,7 @@ app.use("/api/wallet", walletRoutes);
 app.use("/api/staking", stakingRoutes);
 app.use("/api/gateway", gatewayRoutes);
 app.use("/api/seconds-trade", secondsTradeRoutes);
+app.use("/api/platform", platformRoutes);
 
 // 404
 app.use((req, res) => {

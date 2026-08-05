@@ -155,6 +155,70 @@ const UserSchema = new Schema(
           ["SOL", 0],
         ]),
     },
+    /**
+     * CXM-style sub-accounts (USDT book). Delivery mirrors main Trading Wallet.
+     */
+    accountBalances: {
+      type: Map,
+      of: Number,
+      default: () =>
+        new Map([
+          ["funding", 0],
+          ["spot", 0],
+          ["contract", 0],
+          ["delivery", 0],
+          ["nft", 0],
+        ]),
+    },
+    bankCards: {
+      type: [
+        {
+          bankName: String,
+          accountName: String,
+          accountNumber: String,
+          iban: String,
+          currency: { type: String, default: "PKR" },
+          createdAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
+    withdrawAddresses: {
+      type: [
+        {
+          label: String,
+          network: { type: String, default: "TRC20" },
+          address: String,
+          asset: { type: String, default: "USDT" },
+          createdAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
+    /** Extended borrower KYC for Loan center */
+    borrowerKyc: {
+      type: {
+        status: {
+          type: String,
+          enum: ["unverified", "pending", "approved", "rejected"],
+          default: "unverified",
+        },
+        firstName: String,
+        lastName: String,
+        gender: String,
+        dateOfBirth: String,
+        country: String,
+        phone: String,
+        idType: String,
+        idNumber: String,
+        docs: { type: Schema.Types.Mixed, default: {} },
+        submittedAt: Date,
+        reviewedAt: Date,
+        reviewedBy: { type: Schema.Types.ObjectId, ref: "User" },
+        reviewerNote: String,
+      },
+      default: () => ({ status: "unverified", docs: {} }),
+    },
     /** Admin live chart bias per asset (percent). Applied on user market feed. */
     chartBias: {
       type: Map,

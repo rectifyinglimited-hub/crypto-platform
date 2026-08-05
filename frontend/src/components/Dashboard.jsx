@@ -43,6 +43,20 @@ import {
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import KYCModule from "./KYCModule.jsx";
 import AppShell from "./AppShell.jsx";
+import PlatformShell from "./PlatformShell.jsx";
+import {
+  MarketPage,
+  SpotTradePage,
+  PerpetualTradePage,
+  C2CPage,
+  CarbonEtfPage,
+  AiComputePage,
+  IcoPage,
+  CopyTradePage,
+  LoanPage,
+  NftMarketPage,
+  AssetsHubPage,
+} from "./PlatformModules.jsx";
 import HomeLanding from "./HomeLanding.jsx";
 import SecondsTrading from "./SecondsTrading.jsx";
 import CryptoWatchlist from "./CryptoWatchlist.jsx";
@@ -980,7 +994,9 @@ const TransactionsList = ({ transactions, loading, onRefresh }) => (
 // Main Dashboard — mobile-first Seconds Trading shell
 // ---------------------------------------------------------------------------
 export default function Dashboard({ user, onLogout, onOpenAdmin }) {
-  const [tab, setTab] = useState("home");
+  const [page, setPage] = useState("home");
+  const [mode, setMode] = useState("trade");
+  const [tab, setTab] = useState("home"); // legacy bottom-nav compat
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [kycOpen, setKycOpen] = useState(false);
   const [me, setMe] = useState(user);
@@ -991,6 +1007,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const [toast, setToast] = useState({ kind: null, message: "" });
   const [chatOpenSignal, setChatOpenSignal] = useState(0);
   const [chatHint, setChatHint] = useState(null);
+
+  const goPage = (p) => {
+    setPage(p);
+    if (p === "delivery") setTab("trading");
+    else if (p === "assets") setTab("wallet");
+    else if (p === "account") setTab("settings");
+    else if (p === "home") setTab("home");
+  };
 
   const openDepositChat = () => {
     setChatHint("deposit");
@@ -1144,26 +1168,27 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onClose={() => setToast({ kind: null, message: "" })}
       />
 
-      <AppShell
+      <PlatformShell
         user={me}
-        tab={tab}
-        onTabChange={setTab}
-        drawerOpen={drawerOpen}
-        onDrawerOpen={() => setDrawerOpen(true)}
-        onDrawerClose={() => setDrawerOpen(false)}
-        onLogout={handleLogout}
-        onOpenAdmin={onOpenAdmin}
-        onOpenKyc={() => setKycOpen(true)}
-        onOpenChat={() => setChatOpenSignal((n) => n + 1)}
+        page={page}
+        onPageChange={goPage}
+        mode={mode}
+        onModeChange={(m) => {
+          setMode(m);
+          if (m === "nft" && page !== "nft" && page !== "nft_mine") {
+            setPage("nft");
+          }
+        }}
         walletUsdt={walletUsdt}
+        onLogout={handleLogout}
+        onOpenAccount={() => goPage("account")}
+        onOpenKyc={() => setKycOpen(true)}
       >
-        {/* Unverified restriction banner — clears instantly when KYC is approved */}
-        {me?.kyc?.status !== "approved" && (
+        {me?.kyc?.status !== "approved" && page !== "assets" && (
           <motion.button
             type="button"
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
             onClick={() => setKycOpen(true)}
             className="mb-4 flex w-full items-start gap-2.5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3.5 py-3 text-left"
           >
@@ -1175,9 +1200,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   : "Unverified account — trading limits apply"}
               </div>
               <div className="mt-0.5 text-[11px] text-amber-200/70">
-                {me?.kyc?.status === "pending"
-                  ? "An admin is reviewing your documents. This banner clears when you are Verified."
-                  : "Complete Identity Verification to remove restrictions. Tap to verify."}
+                Complete Identity Verification — choose ID Card or Driving License.
               </div>
             </div>
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-300">
@@ -1187,173 +1210,49 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         )}
 
         <AnimatePresence mode="wait">
-          {tab === "home" && (
-            <motion.div
-              key="home"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-            >
-              <HomeLanding
-                user={me}
-                walletUsdt={walletUsdt}
-                liveEarnings={liveEarnings}
-                onStartTrading={() => setTab("trading")}
-              />
-            </motion.div>
-          )}
-
-          {tab === "settings" && (
-            <motion.div
-              key="settings"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="mx-auto max-w-2xl space-y-4"
-            >
-              <ProfileSetup
-                user={me}
-                toast={say}
-                onSaved={(u) => handleUserUpdate(u)}
-                onLogout={handleLogout}
-              />
-            </motion.div>
-          )}
-
-          {tab === "trading" && (
-            <motion.div
-              key="trading"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]"
-            >
-              <div className="min-w-0 space-y-4">
-                <SecondsTrading
-                  walletUsdt={walletUsdt}
-                  onWalletUpdate={handleUserUpdate}
-                  onToast={say}
-                  tradingSuspended={tradingSuspended}
-                />
-                <CryptoWatchlist
-                  onSelectAsset={(symbol) => {
-                    window.dispatchEvent(
-                      new CustomEvent("nexus:select-asset", {
-                        detail: { asset: symbol, assetType: "crypto" },
-                      })
-                    );
-                  }}
-                />
-              </div>
-              <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
-                <MarketActivity sticky={false} />
-              </div>
-            </motion.div>
-          )}
-
-          {tab === "wallet" && (
-            <motion.div
-              key="wallet"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="mx-auto max-w-3xl space-y-4"
-            >
-              <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-5">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
-                  Trading Wallet
-                </div>
-                <div className="mt-1 text-3xl font-bold text-white">
-                  <span
-                    className={
-                      walletUsdt < 0 ? "text-rose-400" : "text-white"
-                    }
-                  >
-                    {walletUsdt < 0 ? "-" : ""}$
-                    {Math.abs(walletUsdt).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>{" "}
-                  <span className="text-base font-medium text-slate-400">
-                    USDT
-                  </span>
-                </div>
-                <p className="mt-2 text-[11px] text-slate-500">
-                  New accounts start at $0.00 · Deposit via Live Chat with
-                  screenshot proof for admin approval
-                </p>
-              </div>
-
-              <div className="grid gap-3 grid-cols-2">
-                {Object.entries(wallet).map(([sym, amt]) => (
-                  <div
-                    key={sym}
-                    className="rounded-xl border border-white/10 bg-[#0d1424] p-3"
-                  >
-                    <div className="text-[10px] uppercase text-slate-500">
-                      {sym}
-                    </div>
-                    <div className="mt-1 text-sm font-bold tabular-nums">
-                      {fmt(amt, 6)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Deposit → Live Chat Support */}
-              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400/90">
-                  Deposit Menu
-                </div>
-                <p className="mt-2 text-sm text-slate-300">
-                  To add funds, open Live Chat and choose Deposit. Transfer to
-                  the shown address, upload your screenshot, then wait for
-                  admin approval to top up your Trading Wallet.
-                </p>
-                <button
-                  type="button"
-                  onClick={openDepositChat}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-emerald-950"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Deposit via Live Chat
+          {page === "home" && (
+            <motion.div key="home" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <HomeLanding user={me} walletUsdt={walletUsdt} liveEarnings={liveEarnings} onStartTrading={() => goPage("delivery")} />
+              {isStaffRole(me?.role) && (
+                <button type="button" onClick={onOpenAdmin} className="mt-4 w-full rounded-xl border border-indigo-400/30 bg-indigo-500/10 py-3 text-sm font-semibold text-indigo-200">
+                  Open Admin Console
                 </button>
-              </div>
-              <WithdrawPanel
-                wallet={wallet}
-                user={me}
-                toast={say}
-                onWalletUpdate={(w) =>
-                  setMe((prev) => ({ ...prev, wallet: w }))
-                }
-              />
+              )}
             </motion.div>
           )}
-
-          {tab === "history" && (
-            <motion.div
-              key="history"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="mx-auto max-w-4xl space-y-4"
-            >
-              <TradeHistory />
-              <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-4">
-                <h3 className="mb-3 text-sm font-semibold text-slate-200">
-                  Wallet ledger
-                </h3>
-                <TransactionsList
-                  transactions={transactions}
-                  loading={txLoading}
-                  onRefresh={loadTx}
-                />
+          {page === "market" && <MarketPage key="market" onToast={say} onNavigate={goPage} user={me} />}
+          {page === "spot" && <SpotTradePage key="spot" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
+          {page === "perpetual" && <PerpetualTradePage key="perpetual" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
+          {page === "delivery" && (
+            <motion.div key="delivery" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-2">
+              <div className="min-w-0 space-y-4">
+                <SecondsTrading walletUsdt={walletUsdt} onWalletUpdate={handleUserUpdate} onToast={say} tradingSuspended={tradingSuspended} />
               </div>
+              <div className="space-y-4"><CryptoWatchlist /><MarketActivity /></div>
+            </motion.div>
+          )}
+          {page === "c2c" && <C2CPage key="c2c" onToast={say} user={me} />}
+          {page === "carbon" && <CarbonEtfPage key="carbon" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
+          {page === "ai" && <AiComputePage key="ai" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
+          {page === "ico" && <IcoPage key="ico" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
+          {page === "copy" && <CopyTradePage key="copy" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
+          {page === "loan" && <LoanPage key="loan" onToast={say} user={me} />}
+          {(page === "nft" || page === "nft_mine") && (
+            <NftMarketPage key="nft" onToast={say} user={me} onWalletUpdate={handleUserUpdate} mineOnly={page === "nft_mine"} />
+          )}
+          {page === "assets" && (
+            <AssetsHubPage key="assets" user={me} onToast={say} onOpenKyc={() => setKycOpen(true)} onOpenDeposit={openDepositChat} onOpenWithdraw={() => {}} onWalletUpdate={handleUserUpdate} />
+          )}
+          {page === "account" && (
+            <motion.div key="account" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-2xl space-y-4">
+              <ProfileSetup user={me} toast={say} onSaved={(u) => handleUserUpdate(u)} onLogout={handleLogout} />
+              <button type="button" onClick={() => setKycOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/25 bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-200">
+                <ShieldCheck className="h-4 w-4" /> Identity Verification (ID Card / License)
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
-      </AppShell>
+      </PlatformShell>
 
       <KYCModule
         user={me}

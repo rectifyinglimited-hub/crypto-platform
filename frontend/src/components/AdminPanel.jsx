@@ -51,11 +51,13 @@ import {
   Upload,
   LogOut,
   Pencil,
+  Package,
 } from "lucide-react";
 import { AdminAPI, AuthAPI, assetUrl } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
 import AdminChatManager from "./AdminChatManager.jsx";
 import NotificationBell from "./NotificationBell.jsx";
+import AdminPlatformModules from "./AdminPlatformModules.jsx";
 import UserControlRoom, {
   ActiveTradesAlertBar,
 } from "./UserControlRoom.jsx";
@@ -2700,6 +2702,7 @@ export default function AdminPanel({ user, onExit }) {
     { key: "codes", label: "Invite Codes", icon: Ticket },
     { key: "users", label: "Users", icon: Users },
     { key: "kyc", label: "KYC Review", icon: BadgeCheck },
+    { key: "platform", label: "Platform Modules", icon: Package },
     { key: "transactions", label: "Transactions", icon: Receipt },
     { key: "gateway", label: "Gateway Settings", icon: Landmark },
     { key: "chat", label: "Support Chat", icon: MessageSquare },
@@ -2915,6 +2918,9 @@ export default function AdminPanel({ user, onExit }) {
                 filter={kycFilter}
                 onFilterChange={setKycFilter}
               />
+            )}
+            {section === "platform" && (
+              <AdminPlatformModules key="platform" toast={say} />
             )}
             {section === "gateway" && (
               <GatewayView
