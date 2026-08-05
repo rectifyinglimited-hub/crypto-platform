@@ -550,10 +550,10 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
   return (
     <div className="space-y-6 md:space-y-8">
       {/* Hero — brand-first, no auth CTAs */}
-      <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0d1424] via-[#0a1220] to-[#071018] px-5 py-8 sm:px-8 sm:py-10 md:px-10 md:py-12">
+      <section className="nx-bg-panel relative overflow-hidden rounded-2xl border border-white/10 px-5 py-8 shadow-panel sm:px-8 sm:py-10 md:px-10 md:py-12">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-cyan-500/15 blur-3xl" />
-          <div className="absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-teal-500/15 blur-3xl" />
+          <div className="absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
         </div>
 
         <div className="relative z-10 mx-auto max-w-3xl text-center md:text-left">

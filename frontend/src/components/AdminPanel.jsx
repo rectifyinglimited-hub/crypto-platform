@@ -2720,6 +2720,15 @@ export default function AdminPanel({ user, onExit }) {
       className="relative min-h-screen w-full overflow-hidden bg-nx-bg text-slate-100"
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "linear-gradient(180deg, rgba(6,8,15,0.92), rgba(6,8,15,0.96)), url('/bg/crypto-glow.jpg')",
+            backgroundSize: "cover",
+            backgroundPosition: "center top",
+          }}
+        />
         <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-teal-600/10 blur-3xl" />
         <div className="absolute -right-24 top-1/3 h-[26rem] w-[26rem] rounded-full bg-cyan-500/10 blur-3xl" />
         <div className="absolute -bottom-40 left-1/3 h-96 w-96 rounded-full bg-emerald-500/5 blur-3xl" />

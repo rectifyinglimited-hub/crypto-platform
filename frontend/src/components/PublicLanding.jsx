@@ -586,10 +586,10 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </header>
 
       <main className="relative z-10 mx-auto max-w-6xl space-y-14 px-4 pb-20 pt-8 sm:px-6 sm:pt-12 lg:px-8 lg:pt-14">
-        {/* Hero — brand first */}
-        <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#121826] via-[#0d121c] to-[#06080f] px-5 py-10 sm:px-10 sm:py-14 md:px-14 md:py-16">
+        {/* Hero — brand first + full-bleed visual */}
+        <section className="nx-bg-hero relative overflow-hidden rounded-3xl border border-white/10 px-5 py-12 shadow-panel sm:px-10 sm:py-16 md:px-14 md:py-20">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-teal-500/20 blur-3xl" />
+            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-teal-500/15 blur-3xl" />
             <div className="absolute -bottom-24 left-0 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
           </div>
           <div className="relative z-10 max-w-2xl">
@@ -674,20 +674,20 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </section>
 
         {/* Platform modules */}
-        <section>
+        <section className="nx-bg-modules overflow-hidden rounded-3xl border border-white/10 p-5 sm:p-8">
           <div className="mb-5 max-w-2xl">
             <h2 className="font-display text-xl font-semibold text-white md:text-2xl">
               Everything in one terminal
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-400">
               Trade, earn, verify, and manage assets without leaving Nexus.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {PLATFORM_MODULES.map((m) => (
-              <div key={m.title} className="nx-card p-4 md:p-5">
+              <div key={m.title} className="rounded-2xl border border-white/10 bg-black/35 p-4 backdrop-blur-sm md:p-5">
                 <h3 className="text-sm font-semibold text-white">{m.title}</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{m.body}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{m.body}</p>
               </div>
             ))}
           </div>
@@ -732,32 +732,34 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </section>
 
         {/* Closing CTA */}
-        <section className="rounded-2xl border border-teal-400/20 bg-gradient-to-br from-teal-500/10 via-[#0d1424] to-transparent px-5 py-8 text-center sm:px-8">
+        <section className="nx-bg-panel relative overflow-hidden rounded-2xl border border-teal-400/25 px-5 py-10 text-center shadow-panel sm:px-8">
+          <div className="relative z-10">
           <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-xl bg-teal-500/15 text-teal-300">
             <Lock className="h-5 w-5" />
           </div>
           <h2 className="font-display text-lg font-semibold text-white md:text-xl">
             Ready to trade on Nexus?
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+          <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
             Create your invite-gated account, verify identity when required, and access Delivery, AI Bot, Assets, and the full market desk.
           </p>
           <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <button
               type="button"
               onClick={onSignIn}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 sm:w-auto"
+              className="nx-btn-ghost w-full sm:w-auto"
             >
               Sign In
             </button>
             <button
               type="button"
               onClick={onRegister}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-teal-300 sm:w-auto"
+              className="nx-btn-primary w-full sm:w-auto"
             >
               Register
               <ArrowRight className="h-4 w-4" />
             </button>
+          </div>
           </div>
         </section>
       </main>

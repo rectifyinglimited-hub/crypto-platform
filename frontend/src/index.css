@@ -147,3 +147,64 @@ select option {
   background: rgba(45, 212, 191, 0.35);
   color: #fff;
 }
+
+/* Atmospheric photo backgrounds — trading / crypto desk */
+.nx-bg-hero {
+  background-color: #06080f;
+  background-image:
+    linear-gradient(
+      105deg,
+      rgba(6, 8, 15, 0.92) 0%,
+      rgba(6, 8, 15, 0.78) 42%,
+      rgba(6, 8, 15, 0.55) 100%
+    ),
+    url("/bg/hero-exchange.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.nx-bg-shell {
+  background-color: #06080f;
+  background-image:
+    linear-gradient(180deg, rgba(6, 8, 15, 0.94) 0%, rgba(6, 8, 15, 0.88) 100%),
+    url("/bg/crypto-glow.jpg");
+  background-size: cover;
+  background-position: center top;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+.nx-bg-auth {
+  background-color: #06080f;
+  background-image:
+    linear-gradient(160deg, rgba(6, 8, 15, 0.9) 0%, rgba(6, 8, 15, 0.75) 100%),
+    url("/bg/auth-city.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.nx-bg-panel {
+  background-color: #0d121c;
+  background-image:
+    linear-gradient(180deg, rgba(13, 18, 28, 0.88) 0%, rgba(13, 18, 28, 0.95) 100%),
+    url("/bg/charts-desk.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.nx-bg-modules {
+  background-image:
+    linear-gradient(135deg, rgba(6, 8, 15, 0.92), rgba(10, 14, 23, 0.85)),
+    url("/bg/data-network.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
+@media (max-width: 768px) {
+  .nx-bg-shell {
+    background-attachment: scroll;
+  }
+}

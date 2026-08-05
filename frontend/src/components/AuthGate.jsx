@@ -20,11 +20,10 @@ export default function AuthGate({
   }, [initialMode]);
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#070a12] text-slate-100">
+    <div className="nx-bg-auth relative min-h-screen w-full overflow-hidden text-slate-100">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-0 h-80 w-80 rounded-full bg-amber-500/12 blur-3xl" />
-        <div className="absolute -right-20 bottom-10 h-96 w-96 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(245,158,11,0.08),_transparent_55%)]" />
+        <div className="absolute -left-24 top-0 h-80 w-80 rounded-full bg-teal-500/10 blur-3xl" />
+        <div className="absolute -right-20 bottom-10 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-4 py-10">

@@ -205,8 +205,8 @@ export default function PlatformShell({
   const kycApproved = user?.kyc?.status === "approved";
 
   return (
-    <div className="nx-page relative min-h-screen w-full bg-nx-bg text-slate-100">
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#06080f]/95 backdrop-blur-xl">
+    <div className="nx-bg-shell relative min-h-screen w-full text-slate-100">
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#06080f]/88 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-3 px-4 sm:px-6 lg:px-8">
           <button
             type="button"
