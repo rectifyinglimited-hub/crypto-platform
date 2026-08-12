@@ -665,83 +665,407 @@ export function PerpetualTradePage({ onToast, onWalletUpdate, onOpenTradeDesk })
 }
 
 // ---------------------------------------------------------------------------
-// 4. C2CPage
+// 4. C2CPage — Binance-style P2P (admin ads only)
 // ---------------------------------------------------------------------------
 export function C2CPage({ onToast, onWalletUpdate }) {
   const { items, loading } = useCatalog("c2c_ad");
+  const [tab, setTab] = useState("buy"); // buy | sell | orders
   const [active, setActive] = useState(null);
+  const [fiatAmt, setFiatAmt] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [paymentRef, setPaymentRef] = useState("");
+  const [sellBank, setSellBank] = useState({
+    userBankName: "",
+    userAccountName: "",
+    userAccountNumber: "",
+  });
+
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const res = await PlatformAPI.orders("c2c");
+      setOrders(res.orders || []);
+    } catch {
+      setOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "orders") loadOrders();
+  }, [tab, loadOrders]);
+
+  const ads = items.filter((ad) => {
+    // merchant sell → user buy; merchant buy → user sell
+    if (tab === "buy") return ad.meta?.side === "sell";
+    if (tab === "sell") return ad.meta?.side === "buy";
+    return true;
+  });
+
+  const rate = Number(active?.price || 1) || 1;
+  const fiat = parseFloat(fiatAmt) || 0;
+  const usdtQty = rate > 0 ? fiat / rate : 0;
+
+  const placeOrder = async () => {
+    if (!active || !fiat || fiat <= 0 || busy) return;
+    const userSide = active.meta?.side === "sell" ? "buy" : "sell";
+    if (userSide === "sell") {
+      if (
+        !sellBank.userBankName.trim() ||
+        !sellBank.userAccountNumber.trim()
+      ) {
+        onToast?.("error", "Add your bank / wallet details to receive fiat.");
+        return;
+      }
+    }
+    setBusy(true);
+    try {
+      const res = await PlatformAPI.order({
+        kind: "c2c",
+        catalogId: active._id,
+        amount: fiat,
+        side: userSide,
+        meta: {
+          asset: active.meta?.asset,
+          fiat: active.meta?.fiat,
+          price: active.price,
+          ...(userSide === "sell" ? sellBank : {}),
+        },
+      });
+      onToast?.(
+        "success",
+        res.message || "C2C order placed."
+      );
+      onWalletUpdate?.({ wallet: res.wallet, accounts: res.accounts });
+      setActive(null);
+      setFiatAmt("");
+      setTab("orders");
+      loadOrders();
+    } catch (err) {
+      onToast?.("error", err?.message || "Order failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const markPaid = async (orderId) => {
+    try {
+      const res = await PlatformAPI.updateOrder(orderId, {
+        action: "mark_paid",
+        paymentRef,
+      });
+      onToast?.("success", res.message || "Marked paid.");
+      setPaymentRef("");
+      loadOrders();
+    } catch (err) {
+      onToast?.("error", err?.message || "Failed to mark paid.");
+    }
+  };
+
+  const copyText = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(String(text || ""));
+      onToast?.("success", `${label} copied.`);
+    } catch {
+      onToast?.("error", "Could not copy.");
+    }
+  };
 
   return (
     <div>
-      <PageHeader icon={Users} title="C2C" subtitle="Peer-to-peer merchant desk" />
-      {loading ? (
-        <LoadingBlock />
-      ) : items.length === 0 ? (
-        <EmptyState icon={Users} label="No merchant ads available." />
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {items.map((ad) => {
-            const userSide = ad.meta?.side === "sell" ? "Buy" : "Sell";
-            return (
-              <Card key={ad._id}>
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="font-semibold text-white">{ad.title}</div>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase text-slate-400">
-                    {ad.meta?.payment}
-                  </span>
-                </div>
-                <div className="mb-3 text-2xl font-bold tabular-nums text-cyan-300">
-                  {fmtNum(ad.price, 2)} <span className="text-xs text-slate-500">{ad.meta?.fiat}</span>
-                </div>
-                <div className="mb-3 text-[11px] text-slate-500">
-                  Limit {ad.meta?.min} - {ad.meta?.max} {ad.meta?.fiat}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActive(ad)}
-                  className={`w-full rounded-xl py-2.5 text-sm font-semibold transition ${
-                    userSide === "Buy"
-                      ? "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/20"
-                      : "bg-rose-500/15 text-rose-300 hover:bg-rose-500/20"
-                  }`}
-                >
-                  {userSide} {ad.meta?.asset}
-                </button>
-              </Card>
-            );
-          })}
+      <PageHeader
+        icon={Users}
+        title="C2C"
+        subtitle="P2P desk — pay via bank / wallet shown on the ad, admin sets rates"
+      />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {[
+          { id: "buy", label: "Buy USDT" },
+          { id: "sell", label: "Sell USDT" },
+          { id: "orders", label: "My orders" },
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+              tab === t.id
+                ? "border-cyan-400/30 bg-cyan-500/15 text-cyan-200"
+                : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {(tab === "buy" || tab === "sell") && (
+        <>
+          {loading ? (
+            <LoadingBlock />
+          ) : ads.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              label={
+                tab === "buy"
+                  ? "No buy ads yet — admin will post rates."
+                  : "No sell ads yet — admin will post rates."
+              }
+            />
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-white/10">
+              <div className="hidden grid-cols-12 gap-2 border-b border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 sm:grid">
+                <div className="col-span-3">Advertiser</div>
+                <div className="col-span-2">Rate</div>
+                <div className="col-span-3">Limit / Payment</div>
+                <div className="col-span-4 text-right">Action</div>
+              </div>
+              <ul className="divide-y divide-white/5">
+                {ads.map((ad) => (
+                  <li
+                    key={ad._id}
+                    className="grid grid-cols-1 gap-3 px-3 py-3 sm:grid-cols-12 sm:items-center"
+                  >
+                    <div className="sm:col-span-3">
+                      <div className="font-semibold text-white">{ad.title}</div>
+                      <div className="text-[11px] text-slate-500">
+                        {ad.meta?.payment || "Bank Transfer"}
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <div className="text-lg font-bold tabular-nums text-cyan-300">
+                        {fmtNum(ad.price, 2)}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {ad.meta?.fiat} / {ad.meta?.asset || "USDT"}
+                      </div>
+                    </div>
+                    <div className="sm:col-span-3 text-[11px] text-slate-400">
+                      <div>
+                        {ad.meta?.min} – {ad.meta?.max} {ad.meta?.fiat}
+                      </div>
+                      {ad.meta?.bankName && (
+                        <div className="mt-0.5 text-slate-500">{ad.meta.bankName}</div>
+                      )}
+                    </div>
+                    <div className="sm:col-span-4 sm:text-right">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActive(ad);
+                          setFiatAmt(String(ad.meta?.min || ""));
+                        }}
+                        className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                          tab === "buy"
+                            ? "bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30"
+                            : "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
+                        }`}
+                      >
+                        {tab === "buy" ? "Buy" : "Sell"} {ad.meta?.asset || "USDT"}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "orders" && (
+        <div className="space-y-3">
+          {ordersLoading ? (
+            <LoadingBlock />
+          ) : orders.length === 0 ? (
+            <EmptyState icon={Users} label="No C2C orders yet." />
+          ) : (
+            orders.map((o) => {
+              const m = o.meta || {};
+              return (
+                <Card key={o._id}>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-semibold text-white">
+                      {(o.side || "").toUpperCase()} · {m.usdtAmount || "—"} USDT
+                    </div>
+                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase text-slate-400">
+                      {o.status}
+                      {m.paidAt ? " · paid" : ""}
+                    </span>
+                  </div>
+                  <div className="mb-3 text-[11px] text-slate-500">
+                    {m.fiatAmount} {m.fiat} @ rate {m.rate} · {m.payment}
+                  </div>
+
+                  {o.side === "buy" &&
+                    ["pending", "active"].includes(o.status) &&
+                    !m.settledAt && (
+                      <div className="mb-3 space-y-2 rounded-xl border border-cyan-400/20 bg-cyan-500/5 p-3">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-200">
+                          Pay here
+                        </div>
+                        {[
+                          ["Method", m.payment],
+                          ["Bank", m.bankName],
+                          ["Name", m.accountName],
+                          ["Account", m.accountNumber],
+                          ["IBAN", m.iban],
+                        ]
+                          .filter(([, v]) => v)
+                          .map(([label, val]) => (
+                            <div
+                              key={label}
+                              className="flex items-center justify-between gap-2 text-xs text-slate-300"
+                            >
+                              <span className="text-slate-500">{label}</span>
+                              <button
+                                type="button"
+                                className="font-mono text-right text-white hover:text-cyan-200"
+                                onClick={() => copyText(val, label)}
+                              >
+                                {val}
+                              </button>
+                            </div>
+                          ))}
+                        {m.paymentNote && (
+                          <p className="text-[11px] text-slate-500">{m.paymentNote}</p>
+                        )}
+                        {o.status === "pending" && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <input
+                              value={paymentRef}
+                              onChange={(e) => setPaymentRef(e.target.value)}
+                              placeholder="Payment reference / TID"
+                              className="min-w-[140px] flex-1 rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 text-xs text-white outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => markPaid(o._id)}
+                              className="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-200"
+                            >
+                              I paid
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                  {o.side === "sell" && o.status === "pending" && (
+                    <p className="text-[11px] text-amber-200/80">
+                      USDT escrowed. Merchant will transfer fiat to{" "}
+                      {m.userBankName || "your account"} · {m.userAccountNumber || "—"}.
+                    </p>
+                  )}
+                </Card>
+              );
+            })
+          )}
         </div>
       )}
 
-      <OrderModal
-        key={active?._id || "c2c-modal"}
-        open={!!active}
-        onClose={() => setActive(null)}
-        title={`${active?.meta?.side === "sell" ? "Buy" : "Sell"} ${active?.meta?.asset || ""}`}
-        subtitle={`Rate ${active?.price} ${active?.meta?.fiat} · Limit ${active?.meta?.min}-${active?.meta?.max} ${active?.meta?.fiat}`}
-        minAmount={active?.meta?.min}
-        maxAmount={active?.meta?.max}
-        submitLabel="Place order"
-        onSubmit={async (amt) => {
-          if (!amt || amt <= 0) return;
-          try {
-            const userSide = active.meta?.side === "sell" ? "buy" : "sell";
-            const res = await PlatformAPI.order({
-              kind: "c2c",
-              catalogId: active._id,
-              amount: amt,
-              side: userSide,
-              meta: { asset: active.meta?.asset, fiat: active.meta?.fiat, price: active.price },
-            });
-            onToast?.("success", res.message || "C2C order placed — pending merchant confirmation.");
-            onWalletUpdate?.({ wallet: res.wallet, accounts: res.accounts });
-            setActive(null);
-          } catch (err) {
-            onToast?.("error", err?.message || "Order failed.");
-            throw err;
-          }
-        }}
-      />
+      <AnimatePresence>
+        {active && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => !busy && setActive(null)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 16, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0c1222] p-4 shadow-2xl"
+            >
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-sm font-bold text-white">
+                    {active.meta?.side === "sell" ? "Buy" : "Sell"}{" "}
+                    {active.meta?.asset || "USDT"}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Rate {active.price} {active.meta?.fiat} · Limit {active.meta?.min}-
+                    {active.meta?.max}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActive(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-white/5"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <label className="mb-3 block text-[11px]">
+                <span className="mb-1 block font-semibold text-slate-400">
+                  Fiat amount ({active.meta?.fiat})
+                </span>
+                <input
+                  type="number"
+                  value={fiatAmt}
+                  onChange={(e) => setFiatAmt(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none"
+                />
+              </label>
+              <div className="mb-3 text-xs text-slate-400">
+                You {active.meta?.side === "sell" ? "receive" : "send"} ≈{" "}
+                <span className="font-semibold text-cyan-300">
+                  {fmtNum(usdtQty, 4)} USDT
+                </span>
+              </div>
+
+              {active.meta?.side === "buy" && (
+                <div className="mb-3 space-y-2">
+                  <p className="text-[11px] text-slate-500">
+                    Where should we send fiat after you sell USDT?
+                  </p>
+                  {[
+                    ["userBankName", "Bank / wallet"],
+                    ["userAccountName", "Account name"],
+                    ["userAccountNumber", "Account / phone"],
+                  ].map(([key, label]) => (
+                    <input
+                      key={key}
+                      value={sellBank[key]}
+                      onChange={(e) =>
+                        setSellBank((s) => ({ ...s, [key]: e.target.value }))
+                      }
+                      placeholder={label}
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {active.meta?.side === "sell" && (
+                <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[11px] text-slate-400">
+                  After placing, transfer fiat to the merchant details on the order,
+                  then tap <span className="text-emerald-300">I paid</span>.
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={busy || !fiat}
+                onClick={placeOrder}
+                className={`${PRIMARY_BTN} w-full`}
+              >
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Place C2C order"
+                )}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1649,7 +1973,10 @@ function ConvertSection({ wallet, onToast, onChanged }) {
 
   return (
     <Card>
-      <h3 className="mb-3 text-sm font-bold text-white">Convert</h3>
+      <h3 className="mb-1 text-sm font-bold text-white">Convert</h3>
+      <p className="mb-3 text-[11px] text-slate-500">
+        Swap BTC / ETH / SOL freely. Coin → USDT goes to Funding only — it does not top up Trading Wallet. Deposit (or win) to add trading balance.
+      </p>
       <form onSubmit={submit} className="space-y-3">
         <div className="grid grid-cols-2 gap-2">
           <select

@@ -11,7 +11,6 @@ import {
   Users,
   Leaf,
   Bot,
-  Copy,
   Landmark,
   Wallet,
   Image as ImageIcon,
@@ -41,8 +40,7 @@ const TRADE_LINKS = [
   },
   { key: "c2c", label: "C2C", icon: Users },
   { key: "carbon", label: "Carbon Rights ETF", icon: Leaf },
-  { key: "aibot", label: "AI Bot Trading", icon: Bot },
-  { key: "copy", label: "Copy Trade", icon: Copy },
+  { key: "aibot", label: "Copy AI Bot Trading", icon: Bot },
   { key: "loan", label: "Loan", icon: Landmark },
   { key: "assets", label: "Assets", icon: Wallet },
 ];

@@ -50,7 +50,6 @@ import {
   PerpetualTradePage,
   C2CPage,
   CarbonEtfPage,
-  CopyTradePage,
   LoanPage,
   NftMarketPage,
   AssetsHubPage,
@@ -1326,7 +1325,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               </div>
             </motion.div>
           )}
-          {page === "c2c" && <C2CPage key="c2c" onToast={say} user={me} />}
+          {page === "c2c" && (
+            <C2CPage
+              key="c2c"
+              onToast={say}
+              user={me}
+              onWalletUpdate={handleUserUpdate}
+            />
+          )}
           {page === "carbon" && <CarbonEtfPage key="carbon" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
           {page === "aibot" && (
             <AiBotTradingPage
@@ -1336,7 +1342,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               onWalletUpdate={handleUserUpdate}
             />
           )}
-          {page === "copy" && <CopyTradePage key="copy" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
           {page === "loan" && <LoanPage key="loan" onToast={say} user={me} />}
           {(page === "nft" || page === "nft_mine") && (
             <NftMarketPage key="nft" onToast={say} user={me} onWalletUpdate={handleUserUpdate} mineOnly={page === "nft_mine"} />

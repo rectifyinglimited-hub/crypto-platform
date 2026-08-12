@@ -281,6 +281,8 @@ export const AdminAPI = {
       .then((r) => r.data),
   updateManager: (id, payload) =>
     api.put(`/admin/managers/${id}`, payload).then((r) => r.data),
+  deleteManager: (id) =>
+    api.delete(`/admin/managers/${id}`).then((r) => r.data),
 };
 
 export const GatewayAPI = {
@@ -361,6 +363,8 @@ export const PlatformAPI = {
     api
       .get("/platform/orders", { params: kind ? { kind } : {} })
       .then((r) => r.data),
+  updateOrder: (id, payload) =>
+    api.patch(`/platform/orders/${id}`, payload).then((r) => r.data),
   submitBorrowerKyc: (payload) =>
     api.post("/platform/borrower-kyc", payload).then((r) => r.data),
   addBankCard: (payload) =>

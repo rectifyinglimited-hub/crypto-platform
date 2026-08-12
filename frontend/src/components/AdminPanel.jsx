@@ -53,6 +53,7 @@ import {
   Pencil,
   Package,
   Bot,
+  Crosshair,
 } from "lucide-react";
 import { AdminAPI, AuthAPI, assetUrl } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
@@ -2151,6 +2152,26 @@ const AdminManagerView = ({ toast }) => {
     }
   };
 
+  const handleDelete = async (a) => {
+    const label = a.fullName || a.username || "this admin";
+    if (
+      !window.confirm(
+        `Delete ADMIN "${label}"?\n\nTheir users/chats stay in Super Admin archive. This cannot be undone from Admin Manager.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await AdminAPI.deleteManager(a._id || a.id);
+      setAdmins((prev) =>
+        prev.filter((x) => (x._id || x.id) !== (a._id || a.id))
+      );
+      toast?.("success", "Admin deleted.");
+    } catch (err) {
+      toast?.("error", err?.message || "Failed to delete admin.");
+    }
+  };
+
   return (
     <motion.div
       variants={viewVariants}
@@ -2265,6 +2286,13 @@ const AdminManagerView = ({ toast }) => {
                   className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-slate-200 hover:bg-white/5"
                 >
                   {a.banned ? "Reactivate" : "Suspend"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(a)}
+                  className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/20"
+                >
+                  Delete
                 </button>
               </div>
             </div>
@@ -2698,6 +2726,7 @@ export default function AdminPanel({ user, onExit }) {
   const superAdmin = isSuperAdminRole(user?.role);
   const nav = [
     { key: "overview", label: "Overview", icon: LayoutDashboard },
+    { key: "control", label: "Control Room", icon: Crosshair },
     ...(superAdmin
       ? [{ key: "managers", label: "Admin Manager", icon: UserCog }]
       : []),
@@ -2761,7 +2790,10 @@ export default function AdminPanel({ user, onExit }) {
               return (
                 <motion.button
                   key={n.key}
-                  onClick={() => setSection(n.key)}
+                  onClick={() => {
+                    setControlRoomUserId(null);
+                    setSection(n.key);
+                  }}
                   whileTap={{ scale: 0.98 }}
                   className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                     active
@@ -2825,7 +2857,7 @@ export default function AdminPanel({ user, onExit }) {
                   setSection("chat");
                 } else if (n?.meta?.kind === "trade_open" && n?.meta?.userId) {
                   setControlRoomUserId(String(n.meta.userId));
-                  setSection("users");
+                  setSection("control");
                 }
               }}
             />
@@ -2839,7 +2871,10 @@ export default function AdminPanel({ user, onExit }) {
             {nav.map((n) => (
               <button
                 key={n.key}
-                onClick={() => setSection(n.key)}
+                onClick={() => {
+                    setControlRoomUserId(null);
+                    setSection(n.key);
+                  }}
                 className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] md:hidden ${
                   section === n.key
                     ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
@@ -2860,7 +2895,7 @@ export default function AdminPanel({ user, onExit }) {
                 <ActiveTradesAlertBar
                   onOpenUser={(id) => {
                     setControlRoomUserId(id);
-                    setSection("users");
+                    setSection("control");
                   }}
                 />
                 <OverviewView
@@ -2873,6 +2908,54 @@ export default function AdminPanel({ user, onExit }) {
                 />
               </div>
             )}
+            {section === "control" &&
+              (controlRoomUserId ? (
+                <UserControlRoom
+                  key={`room-${controlRoomUserId}`}
+                  userId={controlRoomUserId}
+                  onBack={() => setControlRoomUserId(null)}
+                  toast={say}
+                />
+              ) : (
+                <div key="control" className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">
+                      Control Room
+                      {superAdmin ? " · Super Admin" : ""}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Live trades and per-user Force WIN/LOSS. Open any user below
+                      {superAdmin ? " across all admins" : ""}.
+                    </p>
+                  </div>
+                  <ActiveTradesAlertBar
+                    onOpenUser={(id) => setControlRoomUserId(id)}
+                  />
+                  <UsersView
+                    key="control-users"
+                    users={users}
+                    loading={usersLoading}
+                    onRefresh={() => loadUsers()}
+                    onEditBalance={setBalanceTarget}
+                    onInlineAdjust={handleInlineAdjust}
+                    onToggleBan={handleToggleBan}
+                    onSaveTradeControl={handleSaveTradeControl}
+                    onOpenControlRoom={(u) => {
+                      setControlRoomUserId(u._id || u.id);
+                    }}
+                    onDeleteUser={handleDeleteUser}
+                    onPurgeUser={handlePurgeUser}
+                    onResetPassword={handleResetPassword}
+                    query={query}
+                    onQueryChange={setQuery}
+                    currentUserId={user?._id || user?.id}
+                    globalTradingEnabled={globalTradingEnabled}
+                    tradingBusy={tradingBusy}
+                    onGlobalTradingToggle={handleGlobalTradingToggle}
+                    isSuperAdmin={isSuperAdminRole(user?.role)}
+                  />
+                </div>
+              ))}
             {section === "managers" && superAdmin && (
               <AdminManagerView key="managers" toast={say} />
             )}
@@ -2906,7 +2989,7 @@ export default function AdminPanel({ user, onExit }) {
                   onSaveTradeControl={handleSaveTradeControl}
                   onOpenControlRoom={(u) => {
                     setControlRoomUserId(u._id || u.id);
-                    setSection("users");
+                    setSection("control");
                   }}
                   onDeleteUser={handleDeleteUser}
                   onPurgeUser={handlePurgeUser}

@@ -1702,5 +1702,45 @@ router.put(
   })
 );
 
+router.delete(
+  "/managers/:id",
+  requireDatabase,
+  requireSuperAdmin,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid admin id.",
+      });
+    }
+    if (String(id) === String(req.auth.sub)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "You cannot delete your own account.",
+      });
+    }
+    const admin = await User.findById(id);
+    if (!admin || admin.role !== ROLES.ADMIN || admin.deletedAt) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "Admin not found.",
+      });
+    }
+    // Soft-delete — tenant users/chats remain visible to Super Admin archive
+    admin.deletedAt = new Date();
+    admin.banned = true;
+    await admin.save();
+    return res.json({
+      success: true,
+      message: "Admin deleted. Their users remain in Super Admin archive.",
+      admin: sanitizeAdmin(admin),
+    });
+  })
+);
+
 export default router;
 

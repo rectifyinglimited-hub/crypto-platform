@@ -21,7 +21,6 @@ const KINDS = [
   { id: "nft", label: "NFT" },
   { id: "c2c_ad", label: "C2C Rates" },
   { id: "carbon_etf", label: "Carbon ETF" },
-  { id: "copy_trader", label: "Copy Trade" },
   { id: "loan_plan", label: "Loan Interest" },
   { id: "market_pair", label: "Market Pairs" },
 ];
@@ -41,7 +40,12 @@ function emptyFields(kind) {
         fiat: "USD",
         min: "50",
         max: "50000",
-        payment: "Merchant Deposit",
+        payment: "Bank Transfer",
+        bankName: "",
+        accountName: "",
+        accountNumber: "",
+        iban: "",
+        paymentNote: "",
       };
     case "carbon_etf":
       return {
@@ -110,7 +114,12 @@ function itemToFields(it) {
         fiat: m.fiat || "USD",
         min: String(m.min ?? 50),
         max: String(m.max ?? 50000),
-        payment: m.payment || "Merchant Deposit",
+        payment: m.payment || "Bank Transfer",
+        bankName: m.bankName || "",
+        accountName: m.accountName || "",
+        accountNumber: m.accountNumber || "",
+        iban: m.iban || "",
+        paymentNote: m.paymentNote || "",
       };
     case "carbon_etf":
       return {
@@ -178,7 +187,12 @@ function fieldsToPayload(kind, f) {
         fiat: f.fiat || "USD",
         min: Number(f.min || 50),
         max: Number(f.max || 50000),
-        payment: f.payment || "Merchant Deposit",
+        payment: f.payment || "Bank Transfer",
+        bankName: f.bankName || "",
+        accountName: f.accountName || "",
+        accountNumber: f.accountNumber || "",
+        iban: f.iban || "",
+        paymentNote: f.paymentNote || "",
       };
       break;
     case "carbon_etf":
@@ -298,27 +312,49 @@ function KindFields({ kind, form, setForm }) {
       )}
 
       {kind === "c2c_ad" && (
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Field label="Side (merchant)">
-            <select className={inputCls} value={form.side} onChange={(e) => set("side", e.target.value)}>
-              <option value="sell">sell = User Buy</option>
-              <option value="buy">buy = User Sell</option>
-            </select>
-          </Field>
-          <Field label="Fiat">
-            <input className={inputCls} value={form.fiat} onChange={(e) => set("fiat", e.target.value)} />
-          </Field>
-          <Field label="Payment label">
-            <input className={inputCls} value={form.payment} onChange={(e) => set("payment", e.target.value)} />
-          </Field>
-          <Field label="Min limit">
-            <input className={inputCls} type="number" value={form.min} onChange={(e) => set("min", e.target.value)} />
-          </Field>
-          <Field label="Max limit">
-            <input className={inputCls} type="number" value={form.max} onChange={(e) => set("max", e.target.value)} />
-          </Field>
-          <Field label="Asset">
-            <input className={inputCls} value={form.asset} onChange={(e) => set("asset", e.target.value)} />
+        <div className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Field label="Side (merchant)">
+              <select className={inputCls} value={form.side} onChange={(e) => set("side", e.target.value)}>
+                <option value="sell">sell = User Buy USDT</option>
+                <option value="buy">buy = User Sell USDT</option>
+              </select>
+            </Field>
+            <Field label="Fiat">
+              <input className={inputCls} value={form.fiat} onChange={(e) => set("fiat", e.target.value)} />
+            </Field>
+            <Field label="Payment method">
+              <input className={inputCls} value={form.payment} onChange={(e) => set("payment", e.target.value)} placeholder="Bank Transfer / JazzCash / EasyPaisa" />
+            </Field>
+            <Field label="Min limit (fiat)">
+              <input className={inputCls} type="number" value={form.min} onChange={(e) => set("min", e.target.value)} />
+            </Field>
+            <Field label="Max limit (fiat)">
+              <input className={inputCls} type="number" value={form.max} onChange={(e) => set("max", e.target.value)} />
+            </Field>
+            <Field label="Asset">
+              <input className={inputCls} value={form.asset} onChange={(e) => set("asset", e.target.value)} />
+            </Field>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Rate field above = fiat per 1 {form.asset || "USDT"}. Add as many ads as you want (10 or 100). Payment details below show on the user C2C desk.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="Bank / wallet name">
+              <input className={inputCls} value={form.bankName} onChange={(e) => set("bankName", e.target.value)} placeholder="HBL / JazzCash" />
+            </Field>
+            <Field label="Account holder name">
+              <input className={inputCls} value={form.accountName} onChange={(e) => set("accountName", e.target.value)} />
+            </Field>
+            <Field label="Account / phone number">
+              <input className={inputCls} value={form.accountNumber} onChange={(e) => set("accountNumber", e.target.value)} />
+            </Field>
+            <Field label="IBAN (optional)">
+              <input className={inputCls} value={form.iban} onChange={(e) => set("iban", e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Payment note for users">
+            <input className={inputCls} value={form.paymentNote} onChange={(e) => set("paymentNote", e.target.value)} placeholder="Transfer exact amount and keep receipt" />
           </Field>
         </div>
       )}
@@ -760,49 +796,79 @@ export default function AdminPlatformModules({ toast }) {
 
       {tab === "orders" && (
         <div className="space-y-2">
-          {orders.map((o) => (
-            <div
-              key={o._id}
-              className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#0c1222] px-3 py-2.5"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white">
-                  {o.kind} · {o.user?.username || o.user?.email || "user"}
+          {orders.map((o) => {
+            const m = o.meta || {};
+            const isC2c = o.kind === "c2c";
+            const canAct = ["pending", "active"].includes(o.status);
+            return (
+              <div
+                key={o._id}
+                className="flex flex-wrap items-start gap-3 rounded-xl border border-white/10 bg-[#0c1222] px-3 py-2.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-white">
+                    {o.kind}
+                    {isC2c ? ` · ${o.side || "?"}` : ""} ·{" "}
+                    {o.user?.username || o.user?.email || "user"}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {isC2c
+                      ? `${Number(m.fiatAmount || o.amount || 0)} ${m.fiat || ""} → ${Number(
+                          m.usdtAmount || 0
+                        ).toFixed(4)} USDT @ ${m.rate || o.amount} · ${o.status}${
+                          m.paidAt ? " · user paid" : ""
+                        }`
+                      : `$${Number(o.amount || 0)} · ${o.status}`}
+                  </div>
+                  {isC2c && o.side === "sell" && (
+                    <div className="mt-1 text-[11px] text-amber-200/80">
+                      Pay user: {m.userBankName || "—"} · {m.userAccountName || "—"} ·{" "}
+                      {m.userAccountNumber || "—"}
+                    </div>
+                  )}
+                  {isC2c && o.side === "buy" && m.paymentRef && (
+                    <div className="mt-1 text-[11px] text-cyan-200/80">
+                      Payment ref: {m.paymentRef}
+                    </div>
+                  )}
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  ${Number(o.amount || 0)} · {o.status}
-                </div>
+                {canAct && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await PlatformAPI.adminReviewOrder(o._id, {
+                          status: isC2c ? "completed" : "active",
+                        });
+                        say(
+                          "success",
+                          isC2c ? "C2C settled." : "Approved."
+                        );
+                        loadOrders();
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-200"
+                    >
+                      <CheckCircle2 className="h-3 w-3" />{" "}
+                      {isC2c ? "Confirm release" : "Approve"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await PlatformAPI.adminReviewOrder(o._id, {
+                          status: "rejected",
+                        });
+                        say("success", "Rejected.");
+                        loadOrders();
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg bg-rose-500/20 px-2 py-1 text-[11px] text-rose-200"
+                    >
+                      <XCircle className="h-3 w-3" /> Reject
+                    </button>
+                  </>
+                )}
               </div>
-              {o.status === "pending" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await PlatformAPI.adminReviewOrder(o._id, { status: "active" });
-                      say("success", "Approved.");
-                      loadOrders();
-                    }}
-                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-200"
-                  >
-                    <CheckCircle2 className="h-3 w-3" /> Approve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await PlatformAPI.adminReviewOrder(o._id, {
-                        status: "rejected",
-                      });
-                      say("success", "Rejected.");
-                      loadOrders();
-                    }}
-                    className="inline-flex items-center gap-1 rounded-lg bg-rose-500/20 px-2 py-1 text-[11px] text-rose-200"
-                  >
-                    <XCircle className="h-3 w-3" /> Reject
-                  </button>
-                </>
-              )}
-            </div>
-          ))}
+            );
+          })}
           {!orders.length && !loading && (
             <div className="py-8 text-center text-sm text-slate-500">No orders.</div>
           )}

@@ -543,7 +543,9 @@ export default function SecondsTrading({
             </div>
             <Sparkles className="mb-1 h-3.5 w-3.5 shrink-0 text-cyan-400/70" />
           </div>
-          <div className="mt-0.5 text-[10px] text-slate-500">USDT</div>
+          <div className="mt-0.5 text-[10px] text-slate-500">
+            USDT · wins included · use until 0
+          </div>
         </div>
         <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 to-cyan-500/5 p-4">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400/90">
@@ -553,7 +555,7 @@ export default function SecondsTrading({
             ${formatUsd(liveEarnings)}
           </div>
           <div className="mt-0.5 text-[10px] text-slate-500">
-            Settled WIN profits
+            Lifetime wins (already in wallet)
           </div>
         </div>
       </div>

@@ -38,7 +38,7 @@ const CORP_PILLARS = [
   {
     icon: Activity,
     title: "AI Bot & earn products",
-    body: "Contract-bound AI Bot locks, Carbon ETF, ICO, Copy Trade, and Loan — with admin-controlled yields.",
+    body: "Contract-bound Copy AI Bot locks, Carbon ETF, ICO, and Loan — with admin-controlled yields.",
   },
   {
     icon: ShieldCheck,
@@ -51,7 +51,7 @@ const WORKFLOW = [
   {
     step: "01",
     title: "Open any market",
-    body: "Use the top nav to jump between Market, Delivery, Spot, or AI Bot Trading.",
+    body: "Use the top nav to jump between Market, Delivery, Spot, or Copy AI Bot Trading.",
   },
   {
     step: "02",
@@ -61,7 +61,7 @@ const WORKFLOW = [
   {
     step: "03",
     title: "Execute with clarity",
-    body: "Delivery settles on the timer; AI Bot requires a signed risk disclosure before lock.",
+    body: "Delivery settles on the timer; Copy AI Bot requires a signed risk disclosure before lock.",
   },
   {
     step: "04",
@@ -83,7 +83,7 @@ const FEATURES = [
   },
   {
     icon: Zap,
-    title: "AI Bot Trading",
+    title: "Copy AI Bot Trading",
     body: "Legal contract modal, lock periods, and admin-set target return percentages.",
   },
   {

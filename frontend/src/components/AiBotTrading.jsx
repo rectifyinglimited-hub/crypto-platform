@@ -354,7 +354,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
           </div>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-300/80">
-              AI Bot Trading
+              Copy AI Bot Trading
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">
               Algorithmic lock contracts

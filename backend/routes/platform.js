@@ -387,7 +387,8 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
-// POST /convert — USDT <-> coin (spot account)
+// POST /convert — coin ↔ coin, or USDT → coin (Trading Wallet).
+// coin → USDT does NOT top up Trading Wallet (funding only — deposit for trading).
 // ---------------------------------------------------------------------------
 router.post(
   "/convert",
@@ -403,8 +404,15 @@ router.post(
     if (fromAsset === toAsset) {
       return res.status(422).json({ success: false, message: "Pick different assets." });
     }
-    // Simplified rates (admin can override later via catalog meta)
     const RATES = { BTC: 64000, ETH: 3200, SOL: 140, USDT: 1 };
+    const ALLOWED = new Set(["USDT", "BTC", "ETH", "SOL"]);
+    if (!ALLOWED.has(fromAsset) || !ALLOWED.has(toAsset)) {
+      return res.status(422).json({
+        success: false,
+        message: "Supported assets: USDT, BTC, ETH, SOL.",
+      });
+    }
+
     const user = await User.findById(req.auth.sub);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
@@ -412,30 +420,63 @@ router.post(
     ensureAccounts(user);
     if (!(user.wallet instanceof Map)) user.wallet = new Map();
 
-    if (fromAsset === "USDT") {
-      const spot = Number(user.accountBalances.get("spot") || 0);
-      const delivery = Number(user.accountBalances.get("delivery") || 0);
-      const available = spot + delivery;
-      if (amount > available) {
-        return res.status(422).json({ success: false, message: "Insufficient USDT." });
+    // Crypto ↔ crypto (e.g. BTC → SOL) via USD notionals
+    if (fromAsset !== "USDT" && toAsset !== "USDT") {
+      const have = Number(user.wallet.get(fromAsset) || 0);
+      if (amount > have) {
+        return res.status(422).json({
+          success: false,
+          message: `Insufficient ${fromAsset}.`,
+        });
       }
-      let left = amount;
-      const takeSpot = Math.min(spot, left);
-      user.accountBalances.set("spot", Number((spot - takeSpot).toFixed(8)));
-      left -= takeSpot;
-      if (left > 0) {
-        user.accountBalances.set(
-          "delivery",
-          Number((delivery - left).toFixed(8))
-        );
-      }
-      const rate = RATES[toAsset] || 1;
-      const got = amount / rate;
+      const fromRate = RATES[fromAsset] || 1;
+      const toRate = RATES[toAsset] || 1;
+      const usd = amount * fromRate;
+      const got = usd / toRate;
+      user.wallet.set(fromAsset, Number((have - amount).toFixed(8)));
       user.wallet.set(
         toAsset,
         Number((Number(user.wallet.get(toAsset) || 0) + got).toFixed(8))
       );
-      syncUsdtFromAccounts(user);
+      user.markModified("wallet");
+      await user.save();
+      await PlatformOrder.create({
+        user: user._id,
+        adminId: user.adminId || null,
+        kind: "convert",
+        amount,
+        status: "completed",
+        symbol: `${fromAsset}/${toAsset}`,
+        meta: { fromAsset, toAsset, fromRate, toRate, received: got },
+      });
+      return res.json({
+        success: true,
+        message: `Converted ${amount} ${fromAsset} → ${got.toFixed(8)} ${toAsset}`,
+        wallet: walletObj(user.wallet),
+        accounts: accountsObj(user.accountBalances),
+      });
+    }
+
+    if (fromAsset === "USDT") {
+      // Spend Trading Wallet USDT → coin
+      const usdt = Number(user.wallet.get("USDT") || 0);
+      if (amount > usdt) {
+        return res.status(422).json({
+          success: false,
+          message: "Insufficient Trading Wallet USDT.",
+        });
+      }
+      const rate = RATES[toAsset] || 1;
+      const got = amount / rate;
+      user.wallet.set("USDT", Number((usdt - amount).toFixed(8)));
+      user.wallet.set(
+        toAsset,
+        Number((Number(user.wallet.get(toAsset) || 0) + got).toFixed(8))
+      );
+      // Keep delivery mirror in sync with trading USDT
+      user.accountBalances.set("delivery", Number(user.wallet.get("USDT") || 0));
+      user.markModified("wallet");
+      user.markModified("accountBalances");
       await user.save();
       await PlatformOrder.create({
         user: user._id,
@@ -454,19 +495,24 @@ router.post(
       });
     }
 
-    // coin → USDT
+    // coin → USDT: credit funding ONLY — does NOT inflate Trading Wallet
     const have = Number(user.wallet.get(fromAsset) || 0);
     if (amount > have) {
-      return res.status(422).json({ success: false, message: `Insufficient ${fromAsset}.` });
+      return res.status(422).json({
+        success: false,
+        message: `Insufficient ${fromAsset}.`,
+      });
     }
     const rate = RATES[fromAsset] || 1;
     const usdtOut = amount * rate;
     user.wallet.set(fromAsset, Number((have - amount).toFixed(8)));
     user.accountBalances.set(
-      "spot",
-      Number((Number(user.accountBalances.get("spot") || 0) + usdtOut).toFixed(8))
+      "funding",
+      Number((Number(user.accountBalances.get("funding") || 0) + usdtOut).toFixed(8))
     );
-    syncUsdtFromAccounts(user);
+    user.markModified("wallet");
+    user.markModified("accountBalances");
+    // Intentionally skip syncUsdtFromAccounts — Trading Wallet stays deposit/win only
     await user.save();
     await PlatformOrder.create({
       user: user._id,
@@ -475,11 +521,18 @@ router.post(
       amount,
       status: "completed",
       symbol: `${fromAsset}/${toAsset}`,
-      meta: { fromAsset, toAsset, rate, received: usdtOut },
+      meta: {
+        fromAsset,
+        toAsset,
+        rate,
+        received: usdtOut,
+        destination: "funding",
+        note: "Does not credit Trading Wallet — deposit to trade.",
+      },
     });
     return res.json({
       success: true,
-      message: `Converted ${amount} ${fromAsset} → ${usdtOut.toFixed(2)} USDT`,
+      message: `Converted ${amount} ${fromAsset} → ${usdtOut.toFixed(2)} USDT (Funding). Trading Wallet unchanged — deposit to add trading balance.`,
       wallet: walletObj(user.wallet),
       accounts: accountsObj(user.accountBalances),
     });
@@ -535,31 +588,79 @@ router.post(
 
     const chargeKinds = ["carbon_etf", "ico", "nft", "ai_compute", "copy_trade"];
     ensureAccounts(user);
+    if (!(user.wallet instanceof Map)) user.wallet = new Map();
     if (chargeKinds.includes(kind) && amount > 0) {
-      const delivery = Number(user.accountBalances.get("delivery") || 0);
-      const spot = Number(user.accountBalances.get("spot") || 0);
-      const available = delivery + spot;
-      if (amount > available) {
+      // Deduct Trading Wallet USDT only (wins + deposits) — no convert top-up path
+      const usdt = Number(user.wallet.get("USDT") || 0);
+      if (amount > usdt) {
         return res.status(422).json({
           success: false,
-          message: "Insufficient balance. Deposit or transfer to Delivery/Spot first.",
+          message: "Insufficient Trading Wallet balance. Deposit to continue.",
         });
       }
-      let left = amount;
-      const takeD = Math.min(delivery, left);
-      user.accountBalances.set("delivery", Number((delivery - takeD).toFixed(8)));
-      left -= takeD;
-      if (left > 0) {
-        user.accountBalances.set("spot", Number((spot - left).toFixed(8)));
-      }
-      if (kind === "nft") {
-        user.accountBalances.set(
-          "nft",
-          Number((Number(user.accountBalances.get("nft") || 0) + amount).toFixed(8))
-        );
-      }
-      syncUsdtFromAccounts(user);
+      user.wallet.set("USDT", Number((usdt - amount).toFixed(8)));
+      user.accountBalances.set("delivery", Number(user.wallet.get("USDT") || 0));
+      user.markModified("wallet");
+      user.markModified("accountBalances");
       await user.save();
+    }
+
+    // C2C P2P: admin ads only; escrow USDT when user sells
+    let c2cMeta = { ...meta };
+    const orderSide = req.body.side || meta.side || null;
+    if (kind === "c2c") {
+      const catMeta = catalog?.meta || {};
+      const rate = Number(catalog?.price || meta.price || 1) || 1;
+      const fiatAmount = amount || 0;
+      const usdtAmount = Number((fiatAmount / rate).toFixed(8));
+      if (!Number.isFinite(usdtAmount) || usdtAmount <= 0) {
+        return res.status(422).json({
+          success: false,
+          message: "Invalid C2C amount.",
+        });
+      }
+      const min = Number(catMeta.min || 0);
+      const max = Number(catMeta.max || Infinity);
+      if (fiatAmount < min || fiatAmount > max) {
+        return res.status(422).json({
+          success: false,
+          message: `Amount must be between ${min} and ${max} ${catMeta.fiat || "fiat"}.`,
+        });
+      }
+      c2cMeta = {
+        ...meta,
+        catalogTitle: catalog?.title,
+        asset: catMeta.asset || meta.asset || "USDT",
+        fiat: catMeta.fiat || meta.fiat || "USD",
+        rate,
+        fiatAmount,
+        usdtAmount,
+        payment: catMeta.payment || "Bank Transfer",
+        bankName: catMeta.bankName || "",
+        accountName: catMeta.accountName || "",
+        accountNumber: catMeta.accountNumber || "",
+        iban: catMeta.iban || "",
+        paymentNote: catMeta.paymentNote || "",
+        paidAt: null,
+        userBankName: meta.userBankName || "",
+        userAccountName: meta.userAccountName || "",
+        userAccountNumber: meta.userAccountNumber || "",
+      };
+      if (orderSide === "sell") {
+        const usdt = Number(user.wallet.get("USDT") || 0);
+        if (usdtAmount > usdt) {
+          return res.status(422).json({
+            success: false,
+            message: "Insufficient Trading Wallet USDT to sell.",
+          });
+        }
+        user.wallet.set("USDT", Number((usdt - usdtAmount).toFixed(8)));
+        user.accountBalances.set("delivery", Number(user.wallet.get("USDT") || 0));
+        user.markModified("wallet");
+        user.markModified("accountBalances");
+        await user.save();
+        c2cMeta.escrowed = true;
+      }
     }
 
     const status =
@@ -576,14 +677,22 @@ router.post(
       catalog: catalog?._id || null,
       amount: amount || catalog?.price || 0,
       status,
-      side: req.body.side || meta.side || null,
+      side: orderSide,
       symbol: req.body.symbol || catalog?.title || null,
-      meta: { ...meta, catalogTitle: catalog?.title },
+      meta:
+        kind === "c2c"
+          ? c2cMeta
+          : { ...meta, catalogTitle: catalog?.title },
     });
 
     return res.status(201).json({
       success: true,
-      message: "Submitted.",
+      message:
+        kind === "c2c"
+          ? orderSide === "buy"
+            ? "Order placed. Transfer fiat using the payment details, then mark as paid."
+            : "Sell order placed. USDT escrowed — wait for merchant to pay fiat."
+          : "Submitted.",
       order,
       accounts: accountsObj(user.accountBalances),
       wallet: walletObj(user.wallet),
@@ -868,6 +977,69 @@ router.get(
 );
 
 router.patch(
+  "/orders/:id",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const order = await PlatformOrder.findOne({
+      _id: req.params.id,
+      user: req.auth.sub,
+    });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found." });
+    }
+    if (order.kind !== "c2c") {
+      return res.status(422).json({
+        success: false,
+        message: "Only C2C orders can be updated here.",
+      });
+    }
+    if (!["pending", "active"].includes(order.status)) {
+      return res.status(422).json({
+        success: false,
+        message: "Order can no longer be updated.",
+      });
+    }
+    const meta = { ...(order.meta || {}) };
+    if (req.body.action === "mark_paid") {
+      if (order.side !== "buy") {
+        return res.status(422).json({
+          success: false,
+          message: "Only buy orders are marked paid by the user.",
+        });
+      }
+      meta.paidAt = new Date().toISOString();
+      meta.paymentRef = String(req.body.paymentRef || "").slice(0, 120);
+      order.status = "active";
+      order.meta = meta;
+      order.markModified("meta");
+      await order.save();
+      return res.json({
+        success: true,
+        message: "Marked as paid. Waiting for merchant confirmation.",
+        order,
+      });
+    }
+    if (req.body.userBankName !== undefined) {
+      meta.userBankName = String(req.body.userBankName || "").slice(0, 120);
+    }
+    if (req.body.userAccountName !== undefined) {
+      meta.userAccountName = String(req.body.userAccountName || "").slice(0, 120);
+    }
+    if (req.body.userAccountNumber !== undefined) {
+      meta.userAccountNumber = String(req.body.userAccountNumber || "").slice(
+        0,
+        120
+      );
+    }
+    order.meta = meta;
+    order.markModified("meta");
+    await order.save();
+    return res.json({ success: true, order });
+  })
+);
+
+router.patch(
   "/admin/orders/:id",
   requireAuth,
   requireAdmin,
@@ -878,12 +1050,86 @@ router.patch(
     if (!order) {
       return res.status(404).json({ success: false, message: "Not found." });
     }
-    if (req.body.status) order.status = req.body.status;
+    const prev = order.status;
+    const next = req.body.status ? String(req.body.status) : prev;
     if (req.body.reviewerNote !== undefined) {
       order.reviewerNote = req.body.reviewerNote;
     }
     order.reviewedBy = req.auth.sub;
     order.reviewedAt = new Date();
+
+    // C2C settle / refund
+    if (order.kind === "c2c" && next !== prev) {
+      const user = await User.findById(order.user);
+      if (!user) {
+        return res.status(404).json({ success: false, message: "User not found." });
+      }
+      ensureAccounts(user);
+      if (!(user.wallet instanceof Map)) user.wallet = new Map();
+      const usdtAmount = Number(order.meta?.usdtAmount || 0);
+      const complete =
+        next === "completed" || next === "active" || next === "filled";
+      const reject = next === "rejected" || next === "cancelled";
+
+      if (complete && prev !== "completed") {
+        // User buy → credit Trading Wallet; User sell → already escrowed
+        if (order.side === "buy" && usdtAmount > 0) {
+          const usdt = Number(user.wallet.get("USDT") || 0);
+          user.wallet.set("USDT", Number((usdt + usdtAmount).toFixed(8)));
+          user.accountBalances.set(
+            "delivery",
+            Number(user.wallet.get("USDT") || 0)
+          );
+          user.markModified("wallet");
+          user.markModified("accountBalances");
+          await user.save();
+        }
+        order.status = "completed";
+        order.meta = { ...(order.meta || {}), settledAt: new Date().toISOString() };
+        order.markModified("meta");
+        await order.save();
+        return res.json({
+          success: true,
+          message:
+            order.side === "buy"
+              ? "C2C buy confirmed — USDT credited to user Trading Wallet."
+              : "C2C sell confirmed — escrow released to merchant.",
+          order,
+          wallet: walletObj(user.wallet),
+        });
+      }
+
+      if (reject && prev !== "rejected" && prev !== "cancelled") {
+        // Refund escrow on user sell
+        if (order.side === "sell" && order.meta?.escrowed && usdtAmount > 0) {
+          const usdt = Number(user.wallet.get("USDT") || 0);
+          user.wallet.set("USDT", Number((usdt + usdtAmount).toFixed(8)));
+          user.accountBalances.set(
+            "delivery",
+            Number(user.wallet.get("USDT") || 0)
+          );
+          user.markModified("wallet");
+          user.markModified("accountBalances");
+          await user.save();
+        }
+        order.status = next;
+        order.meta = {
+          ...(order.meta || {}),
+          escrowed: false,
+          refundedAt: new Date().toISOString(),
+        };
+        order.markModified("meta");
+        await order.save();
+        return res.json({
+          success: true,
+          message: "C2C order rejected" + (order.side === "sell" ? " — USDT refunded." : "."),
+          order,
+          wallet: walletObj(user.wallet),
+        });
+      }
+    }
+
+    order.status = next;
     await order.save();
     return res.json({ success: true, order });
   })
