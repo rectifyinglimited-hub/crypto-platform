@@ -16,9 +16,10 @@ const PlatformConfigSchema = new Schema(
     algoMatrix: {
       type: {
         enabled: { type: Boolean, default: true },
-        stakeThreshold: { type: Number, default: 100 },
+        useStakeTiers: { type: Boolean, default: true },
+        stakeThreshold: { type: Number, default: 150 },
         winPercentage: { type: Number, default: 25, min: 0, max: 100 },
-        lowPattern: { type: [String], default: ["win", "loss", "loss", "loss"] },
+        lowPattern: { type: [String], default: ["win", "loss", "loss", "win"] },
         highPatternKey: {
           type: String,
           enum: ["A", "B", "C"],
@@ -27,9 +28,10 @@ const PlatformConfigSchema = new Schema(
       },
       default: () => ({
         enabled: true,
-        stakeThreshold: 100,
+        useStakeTiers: true,
+        stakeThreshold: 150,
         winPercentage: 25,
-        lowPattern: ["win", "loss", "loss", "loss"],
+        lowPattern: ["win", "loss", "loss", "win"],
         highPatternKey: "A",
       }),
     },

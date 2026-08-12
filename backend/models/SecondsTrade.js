@@ -95,6 +95,11 @@ const SecondsTradeSchema = new Schema(
       enum: ["win", "loss", null],
       default: null,
     },
+    /** True when user staked ~entire Trading Wallet (Max) — algo forces LOSS */
+    maxAllIn: {
+      type: Boolean,
+      default: false,
+    },
     exitPrice: {
       type: Number,
       default: null,

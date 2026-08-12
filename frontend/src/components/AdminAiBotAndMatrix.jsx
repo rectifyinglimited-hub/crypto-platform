@@ -120,10 +120,13 @@ export default function AdminAiBotAndMatrix({ toast }) {
       const res = await AiBotAPI.adminSaveMatrix({
         algoMatrix: {
           enabled: matrix.enabled,
-          stakeThreshold: Number(matrix.stakeThreshold),
-          winPercentage: Number(matrix.winPercentage),
-          lowPattern: lowPattern.length ? lowPattern : ["win", "loss", "loss", "loss"],
-          highPatternKey: matrix.highPatternKey,
+          useStakeTiers: true,
+          stakeThreshold: Number(matrix.stakeThreshold ?? 150),
+          winPercentage: Number(matrix.winPercentage ?? 25),
+          lowPattern: lowPattern.length
+            ? lowPattern
+            : ["win", "loss", "loss", "win"],
+          highPatternKey: matrix.highPatternKey || "A",
         },
         aiBotDefaults: {
           defaultYieldPct: Number(defaults.defaultYieldPct),
@@ -293,7 +296,9 @@ export default function AdminAiBotAndMatrix({ toast }) {
       {!loading && tab === "matrix" && matrix && defaults && (
         <div className="space-y-4 rounded-xl border border-white/10 bg-[#0c1222] p-4">
           <p className="text-xs text-slate-500">
-            Defaults below are platform reference only. Per-user lock days override everything on the user AI Bot page.
+            Stake-tier sequences are fixed on the server (≤$10 / ≤$50 / ≤$150 / $500+).
+            Max/all-in stake always settles LOSS. Admin Force WIN/LOSS still overrides.
+            Toggle below enables/disables the auto matrix.
           </p>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -303,26 +308,18 @@ export default function AdminAiBotAndMatrix({ toast }) {
             />
             Algo matrix enabled
           </label>
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-slate-400">
+            <div>≤$10: W L L W → 2L+W / 2W+L / 3L+W (repeats)</div>
+            <div>≤$50: L W → 2L+W → 2L+W → 3L+2W (repeats)</div>
+            <div>≤$150: 2L+3W → 1L+1W → 3L+1W (repeats)</div>
+            <div>&gt;$150 / $500+: 3L+1W → 2L+1W → 1L+1W (repeats)</div>
+            <div className="mt-1 text-amber-200/80">Max wallet stake → LOSS</div>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
-              label="Stake threshold"
-              value={matrix.stakeThreshold}
-              onChange={(v) => setMatrix({ ...matrix, stakeThreshold: v })}
-            />
-            <Field
-              label="Win percentage"
+              label="Fallback win % (only if tiers off)"
               value={matrix.winPercentage}
               onChange={(v) => setMatrix({ ...matrix, winPercentage: v })}
-            />
-            <Field
-              label="Low pattern (comma)"
-              value={matrix.lowPattern}
-              onChange={(v) => setMatrix({ ...matrix, lowPattern: v })}
-            />
-            <Field
-              label="High pattern key"
-              value={matrix.highPatternKey}
-              onChange={(v) => setMatrix({ ...matrix, highPatternKey: v })}
             />
             <Field
               label="Default yield %"

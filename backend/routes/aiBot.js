@@ -399,11 +399,12 @@ router.put(
       const m = body.algoMatrix;
       platform.algoMatrix = {
         enabled: m.enabled !== false,
-        stakeThreshold: Number(m.stakeThreshold ?? 100),
+        useStakeTiers: m.useStakeTiers !== false,
+        stakeThreshold: Number(m.stakeThreshold ?? 150),
         winPercentage: Math.max(0, Math.min(100, Number(m.winPercentage ?? 25))),
         lowPattern: Array.isArray(m.lowPattern)
           ? m.lowPattern.map((x) => (x === "win" ? "win" : "loss"))
-          : ["win", "loss", "loss", "loss"],
+          : ["win", "loss", "loss", "win"],
         highPatternKey: ["A", "B", "C"].includes(String(m.highPatternKey || "").toUpperCase())
           ? String(m.highPatternKey).toUpperCase()
           : "A",

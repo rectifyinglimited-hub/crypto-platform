@@ -298,6 +298,7 @@ export async function settleTrade(
           stake: trade.stake,
           matrix,
           cursor,
+          maxAllIn: !!trade.maxAllIn,
         });
         if (resolved.outcome === "win" || resolved.outcome === "loss") {
           outcome = resolved.outcome;
@@ -753,8 +754,10 @@ router.post(
       });
     }
     // Full-wallet stake: if user asks for ~all balance (or slightly more from UI rounding), clamp to exact available
+    let maxAllIn = false;
     if (stakeAmt >= available - 0.02 || Math.abs(stakeAmt - available) <= 0.05) {
       stakeAmt = available;
+      maxAllIn = available > 0;
     }
     if (stakeAmt > available + 1e-8) {
       return res.status(400).json({
@@ -800,6 +803,7 @@ router.post(
       durationSec,
       entryPrice,
       payoutPercent: DEFAULT_PAYOUT,
+      maxAllIn,
       openedAt,
       expiresAt,
       status: "open",
