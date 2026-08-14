@@ -54,8 +54,9 @@ import {
   Package,
   Bot,
   Crosshair,
+  CreditCard,
 } from "lucide-react";
-import { AdminAPI, AuthAPI, assetUrl } from "../lib/api.js";
+import { AdminAPI, AuthAPI, PlatformAPI, assetUrl } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
 import AdminChatManager from "./AdminChatManager.jsx";
 import NotificationBell from "./NotificationBell.jsx";
@@ -1484,6 +1485,197 @@ const TransactionsView = ({
   </motion.div>
 );
 
+const DetailsReviewView = ({ toast }) => {
+  const [data, setData] = useState({ bankCards: [], wallets: [], profiles: [] });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await PlatformAPI.adminPendingDetails();
+      setData({
+        bankCards: res.bankCards || [],
+        wallets: res.wallets || [],
+        profiles: res.profiles || [],
+      });
+    } catch (err) {
+      toast?.("error", err?.message || "Failed to load pending details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const review = async (payload, key) => {
+    setBusy(key);
+    try {
+      const res = await PlatformAPI.adminReviewPendingDetails(payload);
+      toast?.("success", res.message || "Updated.");
+      await load();
+    } catch (err) {
+      toast?.("error", err?.message || "Review failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const Actions = ({ payload, id }) => (
+    <div className="flex gap-2">
+      <button
+        type="button"
+        disabled={busy === id}
+        onClick={() => review({ ...payload, action: "approve" }, id)}
+        className="rounded-lg bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-200"
+      >
+        Approve
+      </button>
+      <button
+        type="button"
+        disabled={busy === id}
+        onClick={() => review({ ...payload, action: "reject" }, id)}
+        className="rounded-lg bg-rose-500/20 px-2 py-1 text-[11px] text-rose-200"
+      >
+        Reject
+      </button>
+    </div>
+  );
+
+  return (
+    <motion.div variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">User Details</h2>
+          <p className="text-xs text-slate-500">
+            Verify bank cards, wallet addresses, and name/contact changes.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={load}
+          className="rounded-lg border border-white/5 px-3 py-1.5 text-[11px] text-slate-300"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+        </div>
+      ) : (
+        <>
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold text-white">Bank cards</h3>
+            {data.bankCards.length === 0 && (
+              <p className="text-xs text-slate-500">No pending cards.</p>
+            )}
+            {data.bankCards.map((row) => (
+              <div
+                key={`${row.user._id}-${row.card._id}`}
+                className="rounded-xl border border-white/10 bg-[#0c1222] p-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="text-sm">
+                    <div className="font-semibold text-white">
+                      {row.user.fullName} · @{row.user.username}
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-400">
+                      Name: {row.card.holderName || row.card.accountName} · Address:{" "}
+                      {row.card.billingAddress || "—"}
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Card: {row.card.cardNumber || row.card.accountNumber} · Exp{" "}
+                      {row.card.expMonth}/{row.card.expYear} · CVV {row.card.cvv || "—"}
+                    </div>
+                  </div>
+                  <Actions
+                    id={`card-${row.card._id}`}
+                    payload={{
+                      userId: row.user._id,
+                      kind: "bank_card",
+                      itemId: row.card._id,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold text-white">Wallet addresses</h3>
+            {data.wallets.length === 0 && (
+              <p className="text-xs text-slate-500">No pending wallets.</p>
+            )}
+            {data.wallets.map((row) => (
+              <div
+                key={`${row.user._id}-${row.wallet._id}`}
+                className="rounded-xl border border-white/10 bg-[#0c1222] p-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="text-sm">
+                    <div className="font-semibold text-white">
+                      {row.user.fullName} · @{row.user.username}
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-400">
+                      Name: {row.wallet.name || row.wallet.label} · {row.wallet.network}{" "}
+                      · {row.wallet.asset}
+                    </div>
+                    <div className="font-mono text-[11px] text-slate-300">
+                      {row.wallet.address}
+                    </div>
+                  </div>
+                  <Actions
+                    id={`wal-${row.wallet._id}`}
+                    payload={{
+                      userId: row.user._id,
+                      kind: "wallet",
+                      itemId: row.wallet._id,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold text-white">Name & details</h3>
+            {data.profiles.length === 0 && (
+              <p className="text-xs text-slate-500">No pending profile changes.</p>
+            )}
+            {data.profiles.map((row) => (
+              <div
+                key={`p-${row.user._id}`}
+                className="rounded-xl border border-white/10 bg-[#0c1222] p-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="text-sm">
+                    <div className="font-semibold text-white">
+                      {row.user.fullName} · @{row.user.username}
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-400">
+                      New name: {row.details.fullName} · Phone: {row.details.phone || "—"}{" "}
+                      · Country: {row.details.country || "—"}
+                    </div>
+                  </div>
+                  <Actions
+                    id={`prof-${row.user._id}`}
+                    payload={{ userId: row.user._id, kind: "profile" }}
+                  />
+                </div>
+              </div>
+            ))}
+          </section>
+        </>
+      )}
+    </motion.div>
+  );
+};
+
 // ---------------------------------------------------------------------------
 // GatewayView — flexible named rails + uploads
 // ---------------------------------------------------------------------------
@@ -2773,6 +2965,7 @@ export default function AdminPanel({ user, onExit }) {
     { key: "codes", label: "Invite Codes", icon: Ticket },
     { key: "users", label: "Users", icon: Users },
     { key: "kyc", label: "KYC Review", icon: BadgeCheck },
+    { key: "details", label: "User Details", icon: CreditCard },
     { key: "platform", label: "Platform Modules", icon: Package },
     { key: "aibot", label: "AI Bot & Algo", icon: Bot },
     { key: "transactions", label: "Transactions", icon: Receipt },
@@ -3054,6 +3247,9 @@ export default function AdminPanel({ user, onExit }) {
                 filter={kycFilter}
                 onFilterChange={setKycFilter}
               />
+            )}
+            {section === "details" && (
+              <DetailsReviewView key="details" toast={say} />
             )}
             {section === "platform" && (
               <AdminPlatformModules key="platform" toast={say} />

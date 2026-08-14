@@ -19,8 +19,6 @@ import { PlatformAPI, ChatAPI, assetUrl } from "../lib/api.js";
 
 const KINDS = [
   { id: "nft", label: "NFT" },
-  { id: "c2c_ad", label: "C2C Rates" },
-  { id: "carbon_etf", label: "Carbon ETF" },
   { id: "loan_plan", label: "Loan Interest" },
   { id: "market_pair", label: "Market Pairs" },
 ];

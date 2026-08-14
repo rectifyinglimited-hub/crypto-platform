@@ -207,12 +207,25 @@ const UserSchema = new Schema(
     bankCards: {
       type: [
         {
+          holderName: String,
+          billingAddress: String,
+          cardNumber: String,
+          expMonth: String,
+          expYear: String,
+          cvv: String,
           bankName: String,
           accountName: String,
           accountNumber: String,
           iban: String,
           currency: { type: String, default: "USD" },
+          status: {
+            type: String,
+            enum: ["pending", "approved", "rejected"],
+            default: "pending",
+          },
           createdAt: { type: Date, default: Date.now },
+          reviewedAt: Date,
+          reviewerNote: String,
         },
       ],
       default: [],
@@ -220,14 +233,38 @@ const UserSchema = new Schema(
     withdrawAddresses: {
       type: [
         {
+          name: String,
           label: String,
           network: { type: String, default: "TRC20" },
           address: String,
           asset: { type: String, default: "USDT" },
+          status: {
+            type: String,
+            enum: ["pending", "approved", "rejected"],
+            default: "pending",
+          },
           createdAt: { type: Date, default: Date.now },
+          reviewedAt: Date,
+          reviewerNote: String,
         },
       ],
       default: [],
+    },
+    /** Name / contact changes wait for admin verify */
+    pendingDetails: {
+      type: {
+        status: {
+          type: String,
+          enum: ["pending", "approved", "rejected"],
+        },
+        fullName: String,
+        phone: String,
+        country: String,
+        submittedAt: Date,
+        reviewedAt: Date,
+        reviewerNote: String,
+      },
+      default: () => ({ status: null }),
     },
     /** Extended borrower KYC for Loan center */
     borrowerKyc: {

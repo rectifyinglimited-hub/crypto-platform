@@ -371,6 +371,12 @@ export const PlatformAPI = {
     api.post("/platform/bank-cards", payload).then((r) => r.data),
   addWithdrawAddress: (payload) =>
     api.post("/platform/withdraw-addresses", payload).then((r) => r.data),
+  submitProfileDetails: (payload) =>
+    api.post("/platform/profile-details", payload).then((r) => r.data),
+  adminPendingDetails: () =>
+    api.get("/platform/admin/pending-details").then((r) => r.data),
+  adminReviewPendingDetails: (payload) =>
+    api.patch("/platform/admin/pending-details", payload).then((r) => r.data),
   adminCatalog: (kind) =>
     api
       .get("/platform/admin/catalog", { params: kind ? { kind } : {} })

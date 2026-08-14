@@ -226,7 +226,20 @@ router.post(
         message: "User not found.",
       });
     }
-    const current = user.wallet.get(symbol) || 0;
+    if (!(user.wallet instanceof Map)) {
+      user.wallet = new Map(Object.entries(user.wallet || {}));
+    }
+    if (!(user.accountBalances instanceof Map)) {
+      user.accountBalances = new Map();
+    }
+    let current = Number(user.wallet.get(symbol) || 0);
+    if (symbol === "USDT") {
+      const delivery = Number(user.accountBalances.get("delivery") || 0);
+      if (current < amount && delivery >= amount) {
+        current = delivery;
+        user.wallet.set("USDT", delivery);
+      }
+    }
     if (current < amount) {
       return res.status(400).json({
         success: false,
@@ -236,22 +249,36 @@ router.post(
     }
 
     // Hold: deduct immediately so balance reflects pending withdrawal
-    user.wallet.set(symbol, current - amount);
+    user.wallet.set(symbol, Number((current - amount).toFixed(8)));
+    if (symbol === "USDT") {
+      if (!(user.accountBalances instanceof Map)) {
+        user.accountBalances = new Map();
+      }
+      user.accountBalances.set(
+        "delivery",
+        Number(user.wallet.get("USDT") || 0)
+      );
+      user.markModified("accountBalances");
+    }
     user.markModified("wallet");
     await user.save();
 
-    const owner = await User.findById(req.auth.sub).select("adminId");
+    const method = String(req.body.method || "crypto").toLowerCase();
     const tx = await Transaction.create({
       user: req.auth.sub,
-      adminId: owner?.adminId || null,
+      adminId: user.adminId || null,
       kind: "withdrawal",
       symbol,
       amount,
       usdValue: amount,
       address: req.body.address,
-      network: req.body.network || "TRC20",
+      network: req.body.network || (method === "bank" ? "BANK" : "TRC20"),
       status: "pending",
       fundsHeld: true,
+      reviewerNote:
+        method === "bank"
+          ? `Bank card withdraw · ${req.body.cardName || ""}`
+          : null,
     });
 
     const wallet =

@@ -31,7 +31,6 @@ import {
   LayoutGrid,
   History,
   Lock,
-  MapPin,
   CreditCard,
   Gift,
   ArrowDownToLine,
@@ -39,8 +38,9 @@ import {
   Send,
   Plus,
 } from "lucide-react";
-import { PlatformAPI, assetUrl } from "../lib/api.js";
+import { AuthAPI, PlatformAPI, WalletAPI, assetUrl } from "../lib/api.js";
 import DepositSection from "./DepositSection.jsx";
+import WithdrawSection, { NetworkLogo } from "./WithdrawSection.jsx";
 import CopyTradeModule from "./CopyTradeModule.jsx";
 
 // ---------------------------------------------------------------------------
@@ -1799,11 +1799,12 @@ export function NftMarketPage({ onToast, onWalletUpdate, mineOnly = false }) {
 const ASSETS_MENU = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
   { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
+  { key: "withdraw", label: "Withdraw", icon: ArrowUpFromLine },
   { key: "assets", label: "Assets", icon: Wallet },
   { key: "logs", label: "Logs", icon: History },
   { key: "security", label: "Security", icon: Lock },
   { key: "verification", label: "Verification", icon: ShieldCheck },
-  { key: "addresses", label: "Addresses", icon: MapPin },
+  { key: "addresses", label: "Wallet Address", icon: Wallet },
   { key: "payment", label: "Payment", icon: CreditCard },
   { key: "referral", label: "Referral", icon: Gift },
 ];
@@ -2066,20 +2067,20 @@ function VerificationSection({ user, onOpenKyc, borrowerKyc }) {
 }
 
 function AddressesSection({ addresses, onToast, onChanged }) {
-  const [form, setForm] = useState({ label: "", network: "TRC20", address: "", asset: "USDT" });
+  const [form, setForm] = useState({ name: "", network: "TRC20", address: "", asset: "USDT" });
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.address.trim() || submitting) return;
+    if (!form.address.trim() || !form.name.trim() || submitting) return;
     setSubmitting(true);
     try {
-      await PlatformAPI.addWithdrawAddress(form);
-      onToast?.("success", "Address saved.");
+      const res = await PlatformAPI.addWithdrawAddress(form);
+      onToast?.("success", res.message || "Wallet address submitted for admin verification.");
       onChanged?.();
-      setForm({ label: "", network: "TRC20", address: "", asset: "USDT" });
+      setForm({ name: "", network: "TRC20", address: "", asset: "USDT" });
     } catch (err) {
-      onToast?.("error", err?.message || "Failed to save address.");
+      onToast?.("error", err?.message || "Failed to save wallet address.");
     } finally {
       setSubmitting(false);
     }
@@ -2088,38 +2089,37 @@ function AddressesSection({ addresses, onToast, onChanged }) {
   return (
     <>
       <Card>
-        <h3 className="mb-3 text-sm font-bold text-white">Withdraw Addresses</h3>
+        <h3 className="mb-3 text-sm font-bold text-white">Wallet Address</h3>
         {addresses.length === 0 ? (
-          <EmptyState icon={MapPin} label="No saved addresses yet." />
+          <EmptyState icon={Wallet} label="No wallet addresses yet." />
         ) : (
           <ul className="space-y-2">
-            {addresses.map((a, i) => (
+            {addresses.map((a) => (
               <li
-                key={i}
-                className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] p-3"
+                key={a._id || a.address}
+                className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3"
               >
-                <div>
+                <NetworkLogo network={a.network} />
+                <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold text-white">
-                    {a.label} · {a.asset}
+                    {a.name || a.label || "Wallet"} · {a.asset}
                   </div>
-                  <div className="font-mono text-[11px] text-slate-500">{a.address}</div>
+                  <div className="truncate font-mono text-[11px] text-slate-500">{a.address}</div>
                 </div>
-                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-400">
-                  {a.network}
-                </span>
+                <StatusBadge status={a.status || "pending"} />
               </li>
             ))}
           </ul>
         )}
       </Card>
       <Card>
-        <h3 className="mb-3 text-sm font-bold text-white">Add Address</h3>
+        <h3 className="mb-3 text-sm font-bold text-white">Add Wallet Address</h3>
         <form onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <input
-              value={form.label}
-              onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
-              placeholder="Label"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Name"
               className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
             />
             <select
@@ -2142,14 +2142,14 @@ function AddressesSection({ addresses, onToast, onChanged }) {
           />
           <button
             type="submit"
-            disabled={submitting || !form.address.trim()}
+            disabled={submitting || !form.address.trim() || !form.name.trim()}
             className={`${PRIMARY_BTN} w-full`}
           >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <>
-                <Plus className="h-4 w-4" /> Save address
+                <Plus className="h-4 w-4" /> Save wallet address
               </>
             )}
           </button>
@@ -2161,28 +2161,42 @@ function AddressesSection({ addresses, onToast, onChanged }) {
 
 function PaymentSection({ cards, onToast, onChanged }) {
   const [form, setForm] = useState({
-    bankName: "",
-    accountName: "",
-    accountNumber: "",
-    iban: "",
-    currency: "USD",
+    holderName: "",
+    billingAddress: "",
+    cardNumber: "",
+    expMonth: "",
+    expYear: "",
+    cvv: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.bankName.trim() || !form.accountNumber.trim() || submitting) return;
+    if (submitting) return;
     setSubmitting(true);
     try {
-      await PlatformAPI.addBankCard(form);
-      onToast?.("success", "Bank card saved.");
+      const res = await PlatformAPI.addBankCard(form);
+      onToast?.("success", res.message || "Bank card submitted for admin verification.");
       onChanged?.();
-      setForm({ bankName: "", accountName: "", accountNumber: "", iban: "", currency: "USD" });
+      setForm({
+        holderName: "",
+        billingAddress: "",
+        cardNumber: "",
+        expMonth: "",
+        expYear: "",
+        cvv: "",
+      });
     } catch (err) {
       onToast?.("error", err?.message || "Failed to save card.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const mask = (n) => {
+    const s = String(n || "").replace(/\s/g, "");
+    if (s.length < 4) return "••••";
+    return `•••• ${s.slice(-4)}`;
   };
 
   return (
@@ -2193,12 +2207,20 @@ function PaymentSection({ cards, onToast, onChanged }) {
           <EmptyState icon={CreditCard} label="No bank cards added." />
         ) : (
           <ul className="space-y-2">
-            {cards.map((c, i) => (
-              <li key={i} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-                <div className="text-sm font-semibold text-white">{c.bankName}</div>
-                <div className="text-[11px] text-slate-500">
-                  {c.accountName} · {c.accountNumber} · {c.currency}
+            {cards.map((c) => (
+              <li key={c._id || c.cardNumber} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-white">
+                    {c.holderName || c.accountName || "Card"}
+                  </div>
+                  <StatusBadge status={c.status || "pending"} />
                 </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  {mask(c.cardNumber || c.accountNumber)} · Exp {c.expMonth || "—"}/{c.expYear || "—"}
+                </div>
+                {c.billingAddress && (
+                  <div className="mt-0.5 text-[11px] text-slate-600">{c.billingAddress}</div>
+                )}
               </li>
             ))}
           </ul>
@@ -2207,31 +2229,55 @@ function PaymentSection({ cards, onToast, onChanged }) {
       <Card>
         <h3 className="mb-3 text-sm font-bold text-white">Add Bank Card</h3>
         <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
+          <input
+            value={form.holderName}
+            onChange={(e) => setForm((f) => ({ ...f, holderName: e.target.value }))}
+            placeholder="Name"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+            required
+          />
+          <input
+            value={form.billingAddress}
+            onChange={(e) => setForm((f) => ({ ...f, billingAddress: e.target.value }))}
+            placeholder="Address"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+            required
+          />
+          <input
+            value={form.cardNumber}
+            onChange={(e) => setForm((f) => ({ ...f, cardNumber: e.target.value }))}
+            placeholder="Card number"
+            inputMode="numeric"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+            required
+          />
+          <div className="grid grid-cols-3 gap-2">
             <input
-              value={form.bankName}
-              onChange={(e) => setForm((f) => ({ ...f, bankName: e.target.value }))}
-              placeholder="Bank name"
+              value={form.expMonth}
+              onChange={(e) => setForm((f) => ({ ...f, expMonth: e.target.value }))}
+              placeholder="Exp MM"
+              maxLength={2}
               className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+              required
             />
             <input
-              value={form.accountName}
-              onChange={(e) => setForm((f) => ({ ...f, accountName: e.target.value }))}
-              placeholder="Account name"
+              value={form.expYear}
+              onChange={(e) => setForm((f) => ({ ...f, expYear: e.target.value }))}
+              placeholder="Exp YY"
+              maxLength={4}
               className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+              required
+            />
+            <input
+              value={form.cvv}
+              onChange={(e) => setForm((f) => ({ ...f, cvv: e.target.value }))}
+              placeholder="CVV"
+              maxLength={4}
+              className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+              required
             />
           </div>
-          <input
-            value={form.accountNumber}
-            onChange={(e) => setForm((f) => ({ ...f, accountNumber: e.target.value }))}
-            placeholder="Account number / IBAN"
-            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
-          />
-          <button
-            type="submit"
-            disabled={submitting || !form.bankName.trim() || !form.accountNumber.trim()}
-            className={`${PRIMARY_BTN} w-full`}
-          >
+          <button type="submit" disabled={submitting} className={`${PRIMARY_BTN} w-full`}>
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -2247,37 +2293,80 @@ function PaymentSection({ cards, onToast, onChanged }) {
 }
 
 function LogsSection() {
-  const [orders, setOrders] = useState([]);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    PlatformAPI.orders()
-      .then((r) => setOrders(r.orders || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    Promise.all([
+      WalletAPI.transactions().catch(() => ({ transactions: [] })),
+      PlatformAPI.orders().catch(() => ({ orders: [] })),
+    ])
+      .then(([txRes, ordRes]) => {
+        if (cancelled) return;
+        const txs = (txRes.transactions || []).map((t) => ({
+          id: t._id,
+          kind: t.kind,
+          side: t.side,
+          amount: t.amount,
+          symbol: t.symbol,
+          status: t.status,
+          network: t.network,
+          address: t.address,
+          at: t.createdAt,
+        }));
+        const orders = (ordRes.orders || []).map((o) => ({
+          id: o._id,
+          kind: o.kind,
+          side: o.side,
+          amount: o.amount,
+          symbol: o.symbol,
+          status: o.status,
+          at: o.createdAt,
+        }));
+        setRows(
+          [...txs, ...orders].sort(
+            (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()
+          )
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
     <Card className="overflow-hidden !p-0">
       <div className="border-b border-white/5 px-4 py-3">
-        <h3 className="text-sm font-bold text-white">Order Logs</h3>
+        <h3 className="text-sm font-bold text-white">Activity logs</h3>
+        <p className="text-[11px] text-slate-500">
+          Deposits, withdrawals, trades and conversions.
+        </p>
       </div>
       {loading ? (
         <LoadingBlock />
-      ) : orders.length === 0 ? (
-        <EmptyState icon={History} label="No orders yet." />
+      ) : rows.length === 0 ? (
+        <EmptyState icon={History} label="No activity yet." />
       ) : (
         <ul className="divide-y divide-white/5">
-          {orders.map((o) => (
-            <li key={o._id} className="flex items-center justify-between px-4 py-3 text-sm">
-              <div>
+          {rows.map((o) => (
+            <li key={o.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+              <div className="min-w-0">
                 <div className="font-semibold capitalize text-white">
                   {o.kind}
                   {o.side ? ` · ${o.side}` : ""}
+                  {o.symbol ? ` · ${o.symbol}` : ""}
                 </div>
-                <div className="text-[11px] text-slate-500">{new Date(o.createdAt).toLocaleString()}</div>
+                <div className="truncate text-[11px] text-slate-500">
+                  {o.at ? new Date(o.at).toLocaleString() : "—"}
+                  {o.network ? ` · ${o.network}` : ""}
+                  {o.address ? ` · ${o.address}` : ""}
+                </div>
               </div>
-              <div className="text-right">
+              <div className="shrink-0 text-right">
                 <div className="tabular-nums text-white">{fmtUsd(o.amount)}</div>
                 <StatusBadge status={o.status} />
               </div>
@@ -2318,17 +2407,129 @@ function ReferralSection({ user, onToast }) {
   );
 }
 
-function SecuritySection({ onOpenAccount }) {
+function SecuritySection({ user, pendingDetails, onToast, onChanged }) {
+  const [fullName, setFullName] = useState(user?.fullName || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [country, setCountry] = useState(user?.country || "");
+  const [currentPassword, setCurrent] = useState("");
+  const [newPassword, setNew] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busyDetails, setBusyDetails] = useState(false);
+  const [busyPass, setBusyPass] = useState(false);
+
+  const submitDetails = async (e) => {
+    e.preventDefault();
+    if (busyDetails) return;
+    setBusyDetails(true);
+    try {
+      const res = await PlatformAPI.submitProfileDetails({
+        fullName,
+        phone,
+        country,
+      });
+      onToast?.("success", res.message || "Details sent for admin verification.");
+      onChanged?.();
+    } catch (err) {
+      onToast?.("error", err?.message || "Failed to submit details.");
+    } finally {
+      setBusyDetails(false);
+    }
+  };
+
+  const submitPass = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      onToast?.("error", "New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirm) {
+      onToast?.("error", "New passwords do not match.");
+      return;
+    }
+    setBusyPass(true);
+    try {
+      await AuthAPI.changePassword({ currentPassword, newPassword });
+      onToast?.("success", "Password changed.");
+      setCurrent("");
+      setNew("");
+      setConfirm("");
+    } catch (err) {
+      onToast?.("error", err?.message || "Could not change password.");
+    } finally {
+      setBusyPass(false);
+    }
+  };
+
   return (
-    <Card>
-      <h3 className="mb-2 text-sm font-bold text-white">Security</h3>
-      <p className="mb-4 text-xs text-slate-500">
-        Manage your password and login security from your account settings.
-      </p>
-      <button type="button" onClick={() => onOpenAccount?.()} className={PRIMARY_BTN}>
-        <Lock className="h-4 w-4" /> Manage security
-      </button>
-    </Card>
+    <>
+      <Card>
+        <h3 className="mb-1 text-sm font-bold text-white">Name & details</h3>
+        <p className="mb-3 text-[11px] text-slate-500">
+          Changes go to admin for verification before they apply on your account.
+        </p>
+        {pendingDetails?.status === "pending" && (
+          <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+            Pending review: {pendingDetails.fullName}
+            {pendingDetails.phone ? ` · ${pendingDetails.phone}` : ""}
+          </div>
+        )}
+        <form onSubmit={submitDetails} className="space-y-3">
+          <input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Name"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+          />
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Phone"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+          />
+          <input
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            placeholder="Country"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+          />
+          <button type="submit" disabled={busyDetails} className={`${PRIMARY_BTN} w-full`}>
+            {busyDetails ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit for verification"}
+          </button>
+        </form>
+      </Card>
+      <Card>
+        <h3 className="mb-3 text-sm font-bold text-white">Change password</h3>
+        <form onSubmit={submitPass} className="space-y-3">
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrent(e.target.value)}
+            placeholder="Current password"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+            required
+          />
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNew(e.target.value)}
+            placeholder="New password (8+)"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+            required
+          />
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            placeholder="Confirm new password"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
+            required
+          />
+          <button type="submit" disabled={busyPass} className={`${PRIMARY_BTN} w-full`}>
+            {busyPass ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}
+          </button>
+        </form>
+      </Card>
+    </>
   );
 }
 
@@ -2353,16 +2554,16 @@ export function AssetsHubPage({
 
   const openDeposit = () => {
     setView("deposit");
-    onOpenDeposit?.();
     onOpenLiveChat?.();
+  };
+
+  const openWithdraw = () => {
+    setView("withdraw");
   };
 
   const goView = (key) => {
     setView(key);
-    if (key === "deposit") {
-      onOpenDeposit?.();
-      onOpenLiveChat?.();
-    }
+    if (key === "deposit") onOpenLiveChat?.();
   };
 
   const load = useCallback(() => {
@@ -2421,13 +2622,23 @@ export function AssetsHubPage({
                   total={total}
                   accounts={accounts}
                   onOpenDeposit={openDeposit}
-                  onOpenWithdraw={onOpenWithdraw}
+                  onOpenWithdraw={openWithdraw}
                   onTransfer={() => setView("assets")}
                   onConvert={() => setView("convert")}
                 />
               )}
               {view === "deposit" && (
                 <DepositSection toast={onToast} onOpenLiveChat={onOpenLiveChat} />
+              )}
+              {view === "withdraw" && (
+                <WithdrawSection
+                  wallet={data?.wallet}
+                  user={user}
+                  savedAddresses={data?.withdrawAddresses || []}
+                  bankCards={data?.bankCards || []}
+                  toast={onToast}
+                  onWalletUpdate={refreshAfterChange}
+                />
               )}
               {view === "assets" && (
                 <AssetsSection accounts={accounts} onToast={onToast} onChanged={refreshAfterChange} />
@@ -2446,7 +2657,14 @@ export function AssetsHubPage({
               )}
               {view === "logs" && <LogsSection />}
               {view === "referral" && <ReferralSection user={user} onToast={onToast} />}
-              {view === "security" && <SecuritySection onOpenAccount={onOpenAccount} />}
+              {view === "security" && (
+                <SecuritySection
+                  user={user}
+                  pendingDetails={data?.pendingDetails}
+                  onToast={onToast}
+                  onChanged={load}
+                />
+              )}
             </>
           )}
         </div>

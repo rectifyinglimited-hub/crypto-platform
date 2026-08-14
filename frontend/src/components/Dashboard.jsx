@@ -46,10 +46,6 @@ import AppShell from "./AppShell.jsx";
 import PlatformShell from "./PlatformShell.jsx";
 import {
   MarketPage,
-  SpotTradePage,
-  PerpetualTradePage,
-  C2CPage,
-  CarbonEtfPage,
   LoanPage,
   NftMarketPage,
   AssetsHubPage,
@@ -61,6 +57,8 @@ import CryptoWatchlist from "./CryptoWatchlist.jsx";
 import MarketActivity from "./MarketActivity.jsx";
 import TradeHistory from "./TradeHistory.jsx";
 import ProfileSetup from "./ProfileSetup.jsx";
+import DepositSection from "./DepositSection.jsx";
+import WithdrawSection from "./WithdrawSection.jsx";
 import { AuthAPI, WalletAPI, SecondsTradeAPI, clearToken } from "../lib/api.js";
 import { getSocket, onSocketEvent, disconnectSocket } from "../lib/socket.js";
 
@@ -1009,13 +1007,16 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const [tradeIntent, setTradeIntent] = useState(null); // { asset, assetType, pair }
 
   const goPage = (p) => {
-    setPage(p);
-    if (p === "assets") setAssetsView("overview");
-    if (p === "delivery") setTab("trading");
-    else if (p === "assets") setTab("wallet");
-    else if (p === "account") setTab("settings");
-    else if (p === "home") setTab("home");
-    else if (p === "spot" || p === "perpetual" || p === "market") setTab("trading");
+    const key = p === "delivery" || p === "spot" || p === "perpetual" ? "trade" : p;
+    setPage(key);
+    if (key === "assets") setAssetsView("overview");
+    if (key === "deposit") setAssetsView("deposit");
+    if (key === "withdraw") setAssetsView("withdraw");
+    if (key === "trade") setTab("trading");
+    else if (key === "assets" || key === "deposit" || key === "withdraw") setTab("wallet");
+    else if (key === "account") setTab("settings");
+    else if (key === "home") setTab("home");
+    else if (key === "market") setTab("trading");
   };
 
   const say = useCallback((kind, message) => {
@@ -1035,7 +1036,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         at: Date.now(),
       });
       setMode("trade");
-      setPage("delivery");
+      setPage("trade");
       setTab("trading");
       // Also broadcast for any already-mounted listeners
       setTimeout(() => {
@@ -1058,10 +1059,16 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
 
   const openDepositSection = useCallback(() => {
     setAssetsView("deposit");
-    setPage("assets");
+    setPage("deposit");
     setTab("wallet");
     openLiveChat("deposit");
   }, [openLiveChat]);
+
+  const openWithdrawSection = useCallback(() => {
+    setAssetsView("withdraw");
+    setPage("withdraw");
+    setTab("wallet");
+  }, []);
 
   useEffect(() => {
     const onOpenChat = (e) => {
@@ -1266,7 +1273,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         <AnimatePresence mode="wait">
           {page === "home" && (
             <motion.div key="home" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <HomeLanding user={me} walletUsdt={walletUsdt} liveEarnings={liveEarnings} onStartTrading={() => goPage("delivery")} />
+              <HomeLanding user={me} walletUsdt={walletUsdt} liveEarnings={liveEarnings} onStartTrading={() => goPage("trade")} />
               {isStaffRole(me?.role) && (
                 <button type="button" onClick={onOpenAdmin} className="mt-4 w-full rounded-xl border border-indigo-400/30 bg-indigo-500/10 py-3 text-sm font-semibold text-indigo-200">
                   Open Admin Console
@@ -1283,27 +1290,24 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               user={me}
             />
           )}
-          {page === "spot" && (
-            <SpotTradePage
-              key="spot"
-              onToast={say}
-              user={me}
-              onWalletUpdate={handleUserUpdate}
-              onOpenTradeDesk={openTradeDesk}
-            />
+          {page === "deposit" && (
+            <div key="deposit" className="mx-auto max-w-2xl">
+              <DepositSection toast={say} onOpenLiveChat={() => openLiveChat("deposit")} />
+            </div>
           )}
-          {page === "perpetual" && (
-            <PerpetualTradePage
-              key="perpetual"
-              onToast={say}
-              user={me}
-              onWalletUpdate={handleUserUpdate}
-              onOpenTradeDesk={openTradeDesk}
-            />
+          {page === "withdraw" && (
+            <div key="withdraw" className="mx-auto max-w-2xl">
+              <WithdrawSection
+                wallet={wallet}
+                user={me}
+                toast={say}
+                onWalletUpdate={handleUserUpdate}
+              />
+            </div>
           )}
-          {page === "delivery" && (
+          {page === "trade" && (
             <motion.div
-              key={`delivery-${tradeIntent?.at || "desk"}`}
+              key={`trade-${tradeIntent?.at || "desk"}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
@@ -1325,15 +1329,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               </div>
             </motion.div>
           )}
-          {page === "c2c" && (
-            <C2CPage
-              key="c2c"
-              onToast={say}
-              user={me}
-              onWalletUpdate={handleUserUpdate}
-            />
-          )}
-          {page === "carbon" && <CarbonEtfPage key="carbon" onToast={say} user={me} onWalletUpdate={handleUserUpdate} />}
           {page === "aibot" && (
             <AiBotTradingPage
               key="aibot"
@@ -1354,7 +1349,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               onOpenKyc={() => setKycOpen(true)}
               onOpenDeposit={openDepositSection}
               onOpenLiveChat={() => openLiveChat("deposit")}
-              onOpenWithdraw={() => {}}
+              onOpenWithdraw={openWithdrawSection}
               onWalletUpdate={handleUserUpdate}
               initialView={assetsView}
             />
