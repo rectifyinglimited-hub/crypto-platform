@@ -33,8 +33,14 @@ const SecondsTradeSchema = new Schema(
     },
     assetType: {
       type: String,
-      enum: ["crypto", "stock"],
+      enum: ["crypto", "stock", "forex"],
       default: "crypto",
+    },
+    quote: {
+      type: String,
+      uppercase: true,
+      trim: true,
+      default: "USDT",
     },
     /** long = Buy Long (profit if price rises); short = Sell Short */
     direction: {

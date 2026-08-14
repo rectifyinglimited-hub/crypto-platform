@@ -268,6 +268,7 @@ function visiblePriceRange(candles, chart, entryPrice) {
 export default function FuturesChart({
   asset = "BTC",
   assetType = "crypto",
+  quote = "USDT",
   /** Biased live price from seconds-trade (Force Win/Lose / Graph UP-DOWN) */
   overridePrice = null,
   /** Active trade entry — drawn as a line so user sees win/loss vs entry */
@@ -303,7 +304,15 @@ export default function FuturesChart({
   const lastPriceRef = useRef(null);
   const flashTimer = useRef(null);
 
-  const pairLabel = `${String(asset).toUpperCase()}/USDT`;
+  const q = String(quote || "USDT").toUpperCase();
+  const a = String(asset || "").toUpperCase();
+  const pairLabel =
+    assetType === "forex" && a.length === 6
+      ? `${a.slice(0, 3)}/${a.slice(3)}`
+      : assetType === "stock"
+        ? `${a}/USD`
+        : `${a}/${q}`;
+  const liveFeed = assetType === "crypto" || assetType === "forex";
   const tfMeta =
     CHART_TIMEFRAMES.find((t) => t.key === tf) || CHART_TIMEFRAMES[1];
 
@@ -638,7 +647,7 @@ export default function FuturesChart({
     };
 
     const bootCrypto = async () => {
-      const symbol = toBinanceSymbol(asset);
+      let symbol = toBinanceSymbol(asset, q);
       if (!symbol) throw new Error("Invalid symbol");
 
       let interval = tfMeta.interval;
@@ -647,7 +656,10 @@ export default function FuturesChart({
       try {
         klines = await fetchKlines(symbol, interval, limit);
       } catch (err) {
-        if (interval === "1s") {
+        if (q === "USDC") {
+          symbol = toBinanceSymbol(asset, "USDT");
+          klines = await fetchKlines(symbol, interval, limit);
+        } else if (interval === "1s") {
           interval = "1m";
           limit = 500;
           klines = await fetchKlines(symbol, interval, limit);
@@ -783,7 +795,7 @@ export default function FuturesChart({
 
     (async () => {
       try {
-        if (assetType === "crypto") await bootCrypto();
+        if (liveFeed) await bootCrypto();
         else await bootSynthetic();
       } catch (err) {
         if (alive && gen === loadGen.current) {
@@ -810,10 +822,15 @@ export default function FuturesChart({
   }, [
     asset,
     assetType,
+    q,
     tf,
     tfMeta.interval,
     tfMeta.limit,
-    assetType === "crypto" ? 1 : Number(overridePrice) > 0 ? 1 : 0,
+    assetType === "crypto" || assetType === "forex"
+      ? 1
+      : Number(overridePrice) > 0
+        ? 1
+        : 0,
   ]);
 
   // Bias nudge — Force Win/Lose drifts last candle; chart keeps ticking via update()
@@ -922,7 +939,7 @@ export default function FuturesChart({
             <Metric label="24h Low" value={formatPrice(stats?.lowPrice)} tone="down" />
             <Metric label="24h Vol (Asset)" value={formatCompact(stats?.volume)} />
             <Metric
-              label="24h Vol (USDT)"
+              label={`24h Vol (${assetType === "crypto" ? q : "USD"})`}
               value={formatCompact(stats?.quoteVolume)}
             />
           </div>

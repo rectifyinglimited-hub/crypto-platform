@@ -113,8 +113,21 @@ function persistToasted(set) {
 }
 
 const DURATIONS = [60, 90, 120];
-const STOCKS = ["AAPL", "TSLA", "AMZN", "NVDA", "GOOGL"];
+const STOCKS = [
+  "AAPL", "TSLA", "AMZN", "NVDA", "GOOGL", "MSFT", "META", "NFLX", "AMD", "INTC",
+];
+const FOREX = [
+  "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
+  "EURGBP", "XAUUSD",
+];
 const CRYPTO_FALLBACK = WATCHLIST_CRYPTO;
+
+function pairLabel(asset, quote, type) {
+  const a = String(asset || "").toUpperCase();
+  if (type === "forex" && a.length >= 6) return `${a.slice(0, 3)}/${a.slice(3)}`;
+  if (type === "stock") return `${a}/USD`;
+  return `${a}/${quote || "USDT"}`;
+}
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -146,19 +159,30 @@ export default function SecondsTrading({
   tradingSuspended = false,
   initialAsset = null,
   initialAssetType = "crypto",
+  initialQuote = null,
 }) {
   const [assetType, setAssetType] = useState(
-    initialAssetType === "stock" ? "stock" : "crypto"
+    initialAssetType === "stock"
+      ? "stock"
+      : initialAssetType === "forex"
+        ? "forex"
+        : "crypto"
   );
   const [asset, setAsset] = useState(
     String(initialAsset || "BTC").toUpperCase()
   );
+  const [quote, setQuote] = useState(
+    String(initialQuote || "USDT").toUpperCase() === "USDC" ? "USDC" : "USDT"
+  );
+  const [adminQuote, setAdminQuote] = useState(null);
   const [assetQuery, setAssetQuery] = useState(
     initialAsset && initialAssetType !== "stock"
       ? String(initialAsset).toUpperCase()
       : ""
   );
   const [cryptoList, setCryptoList] = useState(CRYPTO_FALLBACK);
+  const [forexList, setForexList] = useState(FOREX);
+  const [stockList, setStockList] = useState(STOCKS);
   const [markets, setMarkets] = useState([]);
   const [series, setSeries] = useState([]);
   const [duration, setDuration] = useState(60);
@@ -176,12 +200,19 @@ export default function SecondsTrading({
   const lastTickPrice = useRef(null);
   const flashTimer = useRef(null);
 
+  const displayQuote = adminQuote || quote;
   const assets =
     assetType === "crypto"
       ? cryptoList.length
         ? cryptoList
         : CRYPTO_FALLBACK
-      : STOCKS;
+      : assetType === "forex"
+        ? forexList.length
+          ? forexList
+          : FOREX
+        : stockList.length
+          ? stockList
+          : STOCKS;
   const filteredAssets = assetQuery.trim()
     ? assets.filter((a) =>
         a.toLowerCase().includes(assetQuery.trim().toLowerCase())
@@ -192,7 +223,11 @@ export default function SecondsTrading({
     () => markets.find((m) => m.asset === asset),
     [markets, asset]
   );
-  const rawPrice = market?.price || 0;
+  const rawPrice =
+    (displayQuote === "USDC" && market?.quotes?.USDC) ||
+    market?.quotes?.[displayQuote] ||
+    market?.price ||
+    0;
   // Chart header uses smoothed series so Graph UP/DOWN never looks like a jump
   const price = series.length ? series[series.length - 1] : rawPrice;
   const activeForAsset = active.find((t) => t.asset === asset);
@@ -207,19 +242,39 @@ export default function SecondsTrading({
       const res = await SecondsTradeAPI.markets();
       const list = res.markets || [];
       setMarkets(list);
-      const cryptos = list
-        .filter((x) => x.assetType === "crypto")
-        .map((x) => x.asset);
+      if (res.chartQuote) setAdminQuote(String(res.chartQuote).toUpperCase());
+      else setAdminQuote(null);
+      const cryptos = [
+        ...new Set(
+          list.filter((x) => x.assetType === "crypto").map((x) => x.asset)
+        ),
+      ];
+      const forex = [
+        ...new Set(
+          list.filter((x) => x.assetType === "forex").map((x) => x.asset)
+        ),
+      ];
+      const stocks = [
+        ...new Set(
+          list.filter((x) => x.assetType === "stock").map((x) => x.asset)
+        ),
+      ];
       if (cryptos.length) setCryptoList(cryptos);
+      if (forex.length) setForexList(forex);
+      if (stocks.length) setStockList(stocks);
       const m = list.find((x) => x.asset === asset);
-      if (m?.price) {
-        targetPrice.current = m.price;
-        if (displayPrice.current == null) displayPrice.current = m.price;
+      const px =
+        (displayQuote === "USDC" && m?.quotes?.USDC) ||
+        m?.quotes?.[displayQuote] ||
+        m?.price;
+      if (px) {
+        targetPrice.current = px;
+        if (displayPrice.current == null) displayPrice.current = px;
       }
     } catch {
       /* ignore transient */
     }
-  }, [asset]);
+  }, [asset, displayQuote]);
 
   // Smooth candle drift toward live (biased) price — Graph UP/DOWN never spikes
   useEffect(() => {
@@ -315,6 +370,15 @@ export default function SecondsTrading({
     return off;
   }, [asset, loadMarkets, loadActive, loadLiveEarnings]);
 
+  useEffect(() => {
+    const off = onSocketEvent("chart:quote", (payload) => {
+      const q = payload?.quote ? String(payload.quote).toUpperCase() : null;
+      setAdminQuote(q === "USDC" || q === "USDT" ? q : null);
+      if (q === "USDC" || q === "USDT") setQuote(q);
+    });
+    return off;
+  }, []);
+
   // Win/loss toast from server settle (covers background settler when client settle misses)
   useEffect(() => {
     const off = onSocketEvent("trade:settled", (payload) => {
@@ -351,7 +415,7 @@ export default function SecondsTrading({
     targetPrice.current = null;
     lastTickPrice.current = null;
     setPriceFlash(null);
-  }, [asset]);
+  }, [asset, displayQuote]);
 
   // Flash green/red on every second tick when the selected pair moves
   useEffect(() => {
@@ -377,20 +441,33 @@ export default function SecondsTrading({
   useEffect(() => {
     if (!initialAsset) return;
     const next = String(initialAsset).toUpperCase();
-    const type = initialAssetType === "stock" ? "stock" : "crypto";
+    const type =
+      initialAssetType === "stock"
+        ? "stock"
+        : initialAssetType === "forex"
+          ? "forex"
+          : "crypto";
     setAssetType(type);
     setAsset(next);
-    if (type === "crypto") setAssetQuery(next);
-  }, [initialAsset, initialAssetType]);
+    if (type !== "stock") setAssetQuery(next);
+    if (initialQuote) {
+      const q = String(initialQuote).toUpperCase();
+      if (q === "USDC" || q === "USDT") setQuote(q);
+    }
+  }, [initialAsset, initialAssetType, initialQuote]);
 
   // Watchlist / external asset pick
   useEffect(() => {
     const onSelect = (e) => {
       const next = e?.detail?.asset;
       const type = e?.detail?.assetType || "crypto";
+      const q = e?.detail?.quote;
       if (!next) return;
-      setAssetType(type === "stock" ? "stock" : "crypto");
+      setAssetType(
+        type === "stock" ? "stock" : type === "forex" ? "forex" : "crypto"
+      );
       setAsset(String(next).toUpperCase());
+      if (q) setQuote(String(q).toUpperCase());
       if (type !== "stock") setAssetQuery(String(next).toUpperCase());
     };
     window.addEventListener("nexus:select-asset", onSelect);
@@ -483,6 +560,7 @@ export default function SecondsTrading({
     try {
       const res = await SecondsTradeAPI.open({
         asset,
+        quote: displayQuote,
         direction,
         stake: amount,
         durationSec: effectiveDuration,
@@ -491,7 +569,7 @@ export default function SecondsTrading({
       if (res?.user && onWalletUpdate) onWalletUpdate(res.user);
       onToast?.(
         "success",
-        `${direction === "long" ? "Buy Long" : "Sell Short"} · ${asset} · ${effectiveDuration}s`
+        `${direction === "long" ? "Buy Long" : "Sell Short"} · ${pairLabel(asset, displayQuote, assetType)} · ${effectiveDuration}s`
       );
       await loadActive();
     } catch (err) {
@@ -509,8 +587,7 @@ export default function SecondsTrading({
             Delivery trade desk
           </div>
           <div className="mt-0.5 text-lg font-bold text-white">
-            {asset}
-            <span className="ml-1 text-sm font-medium text-slate-500">/ USDT</span>
+            {pairLabel(asset, displayQuote, assetType)}
           </div>
         </div>
         <div
@@ -576,56 +653,96 @@ export default function SecondsTrading({
 
       {/* Asset type */}
       <div className="flex gap-2 rounded-xl bg-white/5 p-1">
-        {["crypto", "stock"].map((t) => (
+        {[
+          { id: "crypto", label: "Crypto", def: "BTC" },
+          { id: "forex", label: "Forex", def: "EURUSD" },
+          { id: "stock", label: "Stocks", def: "AAPL" },
+        ].map((t) => (
           <button
-            key={t}
+            key={t.id}
             type="button"
             onClick={() => {
-              setAssetType(t);
-              setAsset(t === "crypto" ? "BTC" : "AAPL");
+              setAssetType(t.id);
+              setAsset(t.def);
+              setAssetQuery("");
             }}
             className={`flex-1 rounded-lg py-2 text-xs font-semibold uppercase tracking-wide ${
-              assetType === t
+              assetType === t.id
                 ? "bg-white/10 text-white"
                 : "text-slate-400"
             }`}
           >
-            {t === "crypto" ? "Crypto" : "Stocks"}
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* Asset picker — searchable for 400+ crypto */}
-      <div className="space-y-2">
-        {assetType === "crypto" && (
-          <input
-            value={assetQuery}
-            onChange={(e) => setAssetQuery(e.target.value)}
-            placeholder={`Search ${assets.length} coins…`}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-500/40"
-          />
-        )}
-        <div className="flex max-h-28 flex-wrap gap-2 overflow-y-auto pb-1">
-          {(assetType === "crypto" ? filteredAssets.slice(0, 80) : assets).map(
-            (a) => (
+      {assetType === "crypto" && (
+        <div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            Quote
+          </div>
+          <div className="flex gap-2">
+            {["USDT", "USDC"].map((q) => (
               <button
-                key={a}
+                key={q}
                 type="button"
-                onClick={() => setAsset(a)}
-                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ${
-                  asset === a
-                    ? "bg-cyan-500/20 text-cyan-200 ring-1 ring-cyan-400/40"
+                disabled={Boolean(adminQuote)}
+                onClick={() => setQuote(q)}
+                className={`flex-1 rounded-xl py-2 text-xs font-bold ${
+                  displayQuote === q
+                    ? "bg-amber-400/20 text-amber-200 ring-1 ring-amber-400/40"
                     : "bg-white/5 text-slate-400"
-                }`}
+                } ${adminQuote ? "opacity-80" : ""}`}
               >
-                {a}
+                {q}
               </button>
-            )
+            ))}
+          </div>
+          {adminQuote && (
+            <div className="mt-1 text-[10px] text-amber-200/70">
+              Admin locked this desk to {adminQuote}.
+            </div>
           )}
         </div>
-        {assetType === "crypto" && filteredAssets.length > 80 && (
+      )}
+
+      {/* Asset picker — searchable */}
+      <div className="space-y-2">
+        <input
+          value={assetQuery}
+          onChange={(e) => setAssetQuery(e.target.value)}
+          placeholder={
+            assetType === "crypto"
+              ? `Search ${assets.length} coins…`
+              : assetType === "forex"
+                ? "Search forex (EURUSD, XAUUSD)…"
+                : "Search stocks (AAPL, TSLA)…"
+          }
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-500/40"
+        />
+        <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto pb-1">
+          {(assetQuery.trim()
+            ? filteredAssets
+            : filteredAssets.slice(0, 60)
+          ).map((a) => (
+            <button
+              key={`${a}-${displayQuote}`}
+              type="button"
+              onClick={() => setAsset(a)}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ${
+                asset === a
+                  ? "bg-cyan-500/20 text-cyan-200 ring-1 ring-cyan-400/40"
+                  : "bg-white/5 text-slate-400"
+              }`}
+            >
+              {pairLabel(a, displayQuote, assetType)}
+            </button>
+          ))}
+        </div>
+        {!assetQuery.trim() && filteredAssets.length > 60 && (
           <div className="text-[10px] text-slate-500">
-            Showing 80 of {filteredAssets.length} — type to filter.
+            Showing 60 of {filteredAssets.length} — type to find any pair.
           </div>
         )}
       </div>
@@ -634,6 +751,7 @@ export default function SecondsTrading({
       <FuturesChart
         asset={asset}
         assetType={assetType}
+        quote={displayQuote}
         overridePrice={price || rawPrice || null}
         entryPrice={
           activeForAsset ? Number(activeForAsset.entryPrice) || null : null
@@ -794,7 +912,7 @@ export default function SecondsTrading({
                     </span>
                   </span>
                   <span className="text-xs text-amber-200/70">
-                    {t.asset} {t.direction === "long" ? "LONG" : "SHORT"}
+                    {t.asset}/{t.quote || displayQuote} {t.direction === "long" ? "LONG" : "SHORT"}
                   </span>
                 </div>
               );
@@ -826,7 +944,7 @@ export default function SecondsTrading({
                 <div className="flex items-center gap-2">
                   <Timer className="h-4 w-4 text-cyan-400" />
                   <span className="text-sm font-semibold">
-                    {t.asset} · {t.direction === "long" ? "LONG" : "SHORT"}
+                    {t.asset}/{t.quote || displayQuote} · {t.direction === "long" ? "LONG" : "SHORT"}
                   </span>
                 </div>
                 <div className="font-mono text-lg font-bold text-cyan-300">

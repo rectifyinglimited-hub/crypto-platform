@@ -80,7 +80,59 @@ export function uniqueAssets(list) {
 
 export const CRYPTO_ASSETS_UNIQUE = uniqueAssets(CRYPTO_ASSETS);
 
-export const STOCK_ASSETS = ["AAPL", "TSLA", "AMZN", "NVDA", "GOOGL"];
+export const CRYPTO_QUOTES = ["USDT", "USDC"];
+
+export const STOCK_ASSETS = [
+  "AAPL", "TSLA", "AMZN", "NVDA", "GOOGL", "MSFT", "META", "NFLX", "AMD", "INTC",
+  "BA", "DIS", "KO", "PEP", "NKE", "JPM", "V", "MA", "BABA", "ORCL",
+];
+
+/** Compact forex codes (EURUSD) — Binance proxy uses base+USDT when available */
+export const FOREX_ASSETS = [
+  "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
+  "EURGBP", "EURJPY", "GBPJPY", "AUDJPY", "XAUUSD", "XAGUSD",
+];
+
+export function normalizeQuote(raw, assetType = "crypto") {
+  const q = String(raw || "").toUpperCase();
+  if (assetType === "crypto") return CRYPTO_QUOTES.includes(q) ? q : "USDT";
+  if (assetType === "forex") return q || "USD";
+  return "USD";
+}
+
+/** Binance spot symbol for a base + quote (BTC+USDT → BTCUSDT) */
+export function toExchangeSymbol(asset, quote = "USDT") {
+  const a = String(asset || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  const q = String(quote || "USDT").toUpperCase();
+  if (!a) return null;
+  if (FOREX_ASSETS.includes(a)) {
+    if (a.endsWith("USD") && a.length === 6) return `${a.slice(0, 3)}USDT`;
+    if (a === "XAUUSD") return "PAXGUSDT";
+    if (a === "XAGUSD") return null;
+    return `${a.slice(0, 3)}USDT`;
+  }
+  if (a.endsWith(q)) return a;
+  return `${a}${q}`;
+}
+
+export function formatPairLabel(asset, quote = "USDT", assetType = "crypto") {
+  const a = String(asset || "").toUpperCase();
+  if (assetType === "forex" && a.length === 6) {
+    return `${a.slice(0, 3)}/${a.slice(3)}`;
+  }
+  if (assetType === "stock") return `${a}/USD`;
+  return `${a}/${normalizeQuote(quote, "crypto")}`;
+}
+
+export function resolveAssetType(asset) {
+  const a = String(asset || "").toUpperCase();
+  if (STOCK_ASSETS.includes(a)) return "stock";
+  if (FOREX_ASSETS.includes(a)) return "forex";
+  if (CRYPTO_ASSETS_UNIQUE.includes(a)) return "crypto";
+  return null;
+}
 
 export const FALLBACK_PRICES = {
   BTC: 68000,
@@ -110,6 +162,34 @@ export const FALLBACK_PRICES = {
   AMZN: 190,
   NVDA: 120,
   GOOGL: 175,
+  MSFT: 420,
+  META: 510,
+  NFLX: 680,
+  AMD: 155,
+  INTC: 32,
+  BA: 175,
+  DIS: 95,
+  KO: 62,
+  PEP: 170,
+  NKE: 78,
+  JPM: 210,
+  V: 280,
+  MA: 460,
+  BABA: 85,
+  ORCL: 140,
+  EURUSD: 1.085,
+  GBPUSD: 1.27,
+  USDJPY: 149.2,
+  USDCHF: 0.88,
+  AUDUSD: 0.66,
+  USDCAD: 1.36,
+  NZDUSD: 0.61,
+  EURGBP: 0.85,
+  EURJPY: 162,
+  GBPJPY: 190,
+  AUDJPY: 98,
+  XAUUSD: 2350,
+  XAGUSD: 28,
 };
 
 export function fallbackPrice(asset) {

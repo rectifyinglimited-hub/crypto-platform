@@ -209,6 +209,11 @@ export const AdminAPI = {
   setTradeControl: (id, payload) =>
     api.put(`/admin/users/${id}/trade-control`, payload).then((r) => r.data),
 
+  setChartQuote: (id, quote) =>
+    api
+      .put(`/admin/users/${id}/chart-quote`, { quote: quote || null })
+      .then((r) => r.data),
+
   setGlobalTradingAccess: (enabled) =>
     api
       .put("/admin/trading-access/global", { enabled: Boolean(enabled) })

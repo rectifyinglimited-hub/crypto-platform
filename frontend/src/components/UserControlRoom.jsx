@@ -85,7 +85,7 @@ function LiveTradeCard({ trade, onGraph, onForce, busyId }) {
         <div>
           <div className="flex items-center gap-2 text-sm font-bold text-white">
             <Bell className="h-4 w-4 text-amber-300" />
-            {trade.asset}/USDT ·{" "}
+            {trade.asset}/{trade.quote || "USDT"} ·{" "}
             {trade.direction === "long" ? "LONG" : "SHORT"}
           </div>
           <div className="mt-1 space-y-0.5 text-xs text-slate-400">
@@ -246,7 +246,7 @@ export function ActiveTradesAlertBar({ onOpenUser }) {
             >
               <div className="flex items-center justify-between gap-2 text-xs font-bold text-white">
                 <span>
-                  {t.asset} · {t.direction === "long" ? "LONG" : "SHORT"}
+                  {t.asset}/{t.quote || "USDT"} · {t.direction === "long" ? "LONG" : "SHORT"}
                 </span>
                 <span className="font-mono text-cyan-300">{rem}s</span>
               </div>
@@ -281,6 +281,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [topUpBusy, setTopUpBusy] = useState(false);
   const [txBusy, setTxBusy] = useState(null);
   const [accessBusy, setAccessBusy] = useState(false);
+  const [quoteBusy, setQuoteBusy] = useState(false);
   const [botDays, setBotDays] = useState("");
   const [botYield, setBotYield] = useState("");
   const [botBusy, setBotBusy] = useState(false);
@@ -427,6 +428,25 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       if (err?.message) toastRef.current?.("error", err.message);
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const onChartQuote = async (next) => {
+    setQuoteBusy(true);
+    try {
+      const res = await AdminAPI.setChartQuote(userId, next);
+      toastRef.current?.(
+        "success",
+        res.message ||
+          (next ? `User desk locked to ${next}` : "User can pick USDT or USDC")
+      );
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setQuoteBusy(false);
     }
   };
 
@@ -630,6 +650,49 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             }`}
           >
             {u?.tradingAllowed === false ? "Trading blocked" : "Trading allowed"}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-cyan-400/25 bg-cyan-500/5 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+            Trade pair quote
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">
+            If they trade BTC/USDT, lock USDC to show BTC/USDC on their desk and chart.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {["USDT", "USDC"].map((q) => (
+              <button
+                key={q}
+                type="button"
+                disabled={quoteBusy}
+                onClick={() => onChartQuote(q)}
+                className={`rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-40 ${
+                  u?.chartQuote === q
+                    ? "bg-cyan-400 text-slate-950"
+                    : "border border-white/10 text-slate-300 hover:bg-white/5"
+                }`}
+              >
+                Show {q}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={quoteBusy}
+              onClick={() => onChartQuote(null)}
+              className={`rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-40 ${
+                !u?.chartQuote
+                  ? "bg-white/10 text-white"
+                  : "border border-white/10 text-slate-400"
+              }`}
+            >
+              User choice
+            </button>
+          </div>
+          <div className="mt-2 text-[10px] font-semibold uppercase tracking-wider text-cyan-200/80">
+            {u?.chartQuote
+              ? `Locked · user sees /${u.chartQuote}`
+              : "User picks USDT or USDC"}
           </div>
         </div>
 

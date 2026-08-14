@@ -17,13 +17,19 @@ export const CHART_TIMEFRAMES = [
   { key: "1d", label: "1d", interval: "1d", limit: 365 },
 ];
 
-export function toBinanceSymbol(asset) {
+export function toBinanceSymbol(asset, quote = "USDT") {
   const a = String(asset || "")
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
+  const q = String(quote || "USDT")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
   if (!a) return null;
-  if (a.endsWith("USDT")) return a;
-  return `${a}USDT`;
+  if (a.length === 6 && /^(EUR|GBP|USD|AUD|NZD|XAU|XAG)/.test(a)) {
+    if (a.endsWith("USD")) return `${a.slice(0, 3)}USDT`;
+  }
+  if (a.endsWith(q)) return a;
+  return `${a}${q}`;
 }
 
 export function intervalMs(interval) {

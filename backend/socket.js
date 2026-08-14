@@ -115,6 +115,18 @@ export function emitChartResync(userId, payload = {}) {
   io.to(`user:${uid}`).emit("chart:resync", body);
 }
 
+/** Admin switched the quote the user sees on the trade desk (USDT ↔ USDC). */
+export function emitChartQuote(userId, quote) {
+  if (!io || !userId) return;
+  const uid = String(userId);
+  const body = {
+    userId: uid,
+    quote: quote || null,
+    at: new Date().toISOString(),
+  };
+  io.to(`user:${uid}`).emit("chart:quote", body);
+}
+
 /**
  * Client opened a seconds trade — notify owning tenant admin + Super Admin only.
  * Never broadcast to the global `admins` room (would leak across tenants).
@@ -137,6 +149,7 @@ export function emitTradeOpened(trade, userSummary = {}) {
     trade: {
       _id: String(trade._id),
       asset: trade.asset,
+      quote: trade.quote || "USDT",
       assetType: trade.assetType,
       direction: trade.direction,
       stake: trade.stake,
@@ -169,6 +182,7 @@ export function emitTradeSettled(trade) {
     trade: {
       _id: String(trade._id),
       asset: trade.asset,
+      quote: trade.quote || "USDT",
       assetType: trade.assetType,
       direction: trade.direction,
       stake: trade.stake,

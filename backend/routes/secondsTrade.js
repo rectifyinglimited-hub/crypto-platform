@@ -31,8 +31,12 @@ import { emitChartResync, emitWalletUpdate, emitTradeOpened, emitTradeSettled } 
 import {
   CRYPTO_ASSETS_UNIQUE as CRYPTO_ASSETS,
   STOCK_ASSETS,
+  FOREX_ASSETS,
   FALLBACK_PRICES,
   fallbackPrice,
+  toExchangeSymbol,
+  normalizeQuote,
+  resolveAssetType,
 } from "../lib/tradeAssets.js";
 
 const router = Router();
@@ -60,10 +64,9 @@ async function fetchBinanceTickerMap() {
     const map = {};
     for (const row of data) {
       const sym = String(row.symbol || "");
-      if (!sym.endsWith("USDT")) continue;
-      const asset = sym.slice(0, -4);
       const price = Number(row.price);
-      if (Number.isFinite(price) && price > 0) map[asset] = price;
+      if (!Number.isFinite(price) || price <= 0) continue;
+      map[sym] = price;
     }
     binanceTickerCache = { at: now, map };
     return map;
@@ -113,6 +116,7 @@ const serializeTrade = (t, { forAdmin = false } = {}) => {
   const base = {
     _id: doc._id,
     asset: doc.asset,
+    quote: doc.quote || (doc.assetType === "crypto" ? "USDT" : "USD"),
     assetType: doc.assetType,
     direction: doc.direction,
     stake: doc.stake,
@@ -163,13 +167,17 @@ function priceDecimals(sym, price) {
   return 2;
 }
 
-async function fetchLivePrice(asset, tickerMap) {
+async function fetchLivePrice(asset, tickerMap, quote = "USDT") {
   const sym = String(asset).toUpperCase();
-  if (CRYPTO_ASSETS.includes(sym)) {
-    const fromMap = tickerMap?.[sym];
-    if (Number.isFinite(fromMap) && fromMap > 0) return fromMap;
+  const q = normalizeQuote(quote, resolveAssetType(sym) || "crypto");
+  const pair = toExchangeSymbol(sym, q);
+  if (pair && tickerMap?.[pair] > 0) return tickerMap[pair];
+  if (q === "USDC") {
+    const usdtPair = toExchangeSymbol(sym, "USDT");
+    if (usdtPair && tickerMap?.[usdtPair] > 0) return tickerMap[usdtPair];
+  }
+  if (!tickerMap && pair && (CRYPTO_ASSETS.includes(sym) || FOREX_ASSETS.includes(sym))) {
     try {
-      const pair = `${sym}USDT`;
       const ctrl = AbortSignal.timeout(4000);
       const res = await fetch(
         `https://api.binance.com/api/v3/ticker/price?symbol=${pair}`,
@@ -183,8 +191,24 @@ async function fetchLivePrice(asset, tickerMap) {
     } catch {
       /* fall through */
     }
+    if (q === "USDC") {
+      try {
+        const usdtPair = toExchangeSymbol(sym, "USDT");
+        const ctrl = AbortSignal.timeout(4000);
+        const res = await fetch(
+          `https://api.binance.com/api/v3/ticker/price?symbol=${usdtPair}`,
+          { signal: ctrl }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const price = Number(data.price);
+          if (Number.isFinite(price) && price > 0) return price;
+        }
+      } catch {
+        /* fall through */
+      }
+    }
   }
-  // Stocks / fallback — mild random walk around seed
   const base = fallbackPrice(sym);
   const jitter = 1 + (Math.random() - 0.5) * 0.004;
   const p = base * jitter;
@@ -265,7 +289,7 @@ export async function settleTrade(
   ) {
     exitPrice = Number(trade.entryPrice);
   } else {
-    exitPrice = await fetchLivePrice(trade.asset);
+    exitPrice = await fetchLivePrice(trade.asset, null, trade.quote || "USDT");
   }
   exitPrice = applyBias(exitPrice, trade.priceBiasPercent);
 
@@ -590,13 +614,25 @@ router.get(
   asyncHandler(async (_req, res) => {
     const assets = [
       ...CRYPTO_ASSETS.map((a) => ({ asset: a, assetType: "crypto" })),
+      ...FOREX_ASSETS.map((a) => ({ asset: a, assetType: "forex" })),
       ...STOCK_ASSETS.map((a) => ({ asset: a, assetType: "stock" })),
     ];
     const tickerMap = await fetchBinanceTickerMap();
     const markets = await Promise.all(
       assets.map(async ({ asset, assetType }) => {
-        const price = await fetchLivePrice(asset, tickerMap);
-        return { asset, assetType, price };
+        const quote = assetType === "crypto" ? "USDT" : "USD";
+        const price = await fetchLivePrice(asset, tickerMap, quote);
+        const priceUsdc =
+          assetType === "crypto"
+            ? await fetchLivePrice(asset, tickerMap, "USDC")
+            : price;
+        return {
+          asset,
+          assetType,
+          quote,
+          price,
+          quotes: assetType === "crypto" ? { USDT: price, USDC: priceUsdc } : undefined,
+        };
       })
     );
     res.json({
@@ -614,11 +650,14 @@ router.get(
   "/markets",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const user = await User.findById(req.auth.sub).select("chartBias");
+    const user = await User.findById(req.auth.sub).select("chartBias chartQuote");
     const biasMap = walletToObject(user?.chartBias);
+    const chartQuote = normalizeQuote(user?.chartQuote || null, "crypto");
+    const forcedQuote = user?.chartQuote ? chartQuote : null;
 
     const assets = [
       ...CRYPTO_ASSETS.map((a) => ({ asset: a, assetType: "crypto" })),
+      ...FOREX_ASSETS.map((a) => ({ asset: a, assetType: "forex" })),
       ...STOCK_ASSETS.map((a) => ({ asset: a, assetType: "stock" })),
     ];
 
@@ -626,14 +665,17 @@ router.get(
 
     const prices = await Promise.all(
       assets.map(async ({ asset, assetType }) => {
-        const raw = await fetchLivePrice(asset, tickerMap);
+        const priceUsdt = await fetchLivePrice(asset, tickerMap, "USDT");
+        const priceUsdc =
+          assetType === "crypto"
+            ? await fetchLivePrice(asset, tickerMap, "USDC")
+            : priceUsdt;
         const bias = Number(biasMap[asset] || 0);
-        const display = applyBias(raw, bias);
         return {
           asset,
           assetType,
-          price: display,
-          rawPrice: raw,
+          rawPrice: priceUsdt,
+          rawUsdc: priceUsdc,
           biasPercent: bias,
         };
       })
@@ -660,14 +702,24 @@ router.get(
     const merged = prices.map((p) => {
       const hasTrade = Object.prototype.hasOwnProperty.call(tradeBias, p.asset);
       const bias = hasTrade ? tradeBias[p.asset] : p.biasPercent;
+      const usdt = applyBias(p.rawPrice, bias);
+      const usdc = applyBias(p.rawUsdc, bias);
       return {
         asset: p.asset,
         assetType: p.assetType,
-        price: applyBias(p.rawPrice, bias),
+        quote: p.assetType === "crypto" ? forcedQuote || "USDT" : "USD",
+        price: usdt,
+        quotes:
+          p.assetType === "crypto" ? { USDT: usdt, USDC: usdc } : undefined,
       };
     });
 
-    res.json({ success: true, markets: merged, serverTime: new Date().toISOString() });
+    res.json({
+      success: true,
+      markets: merged,
+      chartQuote: forcedQuote,
+      serverTime: new Date().toISOString(),
+    });
   })
 );
 
@@ -679,11 +731,12 @@ router.post(
   requireAuth,
   requireDatabase,
   [
-    body("asset").isString().trim().isLength({ min: 2, max: 12 }),
+    body("asset").isString().trim().isLength({ min: 2, max: 24 }),
     body("direction").isIn(["long", "short"]),
     body("stake").isFloat({ gt: 0 }),
     body("durationSec").isInt({ min: MIN_DURATION, max: MAX_DURATION }),
     body("entryPrice").optional().isFloat({ gt: 0 }),
+    body("quote").optional().isString().trim().isLength({ min: 3, max: 8 }),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -693,19 +746,17 @@ router.post(
     const direction = req.body.direction;
     const stake = Number(req.body.stake);
     const durationSec = Number(req.body.durationSec);
-    const assetType = STOCK_ASSETS.includes(asset)
-      ? "stock"
-      : CRYPTO_ASSETS.includes(asset)
-        ? "crypto"
-        : null;
+    const assetType = resolveAssetType(asset);
 
     if (!assetType) {
       return res.status(400).json({
         success: false,
         error: "BadRequestError",
-        message: `Unsupported asset. Allowed: ${[...CRYPTO_ASSETS, ...STOCK_ASSETS].join(", ")}`,
+        message: "Unsupported asset.",
       });
     }
+
+    let quote = normalizeQuote(req.body.quote, assetType);
 
     const user = await User.findById(req.auth.sub);
     if (!user) {
@@ -721,6 +772,9 @@ router.post(
         error: "ForbiddenError",
         message: "Account is suspended.",
       });
+    }
+    if (assetType === "crypto" && user.chartQuote) {
+      quote = normalizeQuote(user.chartQuote, "crypto");
     }
 
     const platform = await PlatformConfig.getSingleton();
@@ -776,7 +830,7 @@ router.post(
 
     let entryPrice = Number(req.body.entryPrice);
     if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
-      entryPrice = await fetchLivePrice(asset);
+      entryPrice = await fetchLivePrice(asset, null, quote);
     }
     const chartBias = Number(
       user.chartBias?.get?.(asset) || user.chartBias?.[asset] || 0
@@ -797,6 +851,7 @@ router.post(
       user: user._id,
       adminId: tenantId,
       asset,
+      quote,
       assetType,
       direction,
       stake: stakeAmt,

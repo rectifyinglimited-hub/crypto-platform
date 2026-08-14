@@ -1026,11 +1026,18 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const openTradeDesk = useCallback(
     (payload = {}) => {
       const asset = String(payload.asset || "BTC").toUpperCase();
-      const assetType = payload.assetType === "stock" ? "stock" : "crypto";
+      const assetType =
+        payload.assetType === "stock"
+          ? "stock"
+          : payload.assetType === "forex"
+            ? "forex"
+            : "crypto";
+      const quote = String(payload.quote || "").toUpperCase() || undefined;
       setTradeIntent({
         asset,
         assetType,
-        pair: payload.pair || `${asset}/USDT`,
+        quote,
+        pair: payload.pair || `${asset}/${quote || "USDT"}`,
         category: payload.category || "Crypto",
         at: Date.now(),
       });
@@ -1041,11 +1048,11 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
       setTimeout(() => {
         window.dispatchEvent(
           new CustomEvent("nexus:select-asset", {
-            detail: { asset, assetType },
+            detail: { asset, assetType, quote },
           })
         );
       }, 80);
-      const label = payload.pair || `${asset}/USDT`;
+      const label = payload.pair || `${asset}/${quote || "USDT"}`;
       say("success", `Opening trade desk · ${label}`);
     },
     [say]
@@ -1310,6 +1317,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   tradingSuspended={tradingSuspended}
                   initialAsset={tradeIntent?.asset || "BTC"}
                   initialAssetType={tradeIntent?.assetType || "crypto"}
+                  initialQuote={tradeIntent?.quote || "USDT"}
                 />
               </div>
               <div className="space-y-4">

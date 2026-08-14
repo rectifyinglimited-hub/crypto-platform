@@ -15,9 +15,10 @@ export const WATCHLIST_CRYPTO = [
   "PEPE", "WIF", "BONK", "FLOKI", "INJ", "SEI", "TIA", "RENDER", "FET", "IMX",
 ];
 
-function WatchRow({ asset, price, flash, onSelect }) {
+function WatchRow({ asset, quote = "USDT", price, flash, onSelect }) {
   const up = flash === "up";
   const down = flash === "down";
+  const pair = `${asset}/${quote}`;
   return (
     <button
       type="button"
@@ -25,7 +26,7 @@ function WatchRow({ asset, price, flash, onSelect }) {
         onSelect?.(asset);
         window.dispatchEvent(
           new CustomEvent("nexus:select-asset", {
-            detail: { asset, assetType: "crypto" },
+            detail: { asset, assetType: "crypto", quote },
           })
         );
       }}
@@ -34,8 +35,8 @@ function WatchRow({ asset, price, flash, onSelect }) {
       }`}
     >
       <div className="min-w-0">
-        <div className="text-xs font-semibold text-white">{asset}</div>
-        <div className="text-[10px] text-slate-500">USDT</div>
+        <div className="text-xs font-semibold text-white">{pair}</div>
+        <div className="text-[10px] text-slate-500">{quote}</div>
       </div>
       <div
         className={`font-mono text-xs tabular-nums ${
@@ -76,10 +77,18 @@ export default function CryptoWatchlist({ onSelectAsset }) {
     try {
       const res = await SecondsTradeAPI.markets();
       const list = (res.markets || []).filter((m) => m.assetType === "crypto");
-      const next = list.map((m) => ({
-        asset: m.asset,
-        price: Number(m.price) || 0,
-      }));
+      const quote = res.chartQuote === "USDC" ? "USDC" : "USDT";
+      const seen = new Set();
+      const next = [];
+      for (const m of list) {
+        if (seen.has(m.asset)) continue;
+        seen.add(m.asset);
+        const px =
+          quote === "USDC" && m.quotes?.USDC
+            ? Number(m.quotes.USDC)
+            : Number(m.price) || 0;
+        next.push({ asset: m.asset, quote, price: px });
+      }
 
       for (const row of next) {
         const prev = prevPrices.current[row.asset];
@@ -143,8 +152,9 @@ export default function CryptoWatchlist({ onSelectAsset }) {
         ) : (
           filtered.map((r) => (
             <WatchRow
-              key={r.asset}
+              key={`${r.asset}-${r.quote}`}
               asset={r.asset}
+              quote={r.quote}
               price={r.price}
               flash={flashes[r.asset]}
               onSelect={onSelectAsset}

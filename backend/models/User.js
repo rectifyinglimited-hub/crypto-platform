@@ -296,6 +296,12 @@ const UserSchema = new Schema(
       of: Number,
       default: () => new Map(),
     },
+    /** Admin forces user trade desk to show this quote (USDT or USDC). Null = user picks. */
+    chartQuote: {
+      type: String,
+      uppercase: true,
+      default: null,
+    },
   },
   {
     timestamps: true,

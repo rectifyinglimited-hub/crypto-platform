@@ -51,6 +51,7 @@ import {
   emitChatMessage,
   emitDepositStatus,
   emitWalletUpdate,
+  emitChartQuote,
 } from "../socket.js";
 
 const router = Router();
@@ -1218,6 +1219,7 @@ router.get(
         avatar: user.avatar || null,
         wallet,
         chartBias,
+        chartQuote: user.chartQuote || null,
         kyc: user.kyc,
         createdAt: user.createdAt,
       },
@@ -1492,6 +1494,62 @@ router.put(
       chartBias: Object.fromEntries(user.chartBias),
       symbol,
       value: user.chartBias.get(symbol),
+    });
+  })
+);
+
+// PUT /users/:id/chart-quote — force USDT or USDC on the user's trade desk
+router.put(
+  "/users/:id/chart-quote",
+  requireDatabase,
+  [
+    body("quote")
+      .optional({ nullable: true })
+      .custom((v) => v == null || v === "" || ["USDT", "USDC"].includes(String(v).toUpperCase()))
+      .withMessage("quote must be USDT, USDC, or empty."),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user id.",
+      });
+    }
+
+    const scoped = await assertTenantUser(req, req.params.id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
+        success: false,
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
+      });
+    }
+    const user = scoped.user;
+    const raw = req.body.quote;
+    const next =
+      raw == null || raw === ""
+        ? null
+        : String(raw).toUpperCase() === "USDC"
+          ? "USDC"
+          : "USDT";
+    user.chartQuote = next;
+    await user.save();
+    try {
+      emitChartQuote(user._id, next);
+    } catch {
+      /* ignore */
+    }
+    res.json({
+      success: true,
+      chartQuote: next,
+      message:
+        next == null
+          ? "User can pick USDT or USDC."
+          : `User desk now shows ${next} pairs.`,
     });
   })
 );
