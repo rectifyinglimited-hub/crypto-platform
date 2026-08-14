@@ -255,7 +255,7 @@ const TopNav = ({ onSignIn, onSignUp, authed, t, theme, onToggleTheme }) => (
         <div className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-indigo-500 to-emerald-400 shadow-md shadow-indigo-500/25">
           <Sparkles className="h-3.5 w-3.5 text-white" />
         </div>
-        <span className="text-sm font-bold tracking-tight">Nexus</span>
+        <span className="text-sm font-bold tracking-tight">Binomo</span>
         <span
           className="hidden text-[10px] font-medium uppercase tracking-widest sm:inline"
           style={{ color: t.textFaint }}
@@ -1724,7 +1724,7 @@ const SignUpForm = ({
       setToken(res.token);
       notify(
         "success",
-        `Welcome to Nexus, ${res.user.fullName?.split(" ")[0]}!`
+        `Welcome to Binomo, ${res.user.fullName?.split(" ")[0]}!`
       );
       setTimeout(() => onSuccess(res.user), 400);
     } catch (err) {
@@ -1886,7 +1886,7 @@ const SignUpForm = ({
         </button>
       </div>
       <p className="text-center text-[9px]" style={{ color: t.textFaint }}>
-        By continuing you agree to the Nexus Terms.
+        By continuing you agree to the Binomo Terms.
       </p>
     </form>
   );
@@ -1944,7 +1944,7 @@ const AuthOverlay = ({
         className="mx-auto mt-1 max-w-[240px] text-[11px]"
         style={{ color: t.textMuted }}
       >
-        Create your Nexus account to interact with this platform and place real
+        Create your Binomo account to interact with this platform and place real
         perpetual futures orders.
       </p>
       <div className="mt-4 grid gap-2">
@@ -1980,7 +1980,7 @@ const AuthOverlay = ({
         style={{ color: t.textFaint }}
       >
         <BookOpen className="h-2.5 w-2.5" />
-        Learn more about Nexus Pro
+        Learn more about Binomo Pro
       </div>
     </div>
   </motion.div>
@@ -2230,7 +2230,7 @@ export default function MainPlatform({ onAuthSuccess }) {
           color: t.textFaint,
         }}
       >
-        Nexus Pro · Institutional-grade perpetual futures · Live simulation
+        Binomo Pro · Institutional-grade perpetual futures · Live simulation
       </footer>
     </div>
   );

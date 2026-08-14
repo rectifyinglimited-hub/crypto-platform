@@ -140,7 +140,7 @@ export default function SignIn({ onSignInSuccess, onSwitchToSignUp }) {
                     Welcome back
                   </h1>
                   <p className="mt-0.5 text-xs text-slate-400">
-                    Sign in to your Nexus account.
+                    Sign in to your Binomo account.
                   </p>
                 </div>
               </div>
@@ -245,7 +245,7 @@ export default function SignIn({ onSignInSuccess, onSwitchToSignUp }) {
             </div>
           </div>
           <p className="mt-5 text-center text-sm text-slate-400">
-            New to Nexus?{" "}
+            New to Binomo?{" "}
             <button
               type="button"
               onClick={onSwitchToSignUp}

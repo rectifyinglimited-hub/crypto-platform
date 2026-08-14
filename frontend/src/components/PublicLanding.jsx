@@ -1,5 +1,5 @@
 /**
- * Public landing — Binomo-style layout, Nexus branding + our product features.
+ * Public landing — Binomo-style layout + our product features.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -134,7 +134,7 @@ const STEPS = [
   {
     n: "1",
     title: "Sign up",
-    body: "Create your Nexus account with a valid invite code.",
+    body: "Create your Binomo account with a valid invite code.",
   },
   {
     n: "2",
@@ -147,8 +147,6 @@ const STEPS = [
     body: "Fund via Deposit, then withdraw profits after admin verify.",
   },
 ];
-
-const PAYMENTS = ["Visa", "Mastercard", "USDT", "TRC20", "Bank", "UPI", "JazzCash", "EasyPaisa"];
 
 export default function PublicLanding({ onSignIn, onRegister }) {
   const { markets, connected } = useLivePrices();
@@ -167,9 +165,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         <div className="mx-auto flex h-[58px] max-w-[1180px] items-center justify-between gap-3 px-4 sm:px-6">
           <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2">
             <div className="grid h-8 w-8 place-items-center rounded-md bg-[#ffc107] text-sm font-black text-[#1a1400]">
-              N
+              B
             </div>
-            <span className="text-lg font-extrabold tracking-tight">Nexus</span>
+            <span className="text-lg font-extrabold tracking-tight">Binomo</span>
           </button>
           <nav className="hidden items-center gap-6 text-[13px] font-semibold text-white/80 md:flex">
             <button type="button" onClick={() => go("trading")} className="hover:text-white">
@@ -177,9 +175,6 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             </button>
             <button type="button" onClick={() => go("traders")} className="hover:text-white">
               For traders
-            </button>
-            <button type="button" onClick={() => go("payments")} className="hover:text-white">
-              Payments
             </button>
             <button type="button" onClick={() => go("help")} className="hover:text-white">
               Help
@@ -208,7 +203,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
         {navOpen && (
           <div className="border-t border-white/10 px-4 py-3 md:hidden">
-            {["trading", "traders", "payments", "help"].map((id) => (
+            {["trading", "traders", "help"].map((id) => (
               <button
                 key={id}
                 type="button"
@@ -301,7 +296,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             99% PROFIT
           </div>
           <p className="mx-auto mt-2 max-w-md text-sm text-white/55">
-            for the most popular assets — BTC, ETH, SOL on the Nexus Trade desk
+            for the most popular assets — BTC, ETH, SOL on the Binomo Trade desk
           </p>
           <button type="button" onClick={onRegister} className={`${YELLOW_BTN_SM} mt-6`}>
             Trade
@@ -312,7 +307,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       {/* Specials */}
       <section className="bg-[#082032] py-12 sm:py-16">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-5 text-center text-xl font-bold sm:text-2xl">Nexus Specials</h2>
+          <h2 className="mb-5 text-center text-xl font-bold sm:text-2xl">Binomo Specials</h2>
           <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-[#148a3c] to-[#1db954] px-6 py-8 sm:flex sm:items-center sm:justify-between sm:px-10">
             <div>
               <div className="text-lg font-extrabold sm:text-2xl">
@@ -332,7 +327,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       {/* Why traders */}
       <section id="traders" className="bg-[#07111f] py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Why do traders choose Nexus?</h2>
+          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Why do traders choose Binomo?</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {STATS.map((s) => (
               <div key={s.label} className="rounded-xl border border-white/10 bg-[#0c1a2e] px-3 py-5 text-center">
@@ -383,26 +378,6 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
-      {/* Payments */}
-      <section id="payments" className="bg-[#07111f] py-16 sm:py-20">
-        <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
-          <h2 className="mb-8 text-xl font-bold sm:text-2xl">Popular payment services</h2>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {PAYMENTS.map((p) => (
-              <div
-                key={p}
-                className="rounded-lg border border-white/10 bg-white px-4 py-2.5 text-xs font-extrabold uppercase tracking-wide text-slate-800"
-              >
-                {p}
-              </div>
-            ))}
-          </div>
-          <button type="button" onClick={onRegister} className={`${YELLOW_BTN_SM} mt-8`}>
-            Deposit
-          </button>
-        </div>
-      </section>
-
       {/* Community */}
       <section className="relative overflow-hidden bg-[#082032] py-16 sm:py-20">
         <img
@@ -414,7 +389,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         <div className="relative mx-auto max-w-[1180px] px-4 text-center sm:px-6">
           <h2 className="text-2xl font-extrabold sm:text-3xl">Dream bigger, act faster</h2>
           <p className="mx-auto mt-3 max-w-lg text-sm text-white/70">
-            Join traders using Nexus for timed markets, Copy AI Bot locks, and verified withdrawals.
+            Join traders using Binomo for timed markets, Copy AI Bot locks, and verified withdrawals.
           </p>
           <button type="button" onClick={onRegister} className={`${YELLOW_BTN} mt-6`}>
             Sign up
@@ -551,9 +526,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           <div>
             <div className="flex items-center gap-2">
               <div className="grid h-8 w-8 place-items-center rounded-md bg-[#ffc107] text-sm font-black text-[#1a1400]">
-                N
+                B
               </div>
-              <span className="text-lg font-extrabold">Nexus</span>
+              <span className="text-lg font-extrabold">Binomo</span>
             </div>
             <p className="mt-3 text-xs leading-relaxed text-white/45">
               Digital trading terminal. Invite-gated accounts. Trade · Deposit · Withdraw · Copy AI Bot.
@@ -562,7 +537,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">Company</div>
             <ul className="mt-3 space-y-1.5 text-sm text-white/70">
-              <li>About Nexus</li>
+              <li>About Binomo</li>
               <li>Markets</li>
               <li>Support chat</li>
             </ul>
@@ -586,10 +561,10 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           </div>
         </div>
         <p className="mx-auto mt-10 max-w-[1180px] px-4 text-[10px] leading-relaxed text-white/35 sm:px-6">
-          Trading involves substantial risk of loss. Past performance is not a guarantee of future results. Nexus is a private trading platform. Register only with a valid invitation code. Deposits and withdrawals require administrator verification.
+          Trading involves substantial risk of loss. Past performance is not a guarantee of future results. Binomo is a private trading platform. Register only with a valid invitation code. Deposits and withdrawals require administrator verification.
         </p>
         <p className="mt-4 text-center text-[11px] text-white/30">
-          © {new Date().getFullYear()} Nexus
+          © {new Date().getFullYear()} Binomo
         </p>
       </footer>
     </div>

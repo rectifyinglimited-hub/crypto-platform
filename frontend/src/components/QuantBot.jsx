@@ -55,7 +55,7 @@ const FALLBACK_TIERS = [
   },
   {
     key: "quantum",
-    label: "Nexus Pro Quantum",
+    label: "Binomo Pro Quantum",
     tagline: "Institutional-grade multi-strategy quant",
     days: 30,
     yieldPct: 25,

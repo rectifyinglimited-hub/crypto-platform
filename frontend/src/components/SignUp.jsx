@@ -472,7 +472,7 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
                 </motion.div>
                 <div>
                   <h1 className="text-lg font-semibold tracking-tight">
-                    Create your Nexus account
+                    Create your Binomo account
                   </h1>
                   <p className="mt-0.5 text-xs text-slate-400">
                     Trade smarter. Track sharper. Start in under a minute.
@@ -633,7 +633,7 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
                 </motion.button>
 
                 <p className="pt-0.5 text-center text-[11px] text-slate-500">
-                  By continuing you agree to the Nexus Terms and Privacy Policy.
+                  By continuing you agree to the Binomo Terms and Privacy Policy.
                 </p>
               </form>
             </div>

@@ -47,7 +47,7 @@ export default function AuthGate({
             <Sparkles className="h-6 w-6 text-amber-200" />
           </div>
           <div className="font-display text-2xl font-bold tracking-tight text-white">
-            Nexus
+            Binomo
           </div>
           <h1 className="mt-2 text-lg font-semibold tracking-tight text-slate-200">
             {mode === "signin" ? "Welcome back" : "Create your account"}

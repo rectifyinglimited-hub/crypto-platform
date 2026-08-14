@@ -454,7 +454,7 @@ export default function KYCModule({ user, open, onClose, onUpdated }) {
                       Identity Verification
                     </h2>
                     <p className="text-[11px] text-slate-500">
-                      Profile Lock · Nexus KYC
+                      Profile Lock · Binomo KYC
                     </p>
                   </div>
                 </div>
@@ -688,7 +688,7 @@ export default function KYCModule({ user, open, onClose, onUpdated }) {
                     )}
                   </motion.button>
                   <p className="text-center text-[10px] text-slate-500">
-                    Your document and selfie are stored securely. Nexus never
+                    Your document and selfie are stored securely. Binomo never
                     shares KYC information with third parties.
                   </p>
                 </form>

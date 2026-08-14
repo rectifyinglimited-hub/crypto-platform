@@ -33,7 +33,7 @@ export default function SplashScreen() {
           animate={{ opacity: 1, letterSpacing: "0.04em" }}
           transition={{ delay: 0.25, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         >
-          Nexus
+          Binomo
         </motion.h1>
 
         <motion.div

@@ -563,7 +563,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
             className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300 ring-1 ring-cyan-400/25"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            Nexus
+            Binomo
           </motion.div>
 
           <motion.h1
@@ -572,7 +572,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
             transition={{ delay: 0.05 }}
             className="font-display mt-4 text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl"
           >
-            Nexus
+            Binomo
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 10 }}
@@ -705,7 +705,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
       <section>
         <div className="mb-4 text-center md:text-left">
           <h2 className="text-lg font-semibold text-white md:text-xl">
-            Why traders choose Nexus
+            Why traders choose Binomo
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Built for clarity, speed, and secure account management.

@@ -290,7 +290,7 @@ const OverviewView = ({
             Platform Overview
           </h2>
           <p className="text-xs text-slate-500">
-            Real-time snapshot of the Nexus network.
+            Real-time snapshot of the Binomo network.
           </p>
         </div>
         <button
@@ -3010,7 +3010,7 @@ export default function AdminPanel({ user, onExit }) {
               <Sparkles className="h-4 w-4 text-white" />
             </div>
             <div>
-              <div className="text-sm font-semibold tracking-tight">Nexus</div>
+              <div className="text-sm font-semibold tracking-tight">Binomo</div>
               <div className="text-[10px] uppercase tracking-widest text-slate-500">
                 Admin Console
               </div>

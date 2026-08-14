@@ -23,7 +23,7 @@ const TRADE_PAIR = "BTC/USDT";
 const CONTRACT_SECTIONS = [
   {
     title: "1. Parties & Scope",
-    body: `This AI Algorithmic Trading Agreement ("Agreement") is entered into between you ("User") and Nexus ("Platform"). By activating an AI Bot you authorize algorithmic capital lock and yield targeting as disclosed herein.`,
+    body: `This AI Algorithmic Trading Agreement ("Agreement") is entered into between you ("User") and Binomo ("Platform"). By activating an AI Bot you authorize algorithmic capital lock and yield targeting as disclosed herein.`,
   },
   {
     title: "2. Nature of the Service",

@@ -163,11 +163,11 @@ function MobileDrawer({
               <div className="flex items-center justify-between gap-2 border-b border-white/8 px-4 py-3.5">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-sm font-black text-slate-950 shadow-lg shadow-cyan-500/25">
-                    N
+                    B
                   </div>
                   <div className="min-w-0">
                     <div className="font-display text-sm font-bold tracking-tight text-white">
-                      Nexus
+                      Binomo
                     </div>
                     <div className="truncate text-[10px] text-slate-500">
                       {displayName}
@@ -396,10 +396,10 @@ export default function PlatformShell({
             className="flex shrink-0 items-center gap-2"
           >
             <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-sm font-black text-slate-950 shadow-glow">
-              N
+              B
             </div>
             <span className="hidden font-display text-base font-bold tracking-tight text-white sm:inline">
-              Nexus
+              Binomo
             </span>
           </button>
 
