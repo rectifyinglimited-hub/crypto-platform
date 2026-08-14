@@ -324,22 +324,23 @@ router.delete(
       });
     }
     const code = await InviteCode.findById(id);
-    if (!code || !assertTenantDoc(req, code)) {
+    const ownsCode =
+      !!code &&
+      (assertTenantDoc(req, code) ||
+        String(code.createdBy || "") === String(req.auth.sub));
+    if (!code || !ownsCode) {
       return res.status(404).json({
         success: false,
         error: "NotFoundError",
         message: "Invite code not found.",
       });
     }
-    if ((code.usedBy?.length || 0) > 0) {
-      return res.status(409).json({
-        success: false,
-        error: "ConflictError",
-        message: "Cannot delete a code that has been redeemed.",
-      });
-    }
-    await code.deleteOne();
-    return res.json({ success: true, message: "Invite code removed." });
+    const label = code.code;
+    await InviteCode.deleteOne({ _id: code._id });
+    return res.json({
+      success: true,
+      message: `Invite code ${label} deleted.`,
+    });
   })
 );
 

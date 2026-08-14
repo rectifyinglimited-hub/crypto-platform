@@ -375,13 +375,21 @@ const OverviewView = ({
 // ---------------------------------------------------------------------------
 // InviteCodesView
 // ---------------------------------------------------------------------------
-const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
+const InviteCodesView = ({
+  codes,
+  loading,
+  onRefresh,
+  onCreate,
+  onDelete,
+  isSuperAdmin,
+}) => {
   const [form, setForm] = useState({
     code: "",
     role: "user",
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -420,8 +428,8 @@ const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
             Invitation Code Manager
           </h2>
           <p className="text-xs text-slate-500">
-            Each code is single-use — once a user registers with it, nobody else
-            can reuse it. Generate a new code for every new account.
+            Each code is single-use. Admin and Super Admin can delete unused or
+            already-used codes from this list.
           </p>
         </div>
         <button
@@ -471,9 +479,11 @@ const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
               <option value="user" className="bg-slate-900">
                 Standard User
               </option>
-              <option value="admin" className="bg-slate-900">
-                Admin
-              </option>
+              {isSuperAdmin && (
+                <option value="admin" className="bg-slate-900">
+                  Admin
+                </option>
+              )}
             </select>
           </div>
           <div>
@@ -570,12 +580,34 @@ const InviteCodesView = ({ codes, loading, onRefresh, onCreate, onDelete }) => {
                 </div>
                 <div className="col-span-1 flex justify-end">
                   <motion.button
-                    onClick={() => onDelete(c)}
+                    type="button"
+                    disabled={deletingId === (c._id || c.id)}
+                    onClick={async () => {
+                      const id = c._id || c.id;
+                      if (
+                        !window.confirm(
+                          `Delete invite code ${c.code}? This cannot be undone.`
+                        )
+                      ) {
+                        return;
+                      }
+                      setDeletingId(id);
+                      try {
+                        await onDelete(c);
+                      } finally {
+                        setDeletingId(null);
+                      }
+                    }}
                     whileTap={{ scale: 0.9 }}
-                    className="rounded-lg border border-white/5 bg-white/[0.02] p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-300"
-                    title="Delete"
+                    className="inline-flex items-center gap-1 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                    title="Delete invite code"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    {deletingId === (c._id || c.id) ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    Delete
                   </motion.button>
                 </div>
               </motion.li>
@@ -2527,12 +2559,20 @@ export default function AdminPanel({ user, onExit }) {
   };
 
   const handleDeleteCode = async (code) => {
+    const id = code._id || code.id;
+    if (!id) {
+      say("error", "Invite code id missing.");
+      return;
+    }
     try {
-      await AdminAPI.deleteInviteCode(code._id);
-      setCodes((prev) => prev.filter((c) => c._id !== code._id));
-      say("success", `Code ${code.code} deleted.`);
+      const res = await AdminAPI.deleteInviteCode(id);
+      setCodes((prev) =>
+        prev.filter((c) => (c._id || c.id) !== id)
+      );
+      say("success", res.message || `Code ${code.code} deleted.`);
     } catch (err) {
       say("error", err?.message || "Failed to delete code.");
+      throw err;
     }
   };
 
@@ -2967,6 +3007,7 @@ export default function AdminPanel({ user, onExit }) {
                 onRefresh={loadCodes}
                 onCreate={handleCreateCode}
                 onDelete={handleDeleteCode}
+                isSuperAdmin={superAdmin}
               />
             )}
             {section === "users" &&
