@@ -1,80 +1,39 @@
 /**
- * Public marketing landing — unauthenticated root view.
- * Live BTC/ETH/SOL ticker via Binance WebSocket + REST fallback.
+ * Public landing — Binomo-style layout, Nexus branding + our product features.
  */
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import {
-  Zap,
   ShieldCheck,
+  Headphones,
+  Globe2,
+  Wallet,
+  Zap,
   Timer,
-  ArrowRight,
-  TrendingUp,
-  TrendingDown,
-  Loader2,
-  Radio,
-  Layers,
   Lock,
-  ChevronRight,
+  Smartphone,
+  UserRound,
+  Gift,
+  Landmark,
+  PiggyBank,
+  BarChart3,
+  CreditCard,
+  Radio,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
 
 const PAIRS = [
-  { symbol: "BTC", name: "Bitcoin", stream: "btcusdt@ticker" },
-  { symbol: "ETH", name: "Ethereum", stream: "ethusdt@ticker" },
-  { symbol: "SOL", name: "Solana", stream: "solusdt@ticker" },
+  { symbol: "BTC", name: "Bitcoin" },
+  { symbol: "ETH", name: "Ethereum" },
+  { symbol: "SOL", name: "Solana" },
 ];
 
-const ADVANTAGES = [
-  {
-    icon: Zap,
-    title: "Multi-market execution",
-    body: "Delivery, Spot, and Perpetual desks in one terminal — live prices, clear timers, and instant settlement feedback on every position.",
-  },
-  {
-    icon: Timer,
-    title: "AI Bot & smart products",
-    body: "Lock capital into AI Bot contracts with legal terms, or explore Carbon ETF, ICO, Copy Trade, and Loan products with admin-controlled yields.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Secure assets & KYC",
-    body: "Trading Wallet, sub-accounts, deposit via support chat, crypto withdraw rails, and identity verification with ID Card or Driving License.",
-  },
-];
+const YELLOW_BTN =
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#ffc107] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_10px_28px_-8px_rgba(255,193,7,0.55)] transition hover:bg-[#ffd54f]";
 
-const WORKFLOW = [
-  {
-    step: "01",
-    title: "Register with invite",
-    body: "Create your account using a valid invitation code and sign in to your private workspace.",
-  },
-  {
-    step: "02",
-    title: "Verify & fund",
-    body: "Complete KYC when prompted, deposit USDT through Live Chat, and keep your withdrawal address ready.",
-  },
-  {
-    step: "03",
-    title: "Trade or lock",
-    body: "Open Delivery trades, browse Markets, or activate AI Bot Trading after accepting the risk disclosure.",
-  },
-  {
-    step: "04",
-    title: "Manage assets",
-    body: "Transfer between Spot / Delivery / NFT accounts, convert pairs, and track activity from Assets.",
-  },
-];
-
-const PLATFORM_MODULES = [
-  { title: "Delivery", body: "Fixed-time long/short with live chart bias and countdown settlement." },
-  { title: "AI Bot Trading", body: "Contract-bound lock periods with admin-set target yield percentages." },
-  { title: "Assets Hub", body: "Balances, transfer, convert, bank cards, and verification in one place." },
-  { title: "Market Desk", body: "Forex & crypto pairs with quick jump into Spot, Perpetual, or Delivery." },
-  { title: "Earn & Raise", body: "Carbon Rights ETF, ICO subscriptions, Copy Trade, and Loan center." },
-  { title: "Support", body: "Live chat deposits, notifications bell, and tenant-aware admin review." },
-];
+const YELLOW_BTN_SM =
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#ffc107] px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-[#1a1400] transition hover:bg-[#ffd54f]";
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -84,168 +43,16 @@ function formatPrice(n) {
   return v.toFixed(8);
 }
 
-function seedSeries(base, len = 48) {
-  const out = [base];
-  let cur = base;
-  for (let i = 1; i < len; i++) {
-    cur = Math.max(0.0001, cur + (Math.random() - 0.5) * base * 0.00035);
-    out.push(cur);
-  }
-  return out;
-}
-
-function MiniSpark({ series, positive, width = 88, height = 28 }) {
-  if (!series?.length) return null;
-  const min = Math.min(...series);
-  const max = Math.max(...series);
-  const range = max - min || 1;
-  const step = width / Math.max(series.length - 1, 1);
-  const d = series
-    .map((v, i) => {
-      const x = i * step;
-      const y = height - ((v - min) / range) * (height - 4) - 2;
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  return (
-    <svg width={width} height={height} className="overflow-visible" aria-hidden>
-      <path
-        d={d}
-        fill="none"
-        stroke={positive ? "#34d399" : "#fb7185"}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function LivePreviewChart({ symbol, series, positive }) {
-  const uid = useId().replace(/:/g, "");
-  const W = 720;
-  const H = 280;
-  const pad = { top: 18, right: 56, bottom: 22, left: 8 };
-
-  if (!series?.length) {
-    return (
-      <div className="flex h-[220px] items-center justify-center gap-2 text-sm text-slate-500 sm:h-[280px]">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Syncing live feed…
-      </div>
-    );
-  }
-
-  const min = Math.min(...series);
-  const max = Math.max(...series);
-  const range = max - min || 1;
-  const step = (W - pad.left - pad.right) / Math.max(series.length - 1, 1);
-  const xy = series.map((v, i) => {
-    const x = pad.left + i * step;
-    const y = pad.top + ((max - v) / range) * (H - pad.top - pad.bottom);
-    return [x, y];
-  });
-  const line = xy
-    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`)
-    .join(" ");
-  const area = `${line} L${xy[xy.length - 1][0]},${H - pad.bottom} L${xy[0][0]},${
-    H - pad.bottom
-  } Z`;
-  const yLabels = [];
-  for (let i = 0; i <= 4; i++) {
-    yLabels.push({
-      value: max - (range / 4) * i,
-      y: pad.top + (i / 4) * (H - pad.top - pad.bottom),
-    });
-  }
-  const stroke = positive ? "#34d399" : "#fb7185";
-  const [lx, ly] = xy[xy.length - 1];
-
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="h-[220px] w-full sm:h-[260px] md:h-[280px]"
-      role="img"
-      aria-label={`${symbol} live price chart`}
-    >
-      <defs>
-        <linearGradient id={`plg-${uid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity="0.38" />
-          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
-        </linearGradient>
-        <filter id={`plg-glow-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2.5" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-      {yLabels.map((yl, i) => (
-        <g key={i}>
-          <line
-            x1={pad.left}
-            y1={yl.y}
-            x2={W - pad.right}
-            y2={yl.y}
-            stroke="rgba(255,255,255,0.05)"
-            strokeDasharray="3 4"
-          />
-          <text
-            x={W - pad.right + 6}
-            y={yl.y + 3}
-            fill="#64748b"
-            fontSize="10"
-            fontFamily="ui-monospace, monospace"
-          >
-            {yl.value >= 1000
-              ? yl.value.toFixed(0)
-              : yl.value >= 1
-                ? yl.value.toFixed(2)
-                : yl.value.toFixed(4)}
-          </text>
-        </g>
-      ))}
-      <path d={area} fill={`url(#plg-${uid})`} />
-      <path
-        d={line}
-        fill="none"
-        stroke={stroke}
-        strokeWidth="2.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        filter={`url(#plg-glow-${uid})`}
-      />
-      <circle cx={lx} cy={ly} r="8" fill={stroke} fillOpacity="0.18">
-        <animate attributeName="r" values="6;11;6" dur="1.5s" repeatCount="indefinite" />
-      </circle>
-      <circle cx={lx} cy={ly} r="3.5" fill={stroke} />
-    </svg>
-  );
-}
-
-function useLiveMarketFeed() {
+function useLivePrices() {
   const [markets, setMarkets] = useState({});
-  const [seriesMap, setSeriesMap] = useState({});
-  const [feedAge, setFeedAge] = useState(null);
   const [connected, setConnected] = useState(false);
-  const targets = useRef({});
-  const displays = useRef({});
 
-  const ingestPrice = useCallback((symbol, price) => {
+  const ingest = useCallback((symbol, price) => {
     const p = Number(price);
     if (!Number.isFinite(p) || p <= 0) return;
-    targets.current[symbol] = p;
-    if (displays.current[symbol] == null) displays.current[symbol] = p;
     setMarkets((prev) => ({ ...prev, [symbol]: p }));
-    setFeedAge(Date.now());
-    setSeriesMap((prev) => {
-      if (prev[symbol]?.length) return prev;
-      return { ...prev, [symbol]: seedSeries(p) };
-    });
   }, []);
 
-  // REST bootstrap + fallback poll (public API)
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -253,44 +60,35 @@ function useLiveMarketFeed() {
         const res = await SecondsTradeAPI.publicMarkets();
         if (cancelled) return;
         for (const m of res.markets || []) {
-          if (PAIRS.some((p) => p.symbol === m.asset)) {
-            ingestPrice(m.asset, m.price);
-          }
+          if (PAIRS.some((p) => p.symbol === m.asset)) ingest(m.asset, m.price);
         }
       } catch {
-        /* WS may still drive the feed */
+        /* ignore */
       }
     };
     load();
-    const poll = setInterval(load, 5000);
+    const poll = setInterval(load, 6000);
     return () => {
       cancelled = true;
       clearInterval(poll);
     };
-  }, [ingestPrice]);
+  }, [ingest]);
 
-  // Binance combined ticker WebSocket — real-time stream
   useEffect(() => {
-    const streams = PAIRS.map((p) => p.stream).join("/");
+    const streams = "btcusdt@ticker/ethusdt@ticker/solusdt@ticker";
     const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
     let ws;
     let closed = false;
-    let retryTimer;
-    let retryMs = 1200;
-
+    let retry;
     const connect = () => {
       if (closed) return;
       try {
         ws = new WebSocket(url);
       } catch {
-        retryTimer = setTimeout(connect, retryMs);
-        retryMs = Math.min(retryMs * 1.6, 12000);
+        retry = setTimeout(connect, 2500);
         return;
       }
-      ws.onopen = () => {
-        setConnected(true);
-        retryMs = 1200;
-      };
+      ws.onopen = () => setConnected(true);
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data);
@@ -298,474 +96,501 @@ function useLiveMarketFeed() {
           const pair = String(d?.s || "").toUpperCase();
           const price = Number(d?.c ?? d?.p);
           if (!pair.endsWith("USDT") || !Number.isFinite(price)) return;
-          const asset = pair.slice(0, -4);
-          if (PAIRS.some((p) => p.symbol === asset)) ingestPrice(asset, price);
-        } catch {
-          /* ignore malformed ticks */
-        }
-      };
-      ws.onerror = () => {
-        try {
-          ws.close();
+          ingest(pair.slice(0, -4), price);
         } catch {
           /* ignore */
         }
       };
       ws.onclose = () => {
         setConnected(false);
-        if (!closed) {
-          retryTimer = setTimeout(connect, retryMs);
-          retryMs = Math.min(retryMs * 1.6, 12000);
-        }
+        if (!closed) retry = setTimeout(connect, 2500);
       };
     };
-
     connect();
     return () => {
       closed = true;
-      clearTimeout(retryTimer);
+      clearTimeout(retry);
       try {
         ws?.close();
       } catch {
         /* ignore */
       }
     };
-  }, [ingestPrice]);
+  }, [ingest]);
 
-  // Per-second visual updates: ease toward live targets + flash series
-  useEffect(() => {
-    const id = setInterval(() => {
-      const updates = {};
-      for (const { symbol } of PAIRS) {
-        const tgt = targets.current[symbol];
-        if (tgt == null || !(tgt > 0)) continue;
-        let cur = displays.current[symbol];
-        if (cur == null) {
-          cur = tgt;
-        } else {
-          const gap = tgt - cur;
-          const absGap = Math.abs(gap);
-          if (absGap < Math.abs(tgt) * 1e-8 || absGap < 1e-10) {
-            cur = tgt + tgt * (Math.random() - 0.5) * 0.0001;
-          } else {
-            const ease = 0.12 + Math.random() * 0.08;
-            const maxStep = Math.max(Math.abs(tgt) * 0.0004, absGap * 0.08);
-            cur = cur + Math.sign(gap) * Math.min(absGap * ease, maxStep);
-          }
-        }
-        displays.current[symbol] = cur;
-        updates[symbol] = cur;
-      }
-      if (!Object.keys(updates).length) return;
-      setSeriesMap((prev) => {
-        const next = { ...prev };
-        for (const [sym, p] of Object.entries(updates)) {
-          const s = next[sym] ? [...next[sym], p] : seedSeries(p);
-          next[sym] = s.slice(-72);
-        }
-        return next;
-      });
-      setMarkets((prev) => ({ ...prev, ...updates }));
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  return { markets, seriesMap, feedAge, connected };
+  return { markets, connected };
 }
 
-function MarketShowcase() {
-  const { markets, seriesMap, feedAge, connected } = useLiveMarketFeed();
-  const [selected, setSelected] = useState("BTC");
-  const [flash, setFlash] = useState(null);
-  const flashTimer = useRef(null);
+const STATS = [
+  { value: "90k+", label: "Active traders" },
+  { value: "133", label: "Countries" },
+  { value: "24/7", label: "Live support" },
+  { value: "$10", label: "Min. trade" },
+  { value: "100+", label: "Markets" },
+  { value: "Fast", label: "Withdrawals" },
+];
 
-  const meta = PAIRS.find((a) => a.symbol === selected) || PAIRS[0];
-  const series = seriesMap[selected] || [];
-  const price = series.length ? series[series.length - 1] : markets[selected] || 0;
-  const first = series[0] || price;
-  const changePct = first ? ((price - first) / first) * 100 : 0;
-  const positive = changePct >= 0;
-  const prev = series.length > 1 ? series[series.length - 2] : price;
-  const tickUp = price >= prev;
+const STEPS = [
+  {
+    n: "1",
+    title: "Sign up",
+    body: "Create your Nexus account with a valid invite code.",
+  },
+  {
+    n: "2",
+    title: "Trade",
+    body: "Open timed trades on BTC, ETH, SOL — or start Copy AI Bot.",
+  },
+  {
+    n: "3",
+    title: "Deposit",
+    body: "Fund via Deposit, then withdraw profits after admin verify.",
+  },
+];
 
-  useEffect(() => {
-    if (!series.length) return;
-    setFlash(tickUp ? "up" : "down");
-    if (flashTimer.current) clearTimeout(flashTimer.current);
-    flashTimer.current = setTimeout(() => setFlash(null), 420);
-    return () => {
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-    };
-  }, [price, tickUp, series.length]);
-
-  return (
-    <section id="markets" className="space-y-4">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-400/90">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-            </span>
-            Live market ticker
-          </div>
-          <h2 className="font-display mt-1 text-xl font-semibold text-white md:text-2xl">
-            Major pairs · second-by-second
-          </h2>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Switch assets to preview the active live chart vector.
-          </p>
-        </div>
-        <div className="text-[11px] tabular-nums text-slate-500">
-          {connected ? "Binance stream · live" : "Reconnecting…"}
-          {feedAge ? ` · ${new Date(feedAge).toLocaleTimeString()}` : ""}
-        </div>
-      </div>
-
-      <div
-        className="grid grid-cols-1 gap-2 sm:grid-cols-3"
-        role="tablist"
-        aria-label="Asset switcher"
-      >
-        {PAIRS.map(({ symbol, name }) => {
-          const s = seriesMap[symbol] || [];
-          const p = s.length ? s[s.length - 1] : markets[symbol] || 0;
-          const f = s[0] || p;
-          const pct = f ? ((p - f) / f) * 100 : 0;
-          const up = pct >= 0;
-          const active = selected === symbol;
-          return (
-            <button
-              key={symbol}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setSelected(symbol)}
-              className={`rounded-2xl border p-3.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/40 ${
-                active
-                  ? "border-teal-400/40 bg-teal-500/10"
-                  : "border-white/10 bg-[#0d1424] hover:border-white/20"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="text-xs font-bold text-white">
-                    {symbol}
-                    <span className="text-slate-500">/USDT</span>
-                  </div>
-                  <div className="text-[10px] text-slate-500">{name}</div>
-                </div>
-                <div
-                  className={`text-[10px] font-semibold tabular-nums ${
-                    up ? "text-emerald-400" : "text-rose-400"
-                  }`}
-                >
-                  {up ? "+" : ""}
-                  {pct.toFixed(2)}%
-                </div>
-              </div>
-              <div
-                className={`mt-2 font-mono text-sm font-semibold tabular-nums transition-colors ${
-                  active && flash === "up"
-                    ? "text-emerald-300"
-                    : active && flash === "down"
-                      ? "text-rose-300"
-                      : "text-slate-100"
-                }`}
-              >
-                ${formatPrice(p)}
-              </div>
-              <div className="mt-1.5">
-                <MiniSpark series={s.slice(-24)} positive={up} />
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={selected}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.22 }}
-          className={`overflow-hidden rounded-2xl border bg-[#0a1220]/90 p-4 sm:p-5 ${
-            flash === "up"
-              ? "border-emerald-400/35"
-              : flash === "down"
-                ? "border-rose-400/35"
-                : "border-white/10"
-          }`}
-        >
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-xl bg-teal-500/15 text-xs font-bold text-amber-200 ring-1 ring-teal-400/25">
-                {meta.symbol}
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-white">
-                  {meta.name}
-                  <span className="text-slate-500"> / USDT</span>
-                </div>
-                <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                  <Radio className="h-3 w-3 text-emerald-400" />
-                  Live spot · streaming plot
-                </div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div
-                className={`font-mono text-xl font-bold tabular-nums sm:text-2xl ${
-                  flash === "up"
-                    ? "text-emerald-300"
-                    : flash === "down"
-                      ? "text-rose-300"
-                      : "text-white"
-                }`}
-              >
-                ${formatPrice(price)}
-              </div>
-              <div
-                className={`mt-0.5 inline-flex items-center gap-1 text-xs font-semibold ${
-                  positive ? "text-emerald-400" : "text-rose-400"
-                }`}
-              >
-                {positive ? (
-                  <TrendingUp className="h-3.5 w-3.5" />
-                ) : (
-                  <TrendingDown className="h-3.5 w-3.5" />
-                )}
-                {positive ? "+" : ""}
-                {changePct.toFixed(2)}% session
-              </div>
-            </div>
-          </div>
-          <LivePreviewChart symbol={meta.symbol} series={series} positive={positive} />
-        </motion.div>
-      </AnimatePresence>
-    </section>
-  );
-}
+const PAYMENTS = ["Visa", "Mastercard", "USDT", "TRC20", "Bank", "UPI", "JazzCash", "EasyPaisa"];
 
 export default function PublicLanding({ onSignIn, onRegister }) {
-  return (
-    <div className="nx-page relative min-h-screen w-full overflow-x-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-nx-hero" />
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.09) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
-        />
-      </div>
+  const { markets, connected } = useLivePrices();
+  const [navOpen, setNavOpen] = useState(false);
+  const heroRef = useRef(null);
 
+  const go = (id) => {
+    setNavOpen(false);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  return (
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#07111f] text-white">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#06080f]/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2.5">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 text-sm font-black text-slate-950 shadow-glow">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07111f]/95 backdrop-blur-md">
+        <div className="mx-auto flex h-[58px] max-w-[1180px] items-center justify-between gap-3 px-4 sm:px-6">
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2">
+            <div className="grid h-8 w-8 place-items-center rounded-md bg-[#ffc107] text-sm font-black text-[#1a1400]">
               N
             </div>
-            <div className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
-              Nexus
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button type="button" onClick={onSignIn} className="nx-btn-ghost !py-2 !text-xs sm:!text-sm">
-              Sign In
+            <span className="text-lg font-extrabold tracking-tight">Nexus</span>
+          </button>
+          <nav className="hidden items-center gap-6 text-[13px] font-semibold text-white/80 md:flex">
+            <button type="button" onClick={() => go("trading")} className="hover:text-white">
+              Trading
             </button>
-            <button type="button" onClick={onRegister} className="nx-btn-primary !py-2 !text-xs sm:!text-sm">
-              Register
+            <button type="button" onClick={() => go("traders")} className="hover:text-white">
+              For traders
             </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="relative z-10 mx-auto max-w-6xl space-y-14 px-4 pb-20 pt-8 sm:px-6 sm:pt-12 lg:px-8 lg:pt-14">
-        {/* Hero — brand first + full-bleed visual */}
-        <section className="nx-bg-hero relative overflow-hidden rounded-3xl border border-white/10 px-5 py-12 shadow-panel sm:px-10 sm:py-16 md:px-14 md:py-20">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-teal-500/15 blur-3xl" />
-            <div className="absolute -bottom-24 left-0 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
-          </div>
-          <div className="relative z-10 max-w-2xl">
-            <div className="nx-chip mb-4">Digital asset exchange</div>
-            <motion.h1
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55 }}
-              className="font-display text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl"
-            >
-              Nexus
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08, duration: 0.5 }}
-              className="mt-4 text-lg font-medium text-slate-100 sm:text-xl"
-            >
-              The widely trusted digital asset exchange for active traders.
-            </motion.p>
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.14, duration: 0.45 }}
-              className="mt-3 max-w-lg text-sm leading-relaxed text-slate-400 sm:text-base"
-            >
-              Delivery trading, AI Bot locks, multi-wallet Assets, Market desk,
-              and support-backed deposits — professional tools with clear risk
-              controls in every session.
-            </motion.p>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.45 }}
-              className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
-            >
-              <button type="button" onClick={onRegister} className="nx-btn-primary !px-6 !py-3.5">
-                Trade now
-                <ArrowRight className="h-4 w-4" />
-              </button>
-              <button type="button" onClick={onSignIn} className="nx-btn-ghost !px-6 !py-3.5">
-                Sign In
-              </button>
-            </motion.div>
-          </div>
-        </section>
-
-        <MarketShowcase />
-
-        {/* Advantage cards */}
-        <section>
-          <div className="mb-5 max-w-xl">
-            <h2 className="font-display text-xl font-semibold text-white md:text-2xl">
-              Why traders choose Nexus
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Execution speed, product depth, and custody controls designed for daily use.
-            </p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {ADVANTAGES.map(({ icon: Icon, title, body }, i) => (
-              <motion.div
-                key={title}
-                initial={{ opacity: 0, y: 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-40px" }}
-                transition={{ delay: 0.05 * i, duration: 0.4 }}
-                className="rounded-2xl border border-white/10 bg-[#0d1424] p-5 md:p-6"
-              >
-                <div className="grid h-11 w-11 place-items-center rounded-xl bg-teal-500/15 text-teal-300">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="mt-4 text-sm font-semibold leading-snug text-white md:text-base">
-                  {title}
-                </h3>
-                <p className="mt-2 text-xs leading-relaxed text-slate-500 md:text-sm">
-                  {body}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
-        {/* Platform modules */}
-        <section className="nx-bg-modules overflow-hidden rounded-3xl border border-white/10 p-5 sm:p-8">
-          <div className="mb-5 max-w-2xl">
-            <h2 className="font-display text-xl font-semibold text-white md:text-2xl">
-              Everything in one terminal
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Trade, earn, verify, and manage assets without leaving Nexus.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {PLATFORM_MODULES.map((m) => (
-              <div key={m.title} className="rounded-2xl border border-white/10 bg-black/35 p-4 backdrop-blur-sm md:p-5">
-                <h3 className="text-sm font-semibold text-white">{m.title}</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{m.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* How it works */}
-        <section>
-          <div className="mb-5 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="font-display text-xl font-semibold text-white md:text-2xl">
-                How to get started
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Four steps from signup to settled outcome.
-              </p>
-            </div>
-            <Layers className="hidden h-6 w-6 text-slate-600 sm:block" />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {WORKFLOW.map(({ step, title, body }, i) => (
-              <motion.div
-                key={step}
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.06 * i }}
-                className="relative rounded-2xl border border-white/10 bg-[#0d1424] p-4 md:p-5"
-              >
-                <div className="font-display text-2xl font-bold text-teal-400/80">
-                  {step}
-                </div>
-                <h3 className="mt-2 text-sm font-semibold text-white">{title}</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                  {body}
-                </p>
-                {i < WORKFLOW.length - 1 && (
-                  <ChevronRight className="absolute right-3 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-slate-700 lg:block" />
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
-        {/* Closing CTA */}
-        <section className="nx-bg-panel relative overflow-hidden rounded-2xl border border-teal-400/25 px-5 py-10 text-center shadow-panel sm:px-8">
-          <div className="relative z-10">
-          <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-xl bg-teal-500/15 text-teal-300">
-            <Lock className="h-5 w-5" />
-          </div>
-          <h2 className="font-display text-lg font-semibold text-white md:text-xl">
-            Ready to trade on Nexus?
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
-            Create your invite-gated account, verify identity when required, and access Delivery, AI Bot, Assets, and the full market desk.
-          </p>
-          <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <button type="button" onClick={() => go("payments")} className="hover:text-white">
+              Payments
+            </button>
+            <button type="button" onClick={() => go("help")} className="hover:text-white">
+              Help
+            </button>
+          </nav>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onSignIn}
-              className="nx-btn-ghost w-full sm:w-auto"
+              className="hidden rounded-md px-3 py-1.5 text-[13px] font-semibold text-white/80 hover:text-white sm:inline"
             >
-              Sign In
+              Sign in
+            </button>
+            <button type="button" onClick={onRegister} className={YELLOW_BTN_SM}>
+              Sign up
             </button>
             <button
               type="button"
-              onClick={onRegister}
-              className="nx-btn-primary w-full sm:w-auto"
+              className="grid h-9 w-9 place-items-center rounded-md border border-white/15 md:hidden"
+              onClick={() => setNavOpen((v) => !v)}
+              aria-label="Menu"
             >
-              Register
-              <ArrowRight className="h-4 w-4" />
+              <span className="text-lg leading-none">☰</span>
             </button>
           </div>
+        </div>
+        {navOpen && (
+          <div className="border-t border-white/10 px-4 py-3 md:hidden">
+            {["trading", "traders", "payments", "help"].map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => go(id)}
+                className="block w-full py-2 text-left text-sm font-semibold capitalize text-white/80"
+              >
+                {id.replace("-", " ")}
+              </button>
+            ))}
+            <button type="button" onClick={onSignIn} className="mt-1 block w-full py-2 text-left text-sm font-semibold">
+              Sign in
+            </button>
           </div>
-        </section>
-      </main>
+        )}
+      </header>
 
-      <footer className="relative z-10 border-t border-white/5 py-6 text-center text-[11px] text-slate-600">
-        © {new Date().getFullYear()} Nexus · Digital asset exchange · Trade · Earn · Secure
+      {/* Live strip */}
+      <div className="border-b border-white/5 bg-[#0a1829]">
+        <div className="mx-auto flex max-w-[1180px] items-center gap-4 overflow-x-auto px-4 py-2 text-[11px] sm:px-6">
+          <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-emerald-400">
+            <Radio className={`h-3 w-3 ${connected ? "text-emerald-400" : "text-slate-500"}`} />
+            Live
+          </span>
+          {PAIRS.map((p) => (
+            <span key={p.symbol} className="shrink-0 font-semibold text-white/80">
+              {p.symbol}/USDT{" "}
+              <span className="tabular-nums text-[#ffc107]">
+                {markets[p.symbol] ? formatPrice(markets[p.symbol]) : "—"}
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Hero */}
+      <section
+        ref={heroRef}
+        className="relative min-h-[520px] overflow-hidden bg-[#081526] sm:min-h-[620px]"
+      >
+        <img
+          src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1600&q=70"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-[center_20%] opacity-50"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#07111f] via-[#07111f]/85 to-[#07111f]/25" />
+        <div className="relative mx-auto flex max-w-[1180px] flex-col justify-center px-4 py-16 sm:px-6 sm:py-24">
+          <motion.h1
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl"
+          >
+            Reliable trading partner
+          </motion.h1>
+          <p className="mt-3 text-base font-medium text-white/75 sm:text-lg">
+            Your success is in your hands
+          </p>
+          <div className="mt-7 flex flex-wrap gap-x-7 gap-y-3 text-[13px] font-semibold text-white/90">
+            <span className="inline-flex items-center gap-2">
+              <PiggyBank className="h-5 w-5 text-[#ffc107]" /> $10 min trade
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-[#ffc107]" /> up to 90% profit
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-[#ffc107]" /> 24/7 withdrawals
+            </span>
+          </div>
+          <div className="mt-8">
+            <button type="button" onClick={onRegister} className={YELLOW_BTN}>
+              Try it
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* 99% profit */}
+      <section id="trading" className="bg-[#07111f] py-16 text-center sm:py-20">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
+          <h2 className="text-xl font-bold sm:text-2xl">The highest profitability on the market</h2>
+          <div
+            className="mt-4 font-extrabold leading-none tracking-tight text-transparent"
+            style={{
+              fontSize: "clamp(3.2rem, 12vw, 7.5rem)",
+              backgroundImage: "linear-gradient(180deg, #7dd3fc 0%, #38bdf8 40%, #0369a1 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 0 28px rgba(56,189,248,0.35))",
+            }}
+          >
+            99% PROFIT
+          </div>
+          <p className="mx-auto mt-2 max-w-md text-sm text-white/55">
+            for the most popular assets — BTC, ETH, SOL on the Nexus Trade desk
+          </p>
+          <button type="button" onClick={onRegister} className={`${YELLOW_BTN_SM} mt-6`}>
+            Trade
+          </button>
+        </div>
+      </section>
+
+      {/* Specials */}
+      <section className="bg-[#082032] py-12 sm:py-16">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
+          <h2 className="mb-5 text-center text-xl font-bold sm:text-2xl">Nexus Specials</h2>
+          <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-[#148a3c] to-[#1db954] px-6 py-8 sm:flex sm:items-center sm:justify-between sm:px-10">
+            <div>
+              <div className="text-lg font-extrabold sm:text-2xl">
+                Get profitability up to 90% on your first deposit
+              </div>
+              <p className="mt-1 text-sm text-white/85">
+                Fund via Deposit, wait for admin verify, then start trading.
+              </p>
+            </div>
+            <button type="button" onClick={onRegister} className={`${YELLOW_BTN_SM} mt-5 shrink-0 sm:mt-0`}>
+              Join
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Why traders */}
+      <section id="traders" className="bg-[#07111f] py-16 sm:py-20">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
+          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Why do traders choose Nexus?</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {STATS.map((s) => (
+              <div key={s.label} className="rounded-xl border border-white/10 bg-[#0c1a2e] px-3 py-5 text-center">
+                <div className="text-2xl font-extrabold text-[#ffc107] sm:text-3xl">{s.value}</div>
+                <div className="mt-1 text-[11px] font-medium text-white/55">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Products */}
+      <section className="bg-[#082032] py-16 sm:py-20">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
+          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Go top with a trusted desk</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { icon: Timer, title: "Trade", body: "Buy Long / Sell Short with live chart and countdown settlement." },
+              { icon: Zap, title: "Copy AI Bot", body: "Lock funds into admin-assigned yield contracts." },
+              { icon: Landmark, title: "Loan", body: "Borrower verification and admin-controlled loan plans." },
+              { icon: Wallet, title: "Assets", body: "Deposit, withdraw, bank cards, wallet address and security." },
+            ].map(({ icon: Icon, title, body }) => (
+              <div key={title} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-5">
+                <Icon className="h-6 w-6 text-[#ffc107]" />
+                <h3 className="mt-3 text-sm font-bold">{title}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-white/55">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Trust badges */}
+      <section className="bg-[#07111f] py-12 sm:py-16">
+        <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
+          <h2 className="mb-8 text-xl font-bold sm:text-2xl">Go top with a trusted leader</h2>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            {["Invite-only", "Admin KYC", "Live Chat", "Verified payouts"].map((label) => (
+              <div
+                key={label}
+                className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-white/15 bg-[#0c1a2e] shadow-[inset_0_0_24px_rgba(255,193,7,0.08)]"
+              >
+                <ShieldCheck className="h-6 w-6 text-[#ffc107]" />
+                <span className="mt-1 px-1 text-[10px] font-bold leading-tight text-white/70">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Payments */}
+      <section id="payments" className="bg-[#07111f] py-16 sm:py-20">
+        <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
+          <h2 className="mb-8 text-xl font-bold sm:text-2xl">Popular payment services</h2>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {PAYMENTS.map((p) => (
+              <div
+                key={p}
+                className="rounded-lg border border-white/10 bg-white px-4 py-2.5 text-xs font-extrabold uppercase tracking-wide text-slate-800"
+              >
+                {p}
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={onRegister} className={`${YELLOW_BTN_SM} mt-8`}>
+            Deposit
+          </button>
+        </div>
+      </section>
+
+      {/* Community */}
+      <section className="relative overflow-hidden bg-[#082032] py-16 sm:py-20">
+        <img
+          src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1400&q=60"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover opacity-25"
+        />
+        <div className="absolute inset-0 bg-[#07111f]/70" />
+        <div className="relative mx-auto max-w-[1180px] px-4 text-center sm:px-6">
+          <h2 className="text-2xl font-extrabold sm:text-3xl">Dream bigger, act faster</h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm text-white/70">
+            Join traders using Nexus for timed markets, Copy AI Bot locks, and verified withdrawals.
+          </p>
+          <button type="button" onClick={onRegister} className={`${YELLOW_BTN} mt-6`}>
+            Sign up
+          </button>
+        </div>
+      </section>
+
+      {/* 3 minutes */}
+      <section className="bg-[#07111f] py-16 sm:py-20">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
+          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">
+            Just 3 minutes to become a trader
+          </h2>
+          <div className="grid gap-3 md:grid-cols-3">
+            {STEPS.map((s) => (
+              <div key={s.n} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-6 text-center">
+                <div className="text-3xl font-black text-[#ffc107]">{s.n}</div>
+                <h3 className="mt-3 text-base font-bold">{s.title}</h3>
+                <p className="mt-2 text-sm text-white/55">{s.body}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 text-center">
+            <button type="button" onClick={onRegister} className={YELLOW_BTN}>
+              Open an account
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* VIP */}
+      <section className="bg-[#082032] py-16 sm:py-20">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
+          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">VIP status, VIP services</h2>
+          <div className="mb-8 flex justify-center">
+            <img
+              src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=240&h=240&q=70"
+              alt=""
+              className="h-28 w-28 rounded-full object-cover ring-4 ring-[#ffc107]/50"
+            />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              { icon: UserRound, title: "Personal manager", body: "Priority Live Chat with your assigned admin." },
+              { icon: Gift, title: "Copy AI Bot yield", body: "Lock funds into admin-assigned contracts with target yield." },
+              { icon: Headphones, title: "Priority withdrawal", body: "Verified bank cards and wallets move faster through review." },
+            ].map(({ icon: Icon, title, body }) => (
+              <div key={title} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-6 text-center">
+                <Icon className="mx-auto h-8 w-8 text-[#ffc107]" />
+                <h3 className="mt-3 font-bold">{title}</h3>
+                <p className="mt-2 text-sm text-white/55">{body}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 text-center">
+            <button type="button" onClick={onRegister} className={YELLOW_BTN_SM}>
+              Go for VIP
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* App / chart */}
+      <section className="bg-[#07111f] py-16 sm:py-20">
+        <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
+          <div>
+            <h2 className="text-2xl font-extrabold sm:text-3xl">Smart and simple chart</h2>
+            <p className="mt-3 text-sm leading-relaxed text-white/60">
+              Binance-style candles on Trade, live wallet + Live Earnings, and Force-ready settlement — the same desk you use after login.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3 text-xs font-semibold text-white/70">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1">
+                <Smartphone className="h-3.5 w-3.5 text-[#ffc107]" /> Mobile ready
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1">
+                <Globe2 className="h-3.5 w-3.5 text-[#ffc107]" /> Live markets
+              </span>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-[#0c1a2e] p-4">
+            <div className="rounded-xl bg-[#07111f] p-4">
+              <div className="mb-3 flex items-center justify-between text-xs">
+                <span className="font-bold">BTC/USDT</span>
+                <span className="tabular-nums text-emerald-400">
+                  {markets.BTC ? formatPrice(markets.BTC) : "—"}
+                </span>
+              </div>
+              <div className="flex h-28 items-end gap-1">
+                {Array.from({ length: 24 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`flex-1 rounded-sm ${i % 3 === 0 ? "bg-rose-400/70" : "bg-emerald-400/70"}`}
+                    style={{ height: `${30 + ((i * 17) % 70)}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Security */}
+      <section id="help" className="bg-[#082032] py-16 sm:py-20">
+        <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
+          <h2 className="text-2xl font-extrabold sm:text-3xl">Put your trading helmet on</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-white/55">
+            Invite-only signup, KYC, admin-verified deposits and withdrawals.
+          </p>
+          <div className="mx-auto my-8 grid h-28 w-28 place-items-center rounded-full border-4 border-[#ffc107]/40 bg-[#0c1a2e]">
+            <ShieldCheck className="h-14 w-14 text-[#ffc107]" />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              { icon: Lock, title: "Account security", body: "Password change and profile updates from Assets → Security." },
+              { icon: ShieldCheck, title: "SSL encryption", body: "Encrypted sessions. Every deposit and withdraw is staff-reviewed." },
+              { icon: Wallet, title: "Fund custody", body: "Wallet addresses and bank cards stay pending until admin approval." },
+            ].map(({ icon: Icon, title, body }) => (
+              <div key={title} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-5 text-left">
+                <Icon className="h-5 w-5 text-[#ffc107]" />
+                <h3 className="mt-2 text-sm font-bold">{title}</h3>
+                <p className="mt-1 text-xs text-white/55">{body}</p>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={onRegister} className={`${YELLOW_BTN} mt-8`}>
+            Start trading
+          </button>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 bg-[#050d18] py-12">
+        <div className="mx-auto grid max-w-[1180px] gap-8 px-4 sm:grid-cols-4 sm:px-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-md bg-[#ffc107] text-sm font-black text-[#1a1400]">
+                N
+              </div>
+              <span className="text-lg font-extrabold">Nexus</span>
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-white/45">
+              Digital trading terminal. Invite-gated accounts. Trade · Deposit · Withdraw · Copy AI Bot.
+            </p>
+          </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">Company</div>
+            <ul className="mt-3 space-y-1.5 text-sm text-white/70">
+              <li>About Nexus</li>
+              <li>Markets</li>
+              <li>Support chat</li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">For traders</div>
+            <ul className="mt-3 space-y-1.5 text-sm text-white/70">
+              <li>Trade desk</li>
+              <li>Copy AI Bot</li>
+              <li>Loan</li>
+              <li>Assets</li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">Legal</div>
+            <ul className="mt-3 space-y-1.5 text-sm text-white/70">
+              <li>Risk notice</li>
+              <li>Privacy</li>
+              <li>Terms</li>
+            </ul>
+          </div>
+        </div>
+        <p className="mx-auto mt-10 max-w-[1180px] px-4 text-[10px] leading-relaxed text-white/35 sm:px-6">
+          Trading involves substantial risk of loss. Past performance is not a guarantee of future results. Nexus is a private trading platform. Register only with a valid invitation code. Deposits and withdrawals require administrator verification.
+        </p>
+        <p className="mt-4 text-center text-[11px] text-white/30">
+          © {new Date().getFullYear()} Nexus
+        </p>
       </footer>
     </div>
   );
