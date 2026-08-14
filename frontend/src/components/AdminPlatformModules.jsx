@@ -18,7 +18,6 @@ import {
 import { PlatformAPI, ChatAPI, assetUrl } from "../lib/api.js";
 
 const KINDS = [
-  { id: "nft", label: "NFT" },
   { id: "loan_plan", label: "Loan Interest" },
   { id: "market_pair", label: "Market Pairs" },
 ];
@@ -452,12 +451,12 @@ function KindFields({ kind, form, setForm }) {
 
 export default function AdminPlatformModules({ toast }) {
   const [tab, setTab] = useState("catalog");
-  const [kind, setKind] = useState("nft");
+  const [kind, setKind] = useState("loan_plan");
   const [items, setItems] = useState([]);
   const [orders, setOrders] = useState([]);
   const [borrowers, setBorrowers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState(() => emptyFields("nft"));
+  const [form, setForm] = useState(() => emptyFields("loan_plan"));
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [uploading, setUploading] = useState(null);

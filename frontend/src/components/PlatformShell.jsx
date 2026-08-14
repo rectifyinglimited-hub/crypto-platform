@@ -2,7 +2,7 @@
  * Authenticated shell — desktop top nav + mobile left drawer (app-like).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Home,
@@ -11,8 +11,6 @@ import {
   Bot,
   Landmark,
   Wallet,
-  Image as ImageIcon,
-  Images,
   ChevronDown,
   LogOut,
   ShieldCheck,
@@ -35,100 +33,8 @@ const TRADE_LINKS = [
   { key: "assets", label: "Assets", icon: Wallet },
 ];
 
-const NFT_LINKS = [
-  { key: "home", label: "Home", icon: Home },
-  { key: "nft", label: "NFT Market", icon: ImageIcon },
-  { key: "nft_mine", label: "My collection", icon: Images },
-  { key: "assets", label: "Assets", icon: Wallet },
-];
-
-function TradeDropdown({ item, active, page, onPageChange }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  const Icon = item.icon;
-
-  return (
-    <div className="relative shrink-0" ref={ref}>
-      <div
-        className={`inline-flex items-stretch overflow-hidden rounded-xl ${
-          active
-            ? "bg-cyan-500/15 text-cyan-300"
-            : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            onPageChange("delivery");
-            setOpen(false);
-          }}
-          className="inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs font-semibold transition lg:px-3.5 lg:text-sm"
-        >
-          <Icon className="h-4 w-4" />
-          {item.label}
-        </button>
-        <button
-          type="button"
-          aria-label="Trade menu"
-          onClick={() => setOpen((v) => !v)}
-          className="border-l border-white/10 px-2 py-2 transition hover:bg-white/5"
-        >
-          <ChevronDown
-            className={`h-3 w-3 transition ${open ? "rotate-180" : ""}`}
-          />
-        </button>
-      </div>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.14 }}
-            className="absolute left-0 z-50 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#0c1222] py-1 shadow-2xl shadow-black/50"
-          >
-            <div className="px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Trade desk
-            </div>
-            {item.children.map((c) => (
-              <button
-                key={c.key}
-                type="button"
-                onClick={() => {
-                  onPageChange(c.key);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm transition ${
-                  page === c.key
-                    ? "bg-cyan-500/10 text-cyan-300"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <span>{c.label}</span>
-                {c.key === "delivery" && (
-                  <span className="text-[10px] text-cyan-400/80">Chart</span>
-                )}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function NavLinks({ mode, page, onPageChange }) {
-  const links = mode === "nft" ? NFT_LINKS : TRADE_LINKS;
+function NavLinks({ page, onPageChange }) {
+  const links = TRADE_LINKS;
 
   return (
     <nav className="scrollbar-none flex items-center gap-1 overflow-x-auto">
@@ -167,38 +73,10 @@ function NavLinks({ mode, page, onPageChange }) {
   );
 }
 
-function ModeToggle({ mode, onModeChange, layoutId = "platform-mode-pill" }) {
-  return (
-    <div className="relative grid shrink-0 grid-cols-2 gap-0.5 rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-      {["trade", "nft"].map((m) => (
-        <button
-          key={m}
-          type="button"
-          onClick={() => onModeChange?.(m)}
-          className={`relative rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
-            mode === m ? "text-slate-950" : "text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          {mode === m && (
-            <motion.span
-              layoutId={layoutId}
-              className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-400 to-teal-300"
-              transition={{ type: "spring", stiffness: 420, damping: 34 }}
-            />
-          )}
-          <span className="relative">{m === "trade" ? "Trade" : "NFT"}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /** Mobile left drawer — app-style side menu */
 function MobileDrawer({
   open,
   onClose,
-  mode,
-  onModeChange,
   page,
   onPageChange,
   user,
@@ -208,7 +86,7 @@ function MobileDrawer({
   onOpenDeposit,
 }) {
   const [tradeOpen, setTradeOpen] = useState(false);
-  const links = mode === "nft" ? NFT_LINKS : TRADE_LINKS;
+  const links = TRADE_LINKS;
   const displayName =
     user?.fullName || user?.username || user?.email?.split("@")[0] || "Trader";
 
@@ -330,14 +208,6 @@ function MobileDrawer({
                     <ArrowDownToLine className="h-3 w-3" /> Deposit
                   </button>
                 </div>
-              </div>
-
-              <div className="mt-3 px-4">
-                <ModeToggle
-                  mode={mode}
-                  onModeChange={onModeChange}
-                  layoutId="mobile-mode-pill"
-                />
               </div>
 
               {/* Nav list */}
@@ -533,10 +403,8 @@ export default function PlatformShell({
             </span>
           </button>
 
-          <ModeToggle mode={mode} onModeChange={onModeChange} />
-
           <div className="hidden min-w-0 flex-1 md:block">
-            <NavLinks mode={mode} page={page} onPageChange={handlePageChange} />
+            <NavLinks page={page} onPageChange={handlePageChange} />
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
@@ -595,8 +463,6 @@ export default function PlatformShell({
       <MobileDrawer
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
-        mode={mode}
-        onModeChange={onModeChange}
         page={page}
         onPageChange={handlePageChange}
         user={user}

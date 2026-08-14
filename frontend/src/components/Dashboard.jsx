@@ -47,7 +47,6 @@ import PlatformShell from "./PlatformShell.jsx";
 import {
   MarketPage,
   LoanPage,
-  NftMarketPage,
   AssetsHubPage,
 } from "./PlatformModules.jsx";
 import AiBotTradingPage from "./AiBotTrading.jsx";
@@ -1223,16 +1222,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         user={me}
         page={page}
         onPageChange={goPage}
-        mode={mode}
-        onModeChange={(m) => {
-          setMode(m);
-          if (m === "nft" && page !== "nft" && page !== "nft_mine") {
-            setPage("nft");
-          }
-          if (m === "trade" && (page === "nft" || page === "nft_mine")) {
-            openTradeDesk({ asset: "BTC", assetType: "crypto" });
-          }
-        }}
         walletUsdt={walletUsdt}
         onLogout={handleLogout}
         onOpenAccount={() => goPage("account")}
@@ -1338,9 +1327,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             />
           )}
           {page === "loan" && <LoanPage key="loan" onToast={say} user={me} />}
-          {(page === "nft" || page === "nft_mine") && (
-            <NftMarketPage key="nft" onToast={say} user={me} onWalletUpdate={handleUserUpdate} mineOnly={page === "nft_mine"} />
-          )}
           {page === "assets" && (
             <AssetsHubPage
               key={`assets-${assetsView}`}

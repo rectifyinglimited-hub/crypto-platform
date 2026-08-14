@@ -1827,7 +1827,7 @@ function ActionBtn({ icon: Icon, label, onClick }) {
 
 function OverviewSection({ total, accounts, onOpenDeposit, onOpenWithdraw, onTransfer, onConvert }) {
   const DIST = [
-    { key: "nft", label: "NFT" },
+    { key: "funding", label: "Funding" },
     { key: "spot", label: "Spot" },
     { key: "contract", label: "Contract" },
     { key: "delivery", label: "Delivery" },
