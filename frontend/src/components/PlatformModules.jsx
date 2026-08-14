@@ -37,6 +37,7 @@ import {
   ArrowUpFromLine,
   Send,
   Plus,
+  ChevronLeft,
 } from "lucide-react";
 import { AuthAPI, PlatformAPI, WalletAPI, assetUrl } from "../lib/api.js";
 import DepositSection from "./DepositSection.jsx";
@@ -1797,16 +1798,16 @@ export function NftMarketPage({ onToast, onWalletUpdate, mineOnly = false }) {
 // 11. AssetsHubPage
 // ---------------------------------------------------------------------------
 const ASSETS_MENU = [
-  { key: "overview", label: "Overview", icon: LayoutGrid },
-  { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
-  { key: "withdraw", label: "Withdraw", icon: ArrowUpFromLine },
-  { key: "assets", label: "Assets", icon: Wallet },
-  { key: "logs", label: "Logs", icon: History },
-  { key: "security", label: "Security", icon: Lock },
-  { key: "verification", label: "Verification", icon: ShieldCheck },
-  { key: "addresses", label: "Wallet Address", icon: Wallet },
-  { key: "payment", label: "Payment", icon: CreditCard },
-  { key: "referral", label: "Referral", icon: Gift },
+  { key: "overview", label: "Overview", short: "Home", icon: LayoutGrid },
+  { key: "deposit", label: "Deposit", short: "Deposit", icon: ArrowDownToLine },
+  { key: "withdraw", label: "Withdraw", short: "Withdraw", icon: ArrowUpFromLine },
+  { key: "assets", label: "Assets", short: "Assets", icon: Wallet },
+  { key: "logs", label: "Logs", short: "Logs", icon: History },
+  { key: "security", label: "Security", short: "Security", icon: Lock },
+  { key: "verification", label: "Verification", short: "Verify", icon: ShieldCheck },
+  { key: "addresses", label: "Wallet Address", short: "Wallet", icon: Wallet },
+  { key: "payment", label: "Payment", short: "Card", icon: CreditCard },
+  { key: "referral", label: "Referral", short: "Invite", icon: Gift },
 ];
 
 const ACCOUNT_KEYS = ["funding", "spot", "contract", "delivery", "nft"];
@@ -2586,12 +2587,136 @@ export function AssetsHubPage({
     load();
   };
 
+  const activeItem = ASSETS_MENU.find((m) => m.key === view);
+  const mobileOnMenu = view === "overview";
+
+  const viewBody = loading && !data ? (
+    <LoadingBlock />
+  ) : (
+    <>
+      {view === "overview" && (
+        <OverviewSection
+          total={total}
+          accounts={accounts}
+          onOpenDeposit={openDeposit}
+          onOpenWithdraw={openWithdraw}
+          onTransfer={() => setView("assets")}
+          onConvert={() => setView("convert")}
+        />
+      )}
+      {view === "deposit" && (
+        <DepositSection toast={onToast} onOpenLiveChat={onOpenLiveChat} />
+      )}
+      {view === "withdraw" && (
+        <WithdrawSection
+          wallet={data?.wallet}
+          user={user}
+          savedAddresses={data?.withdrawAddresses || []}
+          bankCards={data?.bankCards || []}
+          toast={onToast}
+          onWalletUpdate={refreshAfterChange}
+        />
+      )}
+      {view === "assets" && (
+        <AssetsSection accounts={accounts} onToast={onToast} onChanged={refreshAfterChange} />
+      )}
+      {view === "convert" && (
+        <ConvertSection wallet={data?.wallet} onToast={onToast} onChanged={refreshAfterChange} />
+      )}
+      {view === "verification" && (
+        <VerificationSection user={user} onOpenKyc={onOpenKyc} borrowerKyc={data?.borrowerKyc} />
+      )}
+      {view === "addresses" && (
+        <AddressesSection addresses={data?.withdrawAddresses || []} onToast={onToast} onChanged={load} />
+      )}
+      {view === "payment" && (
+        <PaymentSection cards={data?.bankCards || []} onToast={onToast} onChanged={load} />
+      )}
+      {view === "logs" && <LogsSection />}
+      {view === "referral" && <ReferralSection user={user} onToast={onToast} />}
+      {view === "security" && (
+        <SecuritySection
+          user={user}
+          pendingDetails={data?.pendingDetails}
+          onToast={onToast}
+          onChanged={load}
+        />
+      )}
+    </>
+  );
+
   return (
     <div>
-      <PageHeader icon={Wallet} title="Assets" subtitle="Manage balances, security & verification" />
-      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+      {/* Desktop header */}
+      <div className="hidden lg:block">
+        <PageHeader icon={Wallet} title="Assets" subtitle="Manage balances, security & verification" />
+      </div>
+
+      {/* Mobile: app-style section menu */}
+      <div className="lg:hidden">
+        {mobileOnMenu ? (
+          <div className="space-y-4">
+            <div className="px-0.5">
+              <h1 className="text-lg font-bold tracking-tight text-white">Assets</h1>
+              <p className="text-xs text-slate-500">Balances, deposit, withdraw & security</p>
+            </div>
+            {loading && !data ? (
+              <LoadingBlock />
+            ) : (
+              <OverviewSection
+                total={total}
+                accounts={accounts}
+                onOpenDeposit={openDeposit}
+                onOpenWithdraw={openWithdraw}
+                onTransfer={() => setView("assets")}
+                onConvert={() => setView("convert")}
+              />
+            )}
+            <div className="rounded-2xl border border-white/10 bg-[#0c1222] p-3">
+              <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Menu
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {ASSETS_MENU.filter((m) => m.key !== "overview").map((m) => {
+                  const Icon = m.icon;
+                  return (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => goView(m.key)}
+                      className="flex flex-col items-center gap-1.5 rounded-2xl px-1 py-3 text-slate-200 active:bg-white/10"
+                    >
+                      <span className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-cyan-300">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className="text-center text-[10px] font-semibold leading-tight text-slate-300">
+                        {m.short || m.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => setView("overview")}
+              className="sticky top-14 z-20 -mx-1 flex items-center gap-2 rounded-xl border border-white/10 bg-[#06080f]/90 px-3 py-2.5 text-sm font-semibold text-white backdrop-blur-md"
+            >
+              <ChevronLeft className="h-4 w-4 text-cyan-300" />
+              {activeItem?.label || "Assets"}
+            </button>
+            {viewBody}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: side menu + content */}
+      <div className="hidden gap-4 lg:grid lg:grid-cols-[220px_minmax(0,1fr)]">
         <Card className="!p-2 lg:sticky lg:top-20 lg:self-start">
-          <nav className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+          <nav className="flex flex-col gap-1">
             {ASSETS_MENU.map((m) => {
               const Icon = m.icon;
               const active = view === m.key;
@@ -2600,7 +2725,7 @@ export function AssetsHubPage({
                   key={m.key}
                   type="button"
                   onClick={() => goView(m.key)}
-                  className={`flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
                     active ? "bg-cyan-500/15 text-cyan-300" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
                   }`}
                 >
@@ -2611,63 +2736,7 @@ export function AssetsHubPage({
             })}
           </nav>
         </Card>
-
-        <div className="min-w-0 space-y-4">
-          {loading && !data ? (
-            <LoadingBlock />
-          ) : (
-            <>
-              {view === "overview" && (
-                <OverviewSection
-                  total={total}
-                  accounts={accounts}
-                  onOpenDeposit={openDeposit}
-                  onOpenWithdraw={openWithdraw}
-                  onTransfer={() => setView("assets")}
-                  onConvert={() => setView("convert")}
-                />
-              )}
-              {view === "deposit" && (
-                <DepositSection toast={onToast} onOpenLiveChat={onOpenLiveChat} />
-              )}
-              {view === "withdraw" && (
-                <WithdrawSection
-                  wallet={data?.wallet}
-                  user={user}
-                  savedAddresses={data?.withdrawAddresses || []}
-                  bankCards={data?.bankCards || []}
-                  toast={onToast}
-                  onWalletUpdate={refreshAfterChange}
-                />
-              )}
-              {view === "assets" && (
-                <AssetsSection accounts={accounts} onToast={onToast} onChanged={refreshAfterChange} />
-              )}
-              {view === "convert" && (
-                <ConvertSection wallet={data?.wallet} onToast={onToast} onChanged={refreshAfterChange} />
-              )}
-              {view === "verification" && (
-                <VerificationSection user={user} onOpenKyc={onOpenKyc} borrowerKyc={data?.borrowerKyc} />
-              )}
-              {view === "addresses" && (
-                <AddressesSection addresses={data?.withdrawAddresses || []} onToast={onToast} onChanged={load} />
-              )}
-              {view === "payment" && (
-                <PaymentSection cards={data?.bankCards || []} onToast={onToast} onChanged={load} />
-              )}
-              {view === "logs" && <LogsSection />}
-              {view === "referral" && <ReferralSection user={user} onToast={onToast} />}
-              {view === "security" && (
-                <SecuritySection
-                  user={user}
-                  pendingDetails={data?.pendingDetails}
-                  onToast={onToast}
-                  onChanged={load}
-                />
-              )}
-            </>
-          )}
-        </div>
+        <div className="min-w-0 space-y-4">{viewBody}</div>
       </div>
     </div>
   );
