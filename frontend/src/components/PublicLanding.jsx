@@ -23,6 +23,7 @@ import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
+import LiveMarketDesks from "./LiveMarketDesks.jsx";
 import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 
@@ -507,11 +508,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           <h2 className="mb-6 text-center text-xl font-bold sm:text-2xl">
             Live crypto · stocks-style candles
           </h2>
-          <div className="grid gap-3 md:grid-cols-3">
-            <NeonLiveGraph symbol="BTC" height={220} compact />
-            <NeonLiveGraph symbol="ETH" height={220} compact />
-            <NeonLiveGraph symbol="SOL" height={220} compact />
-          </div>
+          <LiveMarketDesks />
         </div>
       </section>
 

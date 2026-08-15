@@ -24,6 +24,7 @@ import { SecondsTradeAPI } from "../lib/api.js";
 import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
+import LiveMarketDesks from "./LiveMarketDesks.jsx";
 
 const OVERVIEW_ASSETS = [
   { symbol: "BTC", name: "Bitcoin" },
@@ -628,11 +629,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
       {/* Live Market Overview */}
       <MarketOverviewGrid />
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <NeonLiveGraph symbol="BTC" height={220} compact />
-        <NeonLiveGraph symbol="ETH" height={220} compact />
-        <NeonLiveGraph symbol="SOL" height={220} compact />
-      </div>
+      <LiveMarketDesks />
 
       {/* Platform advantages */}
       <section>
