@@ -24,6 +24,9 @@ export const SOCIAL_LINKS = [
   },
 ];
 
-/** Looping market-desk clip for neon hero / VIP lounge. */
-export const HERO_VIDEO =
-  "https://videos.pexels.com/video-files/7578552/7578552-uhd_2560_1440_30fps.mp4";
+/** Bitcoin + chart loop for the main hero. */
+export const HERO_VIDEO = "/bg/hero-crypto.mp4";
+export const HERO_POSTER = "/bg/hero-exchange.jpg";
+/** Neon crypto-graphics loop for VIP / about / splash. */
+export const CRYPTO_VIDEO = "/bg/crypto-motion.mp4";
+export const CRYPTO_POSTER = "/bg/charts-desk.jpg";

@@ -5,11 +5,16 @@
 import { motion } from "framer-motion";
 import BrandLogo from "./BrandLogo.jsx";
 import VideoBackdrop from "./VideoBackdrop.jsx";
+import { CRYPTO_VIDEO, CRYPTO_POSTER } from "../lib/brand.js";
 
 export default function SplashScreen() {
   return (
     <div className="relative grid min-h-screen w-full place-items-center overflow-hidden text-white">
-      <VideoBackdrop overlayClassName="bg-black/80" />
+      <VideoBackdrop
+        src={CRYPTO_VIDEO}
+        poster={CRYPTO_POSTER}
+        overlayClassName="bg-black/80"
+      />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.88 }}

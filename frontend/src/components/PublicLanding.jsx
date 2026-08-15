@@ -271,38 +271,61 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </div>
 
-      {/* Hero */}
+      {/* Hero — crypto desk */}
       <section
         ref={heroRef}
-        className="relative min-h-[520px] overflow-hidden bg-[#081526] sm:min-h-[620px]"
+        className="relative min-h-[560px] overflow-hidden bg-black sm:min-h-[640px]"
       >
-        <VideoBackdrop overlayClassName="bg-gradient-to-r from-black via-black/80 to-black/30" />
-        <div className="relative mx-auto flex max-w-[1180px] flex-col justify-center px-4 py-16 sm:px-6 sm:py-24">
-          <motion.h1
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl"
-          >
-            Reliable trading partner
-          </motion.h1>
-          <p className="mt-3 text-base font-medium text-white/75 sm:text-lg">
-            Your success is in your hands
-          </p>
-          <div className="mt-7 flex flex-wrap gap-x-7 gap-y-3 text-[13px] font-semibold text-white/90">
-            <span className="inline-flex items-center gap-2">
-              <PiggyBank className="h-5 w-5 text-[#ffc107]" /> $10 min trade
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-[#ffc107]" /> up to 90% profit
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-[#ffc107]" /> 24/7 withdrawals
-            </span>
+        <VideoBackdrop overlayClassName="bg-gradient-to-r from-black via-black/82 to-black/35" />
+        <div className="relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr]">
+          <div>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#ffc107]/35 bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#ffc107]">
+              BTC · ETH · SOL
+            </div>
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl"
+            >
+              Reliable trading partner
+            </motion.h1>
+            <p className="mt-3 text-base font-medium text-white/75 sm:text-lg">
+              Your success is in your hands — live crypto markets, 24/7.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-x-7 gap-y-3 text-[13px] font-semibold text-white/90">
+              <span className="inline-flex items-center gap-2">
+                <PiggyBank className="h-5 w-5 text-[#ffc107]" /> $10 min trade
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-[#ffc107]" /> up to 90% profit
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-[#ffc107]" /> 24/7 withdrawals
+              </span>
+            </div>
+            <div className="mt-8">
+              <button type="button" onClick={onRegister} className={YELLOW_BTN}>
+                Try it
+              </button>
+            </div>
           </div>
-          <div className="mt-8">
-            <button type="button" onClick={onRegister} className={YELLOW_BTN}>
-              Try it
-            </button>
+          <div className="space-y-3">
+            <NeonLiveGraph symbol="BTC" />
+            <div className="grid grid-cols-3 gap-2">
+              {PAIRS.map((p) => (
+                <div
+                  key={p.symbol}
+                  className="rounded-xl border border-[#ffc107]/20 bg-black/50 px-3 py-2.5 text-center"
+                >
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#ffc107]">
+                    {p.symbol}/USDT
+                  </div>
+                  <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-white">
+                    {markets[p.symbol] ? formatPrice(markets[p.symbol]) : "—"}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -409,9 +432,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       {/* Community */}
       <section className="relative overflow-hidden bg-[#082032] py-16 sm:py-20">
         <img
-          src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1400&q=60"
+          src="/bg/charts-desk.jpg"
           alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-25"
+          className="absolute inset-0 h-full w-full object-cover opacity-40"
         />
         <div className="absolute inset-0 bg-[#07111f]/70" />
         <div className="relative mx-auto max-w-[1180px] px-4 text-center sm:px-6">
@@ -454,8 +477,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">VIP status, VIP services</h2>
           <div className="mb-8 flex justify-center">
             <img
-              src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=240&h=240&q=70"
-              alt=""
+              src="/bg/hero-exchange.jpg"
+              alt="Bitcoin"
               className="h-28 w-28 rounded-full object-cover ring-4 ring-[#ffc107]/50"
             />
           </div>

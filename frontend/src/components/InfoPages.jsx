@@ -2,7 +2,7 @@ import { Headphones, ShieldCheck, Gift, UserRound, Crown, MessageCircle } from "
 import VideoBackdrop from "./VideoBackdrop.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import BrandLogo from "./BrandLogo.jsx";
-import { SOCIAL_LINKS } from "../lib/brand.js";
+import { SOCIAL_LINKS, CRYPTO_VIDEO, CRYPTO_POSTER } from "../lib/brand.js";
 
 const YELLOW_BTN =
   "inline-flex items-center justify-center gap-2 rounded-md bg-[#ffc107] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_0_28px_rgba(255,193,7,0.45)] transition hover:bg-[#ffd54f]";
@@ -11,7 +11,11 @@ export function AboutPage({ onCta, ctaLabel = "Open an account" }) {
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-[#ffc107]/20 px-5 py-12 sm:px-10">
-        <VideoBackdrop overlayClassName="bg-black/75" />
+        <VideoBackdrop
+          src={CRYPTO_VIDEO}
+          poster={CRYPTO_POSTER}
+          overlayClassName="bg-black/75"
+        />
         <div className="relative z-10 mx-auto max-w-2xl text-center">
           <BrandLogo className="mb-4 justify-center" />
           <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">About us</h1>
@@ -50,7 +54,11 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-[#ffc107]/20 px-5 py-12 sm:px-10">
-        <VideoBackdrop overlayClassName="bg-black/78" />
+        <VideoBackdrop
+          src={CRYPTO_VIDEO}
+          poster={CRYPTO_POSTER}
+          overlayClassName="bg-black/78"
+        />
         <div className="relative z-10 mx-auto max-w-xl text-center">
           <Headphones className="mx-auto h-10 w-10 text-[#ffc107]" />
           <h1 className="mt-3 text-3xl font-extrabold">Contact support</h1>
@@ -92,7 +100,11 @@ export function VipPage({ user, onCta, onSupport }) {
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-[#ffc107]/35 px-5 py-12 shadow-[0_0_50px_rgba(255,193,7,0.12)] sm:px-10">
-        <VideoBackdrop overlayClassName="bg-gradient-to-r from-black via-black/82 to-black/50" />
+        <VideoBackdrop
+          src={CRYPTO_VIDEO}
+          poster={CRYPTO_POSTER}
+          overlayClassName="bg-gradient-to-r from-black via-black/82 to-black/50"
+        />
         <div className="relative z-10 grid items-center gap-8 lg:grid-cols-2">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[#ffc107]/40 bg-[#ffc107]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#ffc107]">
