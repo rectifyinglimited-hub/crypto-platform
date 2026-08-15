@@ -14,8 +14,6 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot,
-  Sparkles,
-  TrendingUp,
   Clock,
   Loader2,
   CheckCircle2,
@@ -27,6 +25,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { StakingAPI } from "../lib/api.js";
+import BrandLogo from "./BrandLogo.jsx";
 
 // ---------------------------------------------------------------------------
 // Fallback tier catalog — used if the API request fails.
@@ -555,7 +554,7 @@ export default function QuantBot({ user, onUserUpdate, toast }) {
 
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-300" />
+          <BrandLogo variant="mark" imgClassName="h-5 w-5" />
           <h2 className="text-sm font-semibold tracking-tight">
             Quant Bot Tiers
           </h2>

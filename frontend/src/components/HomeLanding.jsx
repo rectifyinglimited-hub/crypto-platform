@@ -7,7 +7,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles,
   ShieldCheck,
   CandlestickChart,
   Zap,

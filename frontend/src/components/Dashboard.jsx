@@ -20,7 +20,6 @@ import {
   LogOut,
   Bell,
   Search,
-  Sparkles,
   RefreshCw,
   Coins,
   BarChart3,

@@ -17,9 +17,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  Sparkles,
 } from "lucide-react";
 import { AuthAPI, setToken } from "../lib/api.js";
+import BrandLogo from "./BrandLogo.jsx";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -132,9 +132,7 @@ export default function SignIn({ onSignInSuccess, onSwitchToSignUp }) {
             <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-transparent to-emerald-400/10 opacity-60 blur-xl" />
             <div className="relative">
               <div className="mb-6 flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-400 shadow-lg shadow-indigo-500/25">
-                  <Sparkles className="h-4 w-4 text-white" />
-                </div>
+                <BrandLogo variant="mark" imgClassName="h-10 w-10" />
                 <div>
                   <h1 className="text-lg font-semibold tracking-tight">
                     Welcome back

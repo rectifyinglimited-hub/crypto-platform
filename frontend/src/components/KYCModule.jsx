@@ -29,6 +29,7 @@ import {
   SwitchCamera,
 } from "lucide-react";
 import { KycAPI } from "../lib/api.js";
+import BrandLogo from "./BrandLogo.jsx";
 
 const DOC_TYPES = [
   { value: "ID", label: "National ID Card" },
@@ -446,9 +447,7 @@ export default function KYCModule({ user, open, onClose, onUpdated }) {
             <div className="relative">
               <div className="mb-4 flex items-start justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-400 shadow-lg shadow-indigo-500/25">
-                    <ShieldCheck className="h-4 w-4 text-white" />
-                  </div>
+                  <BrandLogo variant="mark" imgClassName="h-9 w-9" />
                   <div>
                     <h2 className="text-base font-semibold tracking-tight">
                       Identity Verification

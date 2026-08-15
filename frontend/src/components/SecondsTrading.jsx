@@ -10,10 +10,10 @@ import {
   TrendingDown,
   Timer,
   Loader2,
-  Sparkles,
   Ban,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
+import BrandLogo from "./BrandLogo.jsx";
 import { onSocketEvent } from "../lib/socket.js";
 import { WATCHLIST_CRYPTO } from "./CryptoWatchlist.jsx";
 import FuturesChart from "./FuturesChart.jsx";
@@ -618,7 +618,7 @@ export default function SecondsTrading({
               {Number(walletUsdt) < 0 ? "-" : ""}$
               {formatUsd(Math.abs(Number(walletUsdt) || 0))}
             </div>
-            <Sparkles className="mb-1 h-3.5 w-3.5 shrink-0 text-cyan-400/70" />
+            <BrandLogo variant="mark" imgClassName="h-5 w-5 mb-1 shrink-0" />
           </div>
           <div className="mt-0.5 text-[10px] text-slate-500">
             USDT · wins included · use until 0

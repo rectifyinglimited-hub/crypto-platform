@@ -15,7 +15,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles,
   ArrowUpRight,
   ArrowDownRight,
   Search,
@@ -49,6 +48,7 @@ import {
 } from "lucide-react";
 
 import { AuthAPI, setToken } from "../lib/api.js";
+import BrandLogo from "./BrandLogo.jsx";
 
 // ---------------------------------------------------------------------------
 // Theme tokens — single source of truth for the dark / light palettes
@@ -252,9 +252,7 @@ const TopNav = ({ onSignIn, onSignUp, authed, t, theme, onToggleTheme }) => (
   >
     <div className="flex h-12 items-center gap-4 px-4">
       <div className="flex items-center gap-2">
-        <div className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-indigo-500 to-emerald-400 shadow-md shadow-indigo-500/25">
-          <Sparkles className="h-3.5 w-3.5 text-white" />
-        </div>
+        <BrandLogo variant="mark" imgClassName="h-7 w-7 rounded-md" />
         <span className="text-sm font-bold tracking-tight">Binomo</span>
         <span
           className="hidden text-[10px] font-medium uppercase tracking-widest sm:inline"

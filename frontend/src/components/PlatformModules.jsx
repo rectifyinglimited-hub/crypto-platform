@@ -27,7 +27,6 @@ import {
   AlertTriangle,
   Upload,
   FileCheck,
-  Sparkles,
   LayoutGrid,
   History,
   Lock,
@@ -43,6 +42,7 @@ import { AuthAPI, PlatformAPI, WalletAPI, assetUrl } from "../lib/api.js";
 import DepositSection from "./DepositSection.jsx";
 import WithdrawSection, { NetworkLogo } from "./WithdrawSection.jsx";
 import CopyTradeModule from "./CopyTradeModule.jsx";
+import BrandLogo from "./BrandLogo.jsx";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -1750,7 +1750,9 @@ export function NftMarketPage({ onToast, onWalletUpdate, mineOnly = false }) {
               <div className="p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="truncate text-sm font-semibold text-white">{it.title}</span>
-                  {it.featured && <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
+                  {it.featured && (
+                    <BrandLogo variant="mark" imgClassName="h-5 w-5 shrink-0" />
+                  )}
                 </div>
                 <div className="mb-3 text-[11px] text-slate-500">
                   {it.meta?.rarity} · {it.meta?.collection}

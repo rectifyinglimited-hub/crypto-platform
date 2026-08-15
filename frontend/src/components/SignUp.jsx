@@ -25,12 +25,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  Sparkles,
   ShieldCheck,
   Ticket,
 } from "lucide-react";
 
 import { AuthAPI, setToken } from "../lib/api.js";
+import BrandLogo from "./BrandLogo.jsx";
 
 // ---------------------------------------------------------------------------
 // Static
@@ -466,9 +466,8 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
                   initial={{ rotate: -12, scale: 0.6, opacity: 0 }}
                   animate={{ rotate: 0, scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                  className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-400 shadow-lg shadow-indigo-500/25"
                 >
-                  <Sparkles className="h-4.5 w-4.5 text-white" />
+                  <BrandLogo variant="mark" imgClassName="h-10 w-10" />
                 </motion.div>
                 <div>
                   <h1 className="text-lg font-semibold tracking-tight">
