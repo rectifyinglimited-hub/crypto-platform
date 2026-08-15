@@ -167,6 +167,12 @@ const UserSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    /** Admin-granted VIP lounge on the user desk */
+    vipStatus: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     /** Profile picture as data URL (base64) or absolute image URL */
     avatar: {
       type: String,

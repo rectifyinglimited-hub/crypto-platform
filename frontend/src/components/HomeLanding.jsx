@@ -21,6 +21,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
+import VideoBackdrop from "./VideoBackdrop.jsx";
+import BrandLogo from "./BrandLogo.jsx";
+import NeonLiveGraph from "./NeonLiveGraph.jsx";
 
 const OVERVIEW_ASSETS = [
   { symbol: "BTC", name: "Bitcoin" },
@@ -550,21 +553,11 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
   return (
     <div className="space-y-6 md:space-y-8">
       {/* Hero — brand-first, no auth CTAs */}
-      <section className="nx-bg-panel relative overflow-hidden rounded-2xl border border-white/10 px-5 py-8 shadow-panel sm:px-8 sm:py-10 md:px-10 md:py-12">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-teal-500/15 blur-3xl" />
-          <div className="absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
-        </div>
-
-        <div className="relative z-10 mx-auto max-w-3xl text-center md:text-left">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300 ring-1 ring-cyan-400/25"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Binomo
-          </motion.div>
+      <section className="relative overflow-hidden rounded-2xl border border-[#ffc107]/20 px-5 py-8 shadow-[0_0_40px_rgba(255,193,7,0.08)] sm:px-8 sm:py-10 md:px-10 md:py-12">
+        <VideoBackdrop overlayClassName="bg-gradient-to-r from-black via-black/78 to-black/45" />
+        <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-8 md:grid-cols-[1.1fr_0.9fr] md:text-left">
+        <div className="text-center md:text-left">
+          <BrandLogo className="mb-4 justify-center md:justify-start" />
 
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
@@ -606,7 +599,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
             <button
               type="button"
               onClick={onStartTrading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-400"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#ffc107] px-5 py-3 text-sm font-bold text-[#1a1400] shadow-[0_0_24px_rgba(255,193,7,0.4)] transition hover:bg-[#ffd54f]"
             >
               Open Trading Terminal
               <ArrowRight className="h-4 w-4" />
@@ -635,6 +628,8 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
               </div>
             </div>
           </div>
+        </div>
+        <NeonLiveGraph symbol="BTC" />
         </div>
       </section>
 

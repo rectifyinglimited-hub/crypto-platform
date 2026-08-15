@@ -287,6 +287,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [botBusy, setBotBusy] = useState(false);
   const [forceBusy, setForceBusy] = useState(false);
   const [forcePct, setForcePct] = useState("85");
+  const [vipBusy, setVipBusy] = useState(false);
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
@@ -529,6 +530,24 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     }
   };
 
+  const onVip = async (vip) => {
+    setVipBusy(true);
+    try {
+      const res = await AdminAPI.setUserVip(userId, vip);
+      toastRef.current?.(
+        "success",
+        res.message || (vip ? "VIP granted." : "VIP revoked.")
+      );
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setVipBusy(false);
+    }
+  };
+
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-slate-400">
@@ -650,6 +669,40 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             }`}
           >
             {u?.tradingAllowed === false ? "Trading blocked" : "Trading allowed"}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-[#ffc107]/35 bg-[#ffc107]/5 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffc107]">
+            VIP lounge
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Grant VIP so this user sees the neon VIP desk, perks, and live graph lounge.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={vipBusy || u?.vipStatus}
+              onClick={() => onVip(true)}
+              className="rounded-xl bg-[#ffc107] px-3 py-2 text-xs font-bold uppercase tracking-wide text-[#1a1400] disabled:opacity-40"
+            >
+              Grant VIP
+            </button>
+            <button
+              type="button"
+              disabled={vipBusy || !u?.vipStatus}
+              onClick={() => onVip(false)}
+              className="rounded-xl border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-300 disabled:opacity-40"
+            >
+              Revoke VIP
+            </button>
+          </div>
+          <div
+            className={`mt-2 text-[10px] font-semibold uppercase tracking-wider ${
+              u?.vipStatus ? "text-[#ffc107]" : "text-slate-500"
+            }`}
+          >
+            {u?.vipStatus ? "VIP active on user side" : "Standard account"}
           </div>
         </div>
 

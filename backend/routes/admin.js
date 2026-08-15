@@ -705,6 +705,50 @@ router.put(
 );
 
 // ---------------------------------------------------------------------------
+// VIP STATUS — grant / revoke lounge on the user desk
+// ---------------------------------------------------------------------------
+router.put(
+  "/users/:id/vip",
+  requireDatabase,
+  [
+    body("vip").exists().withMessage("vip is required."),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user id.",
+      });
+    }
+
+    const scoped = await assertTenantUser(req, id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
+        success: false,
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
+      });
+    }
+    const user = scoped.user;
+    user.vipStatus = Boolean(req.body.vip);
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: user.vipStatus
+        ? "VIP granted — user lounge unlocked."
+        : "VIP revoked.",
+      user,
+    });
+  })
+);
+
+// ---------------------------------------------------------------------------
 // TRANSACTIONS
 // ---------------------------------------------------------------------------
 router.get(
@@ -1207,6 +1251,7 @@ router.get(
         adminId: user.adminId || null,
         banned: user.banned,
         tradingAllowed: user.tradingAllowed !== false,
+        vipStatus: Boolean(user.vipStatus),
         tradeControlState: user.tradeControlState,
         tradeControlPercentage: user.tradeControlPercentage,
         aiBotActive: !!user.aiBotActive,

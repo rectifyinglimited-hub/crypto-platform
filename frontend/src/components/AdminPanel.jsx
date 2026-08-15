@@ -3006,8 +3006,8 @@ export default function AdminPanel({ user, onExit }) {
         {/* Sidebar */}
         <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-slate-900/40 p-5 backdrop-blur-sm md:block">
           <div className="mb-6 flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-400 shadow-lg shadow-indigo-500/25">
-              <Sparkles className="h-4 w-4 text-white" />
+            <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl">
+              <img src="/brand/logo-mark.png" alt="Binomo" className="h-9 w-9 object-cover" />
             </div>
             <div>
               <div className="text-sm font-semibold tracking-tight">Binomo</div>

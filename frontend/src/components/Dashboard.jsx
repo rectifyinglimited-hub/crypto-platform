@@ -58,6 +58,7 @@ import TradeHistory from "./TradeHistory.jsx";
 import ProfileSetup from "./ProfileSetup.jsx";
 import DepositSection from "./DepositSection.jsx";
 import WithdrawSection from "./WithdrawSection.jsx";
+import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 import { AuthAPI, WalletAPI, SecondsTradeAPI, clearToken } from "../lib/api.js";
 import { getSocket, onSocketEvent, disconnectSocket } from "../lib/socket.js";
 
@@ -1354,6 +1355,25 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               <button type="button" onClick={() => setKycOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/25 bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-200">
                 <ShieldCheck className="h-4 w-4" /> Identity Verification (ID Card / License)
               </button>
+            </motion.div>
+          )}
+          {page === "about" && (
+            <motion.div key="about" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-4xl">
+              <AboutPage onCta={() => goPage("trade")} ctaLabel="Open Trade desk" />
+            </motion.div>
+          )}
+          {page === "contact" && (
+            <motion.div key="contact" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl">
+              <ContactPage onSupport={() => openLiveChat("service")} ctaLabel="Open Live Chat" />
+            </motion.div>
+          )}
+          {page === "vip" && (
+            <motion.div key="vip" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-5xl">
+              <VipPage
+                user={me}
+                onCta={() => goPage("trade")}
+                onSupport={() => openLiveChat("service")}
+              />
             </motion.div>
           )}
         </AnimatePresence>

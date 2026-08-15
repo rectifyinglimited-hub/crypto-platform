@@ -22,6 +22,11 @@ import {
   Radio,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
+import BrandLogo from "./BrandLogo.jsx";
+import SiteFooter from "./SiteFooter.jsx";
+import VideoBackdrop from "./VideoBackdrop.jsx";
+import NeonLiveGraph from "./NeonLiveGraph.jsx";
+import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 
 const PAIRS = [
   { symbol: "BTC", name: "Bitcoin" },
@@ -151,33 +156,45 @@ const STEPS = [
 export default function PublicLanding({ onSignIn, onRegister }) {
   const { markets, connected } = useLivePrices();
   const [navOpen, setNavOpen] = useState(false);
+  const [view, setView] = useState("home");
   const heroRef = useRef(null);
 
   const go = (id) => {
     setNavOpen(false);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    if (id === "about" || id === "contact" || id === "vip") {
+      setView(id);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setView("home");
+    setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    }, 40);
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-[#07111f] text-white">
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#05070c] text-white">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07111f]/95 backdrop-blur-md">
         <div className="mx-auto flex h-[58px] max-w-[1180px] items-center justify-between gap-3 px-4 sm:px-6">
-          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-md bg-[#ffc107] text-sm font-black text-[#1a1400]">
-              B
-            </div>
-            <span className="text-lg font-extrabold tracking-tight">Binomo</span>
-          </button>
+          <BrandLogo
+            onClick={() => {
+              setView("home");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
           <nav className="hidden items-center gap-6 text-[13px] font-semibold text-white/80 md:flex">
             <button type="button" onClick={() => go("trading")} className="hover:text-white">
               Trading
             </button>
-            <button type="button" onClick={() => go("traders")} className="hover:text-white">
-              For traders
+            <button type="button" onClick={() => go("about")} className="hover:text-white">
+              About us
             </button>
-            <button type="button" onClick={() => go("help")} className="hover:text-white">
-              Help
+            <button type="button" onClick={() => go("vip")} className="hover:text-white">
+              VIP
+            </button>
+            <button type="button" onClick={() => go("contact")} className="hover:text-white">
+              Contact
             </button>
           </nav>
           <div className="flex items-center gap-2">
@@ -203,7 +220,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
         {navOpen && (
           <div className="border-t border-white/10 px-4 py-3 md:hidden">
-            {["trading", "traders", "help"].map((id) => (
+            {["trading", "about", "vip", "contact"].map((id) => (
               <button
                 key={id}
                 type="button"
@@ -220,6 +237,22 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         )}
       </header>
 
+      {view !== "home" && (
+        <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6">
+          {view === "about" && (
+            <AboutPage onCta={onRegister} ctaLabel="Sign up" />
+          )}
+          {view === "contact" && (
+            <ContactPage onSupport={onSignIn} ctaLabel="Sign in for Live Chat" />
+          )}
+          {view === "vip" && (
+            <VipPage onCta={onRegister} onSupport={onSignIn} />
+          )}
+        </div>
+      )}
+
+      {view === "home" && (
+      <>
       {/* Live strip */}
       <div className="border-b border-white/5 bg-[#0a1829]">
         <div className="mx-auto flex max-w-[1180px] items-center gap-4 overflow-x-auto px-4 py-2 text-[11px] sm:px-6">
@@ -243,12 +276,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         ref={heroRef}
         className="relative min-h-[520px] overflow-hidden bg-[#081526] sm:min-h-[620px]"
       >
-        <img
-          src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1600&q=70"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover object-[center_20%] opacity-50"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#07111f] via-[#07111f]/85 to-[#07111f]/25" />
+        <VideoBackdrop overlayClassName="bg-gradient-to-r from-black via-black/80 to-black/30" />
         <div className="relative mx-auto flex max-w-[1180px] flex-col justify-center px-4 py-16 sm:px-6 sm:py-24">
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
@@ -469,25 +497,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               </span>
             </div>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-[#0c1a2e] p-4">
-            <div className="rounded-xl bg-[#07111f] p-4">
-              <div className="mb-3 flex items-center justify-between text-xs">
-                <span className="font-bold">BTC/USDT</span>
-                <span className="tabular-nums text-emerald-400">
-                  {markets.BTC ? formatPrice(markets.BTC) : "—"}
-                </span>
-              </div>
-              <div className="flex h-28 items-end gap-1">
-                {Array.from({ length: 24 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`flex-1 rounded-sm ${i % 3 === 0 ? "bg-rose-400/70" : "bg-emerald-400/70"}`}
-                    style={{ height: `${30 + ((i * 17) % 70)}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+          <NeonLiveGraph symbol="BTC" />
         </div>
       </section>
 
@@ -520,53 +530,10 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 bg-[#050d18] py-12">
-        <div className="mx-auto grid max-w-[1180px] gap-8 px-4 sm:grid-cols-4 sm:px-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="grid h-8 w-8 place-items-center rounded-md bg-[#ffc107] text-sm font-black text-[#1a1400]">
-                B
-              </div>
-              <span className="text-lg font-extrabold">Binomo</span>
-            </div>
-            <p className="mt-3 text-xs leading-relaxed text-white/45">
-              Digital trading terminal. Invite-gated accounts. Trade · Deposit · Withdraw · Copy AI Bot.
-            </p>
-          </div>
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">Company</div>
-            <ul className="mt-3 space-y-1.5 text-sm text-white/70">
-              <li>About Binomo</li>
-              <li>Markets</li>
-              <li>Support chat</li>
-            </ul>
-          </div>
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">For traders</div>
-            <ul className="mt-3 space-y-1.5 text-sm text-white/70">
-              <li>Trade desk</li>
-              <li>Copy AI Bot</li>
-              <li>Loan</li>
-              <li>Assets</li>
-            </ul>
-          </div>
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">Legal</div>
-            <ul className="mt-3 space-y-1.5 text-sm text-white/70">
-              <li>Risk notice</li>
-              <li>Privacy</li>
-              <li>Terms</li>
-            </ul>
-          </div>
-        </div>
-        <p className="mx-auto mt-10 max-w-[1180px] px-4 text-[10px] leading-relaxed text-white/35 sm:px-6">
-          Trading involves substantial risk of loss. Past performance is not a guarantee of future results. Binomo is a private trading platform. Register only with a valid invitation code. Deposits and withdrawals require administrator verification.
-        </p>
-        <p className="mt-4 text-center text-[11px] text-white/30">
-          © {new Date().getFullYear()} Binomo
-        </p>
-      </footer>
+      </>
+      )}
+
+      <SiteFooter onNavigate={go} />
     </div>
   );
 }

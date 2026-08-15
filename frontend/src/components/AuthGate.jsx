@@ -4,9 +4,10 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import SignIn from "./SignIn.jsx";
 import SignUp from "./SignUp.jsx";
+import BrandLogo from "./BrandLogo.jsx";
 
 export default function AuthGate({
   onAuthSuccess,
@@ -43,9 +44,11 @@ export default function AuthGate({
           animate={{ opacity: 1, y: 0 }}
           className="mb-8 text-center"
         >
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-amber-500/30 to-emerald-500/20 ring-1 ring-white/10">
-            <Sparkles className="h-6 w-6 text-amber-200" />
-          </div>
+          <BrandLogo
+            variant="mark"
+            className="mb-4 justify-center"
+            imgClassName="mx-auto h-16 w-16 rounded-2xl object-cover shadow-[0_0_28px_rgba(255,193,7,0.45)]"
+          />
           <div className="font-display text-2xl font-bold tracking-tight text-white">
             Binomo
           </div>

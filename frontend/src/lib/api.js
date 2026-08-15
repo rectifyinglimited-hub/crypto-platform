@@ -214,6 +214,11 @@ export const AdminAPI = {
       .put(`/admin/users/${id}/chart-quote`, { quote: quote || null })
       .then((r) => r.data),
 
+  setUserVip: (id, vip) =>
+    api
+      .put(`/admin/users/${id}/vip`, { vip: Boolean(vip) })
+      .then((r) => r.data),
+
   setGlobalTradingAccess: (enabled) =>
     api
       .put("/admin/trading-access/global", { enabled: Boolean(enabled) })

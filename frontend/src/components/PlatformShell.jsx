@@ -19,8 +19,13 @@ import {
   X,
   ArrowDownToLine,
   ArrowUpFromLine,
+  Crown,
+  Headphones,
+  Info,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
+import BrandLogo from "./BrandLogo.jsx";
+import SiteFooter from "./SiteFooter.jsx";
 
 const TRADE_LINKS = [
   { key: "home", label: "Home", icon: Home },
@@ -31,6 +36,12 @@ const TRADE_LINKS = [
   { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
   { key: "withdraw", label: "Withdraw", icon: ArrowUpFromLine },
   { key: "assets", label: "Assets", icon: Wallet },
+  { key: "vip", label: "VIP", icon: Crown },
+];
+
+const MORE_LINKS = [
+  { key: "about", label: "About us", icon: Info },
+  { key: "contact", label: "Contact support", icon: Headphones },
 ];
 
 function NavLinks({ page, onPageChange }) {
@@ -60,7 +71,9 @@ function NavLinks({ page, onPageChange }) {
             onClick={() => onPageChange(item.key)}
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition lg:px-3.5 lg:text-sm ${
               active
-                ? "bg-cyan-500/15 text-cyan-300"
+                ? item.key === "vip"
+                  ? "bg-[#ffc107]/15 text-[#ffc107]"
+                  : "bg-cyan-500/15 text-cyan-300"
                 : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             }`}
           >
@@ -162,13 +175,8 @@ function MobileDrawer({
               {/* Header */}
               <div className="flex items-center justify-between gap-2 border-b border-white/8 px-4 py-3.5">
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-sm font-black text-slate-950 shadow-lg shadow-cyan-500/25">
-                    B
-                  </div>
+                  <BrandLogo variant="mark" imgClassName="h-9 w-9 rounded-lg object-cover" />
                   <div className="min-w-0">
-                    <div className="font-display text-sm font-bold tracking-tight text-white">
-                      Binomo
-                    </div>
                     <div className="truncate text-[10px] text-slate-500">
                       {displayName}
                     </div>
@@ -309,6 +317,36 @@ function MobileDrawer({
                     </button>
                   );
                 })}
+                <div className="mb-1.5 mt-3 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Company
+                </div>
+                {MORE_LINKS.map((item) => {
+                  const Icon = item.icon;
+                  const active = page === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => go(item.key)}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
+                        active
+                          ? "bg-[#ffc107]/15 text-[#ffc107]"
+                          : "text-slate-200 active:bg-white/5"
+                      }`}
+                    >
+                      <span
+                        className={`grid h-9 w-9 place-items-center rounded-xl ${
+                          active
+                            ? "bg-[#ffc107]/20 text-[#ffc107]"
+                            : "bg-white/[0.04] text-slate-400"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      {item.label}
+                    </button>
+                  );
+                })}
               </nav>
 
               {/* Footer actions */}
@@ -390,18 +428,10 @@ export default function PlatformShell({
             <Menu className="h-5 w-5" />
           </button>
 
-          <button
-            type="button"
+          <BrandLogo
             onClick={() => handlePageChange("home")}
-            className="flex shrink-0 items-center gap-2"
-          >
-            <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-sm font-black text-slate-950 shadow-glow">
-              B
-            </div>
-            <span className="hidden font-display text-base font-bold tracking-tight text-white sm:inline">
-              Binomo
-            </span>
-          </button>
+            imgClassName="h-7 w-auto max-w-[120px] object-contain object-left sm:h-8 sm:max-w-[148px]"
+          />
 
           <div className="hidden min-w-0 flex-1 md:block">
             <NavLinks page={page} onPageChange={handlePageChange} />
@@ -489,6 +519,7 @@ export default function PlatformShell({
       <main className="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
         {children}
       </main>
+      <SiteFooter onNavigate={handlePageChange} />
     </div>
   );
 }
