@@ -24,7 +24,6 @@ import {
 import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
-import VideoBackdrop from "./VideoBackdrop.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 
@@ -271,12 +270,17 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </div>
 
-      {/* Hero — crypto desk */}
+      {/* Hero — person photo + Binance candles */}
       <section
         ref={heroRef}
-        className="relative min-h-[560px] overflow-hidden bg-black sm:min-h-[640px]"
+        className="relative min-h-[560px] overflow-hidden bg-[#081526] sm:min-h-[640px]"
       >
-        <VideoBackdrop overlayClassName="bg-gradient-to-r from-black via-black/82 to-black/35" />
+        <img
+          src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1600&q=70"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#05070c] via-[#05070c]/88 to-[#05070c]/28" />
         <div className="relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#ffc107]/35 bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#ffc107]">
