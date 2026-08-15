@@ -1,5 +1,5 @@
 /**
- * Compact Binance-style candlestick preview (same colors as the trade desk).
+ * Binance-style candles that play like a looping video, then stay live.
  */
 import { useEffect, useRef, useState } from "react";
 import {
@@ -21,7 +21,11 @@ function formatPrice(n) {
   return v.toFixed(6);
 }
 
-export default function NeonLiveGraph({ symbol = "BTC", height = 220 }) {
+export default function NeonLiveGraph({
+  symbol = "BTC",
+  height = 220,
+  compact = false,
+}) {
   const wrapRef = useRef(null);
   const [price, setPrice] = useState(null);
   const [up, setUp] = useState(true);
@@ -34,24 +38,31 @@ export default function NeonLiveGraph({ symbol = "BTC", height = 220 }) {
     let series;
     let ws;
     let retry;
+    let play;
 
     const pair = toBinanceSymbol(symbol, "USDT");
 
     const boot = async () => {
       try {
-        const candles = await fetchKlines(pair, "15m", 80);
+        const candles = await fetchKlines(pair, "1m", 90);
         if (disposed || !candles.length) return;
-        const last = candles[candles.length - 1];
-        const first = candles[0];
+        const mapped = candles.map((c) => ({
+          time: c.time,
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        }));
+        const last = mapped[mapped.length - 1];
         setPrice(last.close);
-        setUp(last.close >= first.close);
+        setUp(last.close >= mapped[0].close);
 
         chart = createChart(el, {
           autoSize: true,
           layout: {
             background: { type: ColorType.Solid, color: BG },
             textColor: "#848e9c",
-            fontSize: 10,
+            fontSize: compact ? 9 : 10,
             fontFamily:
               "IBM Plex Sans, BinancePlex, -apple-system, sans-serif",
           },
@@ -59,20 +70,20 @@ export default function NeonLiveGraph({ symbol = "BTC", height = 220 }) {
             vertLines: { color: "rgba(255,255,255,0.05)" },
             horzLines: { color: "rgba(255,255,255,0.05)" },
           },
-          crosshair: { mode: CrosshairMode.Normal },
+          crosshair: { mode: CrosshairMode.Magnet },
           rightPriceScale: {
             borderColor: "rgba(255,255,255,0.08)",
-            scaleMargins: { top: 0.08, bottom: 0.12 },
+            scaleMargins: { top: 0.08, bottom: 0.1 },
           },
           timeScale: {
             borderColor: "rgba(255,255,255,0.08)",
-            timeVisible: true,
+            timeVisible: !compact,
             secondsVisible: false,
-            rightOffset: 2,
-            barSpacing: 8,
+            rightOffset: 3,
+            barSpacing: compact ? 6 : 8,
           },
-          handleScroll: false,
-          handleScale: false,
+          handleScroll: { mouseWheel: true, pressedMouseMove: true },
+          handleScale: { mouseWheel: true, pinch: true },
         });
         try {
           chart.applyOptions({ layout: { attributionLogo: false } });
@@ -87,16 +98,28 @@ export default function NeonLiveGraph({ symbol = "BTC", height = 220 }) {
           wickUpColor: UP,
           wickDownColor: DOWN,
         });
-        series.setData(
-          candles.map((c) => ({
-            time: c.time,
-            open: c.open,
-            high: c.high,
-            low: c.low,
-            close: c.close,
-          }))
-        );
+
+        const startCount = Math.min(18, mapped.length);
+        let idx = startCount;
+        series.setData(mapped.slice(0, startCount));
         chart.timeScale().fitContent();
+
+        const tick = () => {
+          if (disposed || !series) return;
+          if (idx >= mapped.length) {
+            idx = startCount;
+            series.setData(mapped.slice(0, startCount));
+          } else {
+            series.update(mapped[idx]);
+            idx += 1;
+          }
+          try {
+            chart.timeScale().scrollToRealTime();
+          } catch {
+            /* ignore */
+          }
+        };
+        play = setInterval(tick, 220);
 
         const connect = () => {
           try {
@@ -111,18 +134,10 @@ export default function NeonLiveGraph({ symbol = "BTC", height = 220 }) {
             try {
               const d = JSON.parse(ev.data);
               const close = Number(d?.c ?? d?.p);
-              if (!Number.isFinite(close) || !series) return;
+              if (!Number.isFinite(close)) return;
               setPrice(close);
-              const bar = candles[candles.length - 1];
-              if (!bar) return;
-              series.update({
-                time: bar.time,
-                open: bar.open,
-                high: Math.max(bar.high, close),
-                low: Math.min(bar.low, close),
-                close,
-              });
-              setUp(close >= bar.open);
+              const open = Number(d?.o);
+              setUp(Number.isFinite(open) ? close >= open : true);
             } catch {
               /* ignore */
             }
@@ -133,13 +148,14 @@ export default function NeonLiveGraph({ symbol = "BTC", height = 220 }) {
         };
         connect();
       } catch {
-        /* keep empty panel */
+        /* empty */
       }
     };
 
     boot();
     return () => {
       disposed = true;
+      clearInterval(play);
       clearTimeout(retry);
       try {
         ws?.close();
@@ -152,12 +168,13 @@ export default function NeonLiveGraph({ symbol = "BTC", height = 220 }) {
         /* ignore */
       }
     };
-  }, [symbol]);
+  }, [symbol, compact]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b0e11] p-3">
       <div className="mb-2 flex items-center justify-between text-xs">
-        <span className="font-bold tracking-wide text-white">
+        <span className="inline-flex items-center gap-1.5 font-bold tracking-wide text-white">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0ecb81]" />
           {symbol}/USDT
         </span>
         <span

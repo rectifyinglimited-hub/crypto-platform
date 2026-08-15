@@ -7,12 +7,10 @@ import { motion } from "framer-motion";
 import {
   ShieldCheck,
   Headphones,
-  Globe2,
   Wallet,
   Zap,
   Timer,
   Lock,
-  Smartphone,
   UserRound,
   Gift,
   Landmark,
@@ -25,6 +23,7 @@ import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
+import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 
 const PAIRS = [
@@ -270,17 +269,12 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </div>
 
-      {/* Hero — person photo + Binance candles */}
+      {/* Hero — person + 5 more slides, live looping candles */}
       <section
         ref={heroRef}
         className="relative min-h-[560px] overflow-hidden bg-[#081526] sm:min-h-[640px]"
       >
-        <img
-          src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1600&q=70"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#05070c] via-[#05070c]/88 to-[#05070c]/28" />
+        <HeroMediaSlider />
         <div className="relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#ffc107]/35 bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#ffc107]">
@@ -507,24 +501,17 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
-      {/* App / chart */}
-      <section className="bg-[#07111f] py-16 sm:py-20">
-        <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
-          <div>
-            <h2 className="text-2xl font-extrabold sm:text-3xl">Smart and simple chart</h2>
-            <p className="mt-3 text-sm leading-relaxed text-white/60">
-              Binance-style candles on Trade, live wallet + Live Earnings, and Force-ready settlement — the same desk you use after login.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3 text-xs font-semibold text-white/70">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1">
-                <Smartphone className="h-3.5 w-3.5 text-[#ffc107]" /> Mobile ready
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1">
-                <Globe2 className="h-3.5 w-3.5 text-[#ffc107]" /> Live markets
-              </span>
-            </div>
+      {/* Live looping desks */}
+      <section className="bg-[#07111f] py-12 sm:py-16">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
+          <h2 className="mb-6 text-center text-xl font-bold sm:text-2xl">
+            Live crypto · stocks-style candles
+          </h2>
+          <div className="grid gap-3 md:grid-cols-3">
+            <NeonLiveGraph symbol="BTC" height={180} compact />
+            <NeonLiveGraph symbol="ETH" height={180} compact />
+            <NeonLiveGraph symbol="SOL" height={180} compact />
           </div>
-          <NeonLiveGraph symbol="BTC" />
         </div>
       </section>
 

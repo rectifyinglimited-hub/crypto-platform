@@ -21,7 +21,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
-import VideoBackdrop from "./VideoBackdrop.jsx";
+import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 
@@ -554,7 +554,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
     <div className="space-y-6 md:space-y-8">
       {/* Hero — brand-first, no auth CTAs */}
       <section className="relative overflow-hidden rounded-2xl border border-[#ffc107]/20 px-5 py-8 shadow-[0_0_40px_rgba(255,193,7,0.08)] sm:px-8 sm:py-10 md:px-10 md:py-12">
-        <VideoBackdrop overlayClassName="bg-gradient-to-r from-black via-black/78 to-black/45" />
+        <HeroMediaSlider />
         <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-8 md:grid-cols-[1.1fr_0.9fr] md:text-left">
         <div className="text-center md:text-left">
           <BrandLogo className="mb-4 justify-center md:justify-start" />
@@ -627,6 +627,12 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
 
       {/* Live Market Overview */}
       <MarketOverviewGrid />
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <NeonLiveGraph symbol="BTC" height={170} compact />
+        <NeonLiveGraph symbol="ETH" height={170} compact />
+        <NeonLiveGraph symbol="SOL" height={170} compact />
+      </div>
 
       {/* Platform advantages */}
       <section>
