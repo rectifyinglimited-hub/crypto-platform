@@ -27,6 +27,7 @@ import {
 } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
 import BrandLogo from "./BrandLogo.jsx";
+import { COMPANY } from "../lib/brand.js";
 
 const POLL_MS = 8000;
 const OPEN_KEY = "nexus_chat_open";
@@ -64,6 +65,27 @@ const MENU_OPTIONS = [
     tone: "from-cyan-500/20 to-cyan-400/5 text-cyan-200 ring-cyan-400/30",
   },
 ];
+
+function localMsg(from, body) {
+  return {
+    _id: `local-${from}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    from,
+    body,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function infoDeskReply() {
+  return [
+    "Binomo support desk — here's our office and how to reach us:",
+    "",
+    COMPANY.legalName,
+    ...COMPANY.addressLines,
+    `Email: ${COMPANY.email}`,
+    "",
+    "Ask anything about accounts, deposits, VIP, or trading. Sign in if you want a manager to reply in this thread.",
+  ].join("\n");
+}
 
 const isPlaceholderMedia = (m) => {
   const hay = `${m?.attachmentUrl || ""} ${m?.body || ""}`;
@@ -104,10 +126,13 @@ export default function LiveChatWidget({
   onDepositSubmitted,
   onWalletUpdate,
   onToast,
+  onNeedAuth,
+  dockClass = "max-sm:bottom-20",
 }) {
   const userId = user?._id || user?.id;
 
   const [open, setOpen] = useState(() => {
+    if (!user?._id && !user?.id) return false;
     try {
       return localStorage.getItem(OPEN_KEY) === "1";
     } catch {
@@ -137,6 +162,12 @@ export default function LiveChatWidget({
     setStatusBanner(null);
     if (contextHint === "deposit") {
       setMenuStep("deposit");
+      if (!userId) {
+        setMessages((prev) =>
+          mergeMessages(prev, localMsg("admin", "Sign in to view deposit rails and send a receipt."))
+        );
+        return;
+      }
       // Load rails + post deposit details into thread
       (async () => {
         try {
@@ -155,18 +186,34 @@ export default function LiveChatWidget({
           /* local gateway panel still works */
         }
       })();
+    } else if (contextHint === "info" || contextHint === "service") {
+      setMenuStep(contextHint);
+      if (!userId) {
+        setMessages((prev) =>
+          mergeMessages(
+            prev,
+            localMsg(
+              "admin",
+              contextHint === "info"
+                ? infoDeskReply()
+                : "Customer Service is ready. Sign in so a manager can reply, or ask your question here first."
+            )
+          )
+        );
+      }
     } else {
       setMenuStep("menu");
     }
-  }, [openSignal, contextHint]);
+  }, [openSignal, contextHint, userId]);
 
   useEffect(() => {
+    if (!userId) return;
     try {
       localStorage.setItem(OPEN_KEY, open ? "1" : "0");
     } catch {
       /* ignore */
     }
-  }, [open]);
+  }, [open, userId]);
 
   const load = async () => {
     if (!userId) return;
@@ -274,6 +321,29 @@ export default function LiveChatWidget({
   const selectMenu = async (key) => {
     setMenuStep(key);
     setStatusBanner(null);
+    if (!userId) {
+      if (key === "info") {
+        setMessages((prev) => mergeMessages(prev, localMsg("admin", infoDeskReply())));
+      } else if (key === "service") {
+        setMessages((prev) =>
+          mergeMessages(
+            prev,
+            localMsg(
+              "admin",
+              "Ask your question here. Sign in when you want a manager to pick up this thread."
+            )
+          )
+        );
+      } else if (key === "deposit") {
+        setMessages((prev) =>
+          mergeMessages(
+            prev,
+            localMsg("admin", "Sign in to view the official deposit address and attach a receipt.")
+          )
+        );
+      }
+      return;
+    }
     if (key === "deposit") {
       await loadGateway();
       try {
@@ -361,6 +431,22 @@ export default function LiveChatWidget({
     const body = draft.trim();
     if (!body || sending) return;
     setSending(true);
+    if (!userId) {
+      setMessages((prev) =>
+        mergeMessages(prev, [
+          localMsg("user", body),
+          localMsg(
+            "admin",
+            menuStep === "info"
+              ? `${infoDeskReply()}\n\nWe received: “${body}”\nSign in so a manager can continue this conversation.`
+              : "Got it. Sign in to send this to a live manager — they reply in this same chat."
+          ),
+        ])
+      );
+      setDraft("");
+      setSending(false);
+      return;
+    }
     try {
       const res = await ChatAPI.send({ body });
       setMessages((prev) => mergeMessages(prev, res.message));
@@ -376,6 +462,11 @@ export default function LiveChatWidget({
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f || sending) return;
+    if (!userId) {
+      onNeedAuth?.();
+      setStatusBanner("Sign in to attach a receipt.");
+      return;
+    }
     if (!f.type?.startsWith("image/")) {
       setStatusBanner("Only image receipts are accepted.");
       return;
@@ -408,12 +499,10 @@ export default function LiveChatWidget({
     }
   };
 
-  if (!userId) return null;
-
   const depositAddr = gateway?.usdtTrc20Address;
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 max-sm:bottom-20">
+    <div className={`pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 ${dockClass}`}>
       <AnimatePresence>
         {open && (
           <motion.div
@@ -444,6 +533,16 @@ export default function LiveChatWidget({
                 <X className="h-4 w-4" />
               </button>
             </div>
+
+            {!userId && (
+              <button
+                type="button"
+                onClick={() => onNeedAuth?.()}
+                className="border-b border-[#ffc107]/20 bg-[#ffc107]/10 px-4 py-2 text-center text-[11px] font-semibold text-[#ffc107] hover:bg-[#ffc107]/15"
+              >
+                Sign in for a live manager reply
+              </button>
+            )}
 
             <div
               ref={listRef}
@@ -696,7 +795,7 @@ export default function LiveChatWidget({
         }}
         whileTap={{ scale: 0.94 }}
         whileHover={{ scale: 1.03 }}
-        className="pointer-events-auto relative grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-400 text-white shadow-2xl shadow-indigo-500/40"
+        className="pointer-events-auto relative grid h-12 w-12 place-items-center rounded-full bg-[#ffc107] text-black shadow-2xl shadow-[#ffc107]/40"
       >
         <MessageCircle className="h-5 w-5" />
         {!open && unread > 0 && (

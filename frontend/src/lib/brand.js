@@ -4,6 +4,17 @@ export const BRAND = {
   name: "Binomo",
 };
 
+export const COMPANY = {
+  legalName: "Dolphin Corp LLC",
+  email: "support@binomo.com",
+  addressLines: [
+    "Euro House, Richmond Hill Road",
+    "Kingstown, St. Vincent and Grenadines",
+  ],
+  copyrightFrom: 2014,
+  copyrightTo: 2026,
+};
+
 export const SOCIAL_LINKS = [
   {
     id: "facebook",

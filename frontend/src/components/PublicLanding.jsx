@@ -25,6 +25,7 @@ import SiteFooter from "./SiteFooter.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
 import HeroMediaSlider from "./HeroMediaSlider.jsx";
+import LiveChatWidget from "./LiveChatWidget.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 
 const PAIRS = [
@@ -156,7 +157,14 @@ export default function PublicLanding({ onSignIn, onRegister }) {
   const { markets, connected } = useLivePrices();
   const [navOpen, setNavOpen] = useState(false);
   const [view, setView] = useState("home");
+  const [chatHint, setChatHint] = useState("info");
+  const [chatOpenSignal, setChatOpenSignal] = useState(0);
   const heroRef = useRef(null);
+
+  const openChat = (hint = "info") => {
+    setChatHint(hint);
+    setChatOpenSignal((n) => n + 1);
+  };
 
   const go = (id) => {
     setNavOpen(false);
@@ -239,13 +247,17 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       {view !== "home" && (
         <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6">
           {view === "about" && (
-            <AboutPage onCta={onRegister} ctaLabel="Sign up" />
+            <AboutPage
+              onCta={onRegister}
+              onSupport={() => openChat("info")}
+              ctaLabel="Sign up"
+            />
           )}
           {view === "contact" && (
-            <ContactPage onSupport={onSignIn} ctaLabel="Sign in for Live Chat" />
+            <ContactPage onSupport={() => openChat("info")} ctaLabel="Open Live Chat" />
           )}
           {view === "vip" && (
-            <VipPage onCta={onRegister} onSupport={onSignIn} />
+            <VipPage onCta={onRegister} onSupport={() => openChat("info")} />
           )}
         </div>
       )}
@@ -544,7 +556,14 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </>
       )}
 
-      <SiteFooter onNavigate={go} />
+      <SiteFooter onNavigate={go} onOpenChat={openChat} />
+      <LiveChatWidget
+        user={null}
+        contextHint={chatHint}
+        openSignal={chatOpenSignal}
+        onNeedAuth={onSignIn}
+        dockClass="max-sm:bottom-4"
+      />
     </div>
   );
 }

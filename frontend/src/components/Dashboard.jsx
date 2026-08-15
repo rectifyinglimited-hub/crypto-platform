@@ -1235,7 +1235,10 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onOpenAccount={() => goPage("account")}
         onOpenKyc={() => setKycOpen(true)}
         onOpenDeposit={openDepositSection}
-        onOpenChat={() => openLiveChat("service")}
+        onOpenChat={(hint) => {
+          const h = typeof hint === "string" ? hint : "info";
+          openLiveChat(h === "deposit" ? "deposit" : h);
+        }}
         onNotificationSelect={(n) => {
           if (n?.type === "chat" || n?.meta?.kind === "chat") {
             openLiveChat("service");
@@ -1359,12 +1362,16 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           )}
           {page === "about" && (
             <motion.div key="about" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-4xl">
-              <AboutPage onCta={() => goPage("trade")} ctaLabel="Open Trade desk" />
+              <AboutPage
+                onCta={() => goPage("trade")}
+                onSupport={() => openLiveChat("info")}
+                ctaLabel="Open Trade desk"
+              />
             </motion.div>
           )}
           {page === "contact" && (
             <motion.div key="contact" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl">
-              <ContactPage onSupport={() => openLiveChat("service")} ctaLabel="Open Live Chat" />
+              <ContactPage onSupport={() => openLiveChat("info")} ctaLabel="Open Live Chat" />
             </motion.div>
           )}
           {page === "vip" && (
@@ -1372,7 +1379,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               <VipPage
                 user={me}
                 onCta={() => goPage("trade")}
-                onSupport={() => openLiveChat("service")}
+                onSupport={() => openLiveChat("info")}
               />
             </motion.div>
           )}

@@ -1,13 +1,13 @@
-import { Headphones, ShieldCheck, Gift, UserRound, Crown, MessageCircle } from "lucide-react";
+import { Headphones, ShieldCheck, Gift, UserRound, Crown, MessageCircle, MapPin, Mail } from "lucide-react";
 import VideoBackdrop from "./VideoBackdrop.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import BrandLogo from "./BrandLogo.jsx";
-import { SOCIAL_LINKS, CRYPTO_VIDEO, CRYPTO_POSTER } from "../lib/brand.js";
+import { SOCIAL_LINKS, CRYPTO_VIDEO, CRYPTO_POSTER, COMPANY } from "../lib/brand.js";
 
 const YELLOW_BTN =
   "inline-flex items-center justify-center gap-2 rounded-md bg-[#ffc107] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_0_28px_rgba(255,193,7,0.45)] transition hover:bg-[#ffd54f]";
 
-export function AboutPage({ onCta, ctaLabel = "Open an account" }) {
+export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-[#ffc107]/20 px-5 py-12 sm:px-10">
@@ -41,10 +41,20 @@ export function AboutPage({ onCta, ctaLabel = "Open an account" }) {
         ))}
       </div>
 
-      <div className="text-center">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <button type="button" onClick={onCta} className={YELLOW_BTN}>
           {ctaLabel}
         </button>
+        {onSupport && (
+          <button
+            type="button"
+            onClick={onSupport}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-[#ffc107]/40 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-[#ffc107] hover:bg-[#ffc107]/10"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Ask Live Chat
+          </button>
+        )}
       </div>
     </div>
   );
@@ -63,8 +73,9 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
           <Headphones className="mx-auto h-10 w-10 text-[#ffc107]" />
           <h1 className="mt-3 text-3xl font-extrabold">Contact support</h1>
           <p className="mt-3 text-sm text-white/70">
-            After you transfer funds, send the receipt screenshot in Live Chat.
-            Support replies land on the notification bell as well.
+            Questions, deposits, or VIP — open Live Chat and pick Information
+            to ask the desk. After a transfer, send the receipt screenshot in
+            the same thread.
           </p>
           <button type="button" onClick={onSupport} className={`${YELLOW_BTN} mt-6`}>
             <MessageCircle className="h-4 w-4" />
@@ -73,22 +84,49 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
         </div>
       </section>
 
-      <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">
-          Social
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">
+            Office
+          </div>
+          <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white/80">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#ffc107]" />
+            <p>
+              <span className="font-semibold text-white">{COMPANY.legalName}</span>
+              <br />
+              {COMPANY.addressLines.map((line) => (
+                <span key={line}>
+                  {line}
+                  <br />
+                </span>
+              ))}
+            </p>
+          </div>
+          <a
+            href={`mailto:${COMPANY.email}`}
+            className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#ffc107] hover:underline"
+          >
+            <Mail className="h-4 w-4" />
+            {COMPANY.email}
+          </a>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {SOCIAL_LINKS.map((s) => (
-            <a
-              key={s.id}
-              href={s.href}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl border border-[#ffc107]/25 px-4 py-2 text-sm font-semibold text-[#ffc107] hover:bg-[#ffc107]/10"
-            >
-              {s.label}
-            </a>
-          ))}
+        <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">
+            Social
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {SOCIAL_LINKS.map((s) => (
+              <a
+                key={s.id}
+                href={s.href}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl border border-[#ffc107]/25 px-4 py-2 text-sm font-semibold text-[#ffc107] hover:bg-[#ffc107]/10"
+              >
+                {s.label}
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </div>

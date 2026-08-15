@@ -1,4 +1,5 @@
-import { SOCIAL_LINKS, BRAND } from "../lib/brand.js";
+import { MapPin, Mail, MessageCircle } from "lucide-react";
+import { SOCIAL_LINKS, BRAND, COMPANY } from "../lib/brand.js";
 import BrandLogo from "./BrandLogo.jsx";
 
 function FacebookIcon({ className }) {
@@ -31,9 +32,12 @@ const ICONS = {
   youtube: YoutubeIcon,
 };
 
-export default function SiteFooter({ onNavigate }) {
-  const year = new Date().getFullYear();
+export default function SiteFooter({ onNavigate, onOpenChat }) {
   const go = (id) => onNavigate?.(id);
+  const openSupport = () => {
+    if (onOpenChat) onOpenChat("info");
+    else go("contact");
+  };
 
   return (
     <footer className="mt-8 border-t border-[#ffc107]/15 bg-[#05070c] py-12">
@@ -88,15 +92,33 @@ export default function SiteFooter({ onNavigate }) {
           <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">
             Contacts
           </div>
-          <p className="mt-3 text-sm text-white/70">
-            Live Chat is the fastest way to reach us with deposit receipts.
-          </p>
+          <a
+            href={`mailto:${COMPANY.email}`}
+            className="mt-3 flex items-center gap-2 text-sm text-white/80 hover:text-[#ffc107]"
+          >
+            <Mail className="h-3.5 w-3.5 text-[#ffc107]" />
+            {COMPANY.email}
+          </a>
+          <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white/70">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#ffc107]" />
+            <p>
+              <span className="font-semibold text-white">{COMPANY.legalName}</span>
+              <br />
+              {COMPANY.addressLines.map((line) => (
+                <span key={line}>
+                  {line}
+                  <br />
+                </span>
+              ))}
+            </p>
+          </div>
           <button
             type="button"
-            onClick={() => go("contact")}
-            className="mt-3 text-sm font-semibold text-[#ffc107] underline underline-offset-2"
+            onClick={openSupport}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#ffc107] underline underline-offset-2"
           >
-            Open support
+            <MessageCircle className="h-3.5 w-3.5" />
+            Open Live Chat
           </button>
         </div>
         <div>
@@ -111,7 +133,8 @@ export default function SiteFooter({ onNavigate }) {
         </div>
       </div>
       <p className="mt-8 text-center text-[11px] text-white/30">
-        © {year} {BRAND.name}. All rights reserved.
+        © {COMPANY.copyrightFrom} - {COMPANY.copyrightTo} {BRAND.name}. All rights
+        reserved
       </p>
     </footer>
   );

@@ -440,7 +440,7 @@ export default function PlatformShell({
               mode="user"
               onSelect={(n) => {
                 onNotificationSelect?.(n);
-                if (n?.type === "chat") onOpenChat?.(n);
+                if (n?.type === "chat") onOpenChat?.("info");
               }}
             />
 
@@ -516,7 +516,7 @@ export default function PlatformShell({
       <main className="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
         {children}
       </main>
-      <SiteFooter onNavigate={handlePageChange} />
+      <SiteFooter onNavigate={handlePageChange} onOpenChat={onOpenChat} />
     </div>
   );
 }
