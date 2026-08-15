@@ -59,6 +59,7 @@ import ProfileSetup from "./ProfileSetup.jsx";
 import DepositSection from "./DepositSection.jsx";
 import WithdrawSection from "./WithdrawSection.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
+import { CertificatePage } from "./TradingCertificate.jsx";
 import { AuthAPI, WalletAPI, SecondsTradeAPI, clearToken } from "../lib/api.js";
 import { getSocket, onSocketEvent, disconnectSocket } from "../lib/socket.js";
 
@@ -1085,6 +1086,12 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     return () => window.removeEventListener("nexus:open-chat", onOpenChat);
   }, [openLiveChat]);
 
+  useEffect(() => {
+    const onCert = () => goPage("certificate");
+    window.addEventListener("nexus:open-certificate", onCert);
+    return () => window.removeEventListener("nexus:open-certificate", onCert);
+  }, []);
+
   const wallet = useMemo(() => {
     const w = me?.wallet;
     if (!w) return {};
@@ -1372,6 +1379,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           {page === "contact" && (
             <motion.div key="contact" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl">
               <ContactPage onSupport={() => openLiveChat("info")} ctaLabel="Open Live Chat" />
+            </motion.div>
+          )}
+          {page === "certificate" && (
+            <motion.div key="certificate" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl">
+              <CertificatePage
+                onBack={() => goPage("home")}
+                onContact={() => goPage("contact")}
+              />
             </motion.div>
           )}
           {page === "vip" && (

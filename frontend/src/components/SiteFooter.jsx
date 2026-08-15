@@ -1,5 +1,5 @@
 import { MapPin, Mail, MessageCircle } from "lucide-react";
-import { SOCIAL_LINKS, BRAND, COMPANY, CERTIFICATES } from "../lib/brand.js";
+import { SOCIAL_LINKS, BRAND, COMPANY } from "../lib/brand.js";
 import BrandLogo from "./BrandLogo.jsx";
 import { openCertificate } from "./TradingCertificate.jsx";
 
@@ -83,6 +83,11 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
               </button>
             </li>
             <li>
+              <button type="button" className="underline-offset-2 hover:text-white hover:underline" onClick={() => go("certificate")}>
+                Certificate
+              </button>
+            </li>
+            <li>
               <button type="button" className="underline-offset-2 hover:text-white hover:underline" onClick={() => go("contact")}>
                 Contact support
               </button>
@@ -131,28 +136,29 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
             guarantee of future results. Register only with a valid invitation
             code.
           </p>
-          <div className="mt-4 space-y-2">
-            {CERTIFICATES.map((cert) => (
-              <button
-                key={cert.id}
-                type="button"
-                onClick={() => openCertificate(cert.id)}
-                className="flex w-full items-center gap-2 rounded-lg border border-[#ffc107]/25 bg-white/[0.03] px-2.5 py-2 text-left hover:border-[#ffc107] hover:bg-[#ffc107]/10"
-              >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-[#ffc107] text-[9px] font-extrabold text-black">
-                  CERT
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[11px] font-semibold text-white">
-                    {cert.subtitle}
-                  </span>
-                  <span className="block text-[10px] text-[#ffc107]">
-                    Click to verify · {cert.number}
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (onNavigate) go("certificate");
+              else openCertificate();
+            }}
+            className="mt-4 w-full overflow-hidden rounded-lg border border-[#ffc107]/30 text-left hover:border-[#ffc107]"
+          >
+            <div className="bg-white px-2 py-2">
+              <div className="text-[10px] font-extrabold tracking-tight text-black">
+                BINOMO
+              </div>
+              <div className="text-[8px] font-bold uppercase tracking-wider text-neutral-600">
+                Business Authorization Certificate
+              </div>
+              <div className="mt-1 text-[8px] text-neutral-500">
+                {COMPANY.legalName} · {COMPANY.companyNo}
+              </div>
+            </div>
+            <div className="bg-[#0b0e11] px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-[#ffc107]">
+              Click to verify
+            </div>
+          </button>
         </div>
       </div>
       <p className="mt-8 text-center text-[11px] text-white/30">

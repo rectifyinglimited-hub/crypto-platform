@@ -8,6 +8,7 @@ export const COMPANY = {
   legalName: "Dolphin Corp LLC",
   companyNo: "915 LLC 2021",
   email: "support@binomo.com",
+  jurisdiction: "Saint Vincent and the Grenadines",
   addressLines: [
     "Euro House, Richmond Hill Road",
     "Kingstown, St. Vincent and Grenadines",
@@ -16,34 +17,26 @@ export const COMPANY = {
   copyrightTo: 2026,
 };
 
-export const CERTIFICATES = [
-  {
-    id: "ifc-a",
-    title: "Certificate of Membership",
-    issuer: "The Financial Commission",
-    subtitle: "Category “A” Member",
-    holder: "Binomo",
-    number: "IFC-A-BNM-2018-0516",
-    registered: "20 May 2018",
-    validThrough: "2026",
-    status: "Active · Verified",
-    body: "This certifies that the trading brand Binomo, operated by Dolphin Corp LLC, is an active Category A member of The Financial Commission — an independent dispute-resolution body for online brokerage and CFD trading.",
-    extra: "Compensation fund: up to €20,000 per complaint",
+/** Official business authorization certificate shown on the public Certificate page. */
+export const AUTHORIZATION = {
+  heading: "BUSINESS PARTNERSHIP CERTIFICATE",
+  documentTitle: "BUSINESS AUTHORIZATION CERTIFICATE",
+  registrationNo: "BNM-AUTH-2014-001",
+  issueDate: "1 January 2014",
+  validFrom: "1 January 2014",
+  validTo: "31 December 2026",
+  rightsTitle: "AUTHORIZED TRADING OPERATIONS",
+  signLeft: {
+    script: "A. Moreau",
+    name: "Authorized Director",
+    role: "Dolphin Corp LLC",
   },
-  {
-    id: "vmt",
-    title: "Certificate of Trade Execution Quality",
-    issuer: "Independent Trade Audit",
-    subtitle: "Execution · Transparency · Fair pricing",
-    holder: "Binomo",
-    number: "TEQ-BNM-5000-2026",
-    registered: "1 January 2026",
-    validThrough: "31 December 2026",
-    status: "Active · Verified",
-    body: "This certifies that Binomo’s seconds-trading desk meets published standards for trade execution quality, timestamped fills, and client-report transparency on FX, crypto, stocks, and commodities.",
-    extra: "Audit sample: 5,000 executed trades",
+  signRight: {
+    script: "R. Ellison",
+    name: "Chief Financial Officer",
+    role: "Dolphin Corp LLC",
   },
-];
+};
 
 export const SOCIAL_LINKS = [
   {

@@ -26,7 +26,7 @@ import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
 import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import LiveChatWidget from "./LiveChatWidget.jsx";
-import CertificateHost from "./TradingCertificate.jsx";
+import { CertificatePage } from "./TradingCertificate.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 
 const PAIRS = [
@@ -169,7 +169,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
 
   const go = (id) => {
     setNavOpen(false);
-    if (id === "about" || id === "contact" || id === "vip") {
+    if (id === "about" || id === "contact" || id === "vip" || id === "certificate") {
       setView(id);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -179,6 +179,15 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
     }, 40);
   };
+
+  useEffect(() => {
+    const onCert = () => {
+      setView("certificate");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    window.addEventListener("nexus:open-certificate", onCert);
+    return () => window.removeEventListener("nexus:open-certificate", onCert);
+  }, []);
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#05070c] text-white">
@@ -204,6 +213,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             <button type="button" onClick={() => go("contact")} className="hover:text-white">
               Contact
             </button>
+            <button type="button" onClick={() => go("certificate")} className="hover:text-white">
+              Certificate
+            </button>
           </nav>
           <div className="flex items-center gap-2">
             <button
@@ -228,7 +240,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
         {navOpen && (
           <div className="border-t border-white/10 px-4 py-3 md:hidden">
-            {["trading", "about", "vip", "contact"].map((id) => (
+            {["trading", "about", "vip", "contact", "certificate"].map((id) => (
               <button
                 key={id}
                 type="button"
@@ -259,6 +271,12 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           )}
           {view === "vip" && (
             <VipPage onCta={onRegister} onSupport={() => openChat("info")} />
+          )}
+          {view === "certificate" && (
+            <CertificatePage
+              onBack={() => go("home")}
+              onContact={() => go("contact")}
+            />
           )}
         </div>
       )}
@@ -558,7 +576,6 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       )}
 
       <SiteFooter onNavigate={go} onOpenChat={openChat} />
-      <CertificateHost />
       <LiveChatWidget
         user={null}
         contextHint={chatHint}

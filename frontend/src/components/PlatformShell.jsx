@@ -22,11 +22,11 @@ import {
   Crown,
   Headphones,
   Info,
+  BadgeCheck,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
-import CertificateHost from "./TradingCertificate.jsx";
 
 const TRADE_LINKS = [
   { key: "home", label: "Home", icon: Home },
@@ -42,6 +42,7 @@ const TRADE_LINKS = [
 
 const MORE_LINKS = [
   { key: "about", label: "About us", icon: Info },
+  { key: "certificate", label: "Certificate", icon: BadgeCheck },
   { key: "contact", label: "Contact support", icon: Headphones },
 ];
 
@@ -518,7 +519,6 @@ export default function PlatformShell({
         {children}
       </main>
       <SiteFooter onNavigate={handlePageChange} onOpenChat={onOpenChat} />
-      <CertificateHost />
     </div>
   );
 }
