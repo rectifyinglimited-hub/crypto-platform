@@ -26,6 +26,7 @@ import {
 import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
+import CertificateHost from "./TradingCertificate.jsx";
 
 const TRADE_LINKS = [
   { key: "home", label: "Home", icon: Home },
@@ -517,6 +518,7 @@ export default function PlatformShell({
         {children}
       </main>
       <SiteFooter onNavigate={handlePageChange} onOpenChat={onOpenChat} />
+      <CertificateHost />
     </div>
   );
 }

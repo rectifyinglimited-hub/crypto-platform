@@ -26,6 +26,7 @@ import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
 import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import LiveChatWidget from "./LiveChatWidget.jsx";
+import CertificateHost from "./TradingCertificate.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 
 const PAIRS = [
@@ -557,6 +558,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       )}
 
       <SiteFooter onNavigate={go} onOpenChat={openChat} />
+      <CertificateHost />
       <LiveChatWidget
         user={null}
         contextHint={chatHint}

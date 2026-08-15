@@ -2,7 +2,8 @@ import { Headphones, ShieldCheck, Gift, UserRound, Crown, MessageCircle, MapPin,
 import VideoBackdrop from "./VideoBackdrop.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import BrandLogo from "./BrandLogo.jsx";
-import { SOCIAL_LINKS, CRYPTO_VIDEO, CRYPTO_POSTER, COMPANY } from "../lib/brand.js";
+import { SOCIAL_LINKS, CRYPTO_VIDEO, CRYPTO_POSTER, COMPANY, CERTIFICATES } from "../lib/brand.js";
+import { CertificateThumb, openCertificate } from "./TradingCertificate.jsx";
 
 const YELLOW_BTN =
   "inline-flex items-center justify-center gap-2 rounded-md bg-[#ffc107] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_0_28px_rgba(255,193,7,0.45)] transition hover:bg-[#ffd54f]";
@@ -40,6 +41,24 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
           </div>
         ))}
       </div>
+
+      <section className="rounded-3xl border border-[#ffc107]/20 bg-black/35 p-5 sm:p-7">
+        <div className="mb-4 text-center">
+          <h2 className="text-xl font-extrabold">Trading certificates</h2>
+          <p className="mt-1 text-sm text-white/55">
+            Click any certificate to open and verify the full document.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {CERTIFICATES.map((cert) => (
+            <CertificateThumb
+              key={cert.id}
+              cert={cert}
+              onClick={() => openCertificate(cert.id)}
+            />
+          ))}
+        </div>
+      </section>
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button type="button" onClick={onCta} className={YELLOW_BTN}>
