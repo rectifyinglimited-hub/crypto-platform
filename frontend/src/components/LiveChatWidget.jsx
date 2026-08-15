@@ -26,6 +26,7 @@ import {
   assetUrl,
 } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
+import BrandLogo from "./BrandLogo.jsx";
 
 const POLL_MS = 8000;
 const OPEN_KEY = "nexus_chat_open";
@@ -425,9 +426,7 @@ export default function LiveChatWidget({
           >
             <div className="flex items-center justify-between border-b border-white/5 bg-gradient-to-r from-indigo-500/20 via-transparent to-emerald-400/20 px-4 py-3">
               <div className="flex items-center gap-2">
-                <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-lg">
-                  <img src="/brand/logo-mark.png" alt="" className="h-8 w-8 object-cover" />
-                </div>
+                <BrandLogo variant="mark" imgClassName="h-8 w-8" />
                 <div>
                   <div className="text-sm font-semibold leading-tight">
                     {VERIFICATION_HEADER}

@@ -60,6 +60,7 @@ import { AdminAPI, AuthAPI, PlatformAPI, assetUrl } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
 import AdminChatManager from "./AdminChatManager.jsx";
 import NotificationBell from "./NotificationBell.jsx";
+import BrandLogo from "./BrandLogo.jsx";
 import AdminPlatformModules from "./AdminPlatformModules.jsx";
 import AdminAiBotAndMatrix from "./AdminAiBotAndMatrix.jsx";
 import UserControlRoom, {
@@ -3006,11 +3007,9 @@ export default function AdminPanel({ user, onExit }) {
         {/* Sidebar */}
         <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-slate-900/40 p-5 backdrop-blur-sm md:block">
           <div className="mb-6 flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl">
-              <img src="/brand/logo-mark.png" alt="Binomo" className="h-9 w-9 object-cover" />
-            </div>
+            <BrandLogo variant="mark" imgClassName="h-9 w-9" />
             <div>
-              <div className="text-sm font-semibold tracking-tight">Binomo</div>
+              <div className="text-sm font-semibold tracking-tight">binomo</div>
               <div className="text-[10px] uppercase tracking-widest text-slate-500">
                 Admin Console
               </div>

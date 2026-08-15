@@ -175,7 +175,7 @@ function MobileDrawer({
               {/* Header */}
               <div className="flex items-center justify-between gap-2 border-b border-white/8 px-4 py-3.5">
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <BrandLogo variant="mark" imgClassName="h-9 w-9 rounded-lg object-cover" />
+                  <BrandLogo variant="mark" imgClassName="h-9 w-9" />
                   <div className="min-w-0">
                     <div className="truncate text-[10px] text-slate-500">
                       {displayName}
@@ -428,10 +428,7 @@ export default function PlatformShell({
             <Menu className="h-5 w-5" />
           </button>
 
-          <BrandLogo
-            onClick={() => handlePageChange("home")}
-            imgClassName="h-7 w-auto max-w-[120px] object-contain object-left sm:h-8 sm:max-w-[148px]"
-          />
+          <BrandLogo onClick={() => handlePageChange("home")} />
 
           <div className="hidden min-w-0 flex-1 md:block">
             <NavLinks page={page} onPageChange={handlePageChange} />

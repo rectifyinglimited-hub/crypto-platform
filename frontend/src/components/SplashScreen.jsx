@@ -22,18 +22,7 @@ export default function SplashScreen() {
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 flex flex-col items-center"
       >
-        <BrandLogo
-          variant="mark"
-          imgClassName="h-20 w-20 rounded-2xl object-cover shadow-[0_0_40px_rgba(255,193,7,0.55)]"
-        />
-        <motion.h1
-          className="mt-5 text-4xl font-extrabold tracking-tight text-white sm:text-5xl"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          Binomo
-        </motion.h1>
+        <BrandLogo variant="stack" />
         <motion.div
           className="mt-6 h-0.5 w-24 overflow-hidden rounded-full bg-white/10"
           initial={{ opacity: 0 }}

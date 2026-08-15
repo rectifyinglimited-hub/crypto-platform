@@ -44,14 +44,7 @@ export default function AuthGate({
           animate={{ opacity: 1, y: 0 }}
           className="mb-8 text-center"
         >
-          <BrandLogo
-            variant="mark"
-            className="mb-4 justify-center"
-            imgClassName="mx-auto h-16 w-16 rounded-2xl object-cover shadow-[0_0_28px_rgba(255,193,7,0.45)]"
-          />
-          <div className="font-display text-2xl font-bold tracking-tight text-white">
-            Binomo
-          </div>
+          <BrandLogo variant="lockup" className="mb-3 justify-center" />
           <h1 className="mt-2 text-lg font-semibold tracking-tight text-slate-200">
             {mode === "signin" ? "Welcome back" : "Create your account"}
           </h1>

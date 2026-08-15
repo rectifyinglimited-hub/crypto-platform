@@ -559,14 +559,6 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
         <div className="text-center md:text-left">
           <BrandLogo className="mb-4 justify-center md:justify-start" />
 
-          <motion.h1
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="font-display mt-4 text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl"
-          >
-            Binomo
-          </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

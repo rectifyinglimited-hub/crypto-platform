@@ -2,8 +2,6 @@
 
 export const BRAND = {
   name: "Binomo",
-  logoDark: "/brand/logo-dark.png",
-  logoMark: "/brand/logo-mark.png",
 };
 
 export const SOCIAL_LINKS = [
