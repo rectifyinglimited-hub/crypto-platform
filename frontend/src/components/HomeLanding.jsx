@@ -621,7 +621,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
             </div>
           </div>
         </div>
-        <NeonLiveGraph symbol="BTC" />
+        <NeonLiveGraph symbol="BTC" height={320} />
         </div>
       </section>
 
@@ -629,9 +629,9 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
       <MarketOverviewGrid />
 
       <div className="grid gap-3 md:grid-cols-3">
-        <NeonLiveGraph symbol="BTC" height={170} compact />
-        <NeonLiveGraph symbol="ETH" height={170} compact />
-        <NeonLiveGraph symbol="SOL" height={170} compact />
+        <NeonLiveGraph symbol="BTC" height={220} compact />
+        <NeonLiveGraph symbol="ETH" height={220} compact />
+        <NeonLiveGraph symbol="SOL" height={220} compact />
       </div>
 
       {/* Platform advantages */}

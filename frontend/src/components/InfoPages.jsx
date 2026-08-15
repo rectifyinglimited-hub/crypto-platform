@@ -131,7 +131,7 @@ export function VipPage({ user, onCta, onSupport }) {
               )}
             </div>
           </div>
-          <NeonLiveGraph symbol="BTC" />
+          <NeonLiveGraph symbol="BTC" height={300} />
         </div>
       </section>
 

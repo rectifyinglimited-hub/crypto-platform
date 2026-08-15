@@ -308,7 +308,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             </div>
           </div>
           <div className="space-y-3">
-            <NeonLiveGraph symbol="BTC" />
+            <NeonLiveGraph symbol="BTC" height={320} />
             <div className="grid grid-cols-3 gap-2">
               {PAIRS.map((p) => (
                 <div
@@ -508,9 +508,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             Live crypto · stocks-style candles
           </h2>
           <div className="grid gap-3 md:grid-cols-3">
-            <NeonLiveGraph symbol="BTC" height={180} compact />
-            <NeonLiveGraph symbol="ETH" height={180} compact />
-            <NeonLiveGraph symbol="SOL" height={180} compact />
+            <NeonLiveGraph symbol="BTC" height={220} compact />
+            <NeonLiveGraph symbol="ETH" height={220} compact />
+            <NeonLiveGraph symbol="SOL" height={220} compact />
           </div>
         </div>
       </section>
