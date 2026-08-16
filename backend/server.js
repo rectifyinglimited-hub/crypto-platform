@@ -35,13 +35,13 @@ import User from "./models/User.js";
 import { ROLES } from "./lib/roles.js";
 import { getSoleSuperAdmin } from "./lib/superAdmin.js";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 const PORT = process.env.PORT || 5001;
 const MONGO_URI =
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/nexus_dev";
 const NODE_ENV = process.env.NODE_ENV || "development";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let DB_READY = false;
 
@@ -66,6 +66,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/health", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "nexus-api",
+    env: NODE_ENV,
+    uptime: process.uptime(),
+    database: DB_READY ? "connected" : "offline",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get("/api/health", (_req, res) => {
   res.status(200).json({
     status: "ok",
     service: "nexus-api",

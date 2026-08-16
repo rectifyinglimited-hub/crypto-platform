@@ -7,7 +7,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "npm --prefix backend start",
+    "start": "node backend/server.js",
     "install:backend": "npm --prefix backend ci --omit=dev"
   }
 }
