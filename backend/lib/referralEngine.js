@@ -243,6 +243,7 @@ export async function onTradeSettled({
     usdValue: amount,
     status: "completed",
     txHash: String(tradeId),
+    address: String(trader._id),
     reviewerNote: `Referral commission ${rate}% of $${stake.toFixed(2)} from ${
       trader.username
     } (VIP ${Number(referrer.vipLevel || 0)})`,

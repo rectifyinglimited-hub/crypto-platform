@@ -4,6 +4,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import Transaction from "../models/Transaction.js";
 import PlatformCatalog from "../models/PlatformCatalog.js";
 import PlatformOrder from "../models/PlatformOrder.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -313,15 +314,76 @@ router.get(
     const vol = await volume30d(user._id);
     const rate = commissionRateForLevel(settings, user.vipLevel);
     const progress = progressToNextTier(settings, user.vipLevel, vol);
+    const unlockDays = Number(settings.referralUnlockTradingDays) || 30;
     const referrals = await User.find({
       referredBy: user._id,
       deletedAt: null,
     })
-      .select("username email createdAt activeTradingDayKeys vipLevel")
+      .select(
+        "username email fullName createdAt activeTradingDayKeys vipLevel lastTradeAt referralEarnings"
+      )
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
-    const unlockDays = Number(settings.referralUnlockTradingDays) || 30;
+
+    let referredBy = null;
+    if (user.referredBy) {
+      const parent = await User.findById(user.referredBy).select(
+        "username fullName vipLevel referralCode vipStatus"
+      );
+      if (parent) {
+        const parentSettings = await loadSettingsForUser(parent);
+        referredBy = {
+          username: parent.username,
+          fullName: parent.fullName,
+          vipLevel: Number(parent.vipLevel || 0),
+          vipStatus: Boolean(parent.vipStatus),
+          referralCode: parent.referralCode || null,
+          commissionRate: commissionRateForLevel(
+            parentSettings,
+            parent.vipLevel
+          ),
+        };
+      }
+    }
+
+    const invited = await Promise.all(
+      referrals.map(async (r) => {
+        const days = (r.activeTradingDayKeys || []).length;
+        const unlocked = days >= unlockDays;
+        const [vol, paidAgg] = await Promise.all([
+          volume30d(r._id),
+          Transaction.aggregate([
+            {
+              $match: {
+                user: user._id,
+                kind: "referral",
+                address: String(r._id),
+              },
+            },
+            { $group: { _id: null, total: { $sum: "$usdValue" } } },
+          ]),
+        ]);
+        return {
+          id: String(r._id),
+          username: r.username,
+          email: r.email,
+          fullName: r.fullName,
+          createdAt: r.createdAt,
+          lastTradeAt: r.lastTradeAt || null,
+          vipLevel: Number(r.vipLevel || 0),
+          activeTradingDays: days,
+          daysRemaining: Math.max(0, unlockDays - days),
+          unlocked,
+          volume30d: vol,
+          bonusPaid: Number(paidAgg[0]?.total || 0),
+          yourCommissionRate: rate,
+        };
+      })
+    );
+
+    const unlockedCount = invited.filter((r) => r.unlocked).length;
+
     return res.json({
       success: true,
       settings,
@@ -335,14 +397,10 @@ router.get(
         activeTradingDays: (user.activeTradingDayKeys || []).length,
         unlockTradingDays: unlockDays,
         progress,
-        invited: referrals.map((r) => ({
-          username: r.username,
-          email: r.email,
-          createdAt: r.createdAt,
-          vipLevel: Number(r.vipLevel || 0),
-          activeTradingDays: (r.activeTradingDayKeys || []).length,
-          unlocked: (r.activeTradingDayKeys || []).length >= unlockDays,
-        })),
+        referredBy,
+        invitedCount: invited.length,
+        unlockedCount,
+        invited,
       },
     });
   })

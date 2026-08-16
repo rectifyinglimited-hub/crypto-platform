@@ -38,6 +38,7 @@ import {
   Plus,
   ChevronLeft,
   Crown,
+  BarChart3,
 } from "lucide-react";
 import { AuthAPI, PlatformAPI, WalletAPI, assetUrl } from "../lib/api.js";
 import DepositSection from "./DepositSection.jsx";
@@ -2382,6 +2383,22 @@ function LogsSection() {
   );
 }
 
+const REFERRAL_LADDER = [1, 3, 5, 10, 20];
+const REFERRAL_EXAMPLE_STAKE = 100;
+
+function fmtShortDate(d) {
+  if (!d) return "—";
+  try {
+    return new Date(d).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return "—";
+  }
+}
+
 export function ReferralSection({ user, onToast }) {
   const fallbackCode = user?.referralCode || user?.inviteCode || "—";
   const [data, setData] = useState(null);
@@ -2409,13 +2426,31 @@ export function ReferralSection({ user, onToast }) {
   const me = data?.referral || {};
   const level = Number(me.vipLevel || 0);
   const progress = me.progress || { progress: 0, remaining: 0, nextTier: null };
-  const unlockDays = Number(me.unlockTradingDays || settings.referralUnlockTradingDays || 30);
+  const unlockDays = Number(
+    me.unlockTradingDays || settings.referralUnlockTradingDays || 30
+  );
   const defaultRate = Number(settings.defaultReferralCommissionRate ?? 15);
+  const liveRate = Number(me.commissionRate ?? defaultRate);
+  const invited = Array.isArray(me.invited) ? me.invited : [];
+  const invitedCount = Number(me.invitedCount ?? invited.length);
+  const unlockedCount = Number(
+    me.unlockedCount ?? invited.filter((r) => r.unlocked).length
+  );
+  const referredBy = me.referredBy || null;
 
-  const copy = () => {
+  const ladder = useMemo(() => {
+    const rows = REFERRAL_LADDER.map((count) => ({
+      count,
+      bonus: count * (liveRate / 100) * REFERRAL_EXAMPLE_STAKE,
+    }));
+    const maxBonus = Math.max(...rows.map((r) => r.bonus), 1);
+    return { rows, maxBonus };
+  }, [liveRate]);
+
+  const copy = (text, ok = "Invite code copied.") => {
     try {
-      navigator.clipboard?.writeText(code);
-      onToast?.("success", "Invite code copied.");
+      navigator.clipboard?.writeText(text);
+      onToast?.("success", ok);
     } catch {
       /* ignore */
     }
@@ -2423,6 +2458,55 @@ export function ReferralSection({ user, onToast }) {
 
   return (
     <div className="space-y-4">
+      {referredBy ? (
+        <Card className="relative overflow-hidden border-[#ffc107]/30 bg-[#ffc107]/5">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#ffc107]">
+            <Users className="h-3.5 w-3.5" />
+            You joined with a referral
+          </div>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="text-lg font-extrabold text-white">
+                {referredBy.fullName || referredBy.username}
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                @{referredBy.username} invited you. After you complete{" "}
+                {unlockDays} active trading days, they earn their live
+                commission on your settled trades.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-3">
+              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                  Their VIP
+                </div>
+                <div className="mt-1 text-sm font-bold text-[#ffc107]">
+                  {Number(referredBy.vipLevel) > 0
+                    ? `VIP ${referredBy.vipLevel}`
+                    : "Standard"}
+                </div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                  Commission
+                </div>
+                <div className="mt-1 text-sm font-bold text-cyan-300">
+                  {Number(referredBy.commissionRate || 0)}%
+                </div>
+              </div>
+              <div className="col-span-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 sm:col-span-1">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                  Their code
+                </div>
+                <div className="mt-1 font-mono text-sm font-bold tracking-wider text-white">
+                  {referredBy.referralCode || "—"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#ffc107]/10 via-transparent to-cyan-500/10" />
         <div className="relative">
@@ -2437,15 +2521,44 @@ export function ReferralSection({ user, onToast }) {
               </div>
               <p className="mt-1 text-xs text-slate-400">
                 Live referral commission{" "}
-                <span className="font-semibold text-cyan-300">
-                  {Number(me.commissionRate ?? defaultRate)}%
-                </span>
+                <span className="font-semibold text-cyan-300">{liveRate}%</span>
                 {" · "}
                 30-day volume {fmtUsd(me.volume30d || 0)}
               </p>
             </div>
-            <div className="text-right text-xs text-slate-400">
-              Earned {fmtUsd(me.referralEarnings || 0)}
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                Referral earned
+              </div>
+              <div className="text-lg font-extrabold text-emerald-300">
+                {fmtUsd(me.referralEarnings || 0)}
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                Invited
+              </div>
+              <div className="mt-0.5 text-lg font-bold text-white">
+                {invitedCount}
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                Unlocked
+              </div>
+              <div className="mt-0.5 text-lg font-bold text-emerald-300">
+                {unlockedCount}
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                Your trading days
+              </div>
+              <div className="mt-0.5 text-lg font-bold text-white">
+                {Number(me.activeTradingDays || 0)}
+              </div>
             </div>
           </div>
           <div className="mt-4">
@@ -2474,17 +2587,18 @@ export function ReferralSection({ user, onToast }) {
       </Card>
 
       <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-100/90">
-        <strong className="text-amber-200">30-day active trading:</strong> Referral
-        commissions unlock after invited users complete {unlockDays} active trading
-        days. Volume for your VIP tier is measured over a rolling 30-day window.
+        <strong className="text-amber-200">How payouts work:</strong> You earn{" "}
+        {liveRate}% of each invited trader’s stake after they complete{" "}
+        {unlockDays} active trading days. Your VIP tier is based on your own
+        rolling 30-day volume — more volume can raise this commission.
       </div>
 
       <Card className="text-center">
         <Gift className="mx-auto mb-3 h-8 w-8 text-cyan-300" />
         <h3 className="mb-1 text-sm font-bold text-white">Your Invite Code</h3>
         <p className="mb-4 text-xs text-slate-500">
-          Share this code. Friends join your tenant and you earn the live VIP
-          commission rate on their trades after they unlock.
+          Share this code at signup. Friends join under you and you earn the
+          live VIP commission after they unlock.
         </p>
         <div className="mx-auto flex max-w-xs items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
           <code className="flex-1 text-left font-mono text-lg font-bold tracking-widest text-cyan-300">
@@ -2492,7 +2606,7 @@ export function ReferralSection({ user, onToast }) {
           </code>
           <button
             type="button"
-            onClick={copy}
+            onClick={() => copy(code)}
             className="rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-1.5 text-cyan-200 hover:bg-cyan-500/15"
           >
             <Copy className="h-4 w-4" />
@@ -2500,83 +2614,194 @@ export function ReferralSection({ user, onToast }) {
         </div>
       </Card>
 
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-white">
-          VIP tier & commission chart
+      <Card>
+        <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+          <BarChart3 className="h-3.5 w-3.5" />
+          Bonus ladder
+        </div>
+        <h3 className="text-sm font-bold text-white">
+          More unlocked users = more bonus
         </h3>
-        <p className="mb-3 text-[11px] text-slate-500">
-          Rates below are live from admin settings — they update automatically.
+        <p className="mt-1 mb-4 text-xs leading-relaxed text-slate-400">
+          Example at your live {liveRate}% rate: if each unlocked referral
+          places a {fmtUsd(REFERRAL_EXAMPLE_STAKE)} trade, this is what you
+          would earn. Real payouts follow their actual stakes after{" "}
+          {unlockDays} trading days.
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div
-            className={`rounded-2xl border p-4 ${
-              level === 0
-                ? "border-[#ffc107]/40 bg-[#ffc107]/10"
-                : "border-white/10 bg-[#0d1424]"
-            }`}
-          >
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Standard
-            </div>
-            <div className="mt-2 text-2xl font-extrabold text-white">
-              {defaultRate}%
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              Default referral · $0 volume
-            </div>
-          </div>
-          {tiers.map((t) => {
-            const active = Number(t.level) === level;
+        <div className="flex items-end gap-2 sm:gap-3">
+          {ladder.rows.map((row) => {
+            const height = Math.max(12, Math.round((row.bonus / ladder.maxBonus) * 140));
+            const nearYou = row.count === unlockedCount || row.count === invitedCount;
             return (
-              <div
-                key={t.level}
-                className={`rounded-2xl border p-4 ${
-                  active
-                    ? "border-[#ffc107]/40 bg-[#ffc107]/10"
-                    : "border-white/10 bg-[#0d1424]"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffc107]">
-                    {t.name || `VIP ${t.level}`}
-                  </div>
-                  {active ? (
-                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                      You
-                    </span>
-                  ) : null}
+              <div key={row.count} className="flex flex-1 flex-col items-center gap-2">
+                <div className="text-[11px] font-bold text-emerald-300">
+                  {fmtUsd(row.bonus)}
                 </div>
-                <div className="mt-2 text-2xl font-extrabold text-white">
-                  {t.commissionRate}%
+                <div className="flex h-[148px] w-full items-end justify-center">
+                  <div
+                    className={`w-full max-w-[52px] rounded-t-lg ${
+                      nearYou
+                        ? "bg-gradient-to-t from-[#ffc107] to-cyan-300"
+                        : "bg-gradient-to-t from-cyan-700/80 to-cyan-400/70"
+                    }`}
+                    style={{ height }}
+                    title={`${row.count} users → ${fmtUsd(row.bonus)}`}
+                  />
                 </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  30d volume ≥ {fmtUsd(t.minVolume30d)}
+                <div className="text-center text-[11px] font-semibold text-white">
+                  {row.count} {row.count === 1 ? "user" : "users"}
                 </div>
               </div>
             );
           })}
         </div>
+        <p className="mt-4 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 text-[11px] text-slate-400">
+          You have {unlockedCount} unlocked and {invitedCount} invited. At{" "}
+          {liveRate}%, 10 unlocked friends each trading {fmtUsd(REFERRAL_EXAMPLE_STAKE)}{" "}
+          would pay you{" "}
+          <span className="font-semibold text-cyan-300">
+            {fmtUsd(10 * (liveRate / 100) * REFERRAL_EXAMPLE_STAKE)}
+          </span>
+          .
+        </p>
+      </Card>
+
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-white">
+          VIP tiers & commission
+        </h3>
+        <p className="mb-3 text-[11px] text-slate-500">
+          Live rates from admin settings. Trade more in 30 days to move up.
+        </p>
+        <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <table className="min-w-full text-left text-xs">
+            <thead className="bg-white/[0.04] text-[10px] uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Tier</th>
+                <th className="px-4 py-3 font-semibold">30-day volume</th>
+                <th className="px-4 py-3 font-semibold">Commission</th>
+                <th className="px-4 py-3 font-semibold">On $100 trade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                {
+                  level: 0,
+                  name: "Standard",
+                  minVolume30d: 0,
+                  commissionRate: defaultRate,
+                },
+                ...tiers,
+              ].map((t) => {
+                const active = Number(t.level || 0) === level;
+                const rate = Number(t.commissionRate);
+                return (
+                  <tr
+                    key={t.level ?? "std"}
+                    className={
+                      active
+                        ? "bg-[#ffc107]/10 text-white"
+                        : "border-t border-white/5 text-slate-300"
+                    }
+                  >
+                    <td className="px-4 py-3 font-semibold">
+                      {t.name || `VIP ${t.level}`}
+                      {active ? (
+                        <span className="ml-2 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                          You
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">{fmtUsd(t.minVolume30d)}</td>
+                    <td className="px-4 py-3 font-bold text-cyan-300">{rate}%</td>
+                    <td className="px-4 py-3 text-emerald-300">
+                      {fmtUsd((rate / 100) * REFERRAL_EXAMPLE_STAKE)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {Array.isArray(me.invited) && me.invited.length > 0 && (
-        <Card>
-          <h3 className="mb-3 text-sm font-bold text-white">Invited traders</h3>
+      <Card>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-white">Invited traders</h3>
+          <span className="text-[11px] text-slate-500">
+            {invitedCount} total · {unlockedCount} paying
+          </span>
+        </div>
+        {invited.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-500">
+            Nobody has used your code yet. Share it and their VIP, volume,
+            unlock days, and bonus paid to you will appear here.
+          </div>
+        ) : (
           <div className="space-y-2">
-            {me.invited.map((row) => (
+            {invited.map((row) => (
               <div
-                key={row.username}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-xs"
+                key={row.id || row.username}
+                className="rounded-xl border border-white/8 bg-white/[0.02] px-3 py-3"
               >
-                <span className="font-semibold text-white">{row.username}</span>
-                <span className="text-slate-500">
-                  {row.activeTradingDays}/{unlockDays} trading days
-                  {row.unlocked ? " · unlocked" : " · locked"}
-                </span>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="font-semibold text-white">
+                      {row.fullName || row.username}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      @{row.username}
+                      {row.email ? ` · ${row.email}` : ""}
+                    </div>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      row.unlocked
+                        ? "bg-emerald-500/15 text-emerald-300"
+                        : "bg-amber-500/15 text-amber-200"
+                    }`}
+                  >
+                    {row.unlocked
+                      ? "Unlocked"
+                      : `${row.daysRemaining ?? Math.max(0, unlockDays - Number(row.activeTradingDays || 0))} days left`}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+                  <div>
+                    <div className="text-slate-500">VIP</div>
+                    <div className="font-semibold text-white">
+                      {Number(row.vipLevel) > 0 ? `VIP ${row.vipLevel}` : "Standard"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">Trading days</div>
+                    <div className="font-semibold text-white">
+                      {row.activeTradingDays}/{unlockDays}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">30d volume</div>
+                    <div className="font-semibold text-white">
+                      {fmtUsd(row.volume30d || 0)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">Paid to you</div>
+                    <div className="font-semibold text-emerald-300">
+                      {fmtUsd(row.bonusPaid || 0)}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                  <span>Joined {fmtShortDate(row.createdAt)}</span>
+                  <span>Last trade {fmtShortDate(row.lastTradeAt)}</span>
+                  <span>Your cut {Number(row.yourCommissionRate ?? liveRate)}%</span>
+                </div>
               </div>
             ))}
           </div>
-        </Card>
-      )}
+        )}
+      </Card>
     </div>
   );
 }

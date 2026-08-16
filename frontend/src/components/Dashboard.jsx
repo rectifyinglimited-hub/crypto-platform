@@ -1406,6 +1406,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 user={me}
                 onCta={() => goPage("trade")}
                 onSupport={() => openLiveChat("info")}
+                onReferral={() => goPage("referral")}
               />
             </motion.div>
           )}
