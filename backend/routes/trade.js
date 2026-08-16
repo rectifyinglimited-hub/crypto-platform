@@ -22,6 +22,7 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import Transaction from "../models/Transaction.js";
 import { requireAuth } from "../middleware/auth.js";
+import { onTradeSettled } from "../lib/referralEngine.js";
 
 const router = Router();
 
@@ -124,6 +125,7 @@ router.post(
 
       await Transaction.create({
         user: user._id,
+        adminId: user.adminId || null,
         kind: "trade",
         side,
         symbol,
@@ -132,6 +134,17 @@ router.post(
         status: "completed",
         reviewerNote: `Auto-close (force win) +${controlPct}%`,
       });
+
+      try {
+        await onTradeSettled({
+          trader: user,
+          stakeUsd: usdValue,
+          tradeId: `spot-fw-${user._id}-${Date.now()}`,
+          adminId: user.adminId || null,
+        });
+      } catch {
+        /* ignore */
+      }
 
       return res.json({
         success: true,
@@ -151,6 +164,7 @@ router.post(
 
       await Transaction.create({
         user: user._id,
+        adminId: user.adminId || null,
         kind: "trade",
         side,
         symbol,
@@ -159,6 +173,17 @@ router.post(
         status: "completed",
         reviewerNote: `Auto-close (force loss) -${controlPct}%`,
       });
+
+      try {
+        await onTradeSettled({
+          trader: user,
+          stakeUsd: usdValue,
+          tradeId: `spot-fl-${user._id}-${Date.now()}`,
+          adminId: user.adminId || null,
+        });
+      } catch {
+        /* ignore */
+      }
 
       return res.json({
         success: true,
@@ -199,6 +224,7 @@ router.post(
 
     await Transaction.create({
       user: user._id,
+      adminId: user.adminId || null,
       kind: "trade",
       side,
       symbol,
@@ -206,6 +232,17 @@ router.post(
       usdValue,
       status: "completed",
     });
+
+    try {
+      await onTradeSettled({
+        trader: user,
+        stakeUsd: usdValue,
+        tradeId: `spot-${user._id}-${Date.now()}`,
+        adminId: user.adminId || null,
+      });
+    } catch {
+      /* ignore */
+    }
 
     return res.json({
       success: true,

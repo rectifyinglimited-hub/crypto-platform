@@ -23,6 +23,7 @@ const AiBotContractSchema = new Schema(
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     principal: { type: Number, required: true, min: 0 },
+    /** Daily commission % of principal (admin may update while active). */
     customPercentage: { type: Number, default: 5, min: 0, max: 500 },
     status: {
       type: String,

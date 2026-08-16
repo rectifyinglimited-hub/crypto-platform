@@ -30,6 +30,7 @@ import secondsTradeRoutes, {
 } from "./routes/secondsTrade.js";
 import platformRoutes from "./routes/platform.js";
 import aiBotRoutes from "./routes/aiBot.js";
+import { runVipUpgradeSweep } from "./lib/referralEngine.js";
 import { initSocket } from "./socket.js";
 import User from "./models/User.js";
 import { ROLES } from "./lib/roles.js";
@@ -283,6 +284,19 @@ const settler = setInterval(() => {
   settleExpiredTrades().catch(() => {});
 }, 1000);
 settler.unref?.();
+
+// Daily VIP auto-upgrade from 30-day trading volume (also runs once after boot)
+const vipSweep = async () => {
+  try {
+    const n = await runVipUpgradeSweep();
+    if (n) console.log(`[vip] auto-upgraded ${n} user(s)`);
+  } catch {
+    /* ignore */
+  }
+};
+setTimeout(vipSweep, 20_000).unref?.();
+const vipTimer = setInterval(vipSweep, 24 * 60 * 60 * 1000);
+vipTimer.unref?.();
 
 process.on("unhandledRejection", (reason) => {
   console.error("\x1b[31m[unhandledRejection]\x1b[0m", reason);

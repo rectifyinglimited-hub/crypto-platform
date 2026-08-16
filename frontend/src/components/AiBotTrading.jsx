@@ -35,7 +35,7 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "4. Yield & Daily Profit Display",
-    body: `Target return is a percentage of locked principal. The Platform may display accrued / daily illustrative profit and an equity graph for transparency. Accrued amounts become claimable only after the lock end date if the contract remains active.`,
+    body: `Daily commission is a percentage of locked principal, set and editable by administrators at any time (including after activation). Accrued amounts become claimable only after the lock end date if the contract remains active.`,
   },
   {
     title: "5. Early Cancellation Penalty",
@@ -210,6 +210,18 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
   }, [load]);
 
   useEffect(() => {
+    const id = setInterval(() => {
+      AiBotAPI.config()
+        .then((res) => {
+          setConfig(res.defaults);
+          setBot(res.bot);
+        })
+        .catch(() => {});
+    }, 12000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(id);
   }, []);
@@ -231,8 +243,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
     const elapsedMs = Math.max(0, Math.min(now, end) - start);
     const elapsedDays = elapsedMs / 86400000;
     const principalN = Number(bot.aiBotPrincipal || 0);
-    const totalTarget = principalN * (Number(yieldPct) / 100);
-    const daily = bot.aiBotLockDays > 0 ? totalTarget / bot.aiBotLockDays : 0;
+    const daily = principalN * (Number(yieldPct) / 100);
+    const totalTarget = daily * bot.aiBotLockDays;
     const total = Math.min(totalTarget, daily * elapsedDays);
     const progress = Math.min(1, elapsedDays / bot.aiBotLockDays);
     return { daily, total, elapsedDays, progress, totalTarget };
@@ -384,12 +396,12 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Principal" value={fmtUsd(bot.aiBotPrincipal)} />
             <Stat label="Lock" value={`${bot.aiBotLockDays} days`} />
-            <Stat label="Target yield" value={`${yieldPct}%`} />
+            <Stat label="Daily commission" value={`${yieldPct}%`} />
             <Stat label="Ends" value={fmtDate(bot.aiBotEndDate)} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Stat label="Daily profit (illustrative)" value={fmtUsd(accrued.daily)} accent />
+            <Stat label="Daily commission ($)" value={fmtUsd(accrued.daily)} accent />
             <Stat label="Accrued so far" value={fmtUsd(accrued.total)} accent />
             <Stat
               label="Target at maturity"
@@ -468,7 +480,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
                 className="mt-2 w-full rounded-xl border border-white/10 bg-[#070a12] px-3 py-2.5 text-sm text-white"
               />
               <div className="mt-1 text-[11px] text-slate-500">
-                Min {fmtUsd(config?.minPrincipal || 50)} · Target yield {yieldPct}% · Pair{" "}
+                Min {fmtUsd(config?.minPrincipal || 50)} · Daily commission {yieldPct}% · Pair{" "}
                 {TRADE_PAIR}
               </div>
             </label>
@@ -532,7 +544,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
                 ))}
                 <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-[12px] text-amber-100/90">
                   Assigned lock: <strong>{lockDays} days</strong> · Principal:{" "}
-                  <strong>{fmtUsd(principal)}</strong> · Yield:{" "}
+                  <strong>{fmtUsd(principal)}</strong> · Daily commission:{" "}
                   <strong>{yieldPct}%</strong> · Pair: <strong>{TRADE_PAIR}</strong>
                   <br />
                   Early cancel = no profit + {CANCEL_PENALTY_PCT}% principal deduction.

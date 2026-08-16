@@ -288,6 +288,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [forceBusy, setForceBusy] = useState(false);
   const [forcePct, setForcePct] = useState("85");
   const [vipBusy, setVipBusy] = useState(false);
+  const [vipLevelBusy, setVipLevelBusy] = useState(false);
+  const [vipLevelEdit, setVipLevelEdit] = useState("0");
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
@@ -312,6 +314,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             ? String(u.tradeControlPercentage)
             : "85"
         );
+        setVipLevelEdit(String(u.vipLevel ?? 0));
       }
     } catch (err) {
       if (err?.canceled) return;
@@ -478,7 +481,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       return;
     }
     if (!Number.isFinite(pct) || pct < 0 || pct > 500) {
-      toastRef.current?.("error", "Enter a valid yield % (0–500).");
+      toastRef.current?.("error", "Enter a valid daily commission % (0–500).");
       return;
     }
     setBotBusy(true);
@@ -489,7 +492,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       });
       toastRef.current?.(
         "success",
-        res.message || `AI Bot assigned: ${days} days · ${pct}% yield.`
+        res.message || `AI Bot assigned: ${days} days · ${pct}% daily commission.`
       );
       await load({ silent: true });
     } catch (err) {
@@ -545,6 +548,29 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       }
     } finally {
       setVipBusy(false);
+    }
+  };
+
+  const onVipLevel = async () => {
+    const level = Number(vipLevelEdit);
+    if (!Number.isFinite(level) || level < 0 || level > 20) {
+      toastRef.current?.("error", "VIP level must be 0–20.");
+      return;
+    }
+    setVipLevelBusy(true);
+    try {
+      const res = await AdminAPI.setUserVipLevel(userId, {
+        vipLevel: level,
+        locked: true,
+      });
+      toastRef.current?.("success", res.message || `VIP level ${level}.`);
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setVipLevelBusy(false);
     }
   };
 
@@ -702,7 +728,40 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               u?.vipStatus ? "text-[#ffc107]" : "text-slate-500"
             }`}
           >
-            {u?.vipStatus ? "VIP active on user side" : "Standard account"}
+            {u?.vipStatus ? "VIP lounge active" : "Standard lounge"} · Level{" "}
+            {u?.vipLevel ?? 0}
+            {u?.vipLevelLocked ? " · manual lock" : " · auto-upgrade on"}
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+            <label className="text-[10px] font-semibold uppercase text-slate-500">
+              Manual VIP level
+              <input
+                type="number"
+                min={0}
+                max={20}
+                value={vipLevelEdit}
+                onChange={(e) => setVipLevelEdit(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm text-white"
+              />
+            </label>
+            <div className="flex items-end">
+              <button
+                type="button"
+                disabled={vipLevelBusy}
+                onClick={onVipLevel}
+                className="w-full rounded-xl bg-[#ffc107] px-3 py-2 text-xs font-bold uppercase text-[#1a1400] disabled:opacity-40"
+              >
+                {vipLevelBusy ? (
+                  <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                ) : (
+                  "Set level"
+                )}
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 text-[10px] text-slate-500">
+            30d volume {fmt(u?.volume30d || 0)} · {u?.activeTradingDays || 0}{" "}
+            active trading days · code {u?.referralCode || "—"}
           </div>
         </div>
 
@@ -822,8 +881,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             AI Bot Assign (this user)
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
-            Select days and yield, then Assign — user AI Bot page will show this
-            lock period (user cannot change days).
+            Select days and daily commission %, then Assign. You can edit daily
+            commission later even if the contract is already active.
           </p>
 
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -860,7 +919,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             </label>
             <label className="block">
               <span className="text-[10px] font-semibold uppercase text-slate-500">
-                Yield %
+                Daily commission %
               </span>
               <input
                 type="number"
@@ -893,7 +952,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             Status:{" "}
             {u?.aiBotAssignedLockDays ? (
               <span className="font-semibold text-teal-300">
-                Assigned {u.aiBotAssignedLockDays} days · yield{" "}
+                Assigned {u.aiBotAssignedLockDays} days · daily commission{" "}
                 {u.aiBotCustomPercentage ?? 8}%
                 {u.aiBotActive
                   ? ` · contract active until ${

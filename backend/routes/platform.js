@@ -14,6 +14,13 @@ import {
 } from "../middleware/tenant.js";
 import { isSuperAdminRole } from "../lib/roles.js";
 import { ensureCatalogEnrichment } from "../lib/catalogEnrichment.js";
+import {
+  loadSettingsForUser,
+  commissionRateForLevel,
+  volume30d,
+  ensureReferralCode,
+  progressToNextTier,
+} from "../lib/referralEngine.js";
 
 const router = Router();
 
@@ -268,6 +275,78 @@ async function ensureSeed(adminId = null) {
     DEFAULT_SEED.map((row) => ({ ...row, adminId, enabled: true }))
   );
 }
+
+// ---------------------------------------------------------------------------
+// GET /settings — live VIP / referral rates for the signed-in tenant
+// ---------------------------------------------------------------------------
+router.get(
+  "/settings",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const user = await User.findById(req.auth.sub);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+    const settings = await loadSettingsForUser(user);
+    const rate = commissionRateForLevel(settings, user.vipLevel);
+    return res.json({
+      success: true,
+      settings,
+      yourVipLevel: Number(user.vipLevel || 0),
+      yourCommissionRate: rate,
+    });
+  })
+);
+
+router.get(
+  "/referral/me",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const user = await User.findById(req.auth.sub);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+    await ensureReferralCode(user);
+    const settings = await loadSettingsForUser(user);
+    const vol = await volume30d(user._id);
+    const rate = commissionRateForLevel(settings, user.vipLevel);
+    const progress = progressToNextTier(settings, user.vipLevel, vol);
+    const referrals = await User.find({
+      referredBy: user._id,
+      deletedAt: null,
+    })
+      .select("username email createdAt activeTradingDayKeys vipLevel")
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    const unlockDays = Number(settings.referralUnlockTradingDays) || 30;
+    return res.json({
+      success: true,
+      settings,
+      referral: {
+        code: user.referralCode,
+        vipLevel: Number(user.vipLevel || 0),
+        vipStatus: Boolean(user.vipStatus),
+        commissionRate: rate,
+        volume30d: vol,
+        referralEarnings: Number(user.referralEarnings || 0),
+        activeTradingDays: (user.activeTradingDayKeys || []).length,
+        unlockTradingDays: unlockDays,
+        progress,
+        invited: referrals.map((r) => ({
+          username: r.username,
+          email: r.email,
+          createdAt: r.createdAt,
+          vipLevel: Number(r.vipLevel || 0),
+          activeTradingDays: (r.activeTradingDayKeys || []).length,
+          unlocked: (r.activeTradingDayKeys || []).length >= unlockDays,
+        })),
+      },
+    });
+  })
+);
 
 // ---------------------------------------------------------------------------
 // GET /catalog?kind=

@@ -46,6 +46,26 @@ function serializeUserBot(user) {
   };
 }
 
+/** Daily commission % of principal. Total target = daily × lock days. */
+function dailyCommissionPct(userOrPct) {
+  const pct =
+    typeof userOrPct === "number"
+      ? userOrPct
+      : Number(userOrPct?.aiBotCustomPercentage || 0);
+  return Number.isFinite(pct) ? pct : 0;
+}
+
+function lockDayCount(user) {
+  const n = Number(user?.aiBotLockDays || user?.aiBotAssignedLockDays || 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function commissionProfit(principal, dailyPct, days) {
+  return Number(
+    (Number(principal || 0) * (Number(dailyPct || 0) / 100) * Number(days || 0)).toFixed(8)
+  );
+}
+
 // ---------------------------------------------------------------------------
 // GET /config — lock options + defaults (user)
 // ---------------------------------------------------------------------------
@@ -185,7 +205,7 @@ router.post(
       amount: principal,
       usdValue: principal,
       status: "completed",
-      reviewerNote: `AI Bot lock ${lockDays}d · yield target ${yieldPct}%`,
+      reviewerNote: `AI Bot lock ${lockDays}d · daily commission ${yieldPct}%`,
     });
 
     return res.status(201).json({
@@ -221,8 +241,9 @@ router.post(
     }
 
     const principal = Number(user.aiBotPrincipal || 0);
-    const pct = Number(user.aiBotCustomPercentage || 0);
-    const profit = Number((principal * (pct / 100)).toFixed(8));
+    const pct = dailyCommissionPct(user);
+    const days = lockDayCount(user);
+    const profit = commissionProfit(principal, pct, days);
     const payout = Number((principal + profit).toFixed(8));
 
     if (!(user.wallet instanceof Map)) user.wallet = new Map();
@@ -256,7 +277,7 @@ router.post(
       amount: payout,
       usdValue: payout,
       status: "completed",
-      reviewerNote: `AI Bot claim · principal $${principal} + ${pct}% = $${payout}`,
+      reviewerNote: `AI Bot claim · principal $${principal} + ${pct}% daily × ${days}d = $${payout}`,
     });
 
     return res.json({
@@ -452,13 +473,16 @@ router.patch(
       if (!Number.isFinite(pct) || pct < 0 || pct > 500) {
         return res.status(422).json({
           success: false,
-          message: "aiBotCustomPercentage must be 0–500.",
+          message: "Daily commission % must be 0–500.",
         });
       }
       user.aiBotCustomPercentage = pct;
-      messages.push(`yield ${pct}%`);
-      if (user.aiBotContractId && user.aiBotActive) {
-        await AiBotContract.findByIdAndUpdate(user.aiBotContractId, {
+      messages.push(`daily commission ${pct}%`);
+      if (user.aiBotActive) {
+        const contractFilter = user.aiBotContractId
+          ? { _id: user.aiBotContractId }
+          : { user: user._id, status: "active" };
+        await AiBotContract.findOneAndUpdate(contractFilter, {
           customPercentage: pct,
         });
       }
@@ -486,7 +510,7 @@ router.patch(
     await user.save();
     return res.json({
       success: true,
-      message: `AI Bot updated for ${user.username}: ${messages.join(", ")}.`,
+      message: `AI Bot updated for ${user.username}: ${messages.join(", ")}. Live daily commission applies immediately.`,
       user: {
         id: user._id,
         username: user.username,

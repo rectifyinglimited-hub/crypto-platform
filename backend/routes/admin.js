@@ -53,6 +53,12 @@ import {
   emitWalletUpdate,
   emitChartQuote,
 } from "../socket.js";
+import SystemSettings from "../models/SystemSettings.js";
+import {
+  volume30d,
+  ensureReferralCode,
+  runVipUpgradeSweep,
+} from "../lib/referralEngine.js";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -736,6 +742,12 @@ router.put(
     }
     const user = scoped.user;
     user.vipStatus = Boolean(req.body.vip);
+    if (user.vipStatus && Number(user.vipLevel || 0) < 1) {
+      user.vipLevel = 1;
+    }
+    if (!user.vipStatus && !user.vipLevelLocked) {
+      user.vipLevel = 0;
+    }
     await user.save();
 
     return res.json({
@@ -744,6 +756,93 @@ router.put(
         ? "VIP granted — user lounge unlocked."
         : "VIP revoked.",
       user,
+    });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// REFERRAL & VIP SYSTEM SETTINGS (tenant-scoped)
+// ---------------------------------------------------------------------------
+router.get(
+  "/referral-vip",
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const adminId = isUnscoped(req) ? null : req.auth.sub;
+    const doc = await SystemSettings.getForAdmin(adminId);
+    return res.json({
+      success: true,
+      settings: SystemSettings.serialize(doc),
+      scope: isUnscoped(req) ? "global" : "tenant",
+    });
+  })
+);
+
+router.put(
+  "/referral-vip",
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const adminId = isUnscoped(req) ? null : req.auth.sub;
+    const doc = await SystemSettings.upsertForAdmin(adminId, req.body || {}, req.auth.sub);
+    return res.json({
+      success: true,
+      message: "Referral & VIP settings saved. User views update on next load.",
+      settings: SystemSettings.serialize(doc),
+    });
+  })
+);
+
+router.post(
+  "/referral-vip/run-upgrade",
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const n = await runVipUpgradeSweep();
+    return res.json({
+      success: true,
+      message: `VIP auto-upgrade sweep complete. ${n} user(s) promoted.`,
+      promoted: n,
+    });
+  })
+);
+
+router.put(
+  "/users/:id/vip-level",
+  requireDatabase,
+  [
+    body("vipLevel")
+      .isFloat({ min: 0, max: 20 })
+      .withMessage("vipLevel must be 0–20."),
+    body("locked").optional().isBoolean(),
+  ],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const scoped = await assertTenantUser(req, req.params.id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
+        success: false,
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
+      });
+    }
+    const user = scoped.user;
+    const level = Math.round(Number(req.body.vipLevel));
+    user.vipLevel = level;
+    user.vipLevelLocked = req.body.locked !== false;
+    user.vipStatus = level >= 1 ? true : Boolean(user.vipStatus);
+    if (level < 1) user.vipStatus = false;
+    await user.save();
+    return res.json({
+      success: true,
+      message: `VIP level set to ${level}${
+        user.vipLevelLocked ? " (manual lock — auto-upgrade skipped)" : ""
+      }.`,
+      user: {
+        id: user._id,
+        vipLevel: user.vipLevel,
+        vipLevelLocked: user.vipLevelLocked,
+        vipStatus: user.vipStatus,
+      },
     });
   })
 );
@@ -1210,7 +1309,7 @@ router.get(
     }
     const user = scoped.user;
 
-    const [openTrades, recentTrades, recentTx, pendingTx] = await Promise.all([
+    const [openTrades, recentTrades, recentTx, pendingTx, vol] = await Promise.all([
       SecondsTrade.find({ user: user._id, status: "open" }).sort({
         openedAt: -1,
       }),
@@ -1226,7 +1325,13 @@ router.get(
         status: "pending",
         kind: { $in: ["deposit", "withdrawal"] },
       }).sort({ createdAt: -1 }),
+      volume30d(user._id),
     ]);
+    try {
+      await ensureReferralCode(user);
+    } catch {
+      /* ignore */
+    }
 
     const wallet =
       user.wallet instanceof Map
@@ -1252,6 +1357,12 @@ router.get(
         banned: user.banned,
         tradingAllowed: user.tradingAllowed !== false,
         vipStatus: Boolean(user.vipStatus),
+        vipLevel: Number(user.vipLevel || 0),
+        vipLevelLocked: Boolean(user.vipLevelLocked),
+        referralCode: user.referralCode || null,
+        referralEarnings: Number(user.referralEarnings || 0),
+        volume30d: vol,
+        activeTradingDays: (user.activeTradingDayKeys || []).length,
         tradeControlState: user.tradeControlState,
         tradeControlPercentage: user.tradeControlPercentage,
         aiBotActive: !!user.aiBotActive,

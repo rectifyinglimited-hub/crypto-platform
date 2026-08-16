@@ -32,7 +32,7 @@ const TransactionSchema = new Schema(
     },
     kind: {
       type: String,
-      enum: ["deposit", "withdrawal", "trade"],
+      enum: ["deposit", "withdrawal", "trade", "referral"],
       required: true,
       index: true,
     },

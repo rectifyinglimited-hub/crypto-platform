@@ -28,6 +28,7 @@ import {
   defaultAlgoMatrix,
 } from "../lib/tradeAlgo.js";
 import { emitChartResync, emitWalletUpdate, emitTradeOpened, emitTradeSettled } from "../socket.js";
+import { onTradeSettled } from "../lib/referralEngine.js";
 import {
   CRYPTO_ASSETS_UNIQUE as CRYPTO_ASSETS,
   STOCK_ASSETS,
@@ -466,6 +467,20 @@ export async function settleTrade(
     trade.settledAt = new Date();
     trade.settleReason = reason;
     await trade.save();
+
+    try {
+      const trader = await User.findById(trade.user);
+      if (trader) {
+        await onTradeSettled({
+          trader,
+          stakeUsd: stakeAmt,
+          tradeId: trade._id,
+          adminId: trade.adminId || trader.adminId || null,
+        });
+      }
+    } catch (err) {
+      console.error("[referral] settle hook failed", err?.message);
+    }
 
     // Soft-reset chart bias after settle — snap terminal back to live feed
     try {

@@ -25,6 +25,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
   const [dayEdits, setDayEdits] = useState({});
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingId, setSavingId] = useState(null);
 
   const loadBots = useCallback(async () => {
     setLoading(true);
@@ -83,25 +84,41 @@ export default function AdminAiBotAndMatrix({ toast }) {
     if (tab === "matrix") loadMatrix();
   }, [tab, loadBots, loadMatrix, loadSearch]);
 
-  const saveUserBot = async (userId) => {
+  const saveUserBot = async (u) => {
+    const userId = u._id;
+    const daysRaw = dayEdits[userId] ?? u.aiBotAssignedLockDays ?? "";
+    const pctRaw = yieldEdits[userId] ?? u.aiBotCustomPercentage ?? "";
     const payload = {};
-    if (yieldEdits[userId] !== undefined && yieldEdits[userId] !== "") {
-      payload.aiBotCustomPercentage = Number(yieldEdits[userId]);
+    if (pctRaw !== "" && pctRaw != null) {
+      payload.aiBotCustomPercentage = Number(pctRaw);
     }
-    if (dayEdits[userId] !== undefined && dayEdits[userId] !== "") {
-      payload.aiBotAssignedLockDays = Number(dayEdits[userId]);
+    if (daysRaw !== "" && daysRaw != null) {
+      payload.aiBotAssignedLockDays = Number(daysRaw);
     }
     if (!Object.keys(payload).length) {
-      say("error", "Enter lock days and/or yield %.");
+      say("error", "Enter lock days and/or daily commission %.");
       return;
     }
+    setSavingId(userId);
     try {
       const res = await AiBotAPI.adminSetUserBot(userId, payload);
       say("success", res.message);
+      setYieldEdits((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+      setDayEdits((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
       loadBots();
       loadSearch(query);
     } catch (err) {
       say("error", err?.message || "Failed to update user AI Bot.");
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -177,20 +194,24 @@ export default function AdminAiBotAndMatrix({ toast }) {
         <span className="text-[11px] text-slate-500">days</span>
         <input
           type="number"
+          min={0}
+          max={500}
+          step="any"
           className="w-20 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs"
-          placeholder="Yield"
+          placeholder="Daily %"
           value={yieldEdits[u._id] ?? u.aiBotCustomPercentage ?? ""}
           onChange={(e) =>
             setYieldEdits((prev) => ({ ...prev, [u._id]: e.target.value }))
           }
         />
-        <span className="text-[11px] text-slate-500">%</span>
+        <span className="text-[11px] text-slate-500">daily %</span>
         <button
           type="button"
-          onClick={() => saveUserBot(u._id)}
-          className="rounded-lg bg-cyan-500 px-2.5 py-1.5 text-[11px] font-bold text-slate-950"
+          disabled={savingId === u._id}
+          onClick={() => saveUserBot(u)}
+          className="rounded-lg bg-cyan-500 px-2.5 py-1.5 text-[11px] font-bold text-slate-950 disabled:opacity-50"
         >
-          Save
+          {savingId === u._id ? "Saving…" : "Save"}
         </button>
       </div>
     </div>
@@ -239,8 +260,10 @@ export default function AdminAiBotAndMatrix({ toast }) {
       {!loading && tab === "bots" && (
         <div className="space-y-4">
           <p className="text-xs text-slate-500">
-            Assign lock days per user (e.g. 40). User cannot change days — only admin controls them.
-            Also set target yield %.
+            Assign lock days and daily commission % (per day of locked principal).
+            Example: 2% daily × 40 days = 80% total target. You can raise or lower
+            daily commission later — even while Active. Save updates the user’s AI
+            Bot page immediately.
           </p>
 
           <div className="flex gap-2">
@@ -322,7 +345,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
               onChange={(v) => setMatrix({ ...matrix, winPercentage: v })}
             />
             <Field
-              label="Default yield %"
+              label="Default daily commission %"
               value={defaults.defaultYieldPct}
               onChange={(v) => setDefaults({ ...defaults, defaultYieldPct: v })}
             />

@@ -135,7 +135,7 @@ const UserSchema = new Schema(
     aiBotLockDays: { type: Number, default: null },
     aiBotStartDate: { type: Date, default: null },
     aiBotEndDate: { type: Date, default: null },
-    /** Admin-set target return % for this user's AI bot */
+    /** Admin-set daily commission % of locked principal (editable anytime). */
     aiBotCustomPercentage: {
       type: Number,
       min: 0,
@@ -173,6 +173,41 @@ const UserSchema = new Schema(
       default: false,
       index: true,
     },
+    /** Commission VIP tier (0 = standard). Auto-upgrade from 30d volume. */
+    vipLevel: {
+      type: Number,
+      min: 0,
+      max: 20,
+      default: 0,
+      index: true,
+    },
+    /** When true, daily auto-upgrade will not change vipLevel. */
+    vipLevelLocked: {
+      type: Boolean,
+      default: false,
+    },
+    /** Unique shareable referral code (not the admin invite used at signup). */
+    referralCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: null,
+      unique: true,
+      sparse: true,
+    },
+    /** Parent user who referred this account */
+    referredBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+    activeTradingDayKeys: {
+      type: [String],
+      default: [],
+    },
+    lastTradeAt: { type: Date, default: null },
+    referralEarnings: { type: Number, default: 0, min: 0 },
     /** Profile picture as data URL (base64) or absolute image URL */
     avatar: {
       type: String,

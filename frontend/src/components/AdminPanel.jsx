@@ -54,6 +54,7 @@ import {
   Bot,
   Crosshair,
   CreditCard,
+  Crown,
 } from "lucide-react";
 import { AdminAPI, AuthAPI, PlatformAPI, assetUrl } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
@@ -62,6 +63,7 @@ import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import AdminPlatformModules from "./AdminPlatformModules.jsx";
 import AdminAiBotAndMatrix from "./AdminAiBotAndMatrix.jsx";
+import AdminReferralVip from "./AdminReferralVip.jsx";
 import UserControlRoom, {
   ActiveTradesAlertBar,
 } from "./UserControlRoom.jsx";
@@ -2968,6 +2970,7 @@ export default function AdminPanel({ user, onExit }) {
     { key: "details", label: "User Details", icon: CreditCard },
     { key: "platform", label: "Platform Modules", icon: Package },
     { key: "aibot", label: "AI Bot & Algo", icon: Bot },
+    { key: "referral", label: "Referral & VIP", icon: Crown },
     { key: "transactions", label: "Transactions", icon: Receipt },
     { key: "gateway", label: "Gateway Settings", icon: Landmark },
     { key: "chat", label: "Support Chat", icon: MessageSquare },
@@ -3254,6 +3257,9 @@ export default function AdminPanel({ user, onExit }) {
             )}
             {section === "aibot" && (
               <AdminAiBotAndMatrix key="aibot" toast={say} />
+            )}
+            {section === "referral" && (
+              <AdminReferralVip key="referral" toast={say} />
             )}
             {section === "gateway" && (
               <GatewayView

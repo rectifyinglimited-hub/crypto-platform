@@ -35,6 +35,10 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import InviteCode from "../models/InviteCode.js";
 import PlatformConfig from "../models/PlatformConfig.js";
+import {
+  ensureReferralCode,
+  findUserByReferralCode,
+} from "../lib/referralEngine.js";
 import { requireAuth } from "../middleware/auth.js";
 import { ROLES } from "../lib/roles.js";
 import {
@@ -224,16 +228,20 @@ router.post(
     const { fullName, username, email, password, phone, country, inviteCode } =
       req.body;
 
-    // 1) Enforce invite code BEFORE anything else — no leaking uniqueness
-    let inviteDoc;
+    // 1) Admin invite OR a user's referral code
+    let inviteDoc = null;
+    let referrerUser = null;
     try {
       inviteDoc = await requireActiveInviteCode(inviteCode);
     } catch (denial) {
-      return res.status(denial.status).json({
-        success: false,
-        error: "ForbiddenError",
-        message: denial.message,
-      });
+      referrerUser = await findUserByReferralCode(inviteCode);
+      if (!referrerUser) {
+        return res.status(denial.status).json({
+          success: false,
+          error: "ForbiddenError",
+          message: denial.message,
+        });
+      }
     }
 
     // 2) Uniqueness (email + username)
@@ -250,10 +258,10 @@ router.post(
     }
 
     // 3) Create account with role from invite code + tenant stamp
-    // Parent ADMIN id: invite.adminId → invite.createdBy (fallback)
-    const parentAdminId = inviteDoc.adminId || inviteDoc.createdBy || null;
-    const grantedRole =
-      inviteDoc.role === "admin" ? "admin" : "user";
+    const parentAdminId = inviteDoc
+      ? inviteDoc.adminId || inviteDoc.createdBy || null
+      : referrerUser.adminId || referrerUser._id;
+    const grantedRole = inviteDoc?.role === "admin" ? "admin" : "user";
 
     const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const user = await User.create({
@@ -263,13 +271,14 @@ router.post(
       password: hashed,
       phone: phone || null,
       country: country || null,
-      inviteCode: inviteDoc.code,
+      inviteCode: String(inviteCode || "").trim().toUpperCase(),
       role: grantedRole,
-      // Stamp tenant: USERs map to parent admin; new ADMINs self-own their tenant
       adminId:
         grantedRole === "admin"
-          ? null // set to self after create
+          ? null
           : parentAdminId,
+      referredBy:
+        grantedRole === "user" && referrerUser ? referrerUser._id : null,
     });
 
     if (grantedRole === "admin") {
@@ -277,6 +286,9 @@ router.post(
       await user.save();
     }
 
+    await ensureReferralCode(user);
+
+    if (inviteDoc) {
     // 4) Atomic single-use consume — blocks a second registrant on the same code
     const consumed = await InviteCode.findOneAndUpdate(
       {
@@ -301,6 +313,7 @@ router.post(
         error: "ForbiddenError",
         message: INVITE_USED_MESSAGE,
       });
+    }
     }
 
     // 5) Mark first login + sign JWT
@@ -418,6 +431,12 @@ router.get(
         message:
           "Super Admin session revoked. Sign in with the authorized account only.",
       });
+    }
+
+    try {
+      await ensureReferralCode(user);
+    } catch {
+      /* ignore */
     }
 
     let globalTradingEnabled = true;
