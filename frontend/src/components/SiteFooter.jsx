@@ -78,6 +78,11 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
               </button>
             </li>
             <li>
+              <button type="button" className="underline-offset-2 hover:text-white hover:underline" onClick={() => go("referral")}>
+                Referral
+              </button>
+            </li>
+            <li>
               <button type="button" className="underline-offset-2 hover:text-white hover:underline" onClick={() => go("vip")}>
                 VIP
               </button>

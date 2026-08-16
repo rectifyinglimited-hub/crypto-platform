@@ -2382,7 +2382,7 @@ function LogsSection() {
   );
 }
 
-function ReferralSection({ user, onToast }) {
+export function ReferralSection({ user, onToast }) {
   const fallbackCode = user?.referralCode || user?.inviteCode || "—";
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -47,6 +47,7 @@ import {
   MarketPage,
   LoanPage,
   AssetsHubPage,
+  ReferralSection,
 } from "./PlatformModules.jsx";
 import AiBotTradingPage from "./AiBotTrading.jsx";
 import HomeLanding from "./HomeLanding.jsx";
@@ -1345,6 +1346,17 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             />
           )}
           {page === "loan" && <LoanPage key="loan" onToast={say} user={me} />}
+          {page === "referral" && (
+            <motion.div
+              key="referral"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mx-auto max-w-5xl"
+            >
+              <ReferralSection user={me} onToast={say} />
+            </motion.div>
+          )}
           {page === "assets" && (
             <AssetsHubPage
               key={`assets-${assetsView}`}
