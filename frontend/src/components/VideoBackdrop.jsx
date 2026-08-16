@@ -21,7 +21,7 @@ export default function VideoBackdrop({
         muted
         loop
         playsInline
-        preload="metadata"
+        preload="auto"
         poster={poster}
       >
         <source src={src} type="video/mp4" />

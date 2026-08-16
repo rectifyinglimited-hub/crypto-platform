@@ -180,7 +180,9 @@ export function VipPage({ user, onCta, onSupport }) {
               )}
             </div>
           </div>
-          <NeonLiveGraph symbol="BTC" height={300} />
+          <div className="hidden lg:block">
+            <NeonLiveGraph symbol="BTC" height={300} />
+          </div>
         </div>
       </section>
 

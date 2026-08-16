@@ -13,9 +13,6 @@ import {
   Activity,
   BarChart3,
   Radio,
-  Clock3,
-  Lock,
-  Sparkles,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
@@ -93,24 +90,6 @@ const FEATURES = [
   },
 ];
 
-const FLOOR_NOTES = [
-  {
-    icon: Clock3,
-    title: "Seconds settlement",
-    body: "Delivery clocks close in-session. No waiting for a T+1 batch.",
-  },
-  {
-    icon: Lock,
-    title: "Wallet already live",
-    body: "Trading Wallet and Live Earnings sit on this desk — jump straight to orders.",
-  },
-  {
-    icon: Sparkles,
-    title: "Copy AI Bot floor",
-    body: "Admin-assigned lock + daily commission. You cannot change days; yield is managed for you.",
-  },
-];
-
 function formatPrice(n) {
   const v = Number(n) || 0;
   if (v >= 1000) return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -153,7 +132,7 @@ function LivePriceStrip() {
   }, [load]);
 
   return (
-    <div className="flex items-center gap-3 overflow-x-auto rounded-2xl border border-white/10 bg-[#0d1424] px-4 py-3">
+    <div className="hidden items-center gap-3 overflow-x-auto rounded-2xl border border-white/10 bg-[#0d1424] px-4 py-3 md:flex">
       <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-400">
         <Radio className="h-3 w-3" />
         Live desk
@@ -175,6 +154,48 @@ function LivePriceStrip() {
         </div>
       ))}
     </div>
+  );
+}
+
+function SessionVideoLounge({ firstName, onStartTrading }) {
+  return (
+    <section className="relative min-h-[420px] overflow-hidden rounded-2xl border border-[#ffc107]/20 sm:min-h-[380px] md:min-h-[320px]">
+      <VideoBackdrop
+        src={CRYPTO_VIDEO}
+        poster={CRYPTO_POSTER}
+        overlayClassName="bg-gradient-to-t from-[#05070c] via-[#05070c]/70 to-[#05070c]/25"
+      />
+      <div className="relative z-10 flex min-h-[420px] flex-col justify-end px-5 py-7 sm:min-h-[380px] sm:px-8 md:min-h-[320px] md:py-10">
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#ffc107]">
+          Signed-in lounge · no chart wall
+        </p>
+        <h2 className="mt-2 max-w-lg text-2xl font-extrabold leading-tight text-white sm:text-3xl">
+          {firstName ? `${firstName}, trade from the terminal` : "Trade from the terminal"}
+        </h2>
+        <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-200/90">
+          Candles stay on Trading. This home is your session reel — wallet,
+          Copy AI Bot, and a direct path to execution.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {["Seconds desk", "Copy AI Bot", "Assets vault"].map((label) => (
+            <span
+              key={label}
+              className="rounded-full border border-white/15 bg-black/40 px-3 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-sm"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={onStartTrading}
+          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#ffc107] px-5 py-3 text-sm font-bold text-[#1a1400] shadow-[0_0_24px_rgba(255,193,7,0.35)] sm:w-auto"
+        >
+          Open Trading
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -245,42 +266,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
 
       <LivePriceStrip />
 
-      <section className="relative overflow-hidden rounded-2xl border border-cyan-400/20">
-        <VideoBackdrop
-          src={CRYPTO_VIDEO}
-          poster={CRYPTO_POSTER}
-          overlayClassName="bg-gradient-to-t from-[#05070c] via-[#05070c]/75 to-[#05070c]/40"
-        />
-        <div className="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
-          <div className="mb-6 max-w-2xl">
-            <h2 className="text-xl font-semibold text-white md:text-2xl">
-              A quieter floor. Faster decisions.
-            </h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate-300">
-              Charts stay on the Trading tab. Here you get session context,
-              wallet state, and a path into execution — without a candlestick
-              stack under the hero.
-            </p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {FLOOR_NOTES.map(({ icon: Icon, title, body }, i) => (
-              <motion.div
-                key={title}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 * i }}
-                className="rounded-2xl border border-white/12 bg-black/45 p-4 backdrop-blur-sm"
-              >
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#ffc107]/15 text-[#ffc107]">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="mt-3 text-sm font-semibold text-white">{title}</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{body}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <SessionVideoLounge firstName={firstName} onStartTrading={onStartTrading} />
 
       <section>
         <div className="mb-4 text-center md:text-left">
