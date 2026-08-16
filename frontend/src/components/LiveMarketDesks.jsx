@@ -36,7 +36,7 @@ export default function LiveMarketDesks({ height = 220 }) {
     count === 3 ? "grid-cols-3" : count === 2 ? "grid-cols-2" : "grid-cols-1";
 
   return (
-    <div className={`hidden gap-3 md:grid ${cols}`}>
+    <div className={`grid gap-3 ${cols}`}>
       {DESKS.slice(0, count).map((symbol) => (
         <NeonLiveGraph
           key={symbol}

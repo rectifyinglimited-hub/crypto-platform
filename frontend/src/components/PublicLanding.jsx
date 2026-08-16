@@ -339,7 +339,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               </button>
             </div>
           </div>
-          <div className="hidden space-y-3 lg:block">
+          <div className="space-y-3">
             <NeonLiveGraph symbol="BTC" height={320} />
             <div className="grid grid-cols-3 gap-2">
               {PAIRS.map((p) => (
@@ -533,8 +533,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
-      {/* Live looping desks — desktop only; mobile uses signed-in video lounge */}
-      <section className="hidden bg-[#07111f] py-12 md:block sm:py-16">
+      {/* Live looping desks */}
+      <section className="bg-[#07111f] py-12 sm:py-16">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="mb-6 text-center text-xl font-bold sm:text-2xl">
             Live crypto · stocks-style candles
