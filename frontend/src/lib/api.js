@@ -322,6 +322,8 @@ export const ChatAPI = {
       .then((r) => r.data),
   depositDetails: (payload = {}) =>
     api.post("/chat/deposit-details", payload).then((r) => r.data),
+  topicBriefing: (payload) =>
+    api.post("/chat/topic-briefing", payload).then((r) => r.data),
   history: (userId) => api.get(`/chat/history/${userId}`).then((r) => r.data),
   threads: () => api.get("/chat/threads").then((r) => r.data),
   markRead: (payload = {}) =>

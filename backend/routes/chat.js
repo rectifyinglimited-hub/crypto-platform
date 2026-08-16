@@ -30,6 +30,80 @@ const VERIFICATION_HEADER = "Secure Payment Verification Channel";
 const VERIFICATION_INSTRUCTIONS =
   "Please review the official TRC-20 settlement address below. Once your external transfer is complete, attach a clear photographic transaction receipt or hash snapshot using the attachment utility below for management validation.";
 
+const TOPIC_BRIEFINGS = {
+  vip: [
+    "VIP lounge request",
+    "",
+    "Read this first, then send your message below. A manager will reply in this thread.",
+    "",
+    "How VIP works",
+    "• Lounge VIP is granted by an administrator — priority Live Chat, personal manager, faster payout review.",
+    "• Trading VIP (your referral commission %) upgrades automatically from 30-day trading volume. You do not request that here.",
+    "",
+    "Please send:",
+    "1. Username on this account",
+    "2. Approximate deposit / 30-day volume",
+    "3. Why you want lounge VIP",
+    "",
+    "Optional: attach a recent deposit receipt. Do not share passwords.",
+    "We will review and reply here.",
+  ].join("\n"),
+  loan: [
+    "Loan desk",
+    "",
+    "Read these steps first, then message us below.",
+    "",
+    "1. Open Loan and complete Borrower Verification (ID front & back, selfie with ID, address proof).",
+    "2. Wait until verification status is Approved.",
+    "3. Then send in this chat:",
+    "   • Amount in USDT",
+    "   • Term in days",
+    "   • Purpose of the loan",
+    "4. Interest is shown on the Loan calculator before you submit. Every request is admin-reviewed.",
+    "",
+    "Do not send passwords or card PINs. A manager will reply here.",
+  ].join("\n"),
+  withdraw: [
+    "Withdrawal desk",
+    "",
+    "Read this first, then send your message below.",
+    "",
+    "1. Add a crypto wallet or bank card in Assets and wait for admin approval.",
+    "2. Submit the withdrawal form with the exact amount.",
+    "3. Then message us here with:",
+    "   • Amount and coin (usually USDT)",
+    "   • Network (TRC20 / ERC20 / BEP20) or bank",
+    "   • Destination wallet, or last 4 of the card",
+    "4. Identity verification (KYC) should be approved for faster release.",
+    "5. Payouts are staff-reviewed. Never send funds to a wallet posted by anyone except this official chat.",
+    "",
+    "Reply below. We will confirm next steps in this thread.",
+  ].join("\n"),
+  service: [
+    "Customer Service",
+    "",
+    "You are in the live support thread.",
+    "Tell us what you need (account, trade, KYC, or a problem).",
+    "Include your username and a short description.",
+    "",
+    "Do not share passwords. A manager will reply here.",
+  ].join("\n"),
+  info: [
+    "Information desk",
+    "",
+    "Binomo support — office and how to reach us:",
+    "Dolphin Corp LLC",
+    "Euro House, Richmond Hill Road",
+    "Kingstown, St. Vincent and Grenadines",
+    "Email: support@binomo.com",
+    "",
+    "Ask about accounts, deposits, VIP, loans, withdrawals, or trading.",
+    "Type your question below. A manager will reply in this thread.",
+  ].join("\n"),
+};
+
+const TOPIC_KEYS = Object.keys(TOPIC_BRIEFINGS);
+
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -426,6 +500,78 @@ router.post(
         instructions: gw.instructions,
       },
     });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// POST /topic-briefing — VIP / loan / withdraw / service instructions
+// ---------------------------------------------------------------------------
+router.post(
+  "/topic-briefing",
+  requireAuth,
+  requireDatabase,
+  body("topic")
+    .isIn(TOPIC_KEYS)
+    .withMessage("Choose vip, loan, withdraw, service, or info."),
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return sendValidationError(res, errors);
+
+    const sender = await resolveSender(req);
+    const { isAdmin } = sender;
+    const topic = String(req.body.topic || "").toLowerCase();
+    const threadUserId = isAdmin ? req.body.userId : req.auth.sub;
+    if (!threadUserId || !mongoose.isValidObjectId(threadUserId)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user.",
+      });
+    }
+    if (!isAdmin && String(threadUserId) !== String(req.auth.sub)) {
+      return res.status(403).json({
+        success: false,
+        error: "ForbiddenError",
+        message: "Forbidden.",
+      });
+    }
+    if (isAdmin) {
+      const allowed = await assertChatTenantAccess(req, threadUserId, sender);
+      if (!allowed) {
+        return res.status(404).json({
+          success: false,
+          error: "NotFoundError",
+          message: "Target user not found.",
+        });
+      }
+    }
+
+    const kind = `topic_${topic}`;
+    const recent = await Message.findOne({
+      user: threadUserId,
+      from: "admin",
+      "meta.kind": kind,
+      createdAt: { $gte: new Date(Date.now() - 8 * 60 * 1000) },
+    }).sort({ createdAt: -1 });
+    if (recent) {
+      return res.json({ success: true, message: recent, reused: true });
+    }
+
+    const targetUser = await User.findById(threadUserId).select("adminId");
+    const msg = await Message.create({
+      user: threadUserId,
+      adminId: targetUser?.adminId || null,
+      from: "admin",
+      body: String(TOPIC_BRIEFINGS[topic] || "").slice(0, 4000),
+      messageType: "system",
+      adminAuthor: isAdmin ? req.auth.sub : null,
+      readByAdmin: true,
+      readByUser: false,
+      meta: { kind, topic },
+    });
+
+    emitChatMessage(threadUserId, msg);
+    return res.status(201).json({ success: true, message: msg });
   })
 );
 

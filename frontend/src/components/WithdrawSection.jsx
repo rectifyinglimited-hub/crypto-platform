@@ -2,7 +2,7 @@
  * Withdraw desk — crypto wallet or verified bank card, held pending admin.
  */
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpFromLine, Loader2, Send } from "lucide-react";
+import { ArrowUpFromLine, Loader2, Send, MessageCircle } from "lucide-react";
 import { PlatformAPI, WalletAPI } from "../lib/api.js";
 
 function fmt(n, d = 4) {
@@ -35,6 +35,7 @@ export default function WithdrawSection({
   bankCards = [],
   toast,
   onWalletUpdate,
+  onOpenLiveChat,
 }) {
   const [saved, setSaved] = useState(savedAddresses);
   const [cards, setCards] = useState(bankCards);
@@ -56,6 +57,11 @@ export default function WithdrawSection({
       })
       .catch(() => {});
   }, [savedAddresses, bankCards, wallet]);
+
+  useEffect(() => {
+    onOpenLiveChat?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [method, setMethod] = useState("crypto");
   const [symbol, setSymbol] = useState("USDT");
   const [network, setNetwork] = useState("TRC20");
@@ -141,6 +147,23 @@ export default function WithdrawSection({
         Funds are held immediately and released only after admin approval. Use a
         verified wallet address or bank card from Assets.
       </p>
+
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-rose-400/25 bg-rose-500/10 p-3 text-[11px] text-rose-100 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-2">
+          <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-300" />
+          <span>
+            Submit the form, then send amount, network, and destination in Live Chat so we can review the payout.
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => onOpenLiveChat?.()}
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-rose-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-rose-950"
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Open Live Chat
+        </button>
+      </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2">
         {[

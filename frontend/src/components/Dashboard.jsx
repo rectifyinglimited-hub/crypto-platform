@@ -1076,7 +1076,8 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     setAssetsView("withdraw");
     setPage("withdraw");
     setTab("wallet");
-  }, []);
+    openLiveChat("withdraw");
+  }, [openLiveChat]);
 
   useEffect(() => {
     const onOpenChat = (e) => {
@@ -1309,6 +1310,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 user={me}
                 toast={say}
                 onWalletUpdate={handleUserUpdate}
+                onOpenLiveChat={() => openLiveChat("withdraw")}
               />
             </div>
           )}
@@ -1345,7 +1347,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               onWalletUpdate={handleUserUpdate}
             />
           )}
-          {page === "loan" && <LoanPage key="loan" onToast={say} user={me} />}
+          {page === "loan" && (
+            <LoanPage
+              key="loan"
+              onToast={say}
+              user={me}
+              onOpenLiveChat={() => openLiveChat("loan")}
+            />
+          )}
           {page === "referral" && (
             <motion.div
               key="referral"
@@ -1364,7 +1373,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               onToast={say}
               onOpenKyc={() => setKycOpen(true)}
               onOpenDeposit={openDepositSection}
-              onOpenLiveChat={() => openLiveChat("deposit")}
+              onOpenLiveChat={(hint) => openLiveChat(hint || "deposit")}
               onOpenWithdraw={openWithdrawSection}
               onWalletUpdate={handleUserUpdate}
               initialView={assetsView}
@@ -1405,7 +1414,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               <VipPage
                 user={me}
                 onCta={() => goPage("trade")}
-                onSupport={() => openLiveChat("info")}
+                onSupport={() => openLiveChat("vip")}
                 onReferral={() => goPage("referral")}
               />
             </motion.div>
@@ -1424,7 +1433,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
       {!isStaffRole(me?.role) && (
         <LiveChatWidget
           user={me}
-          contextHint={chatHint || (tab === "wallet" ? "deposit" : null)}
+          contextHint={chatHint}
           openSignal={chatOpenSignal}
           onToast={say}
           onWalletUpdate={(w) =>

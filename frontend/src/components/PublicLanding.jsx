@@ -270,7 +270,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             <ContactPage onSupport={() => openChat("info")} ctaLabel="Open Live Chat" />
           )}
           {view === "vip" && (
-            <VipPage onCta={onRegister} onSupport={() => openChat("info")} />
+            <VipPage onCta={onRegister} onSupport={() => openChat("vip")} />
           )}
           {view === "certificate" && (
             <CertificatePage

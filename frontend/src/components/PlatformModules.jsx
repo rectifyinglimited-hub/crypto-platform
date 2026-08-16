@@ -1445,7 +1445,7 @@ function DocSlot({ label, value, onChange }) {
   );
 }
 
-export function LoanPage({ onToast, user, onWalletUpdate }) {
+export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
   const { items } = useCatalog("loan_plan");
   const plan = items[0];
   const [status, setStatus] = useState(user?.borrowerKyc?.status || "unverified");
@@ -1513,6 +1513,18 @@ export function LoanPage({ onToast, user, onWalletUpdate }) {
   return (
     <div>
       <PageHeader icon={Landmark} title="Loan" subtitle="Borrower verification + instant calculator" />
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-cyan-400/25 bg-cyan-500/10 p-3 text-[11px] text-cyan-100 sm:flex-row sm:items-center sm:justify-between">
+        <span>
+          Read the loan steps in Live Chat first, then send amount, days, and purpose. A manager will reply in that thread.
+        </span>
+        <button
+          type="button"
+          onClick={() => onOpenLiveChat?.()}
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-cyan-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-cyan-950"
+        >
+          Open Live Chat
+        </button>
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <div className="mb-4 flex items-center justify-between">
@@ -2953,16 +2965,19 @@ export function AssetsHubPage({
 
   const openDeposit = () => {
     setView("deposit");
-    onOpenLiveChat?.();
+    onOpenLiveChat?.("deposit");
   };
 
   const openWithdraw = () => {
     setView("withdraw");
+    onOpenLiveChat?.("withdraw");
+    onOpenWithdraw?.();
   };
 
   const goView = (key) => {
     setView(key);
-    if (key === "deposit") onOpenLiveChat?.();
+    if (key === "deposit") onOpenLiveChat?.("deposit");
+    if (key === "withdraw") onOpenLiveChat?.("withdraw");
   };
 
   const load = useCallback(() => {
@@ -3003,7 +3018,7 @@ export function AssetsHubPage({
         />
       )}
       {view === "deposit" && (
-        <DepositSection toast={onToast} onOpenLiveChat={onOpenLiveChat} />
+        <DepositSection toast={onToast} onOpenLiveChat={() => onOpenLiveChat?.("deposit")} />
       )}
       {view === "withdraw" && (
         <WithdrawSection
@@ -3013,6 +3028,7 @@ export function AssetsHubPage({
           bankCards={data?.bankCards || []}
           toast={onToast}
           onWalletUpdate={refreshAfterChange}
+          onOpenLiveChat={() => onOpenLiveChat?.("withdraw")}
         />
       )}
       {view === "assets" && (

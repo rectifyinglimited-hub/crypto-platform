@@ -9,14 +9,16 @@ import {
   MessageCircle,
   X,
   Send,
-  ShieldCheck,
   Loader2,
   ArrowDownToLine,
+  ArrowUpFromLine,
   Headphones,
   Info,
   Copy,
   Upload,
   Image as ImageIcon,
+  Crown,
+  Landmark,
 } from "lucide-react";
 
 import {
@@ -47,24 +49,116 @@ const timeAgo = (iso) => {
 
 const MENU_OPTIONS = [
   {
-    key: "service",
-    label: "Customer Service",
-    icon: Headphones,
-    tone: "from-indigo-500/20 to-indigo-400/5 text-indigo-200 ring-indigo-400/30",
-  },
-  {
     key: "deposit",
     label: "Deposit",
     icon: ArrowDownToLine,
     tone: "from-emerald-500/20 to-emerald-400/5 text-emerald-200 ring-emerald-400/30",
   },
   {
+    key: "withdraw",
+    label: "Withdrawal",
+    icon: ArrowUpFromLine,
+    tone: "from-rose-500/20 to-rose-400/5 text-rose-200 ring-rose-400/30",
+  },
+  {
+    key: "vip",
+    label: "Request VIP",
+    icon: Crown,
+    tone: "from-amber-500/20 to-[#ffc107]/10 text-[#ffc107] ring-[#ffc107]/35",
+  },
+  {
+    key: "loan",
+    label: "Loan",
+    icon: Landmark,
+    tone: "from-cyan-500/20 to-cyan-400/5 text-cyan-200 ring-cyan-400/30",
+  },
+  {
+    key: "service",
+    label: "Customer Service",
+    icon: Headphones,
+    tone: "from-indigo-500/20 to-indigo-400/5 text-indigo-200 ring-indigo-400/30",
+  },
+  {
     key: "info",
     label: "Information",
     icon: Info,
-    tone: "from-cyan-500/20 to-cyan-400/5 text-cyan-200 ring-cyan-400/30",
+    tone: "from-slate-500/20 to-slate-400/5 text-slate-200 ring-slate-400/30",
   },
 ];
+
+const TOPIC_GUIDES = {
+  vip: {
+    title: "VIP lounge request",
+    header: "VIP desk",
+    placeholder: "I would like lounge VIP because…",
+    intro:
+      "Read this first, then type your request below. A manager will reply in this thread.",
+    steps: [
+      "Lounge VIP is granted by an administrator (priority chat, personal manager, faster payout review).",
+      "Trading VIP / referral % upgrades automatically from 30-day volume — you do not request that here.",
+      "Send your username, approximate volume or deposit, and why you want VIP.",
+      "Optional: attach a recent deposit receipt. Never share passwords.",
+    ],
+    card: "border-[#ffc107]/30 bg-[#ffc107]/5",
+    titleClass: "text-[#ffc107]",
+  },
+  loan: {
+    title: "Loan desk",
+    header: "Loan desk",
+    placeholder: "Loan amount, days, and purpose…",
+    intro: "Follow these steps, then message us below.",
+    steps: [
+      "Complete Borrower Verification on the Loan page (ID front/back, selfie, address proof).",
+      "Wait until status is Approved.",
+      "Then send amount in USDT, term in days, and purpose.",
+      "Interest is shown on the Loan calculator. Admin reviews every request.",
+    ],
+    card: "border-cyan-400/30 bg-cyan-500/5",
+    titleClass: "text-cyan-200",
+  },
+  withdraw: {
+    title: "Withdrawal desk",
+    header: "Withdrawal desk",
+    placeholder: "Amount, network, and destination…",
+    intro: "Read this first, then send your payout details below.",
+    steps: [
+      "Add a crypto wallet or bank card in Assets and wait for admin approval.",
+      "Submit the withdrawal form with the exact amount.",
+      "Message us with amount, network (TRC20 / ERC20 / bank), and destination (wallet or last 4 of the card).",
+      "KYC should be approved for faster release. Only trust wallets shown in this official chat.",
+    ],
+    card: "border-rose-400/30 bg-rose-500/5",
+    titleClass: "text-rose-200",
+  },
+  service: {
+    title: "Customer Service",
+    header: "Customer Service",
+    placeholder: "How can we help?",
+    intro: "You are in the live support thread. A manager will reply here.",
+    steps: [
+      "Tell us what you need: account, trade, KYC, or a problem.",
+      "Include your username and a short description.",
+      "Do not share passwords or PIN codes.",
+    ],
+    card: "border-indigo-400/30 bg-indigo-500/5",
+    titleClass: "text-indigo-200",
+  },
+  info: {
+    title: "Information desk",
+    header: "Information",
+    placeholder: "Ask about the platform…",
+    intro: "Office details are in the thread. Type your question below.",
+    steps: [
+      `${COMPANY.legalName} — ${COMPANY.addressLines.join(", ")}`,
+      `Email: ${COMPANY.email}`,
+      "Ask about accounts, deposits, VIP, loans, withdrawals, or trading.",
+    ],
+    card: "border-white/10 bg-white/[0.03]",
+    titleClass: "text-slate-100",
+  },
+};
+
+const BRIEFING_TOPICS = ["vip", "loan", "withdraw", "service", "info"];
 
 function localMsg(from, body) {
   return {
@@ -142,7 +236,7 @@ export default function LiveChatWidget({
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [menuStep, setMenuStep] = useState("menu"); // menu | service | deposit | info
+  const [menuStep, setMenuStep] = useState("menu"); // menu | service | deposit | info | vip | loan | withdraw
   const [gateway, setGateway] = useState(null);
   const [depositAmount, setDepositAmount] = useState("");
   const [proofFile, setProofFile] = useState(null);
@@ -186,21 +280,45 @@ export default function LiveChatWidget({
           /* local gateway panel still works */
         }
       })();
-    } else if (contextHint === "info" || contextHint === "service") {
+    } else if (BRIEFING_TOPICS.includes(contextHint)) {
       setMenuStep(contextHint);
       if (!userId) {
-        setMessages((prev) =>
-          mergeMessages(
-            prev,
-            localMsg(
-              "admin",
-              contextHint === "info"
-                ? infoDeskReply()
-                : "Customer Service is ready. Sign in so a manager can reply, or ask your question here first."
-            )
-          )
-        );
+        const guide = TOPIC_GUIDES[contextHint];
+        const guestText = [
+          guide?.title,
+          "",
+          guide?.intro,
+          "",
+          ...(guide?.steps || []).map((s, i) => `${i + 1}. ${s}`),
+          "",
+          "Sign in so a manager can reply in this thread.",
+        ]
+          .filter(Boolean)
+          .join("\n");
+        setMessages((prev) => mergeMessages(prev, localMsg("admin", guestText)));
+        return;
       }
+      (async () => {
+        try {
+          const res = await ChatAPI.topicBriefing({ topic: contextHint });
+          if (res.message) {
+            setMessages((prev) => mergeMessages(prev, res.message));
+          }
+        } catch {
+          const guide = TOPIC_GUIDES[contextHint];
+          if (guide) {
+            setMessages((prev) =>
+              mergeMessages(
+                prev,
+                localMsg(
+                  "admin",
+                  [guide.title, "", guide.intro, "", ...guide.steps.map((s, i) => `${i + 1}. ${s}`)].join("\n")
+                )
+              )
+            );
+          }
+        }
+      })();
     } else {
       setMenuStep("menu");
     }
@@ -322,25 +440,27 @@ export default function LiveChatWidget({
     setMenuStep(key);
     setStatusBanner(null);
     if (!userId) {
-      if (key === "info") {
-        setMessages((prev) => mergeMessages(prev, localMsg("admin", infoDeskReply())));
-      } else if (key === "service") {
-        setMessages((prev) =>
-          mergeMessages(
-            prev,
-            localMsg(
-              "admin",
-              "Ask your question here. Sign in when you want a manager to pick up this thread."
-            )
-          )
-        );
-      } else if (key === "deposit") {
+      if (key === "deposit") {
         setMessages((prev) =>
           mergeMessages(
             prev,
             localMsg("admin", "Sign in to view the official deposit address and attach a receipt.")
           )
         );
+        return;
+      }
+      const guide = TOPIC_GUIDES[key];
+      if (guide) {
+        const guestText = [
+          guide.title,
+          "",
+          guide.intro,
+          "",
+          ...guide.steps.map((s, i) => `${i + 1}. ${s}`),
+          "",
+          "Sign in so a manager can reply in this thread.",
+        ].join("\n");
+        setMessages((prev) => mergeMessages(prev, localMsg("admin", guestText)));
       }
       return;
     }
@@ -355,17 +475,27 @@ export default function LiveChatWidget({
       } catch {
         /* gateway panel still works locally */
       }
+      return;
     }
-    if (key === "service" || key === "info") {
-      const text =
-        key === "service"
-          ? "I'd like to speak with Customer Service."
-          : "I need Information about the platform.";
+    if (BRIEFING_TOPICS.includes(key)) {
       try {
-        const res = await ChatAPI.send({ body: text });
-        setMessages((prev) => mergeMessages(prev, res.message));
+        const res = await ChatAPI.topicBriefing({ topic: key });
+        if (res.message) {
+          setMessages((prev) => mergeMessages(prev, res.message));
+        }
       } catch {
-        /* ignore */
+        const guide = TOPIC_GUIDES[key];
+        if (guide) {
+          setMessages((prev) =>
+            mergeMessages(
+              prev,
+              localMsg(
+                "admin",
+                [guide.title, "", guide.intro, "", ...guide.steps.map((s, i) => `${i + 1}. ${s}`)].join("\n")
+              )
+            )
+          );
+        }
       }
     }
   };
@@ -518,7 +648,7 @@ export default function LiveChatWidget({
                 <BrandLogo variant="mark" imgClassName="h-8 w-8" />
                 <div>
                   <div className="text-sm font-semibold leading-tight">
-                    {VERIFICATION_HEADER}
+                    {TOPIC_GUIDES[menuStep]?.header || VERIFICATION_HEADER}
                   </div>
                   <div className="text-[10px] uppercase tracking-widest text-slate-400">
                     Online · Encrypted channel
@@ -678,14 +808,37 @@ export default function LiveChatWidget({
                 </div>
               )}
 
-              {(menuStep === "service" || menuStep === "info") && (
-                <button
-                  type="button"
-                  onClick={() => setMenuStep("menu")}
-                  className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-slate-300"
-                >
-                  ← Back to menu
-                </button>
+              {TOPIC_GUIDES[menuStep] && (
+                <div className={`space-y-2 rounded-2xl border p-3 ${TOPIC_GUIDES[menuStep].card}`}>
+                  <div className="flex items-center justify-between">
+                    <div className={`text-xs font-semibold ${TOPIC_GUIDES[menuStep].titleClass}`}>
+                      {TOPIC_GUIDES[menuStep].title}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMenuStep("menu")}
+                      className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-slate-300"
+                    >
+                      Menu
+                    </button>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-slate-400">
+                    {TOPIC_GUIDES[menuStep].intro}
+                  </p>
+                  <ol className="space-y-1.5 pl-1 text-[11px] leading-relaxed text-slate-300">
+                    {TOPIC_GUIDES[menuStep].steps.map((step, i) => (
+                      <li key={step} className="flex gap-2">
+                        <span className={`mt-0.5 font-bold ${TOPIC_GUIDES[menuStep].titleClass}`}>
+                          {i + 1}.
+                        </span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-1.5 text-[10px] text-slate-500">
+                    Then type your message below — we will reply in this chat.
+                  </p>
+                </div>
               )}
 
               {statusBanner && (
@@ -767,7 +920,9 @@ export default function LiveChatWidget({
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="Type a message…"
+                placeholder={
+                  TOPIC_GUIDES[menuStep]?.placeholder || "Type a message…"
+                }
                 className="flex-1 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
               />
               <motion.button
