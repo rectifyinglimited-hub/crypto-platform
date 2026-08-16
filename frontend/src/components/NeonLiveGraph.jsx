@@ -57,7 +57,8 @@ function formatPrice(n) {
   if (!Number.isFinite(v)) return "—";
   if (v >= 1000) return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
   if (v >= 1) return v.toFixed(4);
-  return v.toFixed(6);
+  if (v >= 0.01) return v.toFixed(6);
+  return v.toFixed(8);
 }
 
 function formatCompact(n) {
@@ -155,6 +156,7 @@ export default function NeonLiveGraph({
   symbol = "BTC",
   height = 280,
   compact = false,
+  transparent = false,
 }) {
   const wrapRef = useRef(null);
   const seriesRef = useRef({});
@@ -179,14 +181,23 @@ export default function NeonLiveGraph({
     const chart = createChart(el, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: BG },
+        background: {
+          type: ColorType.Solid,
+          color: transparent ? "rgba(8, 16, 28, 0.18)" : BG,
+        },
         textColor: TEXT,
         fontSize: compact ? 9 : 11,
         fontFamily: "IBM Plex Sans, BinancePlex, -apple-system, sans-serif",
       },
       grid: {
-        vertLines: { color: GRID, style: LineStyle.Dotted },
-        horzLines: { color: GRID, style: LineStyle.Dotted },
+        vertLines: {
+          color: transparent ? "rgba(255,255,255,0.05)" : GRID,
+          style: LineStyle.Dotted,
+        },
+        horzLines: {
+          color: transparent ? "rgba(255,255,255,0.05)" : GRID,
+          style: LineStyle.Dotted,
+        },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -326,7 +337,7 @@ export default function NeonLiveGraph({
         /* ignore */
       }
     };
-  }, [compact]);
+  }, [compact, transparent]);
 
   useEffect(() => {
     const pair = toBinanceSymbol(symbol, "USDT");
@@ -411,7 +422,13 @@ export default function NeonLiveGraph({
   }, [symbol, tfMeta.interval, tfMeta.limit]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b0e11]">
+    <div
+      className={`overflow-hidden rounded-2xl border ${
+        transparent
+          ? "border-white/15 bg-black/20 backdrop-blur-[2px]"
+          : "border-white/10 bg-[#0b0e11]"
+      }`}
+    >
       <div className={`border-b border-white/5 ${compact ? "px-2.5 py-2" : "px-3 py-3 sm:px-4"}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

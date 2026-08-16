@@ -7,9 +7,76 @@ import mongoose from "mongoose";
 const { Schema } = mongoose;
 
 export const DEFAULT_VIP_TIERS = [
-  { level: 1, name: "VIP 1", minVolume30d: 1000, commissionRate: 10 },
-  { level: 2, name: "VIP 2", minVolume30d: 10000, commissionRate: 15 },
-  { level: 3, name: "VIP 3", minVolume30d: 50000, commissionRate: 20 },
+  {
+    level: 1,
+    name: "VIP 1",
+    minVolume30d: 1000,
+    commissionRate: 10,
+    perk: "Priority Live Chat queue",
+  },
+  {
+    level: 2,
+    name: "VIP 2",
+    minVolume30d: 10000,
+    commissionRate: 15,
+    perk: "Faster deposit screenshot review",
+  },
+  {
+    level: 3,
+    name: "VIP 3",
+    minVolume30d: 50000,
+    commissionRate: 20,
+    perk: "Personal manager routing",
+  },
+  {
+    level: 4,
+    name: "VIP 4",
+    minVolume30d: 100000,
+    commissionRate: 22,
+    perk: "Faster withdrawal review window",
+  },
+  {
+    level: 5,
+    name: "VIP 5",
+    minVolume30d: 200000,
+    commissionRate: 24,
+    perk: "Dedicated VIP desk hours",
+  },
+  {
+    level: 6,
+    name: "VIP 6",
+    minVolume30d: 350000,
+    commissionRate: 26,
+    perk: "Elevated Copy AI Bot allocation",
+  },
+  {
+    level: 7,
+    name: "VIP 7",
+    minVolume30d: 500000,
+    commissionRate: 28,
+    perk: "Concierge KYC and payout help",
+  },
+  {
+    level: 8,
+    name: "VIP 8",
+    minVolume30d: 750000,
+    commissionRate: 30,
+    perk: "Higher desk limits on verified rails",
+  },
+  {
+    level: 9,
+    name: "VIP 9",
+    minVolume30d: 1200000,
+    commissionRate: 32,
+    perk: "Senior relationship manager",
+  },
+  {
+    level: 10,
+    name: "VIP 10",
+    minVolume30d: 2000000,
+    commissionRate: 35,
+    perk: "Top-desk status and max referral cut",
+  },
 ];
 
 export const DEFAULT_REFERRAL_COMMISSION_RATE = 15;
@@ -21,6 +88,7 @@ const VipTierSchema = new Schema(
     name: { type: String, trim: true, default: "VIP" },
     minVolume30d: { type: Number, required: true, min: 0 },
     commissionRate: { type: Number, required: true, min: 0, max: 100 },
+    perk: { type: String, trim: true, default: "" },
   },
   { _id: false }
 );
@@ -71,9 +139,28 @@ function normalizeTiers(raw) {
       name: String(t.name || `VIP ${Number(t.level) || i + 1}`).slice(0, 40),
       minVolume30d: Math.max(0, Number(t.minVolume30d) || 0),
       commissionRate: Math.min(100, Math.max(0, Number(t.commissionRate) || 0)),
+      perk: String(t.perk || "").slice(0, 120),
     }))
     .sort((a, b) => a.level - b.level || a.minVolume30d - b.minVolume30d);
   return cleaned.length ? cleaned : DEFAULT_VIP_TIERS.map((t) => ({ ...t }));
+}
+
+function ensureFullVipLadder(raw) {
+  const cleaned = normalizeTiers(raw);
+  const byLevel = new Map(cleaned.map((t) => [Number(t.level), t]));
+  const out = DEFAULT_VIP_TIERS.map((def) => {
+    const existing = byLevel.get(def.level);
+    if (!existing) return { ...def };
+    return {
+      ...def,
+      ...existing,
+      perk: existing.perk || def.perk,
+    };
+  });
+  for (const t of cleaned) {
+    if (Number(t.level) > 10) out.push(t);
+  }
+  return out;
 }
 
 SystemSettingsSchema.statics.serialize = function (doc) {
@@ -83,7 +170,7 @@ SystemSettingsSchema.statics.serialize = function (doc) {
       src.defaultReferralCommissionRate ?? DEFAULT_REFERRAL_COMMISSION_RATE,
     referralUnlockTradingDays:
       src.referralUnlockTradingDays ?? DEFAULT_UNLOCK_TRADING_DAYS,
-    vipTierSettings: normalizeTiers(src.vipTierSettings),
+    vipTierSettings: ensureFullVipLadder(src.vipTierSettings),
     updatedAt: src.updatedAt || null,
   };
 };
@@ -102,6 +189,12 @@ SystemSettingsSchema.statics.getForAdmin = async function (adminId) {
       referralUnlockTradingDays: DEFAULT_UNLOCK_TRADING_DAYS,
       vipTierSettings: DEFAULT_VIP_TIERS.map((t) => ({ ...t })),
     });
+  } else {
+    const merged = ensureFullVipLadder(doc.vipTierSettings);
+    if ((doc.vipTierSettings || []).length < DEFAULT_VIP_TIERS.length) {
+      doc.vipTierSettings = merged;
+      await doc.save();
+    }
   }
   return doc;
 };
@@ -131,7 +224,7 @@ SystemSettingsSchema.statics.upsertForAdmin = async function (
     );
   }
   if (patch.vipTierSettings !== undefined) {
-    update.vipTierSettings = normalizeTiers(patch.vipTierSettings);
+    update.vipTierSettings = ensureFullVipLadder(patch.vipTierSettings);
   }
   const doc = await this.findOneAndUpdate(
     oid ? { adminId: oid } : { adminId: null },

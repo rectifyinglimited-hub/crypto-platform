@@ -147,9 +147,16 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
 }
 
 const DEFAULT_VIP_TIERS = [
-  { level: 1, name: "VIP 1", minVolume30d: 1000, commissionRate: 10 },
-  { level: 2, name: "VIP 2", minVolume30d: 10000, commissionRate: 15 },
-  { level: 3, name: "VIP 3", minVolume30d: 50000, commissionRate: 20 },
+  { level: 1, name: "VIP 1", minVolume30d: 1000, commissionRate: 10, perk: "Priority Live Chat queue" },
+  { level: 2, name: "VIP 2", minVolume30d: 10000, commissionRate: 15, perk: "Faster deposit screenshot review" },
+  { level: 3, name: "VIP 3", minVolume30d: 50000, commissionRate: 20, perk: "Personal manager routing" },
+  { level: 4, name: "VIP 4", minVolume30d: 100000, commissionRate: 22, perk: "Faster withdrawal review window" },
+  { level: 5, name: "VIP 5", minVolume30d: 200000, commissionRate: 24, perk: "Dedicated VIP desk hours" },
+  { level: 6, name: "VIP 6", minVolume30d: 350000, commissionRate: 26, perk: "Elevated Copy AI Bot allocation" },
+  { level: 7, name: "VIP 7", minVolume30d: 500000, commissionRate: 28, perk: "Concierge KYC and payout help" },
+  { level: 8, name: "VIP 8", minVolume30d: 750000, commissionRate: 30, perk: "Higher desk limits on verified rails" },
+  { level: 9, name: "VIP 9", minVolume30d: 1200000, commissionRate: 32, perk: "Senior relationship manager" },
+  { level: 10, name: "VIP 10", minVolume30d: 2000000, commissionRate: 35, perk: "Top-desk status and max referral cut" },
 ];
 
 function fmtVipUsd(n) {
@@ -287,7 +294,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
               ) : null}
             </div>
           </div>
-          <NeonLiveGraph symbol="BTC" height={300} />
+          <NeonLiveGraph symbol="XRP" height={300} transparent />
         </div>
       </section>
 
@@ -322,11 +329,46 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
       </div>
 
       <div>
-        <h2 className="text-lg font-extrabold">Trading VIP chart</h2>
+        <h2 className="text-lg font-extrabold">Trading VIP 1–10</h2>
         <p className="mt-1 mb-3 text-sm text-white/50">
-          More 30-day volume moves you up. Each jump can change the referral
-          commission you keep.
+          Ten volume tiers. More 30-day volume moves you up and can raise the
+          referral commission you keep. Lounge VIP is still granted by your admin.
         </p>
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          {tiers.map((t) => {
+            const active = signedIn && Number(t.level || 0) === level;
+            return (
+              <div
+                key={t.level}
+                className={`rounded-2xl border p-3 ${
+                  active
+                    ? "border-[#ffc107]/45 bg-[#ffc107]/12"
+                    : "border-white/10 bg-black/35"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-extrabold text-[#ffc107]">
+                    {t.name || `VIP ${t.level}`}
+                  </div>
+                  {active ? (
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                      You
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-1 text-lg font-extrabold text-cyan-300">
+                  {Number(t.commissionRate)}%
+                </div>
+                <div className="text-[11px] text-white/45">
+                  {fmtVipUsd(t.minVolume30d)}+ / 30 days
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-white/65">
+                  {t.perk || "Higher referral commission on unlocked invites."}
+                </p>
+              </div>
+            );
+          })}
+        </div>
         <div className="overflow-x-auto rounded-2xl border border-white/10">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-white/[0.04] text-[10px] uppercase tracking-wider text-white/40">
@@ -335,6 +377,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                 <th className="px-4 py-3 font-semibold">30-day volume</th>
                 <th className="px-4 py-3 font-semibold">Referral %</th>
                 <th className="px-4 py-3 font-semibold">On $100 trade</th>
+                <th className="px-4 py-3 font-semibold">Perk</th>
               </tr>
             </thead>
             <tbody>
@@ -361,7 +404,10 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                     <td className="px-4 py-3">{fmtVipUsd(t.minVolume30d)}+</td>
                     <td className="px-4 py-3 font-bold text-cyan-300">{rate}%</td>
                     <td className="px-4 py-3 text-emerald-300">
-                      ${(rate).toFixed(0)}
+                      ${rate.toFixed(0)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-white/55">
+                      {t.perk || (Number(t.level) === 0 ? "Default referral rate" : "—")}
                     </td>
                   </tr>
                 );

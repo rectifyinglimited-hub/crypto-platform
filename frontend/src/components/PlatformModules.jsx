@@ -2680,7 +2680,7 @@ export function ReferralSection({ user, onToast }) {
 
       <div>
         <h3 className="mb-2 text-sm font-semibold text-white">
-          VIP tiers & commission
+          VIP 1–10 & commission
         </h3>
         <p className="mb-3 text-[11px] text-slate-500">
           Live rates from admin settings. Trade more in 30 days to move up.
@@ -2693,6 +2693,7 @@ export function ReferralSection({ user, onToast }) {
                 <th className="px-4 py-3 font-semibold">30-day volume</th>
                 <th className="px-4 py-3 font-semibold">Commission</th>
                 <th className="px-4 py-3 font-semibold">On $100 trade</th>
+                <th className="px-4 py-3 font-semibold">Perk</th>
               </tr>
             </thead>
             <tbody>
@@ -2728,6 +2729,12 @@ export function ReferralSection({ user, onToast }) {
                     <td className="px-4 py-3 font-bold text-cyan-300">{rate}%</td>
                     <td className="px-4 py-3 text-emerald-300">
                       {fmtUsd((rate / 100) * REFERRAL_EXAMPLE_STAKE)}
+                    </td>
+                    <td className="px-4 py-3 text-[11px] text-slate-400">
+                      {t.perk ||
+                        (Number(t.level || 0) === 0
+                          ? "Default referral rate"
+                          : "—")}
                     </td>
                   </tr>
                 );

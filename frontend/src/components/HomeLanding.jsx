@@ -26,10 +26,10 @@ import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
 
 const OVERVIEW_ASSETS = [
-  { symbol: "BTC", name: "Bitcoin" },
   { symbol: "ETH", name: "Ethereum" },
-  { symbol: "SOL", name: "Solana" },
   { symbol: "XRP", name: "XRP" },
+  { symbol: "SOL", name: "Solana" },
+  { symbol: "SHIB", name: "Shiba Inu" },
 ];
 
 const CORP_PILLARS = [
@@ -268,7 +268,7 @@ function LivePreviewChart({ symbol, series, positive }) {
 }
 
 function MarketOverviewGrid() {
-  const [selected, setSelected] = useState("BTC");
+  const [selected, setSelected] = useState("SOL");
   const [markets, setMarkets] = useState({});
   const [seriesMap, setSeriesMap] = useState({});
   const [flash, setFlash] = useState(null);
@@ -460,7 +460,7 @@ function MarketOverviewGrid() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.22 }}
-          className={`overflow-hidden rounded-2xl border bg-[#0a1220]/90 p-4 sm:p-5 ${
+          className={`overflow-hidden rounded-2xl border bg-[#0a1220]/55 p-4 backdrop-blur-[2px] sm:p-5 ${
             flash === "up"
               ? "border-emerald-400/35"
               : flash === "down"
@@ -621,7 +621,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
             </div>
           </div>
         </div>
-        <NeonLiveGraph symbol="BTC" height={320} />
+        <NeonLiveGraph symbol="ETH" height={320} transparent />
         </div>
       </section>
 

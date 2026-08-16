@@ -5,12 +5,33 @@ import { useCallback, useEffect, useState } from "react";
 import { Crown, Loader2, Plus, RefreshCw, Save, Trash2, Zap } from "lucide-react";
 import { AdminAPI } from "../lib/api.js";
 
-const emptyTier = (level) => ({
-  level,
-  name: `VIP ${level}`,
-  minVolume30d: level === 1 ? 1000 : level === 2 ? 10000 : 50000,
-  commissionRate: level === 1 ? 10 : level === 2 ? 15 : 20,
-});
+const TIER_DEFAULTS = [
+  { level: 1, minVolume30d: 1000, commissionRate: 10, perk: "Priority Live Chat queue" },
+  { level: 2, minVolume30d: 10000, commissionRate: 15, perk: "Faster deposit screenshot review" },
+  { level: 3, minVolume30d: 50000, commissionRate: 20, perk: "Personal manager routing" },
+  { level: 4, minVolume30d: 100000, commissionRate: 22, perk: "Faster withdrawal review window" },
+  { level: 5, minVolume30d: 200000, commissionRate: 24, perk: "Dedicated VIP desk hours" },
+  { level: 6, minVolume30d: 350000, commissionRate: 26, perk: "Elevated Copy AI Bot allocation" },
+  { level: 7, minVolume30d: 500000, commissionRate: 28, perk: "Concierge KYC and payout help" },
+  { level: 8, minVolume30d: 750000, commissionRate: 30, perk: "Higher desk limits on verified rails" },
+  { level: 9, minVolume30d: 1200000, commissionRate: 32, perk: "Senior relationship manager" },
+  { level: 10, minVolume30d: 2000000, commissionRate: 35, perk: "Top-desk status and max referral cut" },
+];
+
+const emptyTier = (level) => {
+  const d = TIER_DEFAULTS.find((t) => t.level === level) || {
+    minVolume30d: level * 250000,
+    commissionRate: Math.min(40, 8 + level * 2),
+    perk: "",
+  };
+  return {
+    level,
+    name: `VIP ${level}`,
+    minVolume30d: d.minVolume30d,
+    commissionRate: d.commissionRate,
+    perk: d.perk || "",
+  };
+};
 
 export default function AdminReferralVip({ toast }) {
   const say = toast || (() => {});
@@ -19,11 +40,7 @@ export default function AdminReferralVip({ toast }) {
   const [running, setRunning] = useState(false);
   const [defaultRate, setDefaultRate] = useState("15");
   const [unlockDays, setUnlockDays] = useState("30");
-  const [tiers, setTiers] = useState([
-    emptyTier(1),
-    emptyTier(2),
-    emptyTier(3),
-  ]);
+  const [tiers, setTiers] = useState(TIER_DEFAULTS.map((t) => emptyTier(t.level)));
   const [scope, setScope] = useState("tenant");
 
   const load = useCallback(async () => {
@@ -36,7 +53,7 @@ export default function AdminReferralVip({ toast }) {
       setTiers(
         Array.isArray(s.vipTierSettings) && s.vipTierSettings.length
           ? s.vipTierSettings
-          : [emptyTier(1), emptyTier(2), emptyTier(3)]
+          : TIER_DEFAULTS.map((t) => emptyTier(t.level))
       );
       setScope(res.scope || "tenant");
     } catch (err) {
@@ -61,6 +78,7 @@ export default function AdminReferralVip({ toast }) {
           name: t.name || `VIP ${i + 1}`,
           minVolume30d: Number(t.minVolume30d) || 0,
           commissionRate: Number(t.commissionRate) || 0,
+          perk: t.perk || "",
         })),
       });
       say("success", res.message || "Settings saved.");
@@ -110,9 +128,9 @@ export default function AdminReferralVip({ toast }) {
       </div>
 
       <p className="text-xs text-slate-500">
-        Base referral commission applies to Standard accounts (VIP 0). VIP tiers
-        replace that rate from 30-day trading volume. Saving updates every user
-        referral chart on their next load — no code deploy needed.
+        Base referral commission applies to Standard accounts (VIP 0). VIP 1–10
+        replace that rate from 30-day trading volume. Each level also has a desk
+        perk shown on the VIP and Referral pages.
       </p>
 
       {loading ? (
@@ -169,7 +187,7 @@ export default function AdminReferralVip({ toast }) {
             {tiers.map((t, i) => (
               <div
                 key={i}
-                className="grid gap-2 rounded-xl border border-white/10 bg-[#0c1222] p-3 sm:grid-cols-[70px_1fr_1fr_1fr_auto]"
+                className="grid gap-2 rounded-xl border border-white/10 bg-[#0c1222] p-3 sm:grid-cols-[70px_1fr_1fr_1fr_1fr_auto]"
               >
                 <label className="text-[10px] text-slate-500">
                   Level
@@ -212,6 +230,15 @@ export default function AdminReferralVip({ toast }) {
                     onChange={(e) =>
                       updateTier(i, "commissionRate", e.target.value)
                     }
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-[10px] text-slate-500">
+                  Perk / detailing
+                  <input
+                    value={t.perk || ""}
+                    onChange={(e) => updateTier(i, "perk", e.target.value)}
+                    placeholder="What this level unlocks"
                     className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
                   />
                 </label>

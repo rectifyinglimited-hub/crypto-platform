@@ -1,10 +1,10 @@
 /**
- * Live BTC / ETH / SOL desks — 3 on desktop, 2 on tablet, 1 on phone.
+ * Live XRP / SOL / SHIB desks — 3 on desktop, 2 on tablet, 1 on phone.
  */
 import { useEffect, useState } from "react";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 
-const DESKS = ["BTC", "ETH", "SOL"];
+const DESKS = ["XRP", "SOL", "SHIB"];
 
 function desksForWidth(w) {
   if (w < 768) return 1;

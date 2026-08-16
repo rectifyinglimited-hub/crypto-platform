@@ -30,9 +30,10 @@ import { CertificatePage } from "./TradingCertificate.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 
 const PAIRS = [
-  { symbol: "BTC", name: "Bitcoin" },
   { symbol: "ETH", name: "Ethereum" },
+  { symbol: "XRP", name: "XRP" },
   { symbol: "SOL", name: "Solana" },
+  { symbol: "SHIB", name: "Shiba Inu" },
 ];
 
 const YELLOW_BTN =
@@ -310,7 +311,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         <div className="relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#ffc107]/35 bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#ffc107]">
-              BTC · ETH · SOL
+              ETH · XRP · SOL · SHIB
             </div>
             <motion.h1
               initial={{ opacity: 0, y: 16 }}
@@ -340,8 +341,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             </div>
           </div>
           <div className="space-y-3">
-            <NeonLiveGraph symbol="BTC" height={320} />
-            <div className="grid grid-cols-3 gap-2">
+            <NeonLiveGraph symbol="ETH" height={320} transparent />
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {PAIRS.map((p) => (
                 <div
                   key={p.symbol}
@@ -377,7 +378,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             99% PROFIT
           </div>
           <p className="mx-auto mt-2 max-w-md text-sm text-white/55">
-            for the most popular assets — BTC, ETH, SOL on the Binomo Trade desk
+            for ETH, XRP, SOL, and SHIB on the Binomo Trade desk
           </p>
           <button type="button" onClick={onRegister} className={`${YELLOW_BTN_SM} mt-6`}>
             Trade
