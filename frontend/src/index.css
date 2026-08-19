@@ -257,6 +257,29 @@ select option {
 .eq-spin-slow {
   animation: eq-spin 18s linear infinite;
 }
+@keyframes eq-threat-swing {
+  0% { transform: rotate(42deg); }
+  50% { transform: rotate(168deg); }
+  100% { transform: rotate(42deg); }
+}
+@keyframes eq-threat-keep {
+  0% { transform: rotate(-42deg); }
+  50% { transform: rotate(-168deg); }
+  100% { transform: rotate(-42deg); }
+}
+.eq-threat-orbit {
+  animation: eq-threat-swing 5.6s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+.eq-threat-keep {
+  animation: eq-threat-keep 5.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .eq-threat-orbit,
+  .eq-threat-keep {
+    animation: none;
+  }
+}
 .eq-spin-rev {
   animation: eq-spin 22s linear infinite reverse;
 }
