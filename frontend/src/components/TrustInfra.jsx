@@ -6,6 +6,7 @@ import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
 import FillExpectSection from "./FillExpectSection.jsx";
 import SecurityShield from "./SecurityShield.jsx";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 
 const LIME = "#39FF14";
 
@@ -182,7 +183,9 @@ export function TripleDeskSection() {
           Three live books on desktop. One focused chart on mobile. Same candles, same feed.
         </p>
         <div className="mt-8">
-          <LiveMarketDesks height={240} transparent />
+          <ErrorBoundary fallback={<div className="h-48 rounded-xl border border-white/10 bg-black" />}>
+            <LiveMarketDesks height={240} transparent />
+          </ErrorBoundary>
         </div>
         <p className="mx-auto mt-10 max-w-2xl text-center text-sm leading-relaxed text-white/65">
           Charts stay in the browser so you can read ETH, XRP, and SOL without a second
@@ -226,7 +229,9 @@ export function BrowserDeskSection({ symbol = "XRP" }) {
             </div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">equiti</span>
           </div>
-          <NeonLiveGraph symbol={symbol} height={260} transparent />
+          <ErrorBoundary fallback={<div className="h-64 rounded-xl border border-[#39FF14]/30 bg-black" />}>
+            <NeonLiveGraph symbol={symbol} height={260} transparent />
+          </ErrorBoundary>
         </div>
         <div>
           <h2 className="text-3xl font-extrabold uppercase leading-tight sm:text-4xl">
@@ -287,6 +292,8 @@ export function ForexStyleShowcase({ includeDesk = true }) {
     </>
   );
 }
+
+export default ForexStyleShowcase;
 
 export function TrustedPartnersMarquee() {
   return <PartnersWorldwide />;

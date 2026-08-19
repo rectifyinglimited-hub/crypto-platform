@@ -178,7 +178,9 @@ export default function NeonLiveGraph({
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return undefined;
-    const chart = createChart(el, {
+    let chart;
+    try {
+      chart = createChart(el, {
       autoSize: true,
       layout: {
         background: {
@@ -337,6 +339,10 @@ export default function NeonLiveGraph({
         /* ignore */
       }
     };
+    } catch (err) {
+      console.error(err);
+      return undefined;
+    }
   }, [compact, transparent]);
 
   useEffect(() => {

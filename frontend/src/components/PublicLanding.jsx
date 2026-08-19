@@ -26,12 +26,8 @@ const CertificatePage = lazy(() =>
 const AboutPage = lazy(() => import("./InfoPages.jsx").then((m) => ({ default: m.AboutPage })));
 const ContactPage = lazy(() => import("./InfoPages.jsx").then((m) => ({ default: m.ContactPage })));
 const VipPage = lazy(() => import("./InfoPages.jsx").then((m) => ({ default: m.VipPage })));
-const ForexStyleShowcase = lazy(() =>
-  import("./TrustInfra.jsx").then((m) => ({ default: m.ForexStyleShowcase }))
-);
-const EquitiFaq = lazy(() =>
-  import("./TrustInfra.jsx").then((m) => ({ default: m.EquitiFaq }))
-);
+const ForexStyleShowcase = lazy(() => import("./TrustInfra.jsx"));
+const EquitiFaq = lazy(() => import("./EquitiFaq.jsx"));
 
 const PAIRS = [
   { symbol: "ETH", name: "Ethereum" },
