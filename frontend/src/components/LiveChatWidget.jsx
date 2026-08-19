@@ -64,7 +64,7 @@ const MENU_OPTIONS = [
     key: "vip",
     label: "Request VIP",
     icon: Crown,
-    tone: "from-amber-500/20 to-[#00D4C4]/10 text-[#00D4C4] ring-[#00D4C4]/35",
+    tone: "from-amber-500/20 to-[#C8FF00]/10 text-[#C8FF00] ring-[#C8FF00]/35",
   },
   {
     key: "loan",
@@ -99,8 +99,8 @@ const TOPIC_GUIDES = {
       "Send your username, approximate volume or deposit, and why you want VIP.",
       "Optional: attach a recent deposit receipt. Never share passwords.",
     ],
-    card: "border-[#00D4C4]/30 bg-[#00D4C4]/5",
-    titleClass: "text-[#00D4C4]",
+    card: "border-[#C8FF00]/30 bg-[#C8FF00]/5",
+    titleClass: "text-[#C8FF00]",
   },
   loan: {
     title: "Loan desk",
@@ -668,7 +668,7 @@ export default function LiveChatWidget({
               <button
                 type="button"
                 onClick={() => onNeedAuth?.()}
-                className="border-b border-[#00D4C4]/20 bg-[#00D4C4]/10 px-4 py-2 text-center text-[11px] font-semibold text-[#00D4C4] hover:bg-[#00D4C4]/15"
+                className="border-b border-[#C8FF00]/20 bg-[#C8FF00]/10 px-4 py-2 text-center text-[11px] font-semibold text-[#C8FF00] hover:bg-[#C8FF00]/15"
               >
                 Sign in for a live manager reply
               </button>
@@ -950,7 +950,7 @@ export default function LiveChatWidget({
         }}
         whileTap={{ scale: 0.94 }}
         whileHover={{ scale: 1.03 }}
-        className="pointer-events-auto relative grid h-12 w-12 place-items-center rounded-full bg-[#00D4C4] text-black shadow-2xl shadow-[#00D4C4]/40"
+        className="pointer-events-auto relative grid h-12 w-12 place-items-center rounded-full bg-[#C8FF00] text-black shadow-2xl shadow-[#C8FF00]/40"
       >
         <MessageCircle className="h-5 w-5" />
         {!open && unread > 0 && (

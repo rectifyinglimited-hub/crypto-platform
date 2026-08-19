@@ -23,7 +23,7 @@ function OfficialStamp({ ring, center, sub, id }) {
         />
       </defs>
       <circle cx="70" cy="70" r="66" fill="none" stroke="#1a1a1a" strokeWidth="2.6" />
-      <circle cx="70" cy="70" r="61" fill="none" stroke="#00D4C4" strokeWidth="3.2" />
+      <circle cx="70" cy="70" r="61" fill="none" stroke="#C8FF00" strokeWidth="3.2" />
       <circle cx="70" cy="70" r="56" fill="none" stroke="#1a1a1a" strokeWidth="1.1" />
       <text
         fill="#1a1a1a"
@@ -195,7 +195,7 @@ export function CertificatePage({ onBack, onContact }) {
     <div className="mx-auto max-w-3xl pb-8">
       <div className="px-4 py-10 text-center sm:py-14">
         <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full border border-white/20">
-          <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#00D4C4]" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#C8FF00]" fill="none" stroke="currentColor" strokeWidth="1.6">
             <circle cx="12" cy="12" r="9" />
             <path d="M8 12.5l2.2 2.2L16.5 9" />
           </svg>
@@ -270,7 +270,7 @@ export function CertificatePage({ onBack, onContact }) {
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-full bg-[#9AFF3C] px-6 py-2.5 text-sm font-extrabold text-black"
+          className="inline-flex items-center gap-2 rounded-full bg-[#C8FF00] px-6 py-2.5 text-sm font-extrabold text-black"
         >
           Back to home <ArrowRight className="h-4 w-4" />
         </button>
@@ -320,13 +320,13 @@ export function CertificatePreview({ onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="w-full overflow-hidden rounded-2xl border border-[#00D4C4]/25 text-left shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[#00D4C4]"
+      className="w-full overflow-hidden rounded-2xl border border-[#C8FF00]/25 text-left shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[#C8FF00]"
       title="Click to open official certificate"
     >
       <div className="origin-top scale-[0.98]">
         <OfficialCertificateDocument />
       </div>
-      <div className="bg-[#0b0e11] px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-[#00D4C4]">
+      <div className="bg-[#0b0e11] px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-[#C8FF00]">
         Click to verify official certificate
       </div>
     </button>

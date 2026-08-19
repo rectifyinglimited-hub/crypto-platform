@@ -2471,8 +2471,8 @@ export function ReferralSection({ user, onToast }) {
   return (
     <div className="space-y-4">
       {referredBy ? (
-        <Card className="relative overflow-hidden border-[#00D4C4]/30 bg-[#00D4C4]/5">
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#00D4C4]">
+        <Card className="relative overflow-hidden border-[#C8FF00]/30 bg-[#C8FF00]/5">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#C8FF00]">
             <Users className="h-3.5 w-3.5" />
             You joined with a referral
           </div>
@@ -2492,7 +2492,7 @@ export function ReferralSection({ user, onToast }) {
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">
                   Their VIP
                 </div>
-                <div className="mt-1 text-sm font-bold text-[#00D4C4]">
+                <div className="mt-1 text-sm font-bold text-[#C8FF00]">
                   {Number(referredBy.vipLevel) > 0
                     ? `VIP ${referredBy.vipLevel}`
                     : "Standard"}
@@ -2520,9 +2520,9 @@ export function ReferralSection({ user, onToast }) {
       ) : null}
 
       <Card className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#00D4C4]/10 via-transparent to-cyan-500/10" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#C8FF00]/10 via-transparent to-cyan-500/10" />
         <div className="relative">
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#00D4C4]">
+          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#C8FF00]">
             <Crown className="h-3.5 w-3.5" />
             Your current VIP status
           </div>
@@ -2588,7 +2588,7 @@ export function ReferralSection({ user, onToast }) {
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[#00D4C4] to-cyan-400"
+                className="h-full rounded-full bg-gradient-to-r from-[#C8FF00] to-cyan-400"
                 style={{
                   width: `${Math.round((Number(progress.progress) || 0) * 100)}%`,
                 }}
@@ -2653,7 +2653,7 @@ export function ReferralSection({ user, onToast }) {
                   <div
                     className={`w-full max-w-[52px] rounded-t-lg ${
                       nearYou
-                        ? "bg-gradient-to-t from-[#00D4C4] to-cyan-300"
+                        ? "bg-gradient-to-t from-[#C8FF00] to-cyan-300"
                         : "bg-gradient-to-t from-cyan-700/80 to-cyan-400/70"
                     }`}
                     style={{ height }}
@@ -2713,7 +2713,7 @@ export function ReferralSection({ user, onToast }) {
                     key={t.level ?? "std"}
                     className={
                       active
-                        ? "bg-[#00D4C4]/10 text-white"
+                        ? "bg-[#C8FF00]/10 text-white"
                         : "border-t border-white/5 text-slate-300"
                     }
                   >

@@ -5,13 +5,13 @@ export default {
     extend: {
       colors: {
         nx: {
-          bg: "#06080f",
-          elevated: "#0a0e17",
-          surface: "#0d121c",
-          panel: "#121826",
-          accent: "#2dd4bf",
-          cyan: "#22d3ee",
-          muted: "#8b9bb4",
+          bg: "#000000",
+          elevated: "#0a0a0a",
+          surface: "#111111",
+          panel: "#161616",
+          accent: "#C8FF00",
+          cyan: "#00B5AD",
+          muted: "#9aa0a6",
         },
         midnight: {
           950: "#06080f",
@@ -31,12 +31,12 @@ export default {
         display: ["Sora", "Outfit", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        glow: "0 10px 40px -12px rgba(45, 212, 191, 0.45)",
+        glow: "0 10px 40px -12px rgba(200, 255, 0, 0.45)",
         panel: "0 16px 48px -24px rgba(0, 0, 0, 0.65)",
       },
       backgroundImage: {
         "nx-hero":
-          "radial-gradient(ellipse 90% 60% at 50% -10%, rgba(45,212,191,0.16), transparent 55%)",
+          "radial-gradient(ellipse 90% 60% at 50% -10%, rgba(200,255,0,0.12), transparent 55%)",
       },
     },
   },

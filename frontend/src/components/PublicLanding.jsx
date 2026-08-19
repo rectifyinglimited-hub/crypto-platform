@@ -38,10 +38,10 @@ const PAIRS = [
 ];
 
 const LIME_BTN =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#9AFF3C] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#08120a] shadow-[0_10px_28px_-8px_rgba(154,255,60,0.55)] transition hover:bg-[#c8ff7a]";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#C8FF00] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-black shadow-[0_10px_28px_-8px_rgba(200,255,0,0.45)] transition hover:bg-[#e8ff8a]";
 
 const LIME_BTN_SM =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#9AFF3C] px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-[#08120a] transition hover:bg-[#c8ff7a]";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#C8FF00] px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-black transition hover:bg-[#e8ff8a]";
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -192,9 +192,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
   }, []);
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-[#05070c] text-white">
+    <div className="min-h-screen w-full overflow-x-hidden bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07111f]/95 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#000000]/95 backdrop-blur-md">
         <div className="mx-auto flex h-[58px] max-w-[1180px] items-center justify-between gap-3 px-4 sm:px-6">
           <BrandLogo
             onClick={() => {
@@ -202,20 +202,20 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
           />
-          <nav className="hidden items-center gap-6 text-[13px] font-semibold text-white/80 md:flex">
-            <button type="button" onClick={() => go("trading")} className="hover:text-white">
+          <nav className="hidden items-center gap-6 text-[12px] font-bold uppercase tracking-[0.14em] text-white/80 md:flex">
+            <button type="button" onClick={() => go("trading")} className="hover:text-[#C8FF00]">
               Trading
             </button>
-            <button type="button" onClick={() => go("about")} className="hover:text-white">
+            <button type="button" onClick={() => go("about")} className="hover:text-[#C8FF00]">
               About us
             </button>
-            <button type="button" onClick={() => go("vip")} className="hover:text-white">
+            <button type="button" onClick={() => go("vip")} className="hover:text-[#C8FF00]">
               VIP
             </button>
-            <button type="button" onClick={() => go("contact")} className="hover:text-white">
+            <button type="button" onClick={() => go("contact")} className="hover:text-[#C8FF00]">
               Contact
             </button>
-            <button type="button" onClick={() => go("certificate")} className="hover:text-white">
+            <button type="button" onClick={() => go("certificate")} className="hover:text-[#C8FF00]">
               Certificate
             </button>
           </nav>
@@ -286,7 +286,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       {view === "home" && (
       <>
       {/* Live strip */}
-      <div className="border-b border-white/5 bg-[#0a1829]">
+      <div className="border-b border-white/5 bg-[#050505]">
         <div className="mx-auto flex max-w-[1180px] items-center gap-4 overflow-x-auto px-4 py-2 text-[11px] sm:px-6">
           <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-emerald-400">
             <Radio className={`h-3 w-3 ${connected ? "text-emerald-400" : "text-slate-500"}`} />
@@ -295,7 +295,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           {PAIRS.map((p) => (
             <span key={p.symbol} className="shrink-0 font-semibold text-white/80">
               {p.symbol}/USDT{" "}
-              <span className="tabular-nums text-[#00D4C4]">
+              <span className="tabular-nums text-[#C8FF00]">
                 {markets[p.symbol] ? formatPrice(markets[p.symbol]) : "—"}
               </span>
             </span>
@@ -306,38 +306,53 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       {/* Hero — person + 5 more slides, live looping candles */}
       <section
         ref={heroRef}
-        className="relative min-h-[560px] overflow-hidden bg-[#081526] sm:min-h-[640px]"
+        className="relative min-h-[560px] overflow-hidden eq-chevrons sm:min-h-[640px]"
       >
+        <div className="eq-grid pointer-events-none absolute inset-0 opacity-50" />
         <HeroMediaSlider />
         <div className="relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#00D4C4]/35 bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#00D4C4]">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#C8FF00]/40 bg-black/50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#C8FF00]">
               ETH · XRP · SOL · SHIB
             </div>
             <motion.h1
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              className="max-w-xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl"
+              className="max-w-xl text-4xl font-extrabold uppercase leading-[1.05] tracking-tight sm:text-5xl md:text-[3.4rem]"
             >
-              Reliable trading partner
+              The trading desk behind{" "}
+              <span className="text-[#C8FF00]">live markets</span> every day
             </motion.h1>
             <p className="mt-3 text-base font-medium text-white/75 sm:text-lg">
-              Your success is in your hands — live crypto markets, 24/7.
+              Faster charts, safer payouts, and 24/7 support — built for traders, not a home PC.
             </p>
+            <ul className="mt-6 grid gap-2 text-[13px] font-semibold text-white/90 sm:grid-cols-2">
+              {[
+                "Live candles on first view",
+                "24/7 Live Chat desk",
+                "Invite-only accounts",
+                "Admin-verified withdrawals",
+              ].map((line) => (
+                <li key={line} className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#C8FF00]" />
+                  {line}
+                </li>
+              ))}
+            </ul>
             <div className="mt-7 flex flex-wrap gap-x-7 gap-y-3 text-[13px] font-semibold text-white/90">
               <span className="inline-flex items-center gap-2">
-                <PiggyBank className="h-5 w-5 text-[#00D4C4]" /> $10 min trade
+                <PiggyBank className="h-5 w-5 text-[#C8FF00]" /> $10 min trade
               </span>
               <span className="inline-flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-[#00D4C4]" /> up to 90% profit
+                <BarChart3 className="h-5 w-5 text-[#C8FF00]" /> up to 90% profit
               </span>
               <span className="inline-flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-[#00D4C4]" /> 24/7 withdrawals
+                <CreditCard className="h-5 w-5 text-[#C8FF00]" /> 24/7 withdrawals
               </span>
             </div>
             <div className="mt-8">
               <button type="button" onClick={onRegister} className={LIME_BTN}>
-                Try it
+                Launch now
               </button>
             </div>
           </div>
@@ -347,9 +362,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               {PAIRS.map((p) => (
                 <div
                   key={p.symbol}
-                  className="rounded-xl border border-[#00D4C4]/20 bg-black/50 px-3 py-2.5 text-center"
+                  className="rounded-xl border border-[#C8FF00]/20 bg-black/50 px-3 py-2.5 text-center"
                 >
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#00D4C4]">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#C8FF00]">
                     {p.symbol}/USDT
                   </div>
                   <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-white">
@@ -362,18 +377,25 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
+      <section className="border-y border-white/5 bg-black py-8">
+        <div className="mx-auto grid max-w-[1180px] gap-4 px-4 sm:px-6 lg:grid-cols-2">
+          <NeonLiveGraph symbol="XRP" height={240} transparent />
+          <NeonLiveGraph symbol="SOL" height={240} transparent />
+        </div>
+      </section>
+
       {/* 99% profit */}
-      <section id="trading" className="bg-[#07111f] py-16 text-center sm:py-20">
+      <section id="trading" className="bg-[#000000] py-16 text-center sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="text-xl font-bold sm:text-2xl">The highest profitability on the market</h2>
           <div
             className="mt-4 font-extrabold leading-none tracking-tight text-transparent"
             style={{
               fontSize: "clamp(3.2rem, 12vw, 7.5rem)",
-              backgroundImage: "linear-gradient(180deg, #7dd3fc 0%, #38bdf8 40%, #0369a1 100%)",
+              backgroundImage: "linear-gradient(180deg, #C8FF00 0%, #7CB800 100%)",
               WebkitBackgroundClip: "text",
               backgroundClip: "text",
-              filter: "drop-shadow(0 0 28px rgba(56,189,248,0.35))",
+              filter: "drop-shadow(0 0 28px rgba(200,255,0,0.35))",
             }}
           >
             99% PROFIT
@@ -388,10 +410,10 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </section>
 
       {/* Specials */}
-      <section className="bg-[#082032] py-12 sm:py-16">
+      <section className="bg-[#0b0b0b] py-12 sm:py-16">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="mb-5 text-center text-xl font-bold sm:text-2xl">equiti Specials</h2>
-          <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-[#148a3c] to-[#1db954] px-6 py-8 sm:flex sm:items-center sm:justify-between sm:px-10">
+          <div className="overflow-hidden rounded-2xl border border-[#C8FF00]/25 bg-[#0b0b0b] px-6 py-8 sm:flex sm:items-center sm:justify-between sm:px-10">
             <div>
               <div className="text-lg font-extrabold sm:text-2xl">
                 Get profitability up to 90% on your first deposit
@@ -410,13 +432,13 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       <TrustedPartnersMarquee />
 
       {/* Why traders */}
-      <section id="traders" className="bg-[#07111f] py-16 sm:py-20">
+      <section id="traders" className="bg-[#000000] py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Why do traders choose equiti?</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {STATS.map((s) => (
-              <div key={s.label} className="rounded-xl border border-white/10 bg-[#0c1a2e] px-3 py-5 text-center">
-                <div className="text-2xl font-extrabold text-[#00D4C4] sm:text-3xl">{s.value}</div>
+              <div key={s.label} className="rounded-xl border border-white/10 bg-[#111111] px-3 py-5 text-center">
+                <div className="text-2xl font-extrabold text-[#C8FF00] sm:text-3xl">{s.value}</div>
                 <div className="mt-1 text-[11px] font-medium text-white/55">{s.label}</div>
               </div>
             ))}
@@ -425,7 +447,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </section>
 
       {/* Products */}
-      <section className="bg-[#082032] py-16 sm:py-20">
+      <section className="bg-[#0b0b0b] py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Go top with a trusted desk</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -435,8 +457,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               { icon: Landmark, title: "Loan", body: "Borrower verification and admin-controlled loan plans." },
               { icon: Wallet, title: "Assets", body: "Deposit, withdraw, bank cards, wallet address and security." },
             ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-5">
-                <Icon className="h-6 w-6 text-[#00D4C4]" />
+              <div key={title} className="rounded-xl border border-white/10 bg-[#111111] p-5">
+                <Icon className="h-6 w-6 text-[#C8FF00]" />
                 <h3 className="mt-3 text-sm font-bold">{title}</h3>
                 <p className="mt-1.5 text-xs leading-relaxed text-white/55">{body}</p>
               </div>
@@ -446,16 +468,16 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </section>
 
       {/* Trust badges */}
-      <section className="bg-[#07111f] py-12 sm:py-16">
+      <section className="bg-[#000000] py-12 sm:py-16">
         <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
           <h2 className="mb-8 text-xl font-bold sm:text-2xl">Go top with a trusted leader</h2>
           <div className="flex flex-wrap items-center justify-center gap-4">
             {["Invite-only", "Admin KYC", "Live Chat", "Verified payouts"].map((label) => (
               <div
                 key={label}
-                className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-white/15 bg-[#0c1a2e] shadow-[inset_0_0_24px_rgba(0, 212, 196,0.08)]"
+                className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-white/15 bg-[#111111] shadow-[inset_0_0_24px_rgba(200, 255, 0,0.08)]"
               >
-                <ShieldCheck className="h-6 w-6 text-[#00D4C4]" />
+                <ShieldCheck className="h-6 w-6 text-[#C8FF00]" />
                 <span className="mt-1 px-1 text-[10px] font-bold leading-tight text-white/70">{label}</span>
               </div>
             ))}
@@ -464,13 +486,13 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </section>
 
       {/* Community */}
-      <section className="relative overflow-hidden bg-[#082032] py-16 sm:py-20">
+      <section className="relative overflow-hidden bg-[#0b0b0b] py-16 sm:py-20">
         <img
           src="/bg/charts-desk.jpg"
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-40"
         />
-        <div className="absolute inset-0 bg-[#07111f]/70" />
+        <div className="absolute inset-0 bg-[#000000]/70" />
         <div className="relative mx-auto max-w-[1180px] px-4 text-center sm:px-6">
           <h2 className="text-2xl font-extrabold sm:text-3xl">Dream bigger, act faster</h2>
           <p className="mx-auto mt-3 max-w-lg text-sm text-white/70">
@@ -483,15 +505,15 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </section>
 
       {/* 3 minutes */}
-      <section className="bg-[#07111f] py-16 sm:py-20">
+      <section className="bg-[#000000] py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">
             Just 3 minutes to become a trader
           </h2>
           <div className="grid gap-3 md:grid-cols-3">
             {STEPS.map((s) => (
-              <div key={s.n} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-6 text-center">
-                <div className="text-3xl font-black text-[#00D4C4]">{s.n}</div>
+              <div key={s.n} className="rounded-xl border border-white/10 bg-[#111111] p-6 text-center">
+                <div className="text-3xl font-black text-[#C8FF00]">{s.n}</div>
                 <h3 className="mt-3 text-base font-bold">{s.title}</h3>
                 <p className="mt-2 text-sm text-white/55">{s.body}</p>
               </div>
@@ -506,14 +528,14 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </section>
 
       {/* VIP */}
-      <section className="bg-[#082032] py-16 sm:py-20">
+      <section className="bg-[#0b0b0b] py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">VIP status, VIP services</h2>
           <div className="mb-8 flex justify-center">
             <img
               src="/bg/hero-exchange.jpg"
               alt="Bitcoin"
-              className="h-28 w-28 rounded-full object-cover ring-4 ring-[#00D4C4]/50"
+              className="h-28 w-28 rounded-full object-cover ring-4 ring-[#C8FF00]/50"
             />
           </div>
           <div className="grid gap-3 md:grid-cols-3">
@@ -522,8 +544,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               { icon: Gift, title: "Copy AI Bot yield", body: "Lock funds into admin-assigned contracts with target yield." },
               { icon: Headphones, title: "Priority withdrawal", body: "Verified bank cards and wallets move faster through review." },
             ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-6 text-center">
-                <Icon className="mx-auto h-8 w-8 text-[#00D4C4]" />
+              <div key={title} className="rounded-xl border border-white/10 bg-[#111111] p-6 text-center">
+                <Icon className="mx-auto h-8 w-8 text-[#C8FF00]" />
                 <h3 className="mt-3 font-bold">{title}</h3>
                 <p className="mt-2 text-sm text-white/55">{body}</p>
               </div>
@@ -540,7 +562,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       <LiveInfraStage />
 
       {/* Live looping desks */}
-      <section className="bg-[#07111f] py-12 sm:py-16">
+      <section className="bg-[#000000] py-12 sm:py-16">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="mb-6 text-center text-xl font-bold sm:text-2xl">
             Live crypto · stocks-style candles
@@ -550,14 +572,14 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </section>
 
       {/* Security */}
-      <section id="help" className="bg-[#082032] py-16 sm:py-20">
+      <section id="help" className="bg-[#0b0b0b] py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
           <h2 className="text-2xl font-extrabold sm:text-3xl">Put your trading helmet on</h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-white/55">
             Invite-only signup, KYC, admin-verified deposits and withdrawals.
           </p>
-          <div className="mx-auto my-8 grid h-28 w-28 place-items-center rounded-full border-4 border-[#00D4C4]/40 bg-[#0c1a2e]">
-            <ShieldCheck className="h-14 w-14 text-[#00D4C4]" />
+          <div className="mx-auto my-8 grid h-28 w-28 place-items-center rounded-full border-4 border-[#C8FF00]/40 bg-[#111111]">
+            <ShieldCheck className="h-14 w-14 text-[#C8FF00]" />
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             {[
@@ -565,8 +587,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               { icon: ShieldCheck, title: "SSL encryption", body: "Encrypted sessions. Every deposit and withdraw is staff-reviewed." },
               { icon: Wallet, title: "Fund custody", body: "Wallet addresses and bank cards stay pending until admin approval." },
             ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-5 text-left">
-                <Icon className="h-5 w-5 text-[#00D4C4]" />
+              <div key={title} className="rounded-xl border border-white/10 bg-[#111111] p-5 text-left">
+                <Icon className="h-5 w-5 text-[#C8FF00]" />
                 <h3 className="mt-2 text-sm font-bold">{title}</h3>
                 <p className="mt-1 text-xs text-white/55">{body}</p>
               </div>

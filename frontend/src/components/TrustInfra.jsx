@@ -5,6 +5,7 @@
  */
 
 import { TRUSTED_PARTNERS } from "../lib/brand.js";
+import { EquitiWordmark } from "./BrandLogo.jsx";
 
 const NODES = [
   { id: "ny", x: 26, y: 42, label: "New York" },
@@ -19,9 +20,9 @@ const NODES = [
 export function TrustedPartnersMarquee() {
   const row = [...TRUSTED_PARTNERS, ...TRUSTED_PARTNERS];
   return (
-    <section className="overflow-hidden border-y border-[#00D4C4]/15 bg-black/40 py-8">
+    <section className="overflow-hidden border-y border-[#C8FF00]/15 bg-black/40 py-8">
       <div className="mb-5 text-center">
-        <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#9AFF3C]">
+        <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#C8FF00]">
           Supported worldwide
         </div>
         <h2 className="mt-2 text-xl font-extrabold sm:text-2xl">Trusted partners</h2>
@@ -52,19 +53,21 @@ export function TrustedPartnersMarquee() {
 export function LiveOrbit() {
   return (
     <div className="relative mx-auto grid h-[280px] w-[280px] place-items-center sm:h-[340px] sm:w-[340px]">
-      <div className="eq-spin-slow absolute inset-4 rounded-full border border-dashed border-[#9AFF3C]/35">
-        <span className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-[#9AFF3C] shadow-[0_0_12px_#9AFF3C]" />
-        <span className="absolute bottom-2 right-6 h-2 w-2 rounded-full bg-[#00D4C4] shadow-[0_0_10px_#00D4C4]" />
+      <div className="eq-spin-slow absolute inset-4 rounded-full border border-dashed border-[#C8FF00]/35">
+        <span className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-[#C8FF00] shadow-[0_0_12px_#C8FF00]" />
+        <span className="absolute bottom-2 right-6 h-2 w-2 rounded-full bg-[#C8FF00] shadow-[0_0_10px_#C8FF00]" />
       </div>
-      <div className="eq-spin-rev absolute inset-10 rounded-full border border-[#00D4C4]/25">
-        <span className="absolute right-4 top-8 h-2 w-2 rounded-full bg-[#9AFF3C]" />
+      <div className="eq-spin-rev absolute inset-10 rounded-full border border-[#C8FF00]/25">
+        <span className="absolute right-4 top-8 h-2 w-2 rounded-full bg-[#C8FF00]" />
       </div>
-      <div className="eq-pulse absolute inset-[72px] rounded-full bg-[#9AFF3C]/10 sm:inset-[88px]" />
+      <div className="eq-pulse absolute inset-[72px] rounded-full bg-[#C8FF00]/10 sm:inset-[88px]" />
       <div className="relative z-10 text-center">
-        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9AFF3C]">
+        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#C8FF00]">
           Live mesh
         </div>
-        <div className="mt-1 font-display text-2xl font-extrabold text-white">equiti</div>
+        <div className="mt-1 font-display text-2xl font-extrabold">
+          <EquitiWordmark onDark className="mx-auto h-8 w-auto" />
+        </div>
         <div className="mt-1 text-xs text-white/50">global order flow</div>
       </div>
     </div>
@@ -73,20 +76,20 @@ export function LiveOrbit() {
 
 export function WorldLatencyMap() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#00D4C4]/20 bg-[#06100c] p-4 sm:p-6">
+    <div className="relative overflow-hidden rounded-2xl border border-[#C8FF00]/20 bg-[#06100c] p-4 sm:p-6">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#9AFF3C]">
+          <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#C8FF00]">
             Live desks
           </div>
           <h3 className="text-lg font-extrabold">Market nodes worldwide</h3>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#9AFF3C]/30 bg-[#9AFF3C]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#9AFF3C]">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#9AFF3C]" />
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8FF00]/30 bg-[#C8FF00]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#C8FF00]">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#C8FF00]" />
           live
         </span>
       </div>
-      <svg viewBox="0 0 100 86" className="h-auto w-full text-[#9AFF3C]">
+      <svg viewBox="0 0 100 86" className="h-auto w-full text-[#C8FF00]">
         <defs>
           <radialGradient id="eq-sea" cx="50%" cy="45%" r="70%">
             <stop offset="0%" stopColor="#0b1c14" />
@@ -99,7 +102,7 @@ export function WorldLatencyMap() {
           <path d="M10 48 C22 42, 30 52, 42 46 C54 40, 62 50, 78 44 C86 42, 92 50, 96 48" />
           <path d="M14 62 C26 58, 34 68, 48 62 C60 56, 70 66, 88 60" />
         </g>
-        <g fill="#123322" stroke="#9AFF3C" strokeOpacity="0.25" strokeWidth="0.3">
+        <g fill="#123322" stroke="#C8FF00" strokeOpacity="0.25" strokeWidth="0.3">
           <ellipse cx="24" cy="40" rx="10" ry="8" />
           <ellipse cx="48" cy="34" rx="9" ry="6" />
           <ellipse cx="62" cy="46" rx="7" ry="5" />
@@ -109,7 +112,7 @@ export function WorldLatencyMap() {
         </g>
         {NODES.map((n, i) => (
           <g key={n.id}>
-            <circle cx={n.x} cy={n.y} r="3.4" fill="#9AFF3C" opacity="0.18">
+            <circle cx={n.x} cy={n.y} r="3.4" fill="#C8FF00" opacity="0.18">
               <animate
                 attributeName="r"
                 values="2.2;7;2.2"
@@ -123,19 +126,19 @@ export function WorldLatencyMap() {
                 repeatCount="indefinite"
               />
             </circle>
-            <circle cx={n.x} cy={n.y} r="1.15" fill="#9AFF3C" />
+            <circle cx={n.x} cy={n.y} r="1.15" fill="#C8FF00" />
           </g>
         ))}
-        <line x1="26" y1="42" x2="48" y2="34" stroke="#00D4C4" strokeWidth="0.25" strokeDasharray="1 1">
+        <line x1="26" y1="42" x2="48" y2="34" stroke="#C8FF00" strokeWidth="0.25" strokeDasharray="1 1">
           <animate attributeName="stroke-opacity" values="0.2;0.9;0.2" dur="3s" repeatCount="indefinite" />
         </line>
-        <line x1="48" y1="34" x2="60" y2="48" stroke="#00D4C4" strokeWidth="0.25" strokeDasharray="1 1">
+        <line x1="48" y1="34" x2="60" y2="48" stroke="#C8FF00" strokeWidth="0.25" strokeDasharray="1 1">
           <animate attributeName="stroke-opacity" values="0.2;0.9;0.2" dur="3.4s" repeatCount="indefinite" />
         </line>
-        <line x1="60" y1="48" x2="76" y2="58" stroke="#00D4C4" strokeWidth="0.25" strokeDasharray="1 1">
+        <line x1="60" y1="48" x2="76" y2="58" stroke="#C8FF00" strokeWidth="0.25" strokeDasharray="1 1">
           <animate attributeName="stroke-opacity" values="0.2;0.9;0.2" dur="2.8s" repeatCount="indefinite" />
         </line>
-        <line x1="76" y1="58" x2="84" y2="40" stroke="#00D4C4" strokeWidth="0.25" strokeDasharray="1 1">
+        <line x1="76" y1="58" x2="84" y2="40" stroke="#C8FF00" strokeWidth="0.25" strokeDasharray="1 1">
           <animate attributeName="stroke-opacity" values="0.2;0.9;0.2" dur="3.2s" repeatCount="indefinite" />
         </line>
       </svg>
@@ -155,18 +158,18 @@ export function WorldLatencyMap() {
 
 function ServerRack({ delay = 0 }) {
   return (
-    <div className="relative w-[92px] rounded-xl border border-[#00D4C4]/25 bg-[#07140f] p-2 shadow-[0_0_28px_rgba(154,255,60,0.12)] sm:w-[110px]">
-      <div className="mb-2 h-1.5 rounded-full bg-[#9AFF3C]/70" />
+    <div className="relative w-[92px] rounded-xl border border-[#C8FF00]/25 bg-[#07140f] p-2 shadow-[0_0_28px_rgba(154,255,60,0.12)] sm:w-[110px]">
+      <div className="mb-2 h-1.5 rounded-full bg-[#C8FF00]/70" />
       {Array.from({ length: 7 }).map((_, i) => (
         <div key={i} className="mb-1.5 flex items-center gap-1.5 rounded-md bg-black/50 px-1.5 py-1">
           <span
-            className="h-1.5 w-1.5 rounded-full bg-[#9AFF3C]"
+            className="h-1.5 w-1.5 rounded-full bg-[#C8FF00]"
             style={{ animation: `eq-blink 1.4s ease-in-out ${delay + i * 0.18}s infinite` }}
           />
           <span className="h-1 flex-1 rounded-full bg-white/10" />
         </div>
       ))}
-      <div className="mt-1 text-center text-[9px] font-bold uppercase tracking-wider text-[#00D4C4]">
+      <div className="mt-1 text-center text-[9px] font-bold uppercase tracking-wider text-[#C8FF00]">
         core node
       </div>
     </div>
@@ -176,12 +179,12 @@ function ServerRack({ delay = 0 }) {
 function DeskMonitor() {
   return (
     <div className="w-[160px] sm:w-[200px]">
-      <div className="rounded-t-xl border border-[#00D4C4]/30 bg-[#05070c] p-2">
+      <div className="rounded-t-xl border border-[#C8FF00]/30 bg-[#05070c] p-2">
         <svg viewBox="0 0 160 90" className="h-auto w-full">
           <rect width="160" height="90" rx="4" fill="#06140f" />
           <polyline
             fill="none"
-            stroke="#9AFF3C"
+            stroke="#C8FF00"
             strokeWidth="2.2"
             points="8,68 28,54 46,60 68,28 90,40 112,18 132,32 152,12"
           >
@@ -194,7 +197,7 @@ function DeskMonitor() {
           </polyline>
           <polyline
             fill="none"
-            stroke="#00D4C4"
+            stroke="#C8FF00"
             strokeWidth="1.4"
             strokeDasharray="4 3"
             points="8,74 36,70 62,58 88,62 118,44 152,48"
@@ -215,7 +218,7 @@ export function LiveInfraStage() {
     <section className="bg-[#05070c] py-14 sm:py-20">
       <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
         <div className="mb-8 text-center">
-          <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#9AFF3C]">
+          <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#C8FF00]">
             Always-on infrastructure
           </div>
           <h2 className="mt-2 text-xl font-extrabold sm:text-2xl">

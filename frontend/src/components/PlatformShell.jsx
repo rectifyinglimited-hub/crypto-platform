@@ -77,10 +77,10 @@ function NavLinks({ page, onPageChange }) {
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition lg:px-3.5 lg:text-sm ${
               active
                 ? highlight
-                  ? "bg-[#00D4C4]/15 text-[#00D4C4]"
+                  ? "bg-[#C8FF00]/15 text-[#C8FF00]"
                   : "bg-cyan-500/15 text-cyan-300"
                 : highlight
-                  ? "text-[#00D4C4]/80 hover:bg-[#00D4C4]/10 hover:text-[#00D4C4]"
+                  ? "text-[#C8FF00]/80 hover:bg-[#C8FF00]/10 hover:text-[#C8FF00]"
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             }`}
           >
@@ -306,10 +306,10 @@ function MobileDrawer({
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
                         active
                           ? highlight
-                            ? "bg-[#00D4C4]/15 text-[#00D4C4]"
+                            ? "bg-[#C8FF00]/15 text-[#C8FF00]"
                             : "bg-cyan-500/15 text-cyan-300"
                           : highlight
-                            ? "text-[#00D4C4] active:bg-[#00D4C4]/10"
+                            ? "text-[#C8FF00] active:bg-[#C8FF00]/10"
                             : "text-slate-200 active:bg-white/5"
                       }`}
                     >
@@ -317,7 +317,7 @@ function MobileDrawer({
                         className={`grid h-9 w-9 place-items-center rounded-xl ${
                           active || highlight
                             ? highlight
-                              ? "bg-[#00D4C4]/20 text-[#00D4C4]"
+                              ? "bg-[#C8FF00]/20 text-[#C8FF00]"
                               : "bg-cyan-400/20 text-cyan-300"
                             : "bg-white/[0.04] text-slate-400"
                         }`}
@@ -344,14 +344,14 @@ function MobileDrawer({
                       onClick={() => go(item.key)}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
                         active
-                          ? "bg-[#00D4C4]/15 text-[#00D4C4]"
+                          ? "bg-[#C8FF00]/15 text-[#C8FF00]"
                           : "text-slate-200 active:bg-white/5"
                       }`}
                     >
                       <span
                         className={`grid h-9 w-9 place-items-center rounded-xl ${
                           active
-                            ? "bg-[#00D4C4]/20 text-[#00D4C4]"
+                            ? "bg-[#C8FF00]/20 text-[#C8FF00]"
                             : "bg-white/[0.04] text-slate-400"
                         }`}
                       >
@@ -429,7 +429,7 @@ export default function PlatformShell({
   return (
     <div className="nx-bg-shell relative min-h-screen w-full text-slate-100">
       <header
-        className="sticky top-0 z-40 border-b border-white/5 bg-[#06080f]/88 backdrop-blur-xl"
+        className="sticky top-0 z-40 border-b border-white/10 bg-black/90 backdrop-blur-xl"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-2.5 px-3 sm:h-16 sm:gap-3 sm:px-6 lg:px-8">
