@@ -4,7 +4,7 @@
 
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
-import { BROKER_MARKS, PLATFORM_MARKS } from "./PartnerMarks.jsx";
+import FillExpectSection from "./FillExpectSection.jsx";
 
 const LIME = "#39FF14";
 
@@ -299,6 +299,7 @@ export function ForexStyleShowcase({ includeDesk = true }) {
     <>
       <PlatformsStrip />
       <TripleDeskSection />
+      <FillExpectSection />
       <PartnersWorldwide />
       {includeDesk ? <BrowserDeskSection /> : null}
       <CyberSecuritySection />
