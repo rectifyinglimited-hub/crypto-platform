@@ -54,7 +54,9 @@ const SCREEN = {
 const SPLASH_MS = 1750;
 
 export default function App() {
-  const [screen, setScreen] = useState(SCREEN.BOOT);
+  const [screen, setScreen] = useState(() =>
+    getToken() ? SCREEN.BOOT : SCREEN.LANDING
+  );
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("signin");
   const splashTimer = useRef(null);
@@ -193,18 +195,12 @@ export default function App() {
       )}
 
       {screen === SCREEN.LANDING && (
-        <motion.div
-          key="landing"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-        >
+        <div key="landing">
           <PublicLanding
             onSignIn={() => openAuth("signin")}
             onRegister={() => openAuth("signup")}
           />
-        </motion.div>
+        </div>
       )}
 
       {screen === SCREEN.AUTH && (

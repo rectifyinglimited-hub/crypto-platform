@@ -16,7 +16,8 @@ export default function SecurityShield({ className = "" }) {
 
       <svg
         viewBox="0 0 200 220"
-        className="eq-shield-glow relative z-10 mx-auto mt-[8%] h-[70%] w-[70%]"
+        className="relative z-10 mx-auto mt-[8%] h-[70%] w-[70%]"
+        style={{ filter: "drop-shadow(0 0 18px rgba(57,255,20,0.55))" }}
         aria-hidden
       >
         <defs>
@@ -35,20 +36,12 @@ export default function SecurityShield({ className = "" }) {
             <stop offset="0%" stopColor="#d8ff8a" />
             <stop offset="100%" stopColor="#39FF14" />
           </linearGradient>
-          <filter id="eq-shield-glow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="2.2" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
         </defs>
         <path
           d="M100 14 C100 14 172 32 172 32 L172 96 C172 148 136 186 100 206 C64 186 28 148 28 96 L28 32 C28 32 100 14 100 14Z"
           fill="url(#eq-shield-metal)"
           stroke="url(#eq-shield-edge)"
           strokeWidth="5"
-          filter="url(#eq-shield-glow)"
         />
         <path
           d="M100 28 C100 28 156 42 156 42 L156 96 C156 138 128 170 100 186 C72 170 44 138 44 96 L44 42 C44 42 100 28 100 28Z"

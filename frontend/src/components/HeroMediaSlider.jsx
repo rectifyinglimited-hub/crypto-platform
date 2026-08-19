@@ -25,8 +25,7 @@ export default function HeroMediaSlider({ intervalMs = 5200 }) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       <video
-        className="eq-kenburns absolute inset-0 h-full w-full object-cover"
-        style={{ filter: "hue-rotate(72deg) saturate(1.35) brightness(0.55) contrast(1.15)" }}
+        className="absolute inset-0 h-full w-full object-cover opacity-50"
         autoPlay
         muted
         loop
@@ -53,8 +52,8 @@ export default function HeroMediaSlider({ intervalMs = 5200 }) {
       </AnimatePresence>
       <div className="eq-grid eq-grid-move absolute inset-0 opacity-40" />
       <div className="eq-scan pointer-events-none absolute inset-0" />
-      <div className="absolute inset-0 bg-black/50" />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/88 via-black/55 to-black/20" />
+      <div className="absolute inset-0 bg-black/35" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
       <div className="absolute bottom-4 left-4 z-10 flex items-center gap-1.5 pointer-events-auto">
         {SLIDES.map((s, idx) => (
           <button
