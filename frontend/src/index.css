@@ -274,8 +274,22 @@ select option {
 .eq-threat-keep {
   animation: eq-threat-keep 5.6s ease-in-out infinite;
 }
+.eq-hero-slide {
+  transition: opacity 1.4s ease-in-out;
+}
+@keyframes eq-hero-ken {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+.eq-hero-ken {
+  animation: eq-hero-ken 6.5s ease-out forwards;
+}
 .eq-price-tape {
   transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .eq-hero-slide { transition: none; }
+  .eq-hero-ken { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .eq-threat-orbit,

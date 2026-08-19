@@ -185,7 +185,7 @@ export default function NeonLiveGraph({
       layout: {
         background: {
           type: ColorType.Solid,
-          color: transparent ? "rgba(28, 36, 48, 0.72)" : BG,
+          color: transparent ? "rgba(8, 10, 14, 0.18)" : BG,
         },
         textColor: TEXT,
         fontSize: compact ? 9 : 11,
@@ -431,11 +431,11 @@ export default function NeonLiveGraph({
     <div
       className={`overflow-hidden rounded-2xl border ${
         transparent
-          ? "border-white/25 bg-[#1a222e]/80 backdrop-blur-[3px]"
+          ? "border-white/20 bg-black/20"
           : "border-white/10 bg-[#0b0e11]"
       }`}
     >
-      <div className={`border-b border-white/5 ${compact ? "px-2.5 py-2" : "px-3 py-3 sm:px-4"}`}>
+      <div className={`border-b border-white/5 ${compact ? "px-2.5 py-2" : "px-3 py-3 sm:px-4"} ${transparent ? "bg-black/10" : ""}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div
