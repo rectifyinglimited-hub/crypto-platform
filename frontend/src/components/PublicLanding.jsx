@@ -19,7 +19,7 @@ import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import { CertificatePage } from "./TradingCertificate.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
-import { ForexStyleShowcase } from "./TrustInfra.jsx";
+import { ForexStyleShowcase, EquitiFaq } from "./TrustInfra.jsx";
 
 const PAIRS = [
   { symbol: "ETH", name: "Ethereum" },
@@ -139,22 +139,14 @@ const BENEFITS = [
 ];
 
 const FAQ = [
-  {
-    q: "How do I open an account?",
-    a: "Sign up with a valid invite code, complete profile details, then wait for admin approval where required.",
-  },
-  {
-    q: "How do deposits and withdrawals work?",
-    a: "Submit the request with proof in Live Chat. Staff review every deposit and withdrawal before funds move.",
-  },
-  {
-    q: "What is Copy AI Bot?",
-    a: "You lock capital into an admin-assigned contract with a disclosed target yield. Nothing runs until you confirm.",
-  },
-  {
-    q: "Is there a pricing page?",
-    a: "No public VPS-style pricing table. Trading, VIP, and loans follow the conditions shown inside your equiti account.",
-  },
+  { q: "How do I open an account?", a: "Sign up with a valid invite code, complete your profile, then wait for any admin checks that apply." },
+  { q: "Which markets can I trade?", a: "Live seconds desks on ETH, XRP, SOL, SHIB and more pairs streamed from the public market feed." },
+  { q: "How do deposits work?", a: "Submit the deposit with proof in Live Chat. Funds stay pending until the admin desk verifies." },
+  { q: "How do withdrawals work?", a: "Request a withdrawal from Assets. Staff review the wallet or bank card before any payout." },
+  { q: "What is Copy AI Bot?", a: "You lock capital into an admin-assigned contract with a disclosed target yield. Nothing runs until you confirm." },
+  { q: "What devices can I use?", a: "equiti runs in the browser on desktop and mobile. No extra terminal install." },
+  { q: "How does Live Chat support work?", a: "Open the thread for deposit, withdraw, VIP, or loan. Instructions appear first, then a manager replies." },
+  { q: "Is there public pricing?", a: "No VPS-style pricing table. Trading, VIP, and loans follow the conditions shown inside your account." },
 ];
 
 const STEPS = [
@@ -322,30 +314,39 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </div>
 
-      <section id="trading" ref={heroRef} className="relative overflow-hidden eq-chevrons">
-        <div className="eq-grid pointer-events-none absolute inset-0 opacity-30" />
-        <div className="relative mx-auto grid max-w-[1180px] items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-2">
+      <section id="trading" ref={heroRef} className="relative overflow-hidden bg-black">
+        <svg className="pointer-events-none absolute -right-8 top-8 hidden h-[520px] w-[46%] lg:block" viewBox="0 0 400 520" fill="none">
+          {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+            <path
+              key={n}
+              d={`M${40 + n * 18} 500 L${200 + n * 8} 40 L${360 - n * 18} 500`}
+              stroke={n % 2 ? "#C8FF00" : "#3a3a3a"}
+              strokeOpacity={n % 2 ? 0.35 : 0.5}
+              strokeWidth="1.2"
+            />
+          ))}
+        </svg>
+        <div className="relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#C8FF00]">
-              equiti live desk
-            </p>
             <motion.h1
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-4 max-w-xl text-4xl font-extrabold uppercase leading-[1.08] tracking-tight sm:text-5xl"
+              className="max-w-xl text-4xl font-extrabold uppercase leading-[1.08] tracking-tight sm:text-[2.7rem]"
             >
-              The desk behind{" "}
-              <span className="text-[#C8FF00]">faster, safer</span> trades
+              The equiti desk behind{" "}
+              <span className="text-[#C8FF00]">live markets</span> every day
             </motion.h1>
-            <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
-              Invite-only accounts. Live candles. Admin-verified deposits and withdrawals.
-              Support stays in Live Chat — 24/7.
+            <p className="mt-4 max-w-lg text-sm text-white/70 sm:text-base">
+              Faster charts, smarter locks, and safer payouts — in the browser, 24/7.
             </p>
-            <ul className="mt-6 space-y-2 text-sm text-white/80">
+            <ul className="mt-6 grid gap-x-8 gap-y-2 text-sm text-white/85 sm:grid-cols-2">
               {[
-                "Latency-style live prices on ETH, XRP, SOL, SHIB",
-                "Copy AI Bot locks with disclosed yield",
-                "KYC and payout review on every request",
+                "Live prices on ETH, XRP, SOL, SHIB",
+                "Technical support available 24/7",
+                "Invite-only trader network",
+                "Desk stays online around the clock",
+                "Admin-verified deposits & withdrawals",
+                "Compatible with Copy AI Bot locks",
               ].map((line) => (
                 <li key={line} className="flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8FF00]" />
@@ -354,11 +355,22 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               ))}
             </ul>
             <button type="button" onClick={onRegister} className={`${LIME_BTN} mt-8`}>
-              Get started
+              Launch now →
             </button>
           </div>
-          <div>
+          <div className="relative">
             <NeonLiveGraph symbol="ETH" height={340} transparent />
+          </div>
+        </div>
+        <div className="mx-auto max-w-[1180px] px-4 pb-10 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-[#C8FF00]/40 bg-black px-5 py-4">
+            <p className="text-sm text-white/80">
+              <span className="text-[#C8FF00]">“</span> Switched to equiti and the desk stays live.
+              <span className="text-[#C8FF00]">”</span>
+            </p>
+            <div className="text-xs font-bold uppercase tracking-wider text-white/70">
+              <span className="text-[#C8FF00]">★★★★★</span> Live desk reviews
+            </div>
           </div>
         </div>
       </section>
@@ -422,39 +434,14 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
-      <section id="help" className="bg-black py-16 sm:py-20">
-        <div className="mx-auto max-w-[820px] px-4 sm:px-6">
-          <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight sm:text-3xl">
-            Have some <span className="text-[#C8FF00]">questions?</span>
-          </h2>
-          <div className="mt-8 divide-y divide-white/10 border border-white/10">
-            {FAQ.map((item, i) => {
-              const open = openFaq === i;
-              return (
-                <button
-                  key={item.q}
-                  type="button"
-                  onClick={() => setOpenFaq(open ? -1 : i)}
-                  className="block w-full px-5 py-4 text-left"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-bold sm:text-base">{item.q}</span>
-                    <span className="text-[#C8FF00]">{open ? "–" : "+"}</span>
-                  </div>
-                  {open && (
-                    <p className="mt-2 text-sm leading-relaxed text-white/55">{item.a}</p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-10 text-center">
-            <button type="button" onClick={onRegister} className={LIME_BTN}>
-              Open an account
-            </button>
-          </div>
-        </div>
-      </section>
+      <div id="help">
+        <EquitiFaq items={FAQ} openFaq={openFaq} setOpenFaq={setOpenFaq} />
+      </div>
+      <div className="bg-black pb-16 text-center">
+        <button type="button" onClick={onRegister} className={LIME_BTN}>
+          Open an account
+        </button>
+      </div>
       </>
       )}
 

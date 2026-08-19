@@ -231,16 +231,22 @@ select option {
 .eq-marquee-rev {
   animation: eq-marquee 32s linear infinite reverse;
 }
-.eq-radial {
+.eq-fan {
   background-image:
-    repeating-linear-gradient(
-      115deg,
-      transparent 0,
-      transparent 26px,
-      rgba(200, 255, 0, 0.045) 26px,
-      rgba(200, 255, 0, 0.045) 27px
-    ),
-    radial-gradient(ellipse 90% 70% at 50% 120%, rgba(200, 255, 0, 0.08), transparent 55%);
+    repeating-conic-gradient(
+      from 200deg at 50% 120%,
+      transparent 0deg,
+      rgba(200, 255, 0, 0.06) 0.35deg,
+      transparent 3.2deg
+    );
+}
+@keyframes eq-ping-flow {
+  0% { opacity: 0.25; }
+  50% { opacity: 1; }
+  100% { opacity: 0.25; }
+}
+.eq-ping-line {
+  animation: eq-ping-flow 1.6s ease-in-out infinite;
 }
 @keyframes eq-spin {
   to { transform: rotate(360deg); }

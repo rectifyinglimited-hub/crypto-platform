@@ -19,13 +19,13 @@ export function EquitiWordmark({
       <text
         x="6"
         y="70"
-        fill={TEAL}
         style={{ fontFamily: "Nunito, Outfit, Sora, sans-serif" }}
         fontSize="72"
         fontWeight="800"
         letterSpacing="-2.2"
       >
-        equiti
+        <tspan fill={onDark ? "#ffffff" : TEAL}>equi</tspan>
+        <tspan fill="#C8FF00">ti</tspan>
       </text>
       <rect x="112" y="20" width="5.5" height="50" fill={gap} />
       <rect x="176" y="24" width="5" height="46" fill={gap} />
