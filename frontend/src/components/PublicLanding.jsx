@@ -2,7 +2,7 @@
  * Public landing — equiti-style layout + our product features.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import {
   ShieldCheck,
@@ -16,11 +16,22 @@ import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
 import HeroMediaSlider from "./HeroMediaSlider.jsx";
-import NeonLiveGraph from "./NeonLiveGraph.jsx";
-import LiveChatWidget from "./LiveChatWidget.jsx";
-import { CertificatePage } from "./TradingCertificate.jsx";
-import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
-import { ForexStyleShowcase, EquitiFaq } from "./TrustInfra.jsx";
+import ErrorBoundary from "./ErrorBoundary.jsx";
+
+const NeonLiveGraph = lazy(() => import("./NeonLiveGraph.jsx"));
+const LiveChatWidget = lazy(() => import("./LiveChatWidget.jsx"));
+const CertificatePage = lazy(() =>
+  import("./TradingCertificate.jsx").then((m) => ({ default: m.CertificatePage }))
+);
+const AboutPage = lazy(() => import("./InfoPages.jsx").then((m) => ({ default: m.AboutPage })));
+const ContactPage = lazy(() => import("./InfoPages.jsx").then((m) => ({ default: m.ContactPage })));
+const VipPage = lazy(() => import("./InfoPages.jsx").then((m) => ({ default: m.VipPage })));
+const ForexStyleShowcase = lazy(() =>
+  import("./TrustInfra.jsx").then((m) => ({ default: m.ForexStyleShowcase }))
+);
+const EquitiFaq = lazy(() =>
+  import("./TrustInfra.jsx").then((m) => ({ default: m.EquitiFaq }))
+);
 
 const PAIRS = [
   { symbol: "ETH", name: "Ethereum" },
@@ -273,27 +284,29 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </header>
 
       {view !== "home" && (
-        <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6">
-          {view === "about" && (
-            <AboutPage
-              onCta={onRegister}
-              onSupport={() => openChat("info")}
-              ctaLabel="Sign up"
-            />
-          )}
-          {view === "contact" && (
-            <ContactPage onSupport={() => openChat("info")} ctaLabel="Open Live Chat" />
-          )}
-          {view === "vip" && (
-            <VipPage onCta={onRegister} onSupport={() => openChat("vip")} />
-          )}
-          {view === "certificate" && (
-            <CertificatePage
-              onBack={() => go("home")}
-              onContact={() => go("contact")}
-            />
-          )}
-        </div>
+        <Suspense fallback={<div className="bg-black p-8 text-white">Loading…</div>}>
+          <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6">
+            {view === "about" && (
+              <AboutPage
+                onCta={onRegister}
+                onSupport={() => openChat("info")}
+                ctaLabel="Sign up"
+              />
+            )}
+            {view === "contact" && (
+              <ContactPage onSupport={() => openChat("info")} ctaLabel="Open Live Chat" />
+            )}
+            {view === "vip" && (
+              <VipPage onCta={onRegister} onSupport={() => openChat("vip")} />
+            )}
+            {view === "certificate" && (
+              <CertificatePage
+                onBack={() => go("home")}
+                onContact={() => go("contact")}
+              />
+            )}
+          </div>
+        </Suspense>
       )}
 
       {view === "home" && (
@@ -360,8 +373,12 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               Launch now →
             </button>
           </div>
-          <div className="relative">
-            <NeonLiveGraph symbol="ETH" height={340} transparent />
+          <div className="relative z-10">
+            <ErrorBoundary>
+              <Suspense fallback={<div className="h-[340px] rounded-xl border border-white/15 bg-black" />}>
+                <NeonLiveGraph symbol="ETH" height={340} transparent />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </div>
         <div className="relative z-10 mx-auto max-w-[1180px] px-4 pb-10 sm:px-6">
@@ -391,7 +408,11 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
-      <ForexStyleShowcase />
+      <ErrorBoundary>
+        <Suspense fallback={<div className="bg-black py-16 text-center text-white/40">Loading desks…</div>}>
+          <ForexStyleShowcase />
+        </Suspense>
+      </ErrorBoundary>
 
       <section className="bg-black py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
@@ -437,7 +458,11 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </section>
 
       <div id="help">
-        <EquitiFaq items={FAQ} openFaq={openFaq} setOpenFaq={setOpenFaq} />
+        <ErrorBoundary>
+          <Suspense fallback={null}>
+            <EquitiFaq items={FAQ} openFaq={openFaq} setOpenFaq={setOpenFaq} />
+          </Suspense>
+        </ErrorBoundary>
       </div>
       <div className="bg-black pb-16 text-center">
         <button type="button" onClick={onRegister} className={LIME_BTN}>
@@ -448,13 +473,15 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       )}
 
       <SiteFooter onNavigate={go} onOpenChat={openChat} />
-      <LiveChatWidget
-        user={null}
-        contextHint={chatHint}
-        openSignal={chatOpenSignal}
-        onNeedAuth={onSignIn}
-        dockClass="max-sm:bottom-4"
-      />
+      <Suspense fallback={null}>
+        <LiveChatWidget
+          user={null}
+          contextHint={chatHint}
+          openSignal={chatOpenSignal}
+          onNeedAuth={onSignIn}
+          dockClass="max-sm:bottom-4"
+        />
+      </Suspense>
     </div>
   );
 }

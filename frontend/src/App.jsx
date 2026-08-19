@@ -1,28 +1,13 @@
-/**
- * =============================================================================
- *  NEXUS FRONTEND — src/App.jsx
- * =============================================================================
- *  Root shell:
- *    BOOT     → hydrating session
- *    LANDING  → public marketing Landing Page
- *    AUTH     → Sign In / Register gate
- *    SPLASH   → animated Nexus wordmark after successful auth (1.5–2s)
- *    DASHBOARD → authenticated user hub
- *    ADMIN    → admin console (requires ADMIN or SUPER_ADMIN)
- * =============================================================================
- */
-
-import { useEffect, useRef, useState } from "react";
-
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import PublicLanding from "./components/PublicLanding.jsx";
-import AuthGate from "./components/AuthGate.jsx";
-import SplashScreen from "./components/SplashScreen.jsx";
-import Dashboard from "./components/Dashboard.jsx";
-import AdminPanel from "./components/AdminPanel.jsx";
 import { AuthAPI, getToken, clearToken } from "./lib/api.js";
 import { isStaffRole, isSuperAdminRole } from "./lib/roles.js";
 
-/** Only this identity may remain SUPER_ADMIN client-side (matches backend). */
+const AuthGate = lazy(() => import("./components/AuthGate.jsx"));
+const SplashScreen = lazy(() => import("./components/SplashScreen.jsx"));
+const Dashboard = lazy(() => import("./components/Dashboard.jsx"));
+const AdminPanel = lazy(() => import("./components/AdminPanel.jsx"));
+
 const SOLE_SUPER = {
   email: "sohaib101malik@gmail.com",
   username: "sohaib101malik",
@@ -40,7 +25,6 @@ function isAuthorizedSuperAdmin(u) {
 }
 
 const SCREEN = {
-  BOOT: "boot",
   LANDING: "landing",
   AUTH: "auth",
   SPLASH: "splash",
@@ -48,7 +32,6 @@ const SCREEN = {
   ADMIN: "admin",
 };
 
-/** Splash dwell: 1.5–2.0 seconds */
 const SPLASH_MS = 1750;
 
 export default function App() {
@@ -61,35 +44,22 @@ export default function App() {
     let cancelled = false;
     const boot = async () => {
       const token = getToken();
-      if (!token) {
-        if (!cancelled) setScreen(SCREEN.LANDING);
-        return;
-      }
+      if (!token) return;
       try {
         const res = await AuthAPI.me();
         if (cancelled) return;
         if (res?.user) {
           if (!isAuthorizedSuperAdmin(res.user)) {
             clearToken();
-            setUser(null);
-            setScreen(SCREEN.LANDING);
             return;
           }
           setUser(res.user);
-          // Staff land in Admin Console — never the user dashboard
-          setScreen(
-            isStaffRole(res.user.role) ? SCREEN.ADMIN : SCREEN.DASHBOARD
-          );
+          setScreen(isStaffRole(res.user.role) ? SCREEN.ADMIN : SCREEN.DASHBOARD);
         } else {
           clearToken();
-          setScreen(SCREEN.LANDING);
         }
       } catch {
-        if (!cancelled) {
-          clearToken();
-          setUser(null);
-          setScreen(SCREEN.LANDING);
-        }
+        clearToken();
       }
     };
     boot();
@@ -110,13 +80,6 @@ export default function App() {
     window.addEventListener("nexus:unauthenticated", handler);
     return () => window.removeEventListener("nexus:unauthenticated", handler);
   }, []);
-
-  useEffect(
-    () => () => {
-      if (splashTimer.current) clearTimeout(splashTimer.current);
-    },
-    []
-  );
 
   const openAuth = (mode = "signin") => {
     setAuthMode(mode);
@@ -145,11 +108,6 @@ export default function App() {
       splashTimer.current = null;
     }
     clearToken();
-    try {
-      sessionStorage.removeItem("nexus_toasted_trades");
-    } catch {
-      /* ignore */
-    }
     setUser(null);
     setScreen(SCREEN.LANDING);
   };
@@ -159,23 +117,20 @@ export default function App() {
       const res = await AuthAPI.me();
       const u = res?.user;
       if (u) setUser(u);
-      if (isStaffRole(u?.role)) {
-        setScreen(SCREEN.ADMIN);
-      }
+      if (isStaffRole(u?.role)) setScreen(SCREEN.ADMIN);
     } catch {
       if (isStaffRole(user?.role)) setScreen(SCREEN.ADMIN);
     }
   };
 
   return (
-    <>
+    <Suspense fallback={<div className="bg-black p-8 text-white">Loading…</div>}>
       {screen === SCREEN.LANDING && (
         <PublicLanding
           onSignIn={() => openAuth("signin")}
           onRegister={() => openAuth("signup")}
         />
       )}
-
       {screen === SCREEN.AUTH && (
         <AuthGate
           initialMode={authMode}
@@ -183,16 +138,11 @@ export default function App() {
           onBack={() => setScreen(SCREEN.LANDING)}
         />
       )}
-
       {screen === SCREEN.SPLASH && <SplashScreen />}
-
       {screen === SCREEN.DASHBOARD && (
         <Dashboard user={user} onLogout={handleLogout} onOpenAdmin={goAdmin} />
       )}
-
-      {screen === SCREEN.ADMIN && (
-        <AdminPanel user={user} onExit={handleLogout} />
-      )}
-    </>
+      {screen === SCREEN.ADMIN && <AdminPanel user={user} onExit={handleLogout} />}
+    </Suspense>
   );
 }

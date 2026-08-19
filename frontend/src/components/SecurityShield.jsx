@@ -17,7 +17,6 @@ export default function SecurityShield({ className = "" }) {
       <svg
         viewBox="0 0 200 220"
         className="relative z-10 mx-auto mt-[10%] h-[68%] w-[68%]"
-        style={{ filter: "drop-shadow(0 0 22px rgba(57,255,20,0.65))" }}
         aria-hidden
       >
         <defs>
