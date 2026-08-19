@@ -7,6 +7,7 @@ import LiveMarketDesks from "./LiveMarketDesks.jsx";
 import FillExpectSection from "./FillExpectSection.jsx";
 import SecurityShield from "./SecurityShield.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
+import { PLATFORM_MARKS, BROKER_MARKS } from "./PartnerMarks.jsx";
 
 const LIME = "#39FF14";
 

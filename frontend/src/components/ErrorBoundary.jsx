@@ -10,6 +10,10 @@ export default class ErrorBoundary extends Component {
     return { err };
   }
 
+  componentDidCatch(err, info) {
+    console.error("[equiti] section crash", err, info?.componentStack);
+  }
+
   render() {
     if (this.state.err) {
       return (
