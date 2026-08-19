@@ -23,12 +23,11 @@ import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
-import LiveMarketDesks from "./LiveMarketDesks.jsx";
 import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import { CertificatePage } from "./TradingCertificate.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
-import { LiveInfraStage, TrustedPartnersMarquee } from "./TrustInfra.jsx";
+import { ForexStyleShowcase } from "./TrustInfra.jsx";
 
 const PAIRS = [
   { symbol: "ETH", name: "Ethereum" },
@@ -377,13 +376,6 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
-      <section className="border-y border-white/5 bg-black py-8">
-        <div className="mx-auto grid max-w-[1180px] gap-4 px-4 sm:px-6 lg:grid-cols-2">
-          <NeonLiveGraph symbol="XRP" height={240} transparent />
-          <NeonLiveGraph symbol="SOL" height={240} transparent />
-        </div>
-      </section>
-
       {/* 99% profit */}
       <section id="trading" className="bg-[#000000] py-16 text-center sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
@@ -429,7 +421,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
-      <TrustedPartnersMarquee />
+      <ForexStyleShowcase />
 
       {/* Why traders */}
       <section id="traders" className="bg-[#000000] py-16 sm:py-20">
@@ -556,18 +548,6 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               Go for VIP
             </button>
           </div>
-        </div>
-      </section>
-
-      <LiveInfraStage />
-
-      {/* Live looping desks */}
-      <section className="bg-[#000000] py-12 sm:py-16">
-        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-6 text-center text-xl font-bold sm:text-2xl">
-            Live crypto · stocks-style candles
-          </h2>
-          <LiveMarketDesks />
         </div>
       </section>
 

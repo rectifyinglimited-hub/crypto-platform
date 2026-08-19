@@ -1,47 +1,229 @@
 /**
- * Live infra visuals inspired by premium dark-desk sites:
- * scrolling partners, world-map pings, orbit rings, and server racks.
- * Original artwork — not copied photography or pricing.
+ * ForexVPS-style showcase: dotted map, scrolling platforms/partners/awards,
+ * neon browser desk. Original copy for equiti — no pricing, no copied logos.
  */
 
-import { TRUSTED_PARTNERS } from "../lib/brand.js";
-import { EquitiWordmark } from "./BrandLogo.jsx";
+import NeonLiveGraph from "./NeonLiveGraph.jsx";
 
-const NODES = [
-  { id: "ny", x: 26, y: 42, label: "New York" },
-  { id: "lon", x: 48, y: 34, label: "London" },
-  { id: "dxb", x: 60, y: 48, label: "Dubai" },
+const LIME = "#C8FF00";
+
+const CITIES = [
+  { id: "la", x: 18, y: 42, label: "Los Angeles" },
+  { id: "chi", x: 24, y: 38, label: "Chicago" },
+  { id: "ny", x: 29, y: 40, label: "New York" },
+  { id: "dc", x: 28, y: 43, label: "Washington DC" },
+  { id: "mia", x: 27, y: 48, label: "Miami" },
+  { id: "tor", x: 27, y: 34, label: "Toronto" },
+  { id: "sao", x: 34, y: 68, label: "Sao Paulo" },
+  { id: "lon", x: 47, y: 34, label: "London" },
+  { id: "par", x: 49, y: 37, label: "Paris" },
+  { id: "ams", x: 50, y: 33, label: "Amsterdam" },
+  { id: "zur", x: 51, y: 38, label: "Zurich" },
+  { id: "fra", x: 52, y: 35, label: "Frankfurt" },
+  { id: "jnb", x: 54, y: 72, label: "Johannesburg" },
+  { id: "dxb", x: 62, y: 48, label: "Dubai" },
+  { id: "mum", x: 68, y: 50, label: "Mumbai" },
   { id: "sg", x: 76, y: 58, label: "Singapore" },
-  { id: "tyo", x: 84, y: 40, label: "Tokyo" },
+  { id: "hk", x: 78, y: 48, label: "Hong Kong" },
+  { id: "sel", x: 82, y: 42, label: "Seoul" },
+  { id: "tyo", x: 86, y: 40, label: "Tokyo" },
   { id: "syd", x: 88, y: 72, label: "Sydney" },
-  { id: "sao", x: 34, y: 70, label: "São Paulo" },
 ];
 
-export function TrustedPartnersMarquee() {
-  const row = [...TRUSTED_PARTNERS, ...TRUSTED_PARTNERS];
+const PLATFORMS = [
+  "Seconds Trade",
+  "Copy AI Bot",
+  "Live Desk",
+  "VIP Terminal",
+  "Loan Desk",
+  "Assets Wallet",
+];
+
+const PARTNERS = [
+  "VISA",
+  "Mastercard",
+  "USDT",
+  "TRC-20",
+  "Ethereum",
+  "Solana",
+  "SWIFT",
+  "SSL Secure",
+];
+
+function RadialBack({ children, className = "" }) {
   return (
-    <section className="overflow-hidden border-y border-[#C8FF00]/15 bg-black/40 py-8">
-      <div className="mb-5 text-center">
-        <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#C8FF00]">
-          Supported worldwide
-        </div>
-        <h2 className="mt-2 text-xl font-extrabold sm:text-2xl">Trusted partners</h2>
-        <p className="mt-1 text-sm text-white/50">
-          Settlement rails and market desks that keep equiti online 24/7.
-        </p>
+    <section className={`relative overflow-hidden bg-black ${className}`}>
+      <div className="eq-radial pointer-events-none absolute inset-0 opacity-70" />
+      <div className="relative z-10">{children}</div>
+    </section>
+  );
+}
+
+function Marquee({ items, reverse = false, render }) {
+  const row = [...items, ...items];
+  return (
+    <div className="relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-black to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-black to-transparent" />
+      <div className={`eq-marquee flex w-max items-center gap-10 py-4 ${reverse ? "eq-marquee-rev" : ""}`}>
+        {row.map((item, i) => (
+          <div key={`${item}-${i}`} className="shrink-0">
+            {render(item)}
+          </div>
+        ))}
       </div>
-      <div className="relative">
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#05070c] to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#05070c] to-transparent" />
-        <div className="eq-marquee flex w-max gap-3">
-          {row.map((p, i) => (
-            <div
-              key={`${p.id}-${i}`}
-              className="grid h-16 min-w-[148px] place-items-center rounded-xl border border-white/10 bg-[#0a1210] px-5"
+    </div>
+  );
+}
+
+function landDots() {
+  const blobs = [
+    { x: 22, y: 40, rx: 12, ry: 9 },
+    { x: 33, y: 64, rx: 7, ry: 10 },
+    { x: 48, y: 36, rx: 9, ry: 7 },
+    { x: 53, y: 52, rx: 8, ry: 12 },
+    { x: 72, y: 42, rx: 18, ry: 12 },
+    { x: 86, y: 70, rx: 7, ry: 5 },
+  ];
+  const dots = [];
+  for (let x = 6; x < 96; x += 1.55) {
+    for (let y = 20; y < 80; y += 1.55) {
+      const hit = blobs.some((b) => {
+        const nx = (x - b.x) / b.rx;
+        const ny = (y - b.y) / b.ry;
+        return nx * nx + ny * ny < 1;
+      });
+      if (hit) dots.push([x, y]);
+    }
+  }
+  return dots;
+}
+
+const DOTS = landDots();
+
+export function DataCentresMap() {
+  return (
+    <RadialBack className="py-16 sm:py-24">
+      <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
+        <h2 className="text-2xl font-extrabold uppercase tracking-tight sm:text-4xl">
+          Trade inside key{" "}
+          <span className="text-[#C8FF00]">financial data centres</span>
+        </h2>
+        <p className="mt-3 text-sm text-white/70 sm:text-base">
+          equiti routes live charts and settlement through 20 critical desks around the world.
+        </p>
+        <div className="mt-2 text-xs font-semibold text-white/80">~ 0 – 3 millisecond</div>
+      </div>
+      <div className="relative mx-auto mt-8 max-w-[1180px] px-2 sm:px-6">
+        <svg viewBox="0 0 100 86" className="h-auto w-full">
+          {DOTS.map(([x, y], i) => {
+            const near = CITIES.some((c) => Math.hypot(c.x - x, c.y - y) < 3.2);
+            return (
+              <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r={near ? 0.55 : 0.38}
+                fill={near ? LIME : "#3a3a3a"}
+              />
+            );
+          })}
+          {CITIES.map((c) => (
+            <g key={c.id}>
+              <circle cx={c.x} cy={c.y} r="0.7" fill={LIME}>
+                <animate attributeName="r" values="0.55;1.4;0.55" dur="2.6s" repeatCount="indefinite" />
+              </circle>
+            </g>
+          ))}
+        </svg>
+        <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+          {CITIES.map((c) => (
+            <span
+              key={c.id}
+              className="rounded-sm bg-[#C8FF00] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black"
             >
-              <span className="text-sm font-extrabold tracking-wide text-white/80">
-                {p.label}
-              </span>
+              {c.label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </RadialBack>
+  );
+}
+
+export function PlatformsStrip() {
+  return (
+    <RadialBack className="py-14 sm:py-16">
+      <h2 className="px-4 text-center text-xl font-extrabold uppercase tracking-tight sm:text-3xl">
+        Optimised for{" "}
+        <span className="text-[#C8FF00]">all trading</span> platforms
+      </h2>
+      <div className="mt-8">
+        <Marquee
+          items={PLATFORMS}
+          render={(name) => (
+            <span className="text-lg font-extrabold tracking-wide text-white sm:text-2xl">
+              {name}
+            </span>
+          )}
+        />
+      </div>
+    </RadialBack>
+  );
+}
+
+export function PartnersWorldwide() {
+  return (
+    <RadialBack className="py-14 sm:py-16">
+      <h2 className="px-4 text-center text-xl font-extrabold uppercase tracking-tight sm:text-3xl">
+        <span className="text-white">Supported by</span>
+        <br />
+        <span className="text-[#C8FF00]">brokers & partners worldwide</span>
+      </h2>
+      <div className="mt-8">
+        <Marquee
+          items={PARTNERS}
+          reverse
+          render={(name) => (
+            <span className="text-base font-extrabold uppercase tracking-[0.18em] text-white sm:text-xl">
+              {name}
+            </span>
+          )}
+        />
+      </div>
+    </RadialBack>
+  );
+}
+
+export function AwardsStrip() {
+  const badges = [
+    { tone: "bg-[#5b2d8a]", title: "WINNER", sub: "Best live trading desk" },
+    { tone: "bg-[#1d6fd4]", title: "WINNER", sub: "Fastest payout review" },
+    { tone: "bg-[#b87333]", title: "SEAL", sub: "Verified KYC custody" },
+    { tone: "bg-[#e85d04]", title: "EXCELLENCE", sub: "24/7 support desk" },
+  ];
+  const row = [...badges, ...badges];
+  return (
+    <section className="bg-black py-14">
+      <h2 className="px-4 text-center text-lg font-extrabold uppercase tracking-tight text-white sm:text-2xl">
+        Trusted. Recognised. Award-winning.
+      </h2>
+      <div className="relative mt-8 overflow-hidden">
+        <div className="eq-marquee flex w-max gap-5 px-4">
+          {row.map((b, i) => (
+            <div
+              key={`${b.title}-${i}`}
+              className={`flex h-[88px] min-w-[240px] items-center justify-between rounded-lg px-4 ${b.tone}`}
+            >
+              <div className="text-[10px] font-bold uppercase leading-tight text-white/80">
+                equiti
+                <br />
+                desk awards
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-black uppercase text-white">{b.title}</div>
+                <div className="text-[10px] font-semibold uppercase text-white/85">{b.sub}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -50,197 +232,57 @@ export function TrustedPartnersMarquee() {
   );
 }
 
-export function LiveOrbit() {
+export function BrowserDeskSection({ symbol = "XRP" }) {
   return (
-    <div className="relative mx-auto grid h-[280px] w-[280px] place-items-center sm:h-[340px] sm:w-[340px]">
-      <div className="eq-spin-slow absolute inset-4 rounded-full border border-dashed border-[#C8FF00]/35">
-        <span className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-[#C8FF00] shadow-[0_0_12px_#C8FF00]" />
-        <span className="absolute bottom-2 right-6 h-2 w-2 rounded-full bg-[#C8FF00] shadow-[0_0_10px_#C8FF00]" />
-      </div>
-      <div className="eq-spin-rev absolute inset-10 rounded-full border border-[#C8FF00]/25">
-        <span className="absolute right-4 top-8 h-2 w-2 rounded-full bg-[#C8FF00]" />
-      </div>
-      <div className="eq-pulse absolute inset-[72px] rounded-full bg-[#C8FF00]/10 sm:inset-[88px]" />
-      <div className="relative z-10 text-center">
-        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#C8FF00]">
-          Live mesh
-        </div>
-        <div className="mt-1 font-display text-2xl font-extrabold">
-          <EquitiWordmark onDark className="mx-auto h-8 w-auto" />
-        </div>
-        <div className="mt-1 text-xs text-white/50">global order flow</div>
-      </div>
-    </div>
-  );
-}
-
-export function WorldLatencyMap() {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#C8FF00]/20 bg-[#06100c] p-4 sm:p-6">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#C8FF00]">
-            Live desks
+    <RadialBack className="py-16 sm:py-24">
+      <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-[#C8FF00] bg-black p-3 shadow-[0_0_40px_rgba(200,255,0,0.12)]">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <div className="text-sm font-bold">
+              Your desk <span className="text-[#C8FF00]">running 24/7</span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">equiti</span>
           </div>
-          <h3 className="text-lg font-extrabold">Market nodes worldwide</h3>
+          <NeonLiveGraph symbol={symbol} height={260} transparent />
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8FF00]/30 bg-[#C8FF00]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#C8FF00]">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#C8FF00]" />
-          live
-        </span>
+        <div>
+          <h2 className="text-3xl font-extrabold uppercase leading-tight sm:text-4xl">
+            <span className="text-[#C8FF00]">Control your desk</span>
+            <br />
+            in your browser.
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-white/70 sm:text-base">
+            Open charts, lock Copy AI Bot, deposit and withdraw from any device.
+            No extra terminal install — equiti stays live in the browser.
+          </p>
+        </div>
       </div>
-      <svg viewBox="0 0 100 86" className="h-auto w-full text-[#C8FF00]">
-        <defs>
-          <radialGradient id="eq-sea" cx="50%" cy="45%" r="70%">
-            <stop offset="0%" stopColor="#0b1c14" />
-            <stop offset="100%" stopColor="#05070c" />
-          </radialGradient>
-        </defs>
-        <rect width="100" height="86" fill="url(#eq-sea)" rx="4" />
-        <g fill="none" stroke="currentColor" strokeOpacity="0.18" strokeWidth="0.4">
-          <path d="M8 28 C18 22, 28 30, 34 24 C42 16, 48 22, 56 20 C66 18, 74 28, 86 24" />
-          <path d="M10 48 C22 42, 30 52, 42 46 C54 40, 62 50, 78 44 C86 42, 92 50, 96 48" />
-          <path d="M14 62 C26 58, 34 68, 48 62 C60 56, 70 66, 88 60" />
-        </g>
-        <g fill="#123322" stroke="#C8FF00" strokeOpacity="0.25" strokeWidth="0.3">
-          <ellipse cx="24" cy="40" rx="10" ry="8" />
-          <ellipse cx="48" cy="34" rx="9" ry="6" />
-          <ellipse cx="62" cy="46" rx="7" ry="5" />
-          <ellipse cx="78" cy="42" rx="10" ry="7" />
-          <ellipse cx="86" cy="68" rx="6" ry="4" />
-          <ellipse cx="34" cy="68" rx="7" ry="5" />
-        </g>
-        {NODES.map((n, i) => (
-          <g key={n.id}>
-            <circle cx={n.x} cy={n.y} r="3.4" fill="#C8FF00" opacity="0.18">
-              <animate
-                attributeName="r"
-                values="2.2;7;2.2"
-                dur={`${2.4 + i * 0.25}s`}
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="opacity"
-                values="0.35;0;0.35"
-                dur={`${2.4 + i * 0.25}s`}
-                repeatCount="indefinite"
-              />
-            </circle>
-            <circle cx={n.x} cy={n.y} r="1.15" fill="#C8FF00" />
-          </g>
-        ))}
-        <line x1="26" y1="42" x2="48" y2="34" stroke="#C8FF00" strokeWidth="0.25" strokeDasharray="1 1">
-          <animate attributeName="stroke-opacity" values="0.2;0.9;0.2" dur="3s" repeatCount="indefinite" />
-        </line>
-        <line x1="48" y1="34" x2="60" y2="48" stroke="#C8FF00" strokeWidth="0.25" strokeDasharray="1 1">
-          <animate attributeName="stroke-opacity" values="0.2;0.9;0.2" dur="3.4s" repeatCount="indefinite" />
-        </line>
-        <line x1="60" y1="48" x2="76" y2="58" stroke="#C8FF00" strokeWidth="0.25" strokeDasharray="1 1">
-          <animate attributeName="stroke-opacity" values="0.2;0.9;0.2" dur="2.8s" repeatCount="indefinite" />
-        </line>
-        <line x1="76" y1="58" x2="84" y2="40" stroke="#C8FF00" strokeWidth="0.25" strokeDasharray="1 1">
-          <animate attributeName="stroke-opacity" values="0.2;0.9;0.2" dur="3.2s" repeatCount="indefinite" />
-        </line>
-      </svg>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {NODES.map((n) => (
-          <span
-            key={n.id}
-            className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-white/70"
-          >
-            {n.label}
-          </span>
-        ))}
-      </div>
-    </div>
+    </RadialBack>
   );
 }
 
-function ServerRack({ delay = 0 }) {
+/** Combined landing block used on public + home. */
+export function ForexStyleShowcase({ includeDesk = true }) {
   return (
-    <div className="relative w-[92px] rounded-xl border border-[#C8FF00]/25 bg-[#07140f] p-2 shadow-[0_0_28px_rgba(154,255,60,0.12)] sm:w-[110px]">
-      <div className="mb-2 h-1.5 rounded-full bg-[#C8FF00]/70" />
-      {Array.from({ length: 7 }).map((_, i) => (
-        <div key={i} className="mb-1.5 flex items-center gap-1.5 rounded-md bg-black/50 px-1.5 py-1">
-          <span
-            className="h-1.5 w-1.5 rounded-full bg-[#C8FF00]"
-            style={{ animation: `eq-blink 1.4s ease-in-out ${delay + i * 0.18}s infinite` }}
-          />
-          <span className="h-1 flex-1 rounded-full bg-white/10" />
-        </div>
-      ))}
-      <div className="mt-1 text-center text-[9px] font-bold uppercase tracking-wider text-[#C8FF00]">
-        core node
-      </div>
-    </div>
+    <>
+      <PlatformsStrip />
+      <PartnersWorldwide />
+      <DataCentresMap />
+      {includeDesk ? <BrowserDeskSection /> : null}
+      <AwardsStrip />
+    </>
   );
 }
 
-function DeskMonitor() {
-  return (
-    <div className="w-[160px] sm:w-[200px]">
-      <div className="rounded-t-xl border border-[#C8FF00]/30 bg-[#05070c] p-2">
-        <svg viewBox="0 0 160 90" className="h-auto w-full">
-          <rect width="160" height="90" rx="4" fill="#06140f" />
-          <polyline
-            fill="none"
-            stroke="#C8FF00"
-            strokeWidth="2.2"
-            points="8,68 28,54 46,60 68,28 90,40 112,18 132,32 152,12"
-          >
-            <animate
-              attributeName="stroke-opacity"
-              values="0.55;1;0.55"
-              dur="2.2s"
-              repeatCount="indefinite"
-            />
-          </polyline>
-          <polyline
-            fill="none"
-            stroke="#C8FF00"
-            strokeWidth="1.4"
-            strokeDasharray="4 3"
-            points="8,74 36,70 62,58 88,62 118,44 152,48"
-          />
-        </svg>
-      </div>
-      <div className="mx-auto h-3 w-16 rounded-b-md bg-[#123322]" />
-      <div className="mx-auto mt-0.5 h-1.5 w-24 rounded-full bg-black/60" />
-      <div className="mt-2 text-center text-[10px] font-bold uppercase tracking-wider text-white/50">
-        live equity desk
-      </div>
-    </div>
-  );
+export function TrustedPartnersMarquee() {
+  return <PartnersWorldwide />;
 }
 
 export function LiveInfraStage() {
   return (
-    <section className="bg-[#05070c] py-14 sm:py-20">
-      <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-        <div className="mb-8 text-center">
-          <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#C8FF00]">
-            Always-on infrastructure
-          </div>
-          <h2 className="mt-2 text-xl font-extrabold sm:text-2xl">
-            Desks, servers, and a live world mesh
-          </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-white/50">
-            equiti keeps charts, matching, and support running on dedicated nodes —
-            not a home PC. Watch the mesh, racks, and desk pulse in real time.
-          </p>
-        </div>
-        <div className="grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-          <WorldLatencyMap />
-          <div className="flex flex-col items-center gap-8">
-            <LiveOrbit />
-            <div className="flex flex-wrap items-end justify-center gap-5">
-              <ServerRack delay={0} />
-              <DeskMonitor />
-              <ServerRack delay={0.4} />
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <>
+      <DataCentresMap />
+      <BrowserDeskSection symbol="SOL" />
+    </>
   );
 }

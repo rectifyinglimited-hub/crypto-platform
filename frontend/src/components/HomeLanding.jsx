@@ -24,7 +24,7 @@ import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
-import { LiveInfraStage, TrustedPartnersMarquee } from "./TrustInfra.jsx";
+import { ForexStyleShowcase } from "./TrustInfra.jsx";
 
 const OVERVIEW_ASSETS = [
   { symbol: "ETH", name: "Ethereum" },
@@ -725,8 +725,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
         </div>
       </section>
 
-      <TrustedPartnersMarquee />
-      <LiveInfraStage />
+      <ForexStyleShowcase includeDesk={false} />
 
       <section className="rounded-2xl border border-white/10 bg-[#0d1424] px-5 py-6 text-center md:px-8">
         <h2 className="text-base font-semibold text-white md:text-lg">

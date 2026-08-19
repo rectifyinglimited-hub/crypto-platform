@@ -2,39 +2,14 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 const SLIDES = [
-  {
-    src: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1600&q=70",
-    pos: "center 18%",
-    label: "Pro trader",
-  },
-  {
-    src: "/bg/hero-exchange.jpg",
-    pos: "center",
-    label: "Bitcoin desk",
-  },
-  {
-    src: "/bg/charts-desk.jpg",
-    pos: "center",
-    label: "Live candles",
-  },
-  {
-    src: "/bg/crypto-glow.jpg",
-    pos: "center",
-    label: "Mobile trade",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1600&q=70",
-    pos: "center",
-    label: "Stock charts",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1642790106117-e829e14a795f?auto=format&fit=crop&w=1600&q=70",
-    pos: "center",
-    label: "Crypto markets",
-  },
+  { src: "/bg/hero-exchange.jpg", pos: "center", label: "Exchange floor" },
+  { src: "/bg/data-network.jpg", pos: "center", label: "Global network" },
+  { src: "/bg/crypto-glow.jpg", pos: "center 30%", label: "Neon desk" },
+  { src: "/bg/charts-desk.jpg", pos: "center", label: "Live candles" },
+  { src: "/bg/auth-city.jpg", pos: "center 20%", label: "City night" },
 ];
 
-export default function HeroMediaSlider({ intervalMs = 4200 }) {
+export default function HeroMediaSlider({ intervalMs = 4800 }) {
   const [i, setI] = useState(0);
 
   useEffect(() => {
@@ -53,15 +28,17 @@ export default function HeroMediaSlider({ intervalMs = 4200 }) {
           key={slide.src}
           src={slide.src}
           alt=""
-          initial={{ opacity: 0, scale: 1.06 }}
+          initial={{ opacity: 0, scale: 1.08 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.9, ease: "easeOut" }}
+          transition={{ duration: 1.05, ease: "easeOut" }}
           className="absolute inset-0 h-full w-full object-cover"
-          style={{ objectPosition: slide.pos }}
+          style={{ objectPosition: slide.pos, filter: "saturate(0.75) contrast(1.08)" }}
         />
       </AnimatePresence>
-      <div className="absolute inset-0 bg-gradient-to-r from-[#05070c] via-[#05070c]/86 to-[#05070c]/30" />
+      <div className="absolute inset-0 bg-black/78" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/35" />
+      <div className="eq-radial absolute inset-0 opacity-40" />
       <div className="absolute bottom-4 left-4 z-10 flex items-center gap-1.5 pointer-events-auto">
         {SLIDES.map((s, idx) => (
           <button

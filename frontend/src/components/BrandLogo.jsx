@@ -1,32 +1,55 @@
 /**
- * equiti logo — the provided wordmark artwork, not a reconstructed font.
+ * equiti wordmark — teal rounded lowercase with stencil cuts on q and u.
  */
 
-const LOGO_SRC = "/brand/equiti-logo.png";
+const TEAL = "#00B5AD";
 
-export function EquitiWordmark({ className = "h-8 w-auto", onDark = true }) {
+export function EquitiWordmark({
+  className = "h-8 w-auto",
+  onDark = true,
+}) {
+  const gap = onDark ? "#000000" : "#ffffff";
   return (
-    <img
-      src={LOGO_SRC}
-      alt="equiti"
-      className={`w-auto max-w-[168px] object-contain object-left sm:max-w-[196px] ${className} ${
-        onDark ? "eq-logo-on-dark" : ""
-      }`}
-      draggable="false"
-    />
+    <svg
+      viewBox="0 0 430 92"
+      className={className}
+      aria-hidden="true"
+      role="img"
+    >
+      <text
+        x="6"
+        y="70"
+        fill={TEAL}
+        style={{ fontFamily: "Nunito, Outfit, Sora, sans-serif" }}
+        fontSize="72"
+        fontWeight="800"
+        letterSpacing="-2.2"
+      >
+        equiti
+      </text>
+      <rect x="112" y="20" width="5.5" height="50" fill={gap} />
+      <rect x="176" y="24" width="5" height="46" fill={gap} />
+    </svg>
   );
 }
 
 export function EquitiMark({ className = "h-8 w-8" }) {
   return (
-    <span className={`relative inline-flex overflow-hidden rounded-md bg-black ${className}`}>
-      <img
-        src={LOGO_SRC}
-        alt=""
-        className="eq-logo-on-dark h-full w-full origin-left scale-[2.6] object-cover object-left"
-        draggable="false"
-      />
-    </span>
+    <svg viewBox="0 0 48 48" className={className} aria-hidden>
+      <rect width="48" height="48" rx="10" fill="#000" />
+      <rect x="1.2" y="1.2" width="45.6" height="45.6" rx="9" fill="none" stroke={TEAL} strokeWidth="1.6" />
+      <text
+        x="24"
+        y="34"
+        textAnchor="middle"
+        fill={TEAL}
+        fontFamily="Nunito, Outfit, sans-serif"
+        fontSize="26"
+        fontWeight="800"
+      >
+        e
+      </text>
+    </svg>
   );
 }
 
@@ -39,8 +62,8 @@ export default function BrandLogo({
   let el;
   if (variant === "stack") {
     el = (
-      <span className="inline-flex flex-col items-center rounded-2xl border border-[#C8FF00]/30 bg-black px-8 py-6 shadow-[0_0_48px_rgba(200,255,0,0.2)]">
-        <EquitiWordmark onDark className="h-12 w-auto max-w-[240px]" />
+      <span className="inline-flex flex-col items-center rounded-2xl border border-[#C8FF00]/25 bg-black px-8 py-6">
+        <EquitiWordmark onDark className="h-12 w-auto" />
       </span>
     );
   } else if (variant === "mark") {
@@ -48,19 +71,14 @@ export default function BrandLogo({
   } else if (variant === "wordmark") {
     el = <EquitiWordmark onDark className="h-6 w-auto sm:h-7" />;
   } else if (variant === "on-light") {
-    el = <EquitiWordmark onDark={false} className="h-8 w-auto max-w-[220px] sm:h-9" />;
+    el = <EquitiWordmark onDark={false} className="h-8 w-auto sm:h-9" />;
   } else {
     el = <EquitiWordmark onDark className="h-7 w-auto sm:h-8" />;
   }
 
   if (onClick) {
     return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`shrink-0 ${className}`}
-        aria-label="equiti"
-      >
+      <button type="button" onClick={onClick} className={`shrink-0 ${className}`} aria-label="equiti">
         {el}
       </button>
     );

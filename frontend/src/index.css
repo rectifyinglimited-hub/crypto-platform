@@ -228,6 +228,20 @@ select option {
 .eq-marquee {
   animation: eq-marquee 28s linear infinite;
 }
+.eq-marquee-rev {
+  animation: eq-marquee 32s linear infinite reverse;
+}
+.eq-radial {
+  background-image:
+    repeating-linear-gradient(
+      115deg,
+      transparent 0,
+      transparent 26px,
+      rgba(200, 255, 0, 0.045) 26px,
+      rgba(200, 255, 0, 0.045) 27px
+    ),
+    radial-gradient(ellipse 90% 70% at 50% 120%, rgba(200, 255, 0, 0.08), transparent 55%);
+}
 @keyframes eq-spin {
   to { transform: rotate(360deg); }
 }
