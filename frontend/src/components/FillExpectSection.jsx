@@ -14,10 +14,10 @@ function usePingPong(active, speed = 0.0018) {
   const dir = useRef(1);
   useEffect(() => {
     if (active) return undefined;
-    let id;
+    let raf;
     const tick = () => {
       setT((prev) => {
-        let next = prev + dir.current * 0.012;
+        let next = prev + dir.current * speed * 16;
         if (next >= 1) {
           next = 1;
           dir.current = -1;
@@ -27,9 +27,10 @@ function usePingPong(active, speed = 0.0018) {
         }
         return next;
       });
+      raf = requestAnimationFrame(tick);
     };
-    id = setInterval(tick, 80);
-    return () => clearInterval(id);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [active, speed]);
   return [t, setT];
 }

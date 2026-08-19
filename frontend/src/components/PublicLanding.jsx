@@ -20,7 +20,6 @@ import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import { CertificatePage } from "./TradingCertificate.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
-import ErrorBoundary from "./ErrorBoundary.jsx";
 import { ForexStyleShowcase, EquitiFaq } from "./TrustInfra.jsx";
 
 const PAIRS = [
@@ -361,16 +360,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               Launch now →
             </button>
           </div>
-          <div className="relative z-10">
-            <ErrorBoundary
-              fallback={
-                <div className="rounded-xl border border-[#39FF14]/40 bg-black p-8 text-sm text-white/70">
-                  ETH/USDT live desk
-                </div>
-              }
-            >
-              <NeonLiveGraph symbol="ETH" height={340} transparent />
-            </ErrorBoundary>
+          <div className="relative">
+            <NeonLiveGraph symbol="ETH" height={340} transparent />
           </div>
         </div>
         <div className="relative z-10 mx-auto max-w-[1180px] px-4 pb-10 sm:px-6">
@@ -400,9 +391,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </section>
 
-      <ErrorBoundary>
-        <ForexStyleShowcase />
-      </ErrorBoundary>
+      <ForexStyleShowcase />
 
       <section className="bg-black py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">

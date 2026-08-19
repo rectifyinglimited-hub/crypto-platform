@@ -17,7 +17,16 @@
       rel="stylesheet"
     />
   </head>
-  <body class="bg-black text-white antialiased">
+  <body class="bg-nx-bg text-slate-100 antialiased">
+    <svg width="0" height="0" class="pointer-events-none absolute h-0 w-0 overflow-hidden" aria-hidden="true">
+      <filter id="eq-knock-white" color-interpolation-filters="sRGB">
+        <feColorMatrix type="luminanceToAlpha" result="lum" />
+        <feComponentTransfer in="lum" result="cut">
+          <feFuncA type="table" tableValues="1 1 1 1 1 1 0.35 0" />
+        </feComponentTransfer>
+        <feComposite in="SourceGraphic" in2="cut" operator="in" />
+      </filter>
+    </svg>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

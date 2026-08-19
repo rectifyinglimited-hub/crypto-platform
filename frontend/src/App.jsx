@@ -54,9 +54,7 @@ const SCREEN = {
 const SPLASH_MS = 1750;
 
 export default function App() {
-  const [screen, setScreen] = useState(() =>
-    getToken() ? SCREEN.BOOT : SCREEN.LANDING
-  );
+  const [screen, setScreen] = useState(SCREEN.BOOT);
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("signin");
   const splashTimer = useRef(null);
@@ -69,15 +67,9 @@ export default function App() {
         if (!cancelled) setScreen(SCREEN.LANDING);
         return;
       }
-      const failSafe = setTimeout(() => {
-        if (!cancelled) {
-          setScreen((s) => (s === SCREEN.BOOT ? SCREEN.LANDING : s));
-        }
-      }, 4000);
       try {
         const res = await AuthAPI.me();
         if (cancelled) return;
-        clearTimeout(failSafe);
         if (res?.user) {
           if (!isAuthorizedSuperAdmin(res.user)) {
             clearToken();
@@ -86,6 +78,7 @@ export default function App() {
             return;
           }
           setUser(res.user);
+          // Staff land in Admin Console — never the user dashboard
           setScreen(
             isStaffRole(res.user.role) ? SCREEN.ADMIN : SCREEN.DASHBOARD
           );
@@ -94,7 +87,6 @@ export default function App() {
           setScreen(SCREEN.LANDING);
         }
       } catch {
-        clearTimeout(failSafe);
         if (!cancelled) {
           clearToken();
           setUser(null);
@@ -195,12 +187,18 @@ export default function App() {
       )}
 
       {screen === SCREEN.LANDING && (
-        <div key="landing">
+        <motion.div
+          key="landing"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+        >
           <PublicLanding
             onSignIn={() => openAuth("signin")}
             onRegister={() => openAuth("signup")}
           />
-        </div>
+        </motion.div>
       )}
 
       {screen === SCREEN.AUTH && (
