@@ -1,117 +1,126 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 
 const STEP = 0.0005;
+const ROW = 40;
 const VISIBLE = 9;
-const TAPE = 80;
-const MID = Math.floor(VISIBLE / 2);
+const TAPE = 90;
+const MID = 4;
 const BASE = 0.9145;
+const TICK_MS = 420;
+const STEPS_PER_HOVER = 5;
 
 function fmt(n) {
   return n.toFixed(4);
 }
 
-function tapePrice(i) {
-  return BASE + (TAPE / 2 - i) * STEP;
-}
+const TAPE_PRICES = Array.from({ length: TAPE }, (_, i) => BASE + (TAPE / 2 - i) * STEP);
 
-const TAPE_PRICES = Array.from({ length: TAPE }, (_, i) => tapePrice(i));
-
-function PriceRow({ p, kind }) {
-  const styles = {
-    dim: "text-white/45",
-    filled: "border border-[#39FF14] font-bold text-[#39FF14]",
-    target: "text-white/70",
-    expected: "rounded-md bg-[#1d4ed8] px-3 py-1 font-semibold text-[#93c5fd]",
-    slipped: "border border-red-500 font-semibold text-red-400",
-  };
+function Column({ variant, offset }) {
   return (
-    <div className="relative flex h-9 items-center justify-center">
-      {kind === "filled" && (
-        <div className="absolute right-full mr-2 flex items-center gap-1.5 whitespace-nowrap">
-          <span className="grid h-5 w-5 place-items-center rounded-full bg-[#39FF14] text-black">
-            <Check className="h-3 w-3" strokeWidth={3} />
-          </span>
-          <span className="text-[11px] font-black uppercase tracking-wide text-[#39FF14]">
-            Filled
-          </span>
-          <span className="text-[#39FF14]">→</span>
+    <div className="relative w-[168px]" style={{ height: VISIBLE * ROW }}>
+      <div className="relative z-[1] overflow-hidden" style={{ height: VISIBLE * ROW }}>
+        <div className="eq-price-tape" style={{ transform: `translateY(${-offset * ROW}px)` }}>
+          {TAPE_PRICES.map((raw, i) => {
+            const p = variant === "slow" ? raw + STEP : raw;
+            const vis = i - offset;
+            let color = "text-white/40";
+            if (variant === "fast" && vis === MID) color = "font-bold text-[#39FF14]";
+            if (variant === "slow" && vis === MID - 1) color = "font-semibold text-white";
+            if (variant === "slow" && vis === MID) color = "font-semibold text-red-400";
+            return (
+              <div
+                key={i}
+                className={`flex items-center justify-center text-[15px] tabular-nums ${color}`}
+                style={{ height: ROW }}
+              >
+                {fmt(p)}
+              </div>
+            );
+          })}
         </div>
-      )}
-      <span className={`rounded-md px-3 py-1 tabular-nums ${styles[kind] || styles.dim}`}>
-        {fmt(p)}
-      </span>
-      {kind === "expected" && (
-        <span className="absolute left-full ml-2 text-[11px] font-bold text-[#60a5fa]">
-          Expected
-        </span>
-      )}
-      {kind === "slipped" && (
-        <span className="absolute left-full ml-2 whitespace-nowrap text-[11px] font-bold text-red-400">
-          ← +5 Slipped
-        </span>
-      )}
-    </div>
-  );
-}
+      </div>
 
-function kindFor(mode, visIndex) {
-  if (mode === "fast") {
-    if (visIndex === MID) return "filled";
-    if (visIndex === MID - 1) return "target";
-    return "dim";
-  }
-  if (visIndex === MID) return "expected";
-  if (visIndex === MID + 1) return "slipped";
-  return "dim";
-}
-
-function Ladder({ mode, offset }) {
-  const start = Math.max(0, Math.min(TAPE - VISIBLE, offset));
-  const slice = TAPE_PRICES.slice(start, start + VISIBLE);
-  return (
-    <div className="relative h-[324px] overflow-hidden">
-      {slice.map((p, visIndex) => (
-        <PriceRow key={`${mode}-${p.toFixed(4)}`} p={p} kind={kindFor(mode, visIndex)} />
-      ))}
+      {variant === "fast" ? (
+        <>
+          <div
+            className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded-[5px] border border-[#39FF14]"
+            style={{ top: MID * ROW + 5, height: ROW - 10, width: 92 }}
+          />
+          <div
+            className="pointer-events-none absolute right-full z-10 mr-2 flex items-center gap-1.5 whitespace-nowrap"
+            style={{ top: MID * ROW, height: ROW }}
+          >
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-[#39FF14] text-black">
+              <Check className="h-3 w-3" strokeWidth={3} />
+            </span>
+            <span className="text-[11px] font-black uppercase tracking-wide text-[#39FF14]">
+              Filled
+            </span>
+            <span className="text-[#39FF14]">→</span>
+          </div>
+        </>
+      ) : (
+        <>
+          <div
+            className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 rounded-md bg-[#1e40af]"
+            style={{ top: (MID - 1) * ROW + 6, height: ROW - 12, width: 92 }}
+          />
+          <span
+            className="pointer-events-none absolute left-full z-10 ml-2 text-[11px] font-bold text-[#60a5fa]"
+            style={{ top: (MID - 1) * ROW, height: ROW, lineHeight: `${ROW}px` }}
+          >
+            Expected
+          </span>
+          <div
+            className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded-[5px] border border-red-500"
+            style={{ top: MID * ROW + 5, height: ROW - 10, width: 92 }}
+          />
+          <span
+            className="pointer-events-none absolute left-full z-10 ml-2 whitespace-nowrap text-[11px] font-bold text-red-400"
+            style={{ top: MID * ROW, height: ROW, lineHeight: `${ROW}px` }}
+          >
+            ← +5 Slipped
+          </span>
+        </>
+      )}
     </div>
   );
 }
 
 export default function FillExpectSection() {
   const [offset, setOffset] = useState(Math.floor((TAPE - VISIBLE) / 2));
-  const lastY = useRef(null);
-  const acc = useRef(0);
   const stageRef = useRef(null);
+  const zoneRef = useRef("mid");
+  const busyRef = useRef(false);
+  const timerRef = useRef(null);
 
-  const nudge = useCallback((dir, steps) => {
-    setOffset((o) => Math.max(0, Math.min(TAPE - VISIBLE, o + dir * steps)));
-  }, []);
+  useEffect(() => () => clearInterval(timerRef.current), []);
 
-  useEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
-    const onWheel = (e) => {
-      e.preventDefault();
-      const steps = Math.abs(e.deltaY) > 40 ? 3 : 2;
-      nudge(e.deltaY > 0 ? 1 : -1, steps);
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [nudge]);
+  const play = (dir) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    let n = 0;
+    timerRef.current = setInterval(() => {
+      setOffset((o) => Math.max(0, Math.min(TAPE - VISIBLE, o + dir)));
+      n += 1;
+      if (n >= STEPS_PER_HOVER) {
+        clearInterval(timerRef.current);
+        busyRef.current = false;
+      }
+    }, TICK_MS);
+  };
 
   const onMove = (e) => {
-    if (lastY.current == null) {
-      lastY.current = e.clientY;
-      return;
-    }
-    const dy = e.clientY - lastY.current;
-    lastY.current = e.clientY;
-    acc.current += dy;
-    if (Math.abs(acc.current) < 10) return;
-    const steps = Math.abs(acc.current) > 22 ? 3 : 2;
-    nudge(acc.current > 0 ? 1 : -1, steps);
-    acc.current = 0;
+    const el = stageRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const y = (e.clientY - r.top) / r.height;
+    const zone = y < 0.36 ? "top" : y > 0.64 ? "bot" : "mid";
+    if (zone === zoneRef.current) return;
+    zoneRef.current = zone;
+    if (zone === "top") play(1);
+    if (zone === "bot") play(-1);
   };
 
   return (
@@ -131,22 +140,21 @@ export default function FillExpectSection() {
 
         <div
           ref={stageRef}
-          className="cursor-ns-resize select-none overflow-x-auto px-2 py-4 sm:px-6"
+          className="select-none px-2 py-4 sm:px-8"
           onMouseMove={onMove}
           onMouseLeave={() => {
-            lastY.current = null;
-            acc.current = 0;
+            zoneRef.current = "mid";
           }}
         >
-          <div className="flex min-w-[540px] items-start justify-center gap-16 sm:gap-24">
+          <div className="flex min-w-[560px] items-start justify-center gap-24">
             <div>
-              <Ladder mode="fast" offset={offset} />
+              <Column variant="fast" offset={offset} />
               <div className="mt-5 text-center text-sm font-extrabold">
                 <span className="text-[#39FF14]">Fast</span> <span className="text-white">Trades</span>
               </div>
             </div>
-            <div className="pt-4">
-              <Ladder mode="slow" offset={offset} />
+            <div>
+              <Column variant="slow" offset={offset} />
               <div className="mt-5 text-center text-sm font-extrabold">
                 <span className="text-red-400">Slow</span> <span className="text-white">Trades</span>
               </div>

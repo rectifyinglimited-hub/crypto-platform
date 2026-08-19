@@ -274,10 +274,16 @@ select option {
 .eq-threat-keep {
   animation: eq-threat-keep 5.6s ease-in-out infinite;
 }
+.eq-price-tape {
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
 @media (prefers-reduced-motion: reduce) {
   .eq-threat-orbit,
   .eq-threat-keep {
     animation: none;
+  }
+  .eq-price-tape {
+    transition: none;
   }
 }
 .eq-spin-rev {
