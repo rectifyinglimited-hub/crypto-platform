@@ -5,6 +5,7 @@
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
 import FillExpectSection from "./FillExpectSection.jsx";
+import SecurityShield from "./SecurityShield.jsx";
 
 const LIME = "#39FF14";
 
@@ -196,37 +197,18 @@ export function TripleDeskSection() {
 export function CyberSecuritySection() {
   return (
     <RadialBack className="py-20 sm:py-24">
-      <div className="mx-auto grid max-w-[1180px] items-center gap-12 px-4 sm:px-6 lg:grid-cols-2">
-        <div className="relative mx-auto grid h-[280px] w-[280px] place-items-center sm:h-[340px] sm:w-[340px]">
-          <div className="absolute inset-0 rounded-full border border-[#39FF14]/50" />
-          <div className="eq-spin-slow absolute inset-0">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <span
-                key={i}
-                className="absolute left-1/2 top-1/2 h-2.5 w-2.5 rounded-full bg-[#39FF14] shadow-[0_0_10px_#39FF14]"
-                style={{
-                  transform: `rotate(${i * 45}deg) translateY(-132px) translate(-50%, -50%)`,
-                }}
-              />
-            ))}
-          </div>
-          <div className="absolute inset-8 rounded-full border border-[#39FF14]/30" />
-          <div className="eq-pulse relative grid h-28 w-24 place-items-center rounded-b-[40px] rounded-t-[18px] border-2 border-[#39FF14] bg-black shadow-[0_0_40px_rgba(57,255,20,0.35)]">
-            <div className="h-10 w-8 rounded-sm bg-[#39FF14]/80" />
-          </div>
-          <div className="absolute right-2 top-16 grid h-16 w-16 place-items-center rounded-full bg-[#5a1010] text-center">
-            <span className="text-[9px] font-bold uppercase leading-tight text-white">
-              threats
-            </span>
-          </div>
-        </div>
+      <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
+        <SecurityShield />
         <div>
-          <h2 className="text-3xl font-extrabold uppercase leading-tight sm:text-4xl">
-            Cutting-edge <span className="text-[#39FF14]">cyber security</span>
+          <h2 className="font-display text-3xl font-extrabold uppercase leading-[1.08] tracking-tight sm:text-5xl">
+            Cutting-edge
+            <br />
+            <span className="text-[#39FF14]">cyber security</span>
           </h2>
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-white/70 sm:text-base">
-            Real-time monitoring and encrypted sessions protect every login, deposit, and
-            withdrawal. Admin review sits in front of payouts — not after.
+          <p className="mt-5 max-w-md text-sm leading-relaxed text-white/85 sm:text-base">
+            Real-time monitoring and anti-DDoS Shield protects every login, deposit, and
+            withdrawal from volumetric and protocol-based attacks. Admin review sits in
+            front of payouts — not after.
           </p>
         </div>
       </div>
