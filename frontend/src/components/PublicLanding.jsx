@@ -15,6 +15,7 @@ import {
 import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
+import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import { CertificatePage } from "./TradingCertificate.jsx";
@@ -315,7 +316,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </div>
 
       <section id="trading" ref={heroRef} className="relative overflow-hidden bg-black">
-        <svg className="pointer-events-none absolute -right-8 top-8 hidden h-[520px] w-[46%] lg:block" viewBox="0 0 400 520" fill="none">
+        <HeroMediaSlider />
+        <svg className="pointer-events-none absolute -right-8 top-8 z-[1] hidden h-[520px] w-[46%] lg:block" viewBox="0 0 400 520" fill="none">
           {[0, 1, 2, 3, 4, 5, 6].map((n) => (
             <path
               key={n}
@@ -326,7 +328,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             />
           ))}
         </svg>
-        <div className="relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="relative z-10 mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
             <motion.h1
               initial={{ opacity: 0, y: 14 }}
@@ -362,7 +364,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             <NeonLiveGraph symbol="ETH" height={340} transparent />
           </div>
         </div>
-        <div className="mx-auto max-w-[1180px] px-4 pb-10 sm:px-6">
+        <div className="relative z-10 mx-auto max-w-[1180px] px-4 pb-10 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-[#C8FF00]/40 bg-black px-5 py-4">
             <p className="text-sm text-white/80">
               <span className="text-[#C8FF00]">“</span> Switched to equiti and the desk stays live.

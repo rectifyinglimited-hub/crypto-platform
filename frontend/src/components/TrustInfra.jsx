@@ -1,9 +1,10 @@
 /**
- * ForexVPS-matched showcase: dotted map + labels, white partner marquee,
- * platform strip, shield radar, browser desk. equiti copy — no pricing.
+ * Landing infra: platform logos, live desks, broker wordmarks, shield, browser desk.
  */
 
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
+import LiveMarketDesks from "./LiveMarketDesks.jsx";
+import { BROKER_MARKS, PLATFORM_MARKS } from "./PartnerMarks.jsx";
 
 const LIME = "#C8FF00";
 
@@ -30,26 +31,6 @@ const CITIES = [
   { x: 88, y: 72, label: "Sydney" },
 ];
 
-const PLATFORMS = [
-  "Seconds Trade",
-  "Copy AI Bot",
-  "Live Desk",
-  "VIP Terminal",
-  "Loan Desk",
-  "Assets Wallet",
-  "KYC Gate",
-];
-
-const PARTNERS = [
-  { mark: "V", name: "VISA" },
-  { mark: "M", name: "Mastercard" },
-  { mark: "U", name: "USDT" },
-  { mark: "T", name: "TRC-20" },
-  { mark: "E", name: "Ethereum" },
-  { mark: "S", name: "Solana" },
-  { mark: "W", name: "SWIFT" },
-  { mark: "K", name: "KYC Desk" },
-];
 
 function RadialBack({ children, className = "" }) {
   return (
@@ -68,7 +49,7 @@ function Marquee({ items, reverse = false, gap = "gap-16", children }) {
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-black to-transparent" />
       <div className={`eq-marquee flex w-max items-center ${gap} py-6 ${reverse ? "eq-marquee-rev" : ""}`}>
         {row.map((item, i) => (
-          <div key={i} className="shrink-0">
+          <div key={`${item.id || i}-${i}`} className="shrink-0">
             {children(item)}
           </div>
         ))}
@@ -164,12 +145,8 @@ export function PlatformsStrip() {
         <span className="text-[#C8FF00]">all trading platforms</span>
       </h2>
       <div className="mt-10">
-        <Marquee items={PLATFORMS} gap="gap-20">
-          {(name) => (
-            <span className="text-xl font-extrabold tracking-wide text-white sm:text-3xl">
-              {name}
-            </span>
-          )}
+        <Marquee items={PLATFORM_MARKS} gap="gap-16">
+          {(p) => p.node}
         </Marquee>
       </div>
     </RadialBack>
@@ -185,18 +162,34 @@ export function PartnersWorldwide() {
         <span className="text-[#C8FF00]">brokers & partners worldwide</span>
       </h2>
       <div className="mt-10">
-        <Marquee items={PARTNERS} reverse gap="gap-14">
-          {(p) => (
-            <span className="inline-flex items-center gap-2 text-white">
-              <span className="grid h-8 w-8 place-items-center rounded-full border border-white/40 text-xs font-black">
-                {p.mark}
-              </span>
-              <span className="text-lg font-extrabold tracking-[0.12em] sm:text-2xl">{p.name}</span>
-            </span>
-          )}
+        <Marquee items={BROKER_MARKS} reverse gap="gap-16">
+          {(p) => p.node}
         </Marquee>
       </div>
     </RadialBack>
+  );
+}
+
+export function TripleDeskSection() {
+  return (
+    <section className="bg-black py-16 sm:py-20">
+      <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
+        <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight sm:text-3xl">
+          Live desks <span className="text-[#C8FF00]">on every screen</span>
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-white/60">
+          Three live books on desktop. One focused chart on mobile. Same candles, same feed.
+        </p>
+        <div className="mt-8">
+          <LiveMarketDesks height={240} transparent />
+        </div>
+        <p className="mx-auto mt-10 max-w-2xl text-center text-sm leading-relaxed text-white/65">
+          Charts stay in the browser so you can read ETH, XRP, and SOL without a second
+          terminal. After the desks, the rails traders already know — platforms and
+          partners — sit in the same black-and-lime frame.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -305,8 +298,8 @@ export function ForexStyleShowcase({ includeDesk = true }) {
   return (
     <>
       <PlatformsStrip />
+      <TripleDeskSection />
       <PartnersWorldwide />
-      <DataCentresMap />
       {includeDesk ? <BrowserDeskSection /> : null}
       <CyberSecuritySection />
     </>
@@ -320,7 +313,7 @@ export function TrustedPartnersMarquee() {
 export function LiveInfraStage() {
   return (
     <>
-      <DataCentresMap />
+      <TripleDeskSection />
       <BrowserDeskSection symbol="SOL" />
     </>
   );

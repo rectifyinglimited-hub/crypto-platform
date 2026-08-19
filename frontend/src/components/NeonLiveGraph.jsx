@@ -183,7 +183,7 @@ export default function NeonLiveGraph({
       layout: {
         background: {
           type: ColorType.Solid,
-          color: transparent ? "rgba(8, 16, 28, 0.18)" : BG,
+          color: transparent ? "rgba(28, 36, 48, 0.72)" : BG,
         },
         textColor: TEXT,
         fontSize: compact ? 9 : 11,
@@ -191,11 +191,11 @@ export default function NeonLiveGraph({
       },
       grid: {
         vertLines: {
-          color: transparent ? "rgba(255,255,255,0.05)" : GRID,
+          color: transparent ? "rgba(255,255,255,0.14)" : GRID,
           style: LineStyle.Dotted,
         },
         horzLines: {
-          color: transparent ? "rgba(255,255,255,0.05)" : GRID,
+          color: transparent ? "rgba(255,255,255,0.14)" : GRID,
           style: LineStyle.Dotted,
         },
       },
@@ -425,7 +425,7 @@ export default function NeonLiveGraph({
     <div
       className={`overflow-hidden rounded-2xl border ${
         transparent
-          ? "border-white/15 bg-black/20 backdrop-blur-[2px]"
+          ? "border-white/25 bg-[#1a222e]/80 backdrop-blur-[3px]"
           : "border-white/10 bg-[#0b0e11]"
       }`}
     >

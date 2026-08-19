@@ -1,6 +1,5 @@
 /**
- * Live BNB / ADA / DOGE desks — 3 on desktop, 2 on tablet, 1 on phone.
- * Kept off ETH/XRP/SOL/SHIB so they do not duplicate the home overview.
+ * Live BNB / ADA / DOGE desks — 3 on desktop, 1 on phone.
  */
 import { useEffect, useState } from "react";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
@@ -9,7 +8,6 @@ const DESKS = ["BNB", "ADA", "DOGE"];
 
 function desksForWidth(w) {
   if (w < 768) return 1;
-  if (w < 1280) return 2;
   return 3;
 }
 
@@ -31,10 +29,9 @@ function useDeskCount() {
   return count;
 }
 
-export default function LiveMarketDesks({ height = 220 }) {
+export default function LiveMarketDesks({ height = 220, transparent = false }) {
   const count = useDeskCount();
-  const cols =
-    count === 3 ? "grid-cols-3" : count === 2 ? "grid-cols-2" : "grid-cols-1";
+  const cols = count === 3 ? "grid-cols-3" : "grid-cols-1";
 
   return (
     <div className={`grid gap-3 ${cols}`}>
@@ -44,6 +41,7 @@ export default function LiveMarketDesks({ height = 220 }) {
           symbol={symbol}
           height={height}
           compact
+          transparent={transparent}
         />
       ))}
     </div>
