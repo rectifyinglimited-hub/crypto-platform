@@ -607,7 +607,7 @@ export default function AdminChatManager() {
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="Reply as Binomo Support…"
+                placeholder="Reply as equiti Support…"
                 className="flex-1 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
               />
               <motion.button

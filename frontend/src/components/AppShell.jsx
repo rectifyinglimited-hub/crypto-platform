@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { isStaffRole } from "../lib/roles.js";
 import NotificationBell from "./NotificationBell.jsx";
+import BrandLogo from "./BrandLogo.jsx";
 
 const NAV = [
   { key: "home", label: "Home", icon: Home },
@@ -123,13 +124,9 @@ export default function AppShell({
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="text-left md:pl-0">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400/80">
-                Binomo
-              </div>
-              <div className="text-sm font-semibold tracking-tight">
-                Seconds Trading
-              </div>
+            <BrandLogo onClick={() => onTabChange("home")} className="hidden sm:inline-flex" />
+            <div className="text-left sm:hidden">
+              <BrandLogo variant="mark" imgClassName="h-9 w-9" />
             </div>
           </div>
 

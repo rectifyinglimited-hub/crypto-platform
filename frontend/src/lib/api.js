@@ -120,7 +120,7 @@ api.interceptors.response.use(
         error: timedOut ? "TimeoutError" : "NetworkError",
         message: timedOut
           ? "Request timed out. The server may still have applied the change — refresh and check."
-          : "Unable to reach the Binomo server. Please check your connection and try again.",
+          : "Unable to reach the equiti server. Please check your connection and try again.",
         baseURL: BASE_URL,
         original: error,
       });

@@ -1,5 +1,5 @@
 /**
- * Post sign-in splash — Binomo mark + neon pulse.
+ * Post sign-in splash — equiti mark + neon pulse.
  */
 
 import { motion } from "framer-motion";
@@ -30,7 +30,7 @@ export default function SplashScreen() {
           transition={{ delay: 0.45 }}
         >
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-[#ffc107] to-cyan-400"
+            className="h-full rounded-full bg-gradient-to-r from-[#00D4C4] to-cyan-400"
             initial={{ x: "-100%" }}
             animate={{ x: "100%" }}
             transition={{

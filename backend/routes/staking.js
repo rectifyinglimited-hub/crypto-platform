@@ -53,7 +53,7 @@ export const TIERS = {
   },
   quantum: {
     key: "quantum",
-    label: "Binomo Pro Quantum",
+    label: "equiti Pro Quantum",
     tagline: "Institutional-grade multi-strategy quant",
     days: 30,
     yieldPct: 25,

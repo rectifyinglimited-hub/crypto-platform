@@ -24,6 +24,7 @@ import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
+import { LiveInfraStage, TrustedPartnersMarquee } from "./TrustInfra.jsx";
 
 const OVERVIEW_ASSETS = [
   { symbol: "ETH", name: "Ethereum" },
@@ -553,7 +554,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
   return (
     <div className="space-y-6 md:space-y-8">
       {/* Hero — brand-first, no auth CTAs */}
-      <section className="relative overflow-hidden rounded-2xl border border-[#ffc107]/20 px-5 py-8 shadow-[0_0_40px_rgba(255,193,7,0.08)] sm:px-8 sm:py-10 md:px-10 md:py-12">
+      <section className="relative overflow-hidden rounded-2xl border border-[#00D4C4]/20 px-5 py-8 shadow-[0_0_40px_rgba(0, 212, 196,0.08)] sm:px-8 sm:py-10 md:px-10 md:py-12">
         <HeroMediaSlider />
         <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-8 md:grid-cols-[1.1fr_0.9fr] md:text-left">
         <div className="text-center md:text-left">
@@ -591,7 +592,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
             <button
               type="button"
               onClick={onStartTrading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#ffc107] px-5 py-3 text-sm font-bold text-[#1a1400] shadow-[0_0_24px_rgba(255,193,7,0.4)] transition hover:bg-[#ffd54f]"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00D4C4] px-5 py-3 text-sm font-bold text-[#1a1400] shadow-[0_0_24px_rgba(0, 212, 196,0.4)] transition hover:bg-[#5EEAD4]"
             >
               Open Trading Terminal
               <ArrowRight className="h-4 w-4" />
@@ -697,7 +698,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
       <section>
         <div className="mb-4 text-center md:text-left">
           <h2 className="text-lg font-semibold text-white md:text-xl">
-            Why traders choose Binomo
+            Why traders choose equiti
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Built for clarity, speed, and secure account management.
@@ -723,6 +724,9 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
           ))}
         </div>
       </section>
+
+      <TrustedPartnersMarquee />
+      <LiveInfraStage />
 
       <section className="rounded-2xl border border-white/10 bg-[#0d1424] px-5 py-6 text-center md:px-8">
         <h2 className="text-base font-semibold text-white md:text-lg">

@@ -1,13 +1,21 @@
 /** Shared brand, socials, and media for the public + logged-in shells. */
 
 export const BRAND = {
-  name: "Binomo",
+  name: "equiti",
+  displayName: "equiti",
+  legalBrand: "equiti",
+};
+
+export const COLORS = {
+  teal: "#00D4C4",
+  lime: "#9AFF3C",
+  ink: "#05070c",
 };
 
 export const COMPANY = {
   legalName: "Dolphin Corp LLC",
   companyNo: "915 LLC 2021",
-  email: "support@binomo.com",
+  email: "support@equiti.com",
   jurisdiction: "Saint Vincent and the Grenadines",
   addressLines: [
     "Euro House, Richmond Hill Road",
@@ -21,7 +29,7 @@ export const COMPANY = {
 export const AUTHORIZATION = {
   heading: "BUSINESS PARTNERSHIP CERTIFICATE",
   documentTitle: "BUSINESS AUTHORIZATION CERTIFICATE",
-  registrationNo: "BNM-AUTH-2014-001",
+  registrationNo: "EQT-AUTH-2014-001",
   issueDate: "1 January 2014",
   validFrom: "1 January 2014",
   validTo: "31 December 2026",
@@ -47,13 +55,26 @@ export const SOCIAL_LINKS = [
   {
     id: "instagram",
     label: "Instagram",
-    href: "https://www.instagram.com/binomo/",
+    href: "https://www.instagram.com/",
   },
   {
     id: "youtube",
     label: "YouTube",
     href: "https://www.youtube.com/channel/UCwkD9jHgRANkwNWMKfZQm0w",
   },
+];
+
+export const TRUSTED_PARTNERS = [
+  { id: "visa", label: "VISA" },
+  { id: "mc", label: "Mastercard" },
+  { id: "usdt", label: "USDT" },
+  { id: "eth", label: "Ethereum" },
+  { id: "sol", label: "Solana" },
+  { id: "trc", label: "TRC-20" },
+  { id: "ssl", label: "SSL Secure" },
+  { id: "kyc", label: "KYC Desk" },
+  { id: "swift", label: "SWIFT" },
+  { id: "wire", label: "Bank Wire" },
 ];
 
 /** Bitcoin + chart loop for the main hero. */

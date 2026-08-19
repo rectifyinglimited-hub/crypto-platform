@@ -7,13 +7,13 @@ import { SOCIAL_LINKS, CRYPTO_VIDEO, CRYPTO_POSTER, COMPANY } from "../lib/brand
 import { CertificatePreview, openCertificate } from "./TradingCertificate.jsx";
 import { PlatformAPI } from "../lib/api.js";
 
-const YELLOW_BTN =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#ffc107] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_0_28px_rgba(255,193,7,0.45)] transition hover:bg-[#ffd54f]";
+const LIME_BTN =
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#00D4C4] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_0_28px_rgba(0, 212, 196,0.45)] transition hover:bg-[#5EEAD4]";
 
 export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-[#ffc107]/20 px-5 py-12 sm:px-10">
+      <section className="relative overflow-hidden rounded-3xl border border-[#00D4C4]/20 px-5 py-12 sm:px-10">
         <VideoBackdrop
           src={CRYPTO_VIDEO}
           poster={CRYPTO_POSTER}
@@ -23,7 +23,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
           <BrandLogo className="mb-4 justify-center" />
           <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">About us</h1>
           <p className="mt-3 text-sm leading-relaxed text-white/70 sm:text-base">
-            Binomo is a professional seconds trading terminal — live charts,
+            equiti is a professional seconds trading terminal — live charts,
             invite-gated accounts, verified deposits, Copy AI Bot locks, and
             24/7 Live Chat support. We built a desk that feels like an app on
             every screen, with admin-backed payouts and identity checks.
@@ -37,8 +37,8 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
           { title: "Verified funds", body: "Merchant deposit rails, screenshot proofs in Live Chat, admin-reviewed withdrawals." },
           { title: "Human support", body: "Talk to your desk in Live Chat — receipts, KYC, and VIP requests in one thread." },
         ].map((c) => (
-          <div key={c.title} className="rounded-2xl border border-[#ffc107]/15 bg-black/40 p-5">
-            <h3 className="font-bold text-[#ffc107]">{c.title}</h3>
+          <div key={c.title} className="rounded-2xl border border-[#00D4C4]/15 bg-black/40 p-5">
+            <h3 className="font-bold text-[#00D4C4]">{c.title}</h3>
             <p className="mt-2 text-sm text-white/55">{c.body}</p>
           </div>
         ))}
@@ -55,14 +55,14 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
       </section>
 
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <button type="button" onClick={onCta} className={YELLOW_BTN}>
+        <button type="button" onClick={onCta} className={LIME_BTN}>
           {ctaLabel}
         </button>
         {onSupport && (
           <button
             type="button"
             onClick={onSupport}
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-[#ffc107]/40 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-[#ffc107] hover:bg-[#ffc107]/10"
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-[#00D4C4]/40 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-[#00D4C4] hover:bg-[#00D4C4]/10"
           >
             <MessageCircle className="h-4 w-4" />
             Ask Live Chat
@@ -76,21 +76,21 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-[#ffc107]/20 px-5 py-12 sm:px-10">
+      <section className="relative overflow-hidden rounded-3xl border border-[#00D4C4]/20 px-5 py-12 sm:px-10">
         <VideoBackdrop
           src={CRYPTO_VIDEO}
           poster={CRYPTO_POSTER}
           overlayClassName="bg-black/78"
         />
         <div className="relative z-10 mx-auto max-w-xl text-center">
-          <Headphones className="mx-auto h-10 w-10 text-[#ffc107]" />
+          <Headphones className="mx-auto h-10 w-10 text-[#00D4C4]" />
           <h1 className="mt-3 text-3xl font-extrabold">Contact support</h1>
           <p className="mt-3 text-sm text-white/70">
             Questions, deposits, or VIP — open Live Chat and pick Information
             to ask the desk. After a transfer, send the receipt screenshot in
             the same thread.
           </p>
-          <button type="button" onClick={onSupport} className={`${YELLOW_BTN} mt-6`}>
+          <button type="button" onClick={onSupport} className={`${LIME_BTN} mt-6`}>
             <MessageCircle className="h-4 w-4" />
             {ctaLabel}
           </button>
@@ -103,7 +103,7 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
             Office
           </div>
           <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white/80">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#ffc107]" />
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#00D4C4]" />
             <p>
               <span className="font-semibold text-white">{COMPANY.legalName}</span>
               <br />
@@ -117,7 +117,7 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
           </div>
           <a
             href={`mailto:${COMPANY.email}`}
-            className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#ffc107] hover:underline"
+            className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#00D4C4] hover:underline"
           >
             <Mail className="h-4 w-4" />
             {COMPANY.email}
@@ -134,7 +134,7 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
                 href={s.href}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-xl border border-[#ffc107]/25 px-4 py-2 text-sm font-semibold text-[#ffc107] hover:bg-[#ffc107]/10"
+                className="rounded-xl border border-[#00D4C4]/25 px-4 py-2 text-sm font-semibold text-[#00D4C4] hover:bg-[#00D4C4]/10"
               >
                 {s.label}
               </a>
@@ -206,7 +206,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-[#ffc107]/35 px-5 py-12 shadow-[0_0_50px_rgba(255,193,7,0.12)] sm:px-10">
+      <section className="relative overflow-hidden rounded-3xl border border-[#00D4C4]/35 px-5 py-12 shadow-[0_0_50px_rgba(0, 212, 196,0.12)] sm:px-10">
         <VideoBackdrop
           src={CRYPTO_VIDEO}
           poster={CRYPTO_POSTER}
@@ -214,7 +214,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
         />
         <div className="relative z-10 grid items-center gap-8 lg:grid-cols-2">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#ffc107]/40 bg-[#ffc107]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#ffc107]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#00D4C4]/40 bg-[#00D4C4]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#00D4C4]">
               <Crown className="h-3.5 w-3.5" />
               {isVip ? "Lounge VIP active" : "VIP desk"}
               {level > 0 ? ` · Trading VIP ${level}` : ""}
@@ -233,7 +233,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                   <div className="text-[10px] uppercase tracking-wider text-white/45">
                     Trading VIP
                   </div>
-                  <div className="mt-1 text-lg font-extrabold text-[#ffc107]">
+                  <div className="mt-1 text-lg font-extrabold text-[#00D4C4]">
                     {level > 0 ? `VIP ${level}` : "Standard"}
                   </div>
                 </div>
@@ -265,7 +265,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#ffc107] to-cyan-400"
+                    className="h-full rounded-full bg-gradient-to-r from-[#00D4C4] to-cyan-400"
                     style={{
                       width: `${Math.round((Number(progress.progress) || 0) * 100)}%`,
                     }}
@@ -275,11 +275,11 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
             ) : null}
             <div className="mt-6 flex flex-wrap gap-3">
               {isVip ? (
-                <button type="button" onClick={onCta} className={YELLOW_BTN}>
+                <button type="button" onClick={onCta} className={LIME_BTN}>
                   Open Trade desk
                 </button>
               ) : (
-                <button type="button" onClick={onSupport} className={YELLOW_BTN}>
+                <button type="button" onClick={onSupport} className={LIME_BTN}>
                   Request lounge VIP
                 </button>
               )}
@@ -287,7 +287,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                 <button
                   type="button"
                   onClick={onReferral}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#ffc107]/40 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-[#ffc107] hover:bg-[#ffc107]/10"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#00D4C4]/40 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-[#00D4C4] hover:bg-[#00D4C4]/10"
                 >
                   Referral & bonus
                 </button>
@@ -299,8 +299,8 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
       </section>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl border border-[#ffc107]/20 bg-black/45 p-5">
-          <h3 className="flex items-center gap-2 font-bold text-[#ffc107]">
+        <div className="rounded-2xl border border-[#00D4C4]/20 bg-black/45 p-5">
+          <h3 className="flex items-center gap-2 font-bold text-[#00D4C4]">
             <Crown className="h-4 w-4" />
             Lounge VIP
           </h3>
@@ -342,12 +342,12 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                 key={t.level}
                 className={`rounded-2xl border p-3 ${
                   active
-                    ? "border-[#ffc107]/45 bg-[#ffc107]/12"
+                    ? "border-[#00D4C4]/45 bg-[#00D4C4]/12"
                     : "border-white/10 bg-black/35"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-extrabold text-[#ffc107]">
+                  <div className="text-xs font-extrabold text-[#00D4C4]">
                     {t.name || `VIP ${t.level}`}
                   </div>
                   {active ? (
@@ -389,7 +389,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                     key={t.level ?? "std"}
                     className={
                       active
-                        ? "bg-[#ffc107]/12 text-white"
+                        ? "bg-[#00D4C4]/12 text-white"
                         : "border-t border-white/5 text-white/75"
                     }
                   >
@@ -425,9 +425,9 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
         ].map(({ icon: Icon, title, body }) => (
           <div
             key={title}
-            className="rounded-2xl border border-[#ffc107]/20 bg-black/45 p-6 text-center"
+            className="rounded-2xl border border-[#00D4C4]/20 bg-black/45 p-6 text-center"
           >
-            <Icon className="mx-auto h-8 w-8 text-[#ffc107]" />
+            <Icon className="mx-auto h-8 w-8 text-[#00D4C4]" />
             <h3 className="mt-3 font-bold">{title}</h3>
             <p className="mt-2 text-sm text-white/55">{body}</p>
           </div>
@@ -436,7 +436,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
 
       <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
         <h3 className="flex items-center gap-2 font-bold">
-          <Users className="h-4 w-4 text-[#ffc107]" />
+          <Users className="h-4 w-4 text-[#00D4C4]" />
           Referral scene in one line
         </h3>
         <p className="mt-2 text-sm leading-relaxed text-white/60">

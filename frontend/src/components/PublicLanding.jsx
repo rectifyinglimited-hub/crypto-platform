@@ -1,5 +1,5 @@
 /**
- * Public landing — Binomo-style layout + our product features.
+ * Public landing — equiti-style layout + our product features.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -28,6 +28,7 @@ import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import { CertificatePage } from "./TradingCertificate.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
+import { LiveInfraStage, TrustedPartnersMarquee } from "./TrustInfra.jsx";
 
 const PAIRS = [
   { symbol: "ETH", name: "Ethereum" },
@@ -36,11 +37,11 @@ const PAIRS = [
   { symbol: "SHIB", name: "Shiba Inu" },
 ];
 
-const YELLOW_BTN =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#ffc107] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_10px_28px_-8px_rgba(255,193,7,0.55)] transition hover:bg-[#ffd54f]";
+const LIME_BTN =
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#9AFF3C] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#08120a] shadow-[0_10px_28px_-8px_rgba(154,255,60,0.55)] transition hover:bg-[#c8ff7a]";
 
-const YELLOW_BTN_SM =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#ffc107] px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-[#1a1400] transition hover:bg-[#ffd54f]";
+const LIME_BTN_SM =
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#9AFF3C] px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-[#08120a] transition hover:bg-[#c8ff7a]";
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -141,7 +142,7 @@ const STEPS = [
   {
     n: "1",
     title: "Sign up",
-    body: "Create your Binomo account with a valid invite code.",
+    body: "Create your equiti account with a valid invite code.",
   },
   {
     n: "2",
@@ -226,7 +227,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             >
               Sign in
             </button>
-            <button type="button" onClick={onRegister} className={YELLOW_BTN_SM}>
+            <button type="button" onClick={onRegister} className={LIME_BTN_SM}>
               Sign up
             </button>
             <button
@@ -294,7 +295,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           {PAIRS.map((p) => (
             <span key={p.symbol} className="shrink-0 font-semibold text-white/80">
               {p.symbol}/USDT{" "}
-              <span className="tabular-nums text-[#ffc107]">
+              <span className="tabular-nums text-[#00D4C4]">
                 {markets[p.symbol] ? formatPrice(markets[p.symbol]) : "—"}
               </span>
             </span>
@@ -310,7 +311,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         <HeroMediaSlider />
         <div className="relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#ffc107]/35 bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#ffc107]">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#00D4C4]/35 bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#00D4C4]">
               ETH · XRP · SOL · SHIB
             </div>
             <motion.h1
@@ -325,17 +326,17 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             </p>
             <div className="mt-7 flex flex-wrap gap-x-7 gap-y-3 text-[13px] font-semibold text-white/90">
               <span className="inline-flex items-center gap-2">
-                <PiggyBank className="h-5 w-5 text-[#ffc107]" /> $10 min trade
+                <PiggyBank className="h-5 w-5 text-[#00D4C4]" /> $10 min trade
               </span>
               <span className="inline-flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-[#ffc107]" /> up to 90% profit
+                <BarChart3 className="h-5 w-5 text-[#00D4C4]" /> up to 90% profit
               </span>
               <span className="inline-flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-[#ffc107]" /> 24/7 withdrawals
+                <CreditCard className="h-5 w-5 text-[#00D4C4]" /> 24/7 withdrawals
               </span>
             </div>
             <div className="mt-8">
-              <button type="button" onClick={onRegister} className={YELLOW_BTN}>
+              <button type="button" onClick={onRegister} className={LIME_BTN}>
                 Try it
               </button>
             </div>
@@ -346,9 +347,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               {PAIRS.map((p) => (
                 <div
                   key={p.symbol}
-                  className="rounded-xl border border-[#ffc107]/20 bg-black/50 px-3 py-2.5 text-center"
+                  className="rounded-xl border border-[#00D4C4]/20 bg-black/50 px-3 py-2.5 text-center"
                 >
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#ffc107]">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#00D4C4]">
                     {p.symbol}/USDT
                   </div>
                   <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-white">
@@ -378,9 +379,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             99% PROFIT
           </div>
           <p className="mx-auto mt-2 max-w-md text-sm text-white/55">
-            for ETH, XRP, SOL, and SHIB on the Binomo Trade desk
+            for ETH, XRP, SOL, and SHIB on the equiti Trade desk
           </p>
-          <button type="button" onClick={onRegister} className={`${YELLOW_BTN_SM} mt-6`}>
+          <button type="button" onClick={onRegister} className={`${LIME_BTN_SM} mt-6`}>
             Trade
           </button>
         </div>
@@ -389,7 +390,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       {/* Specials */}
       <section className="bg-[#082032] py-12 sm:py-16">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-5 text-center text-xl font-bold sm:text-2xl">Binomo Specials</h2>
+          <h2 className="mb-5 text-center text-xl font-bold sm:text-2xl">equiti Specials</h2>
           <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-[#148a3c] to-[#1db954] px-6 py-8 sm:flex sm:items-center sm:justify-between sm:px-10">
             <div>
               <div className="text-lg font-extrabold sm:text-2xl">
@@ -399,21 +400,23 @@ export default function PublicLanding({ onSignIn, onRegister }) {
                 Fund via Deposit, wait for admin verify, then start trading.
               </p>
             </div>
-            <button type="button" onClick={onRegister} className={`${YELLOW_BTN_SM} mt-5 shrink-0 sm:mt-0`}>
+            <button type="button" onClick={onRegister} className={`${LIME_BTN_SM} mt-5 shrink-0 sm:mt-0`}>
               Join
             </button>
           </div>
         </div>
       </section>
 
+      <TrustedPartnersMarquee />
+
       {/* Why traders */}
       <section id="traders" className="bg-[#07111f] py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Why do traders choose Binomo?</h2>
+          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Why do traders choose equiti?</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {STATS.map((s) => (
               <div key={s.label} className="rounded-xl border border-white/10 bg-[#0c1a2e] px-3 py-5 text-center">
-                <div className="text-2xl font-extrabold text-[#ffc107] sm:text-3xl">{s.value}</div>
+                <div className="text-2xl font-extrabold text-[#00D4C4] sm:text-3xl">{s.value}</div>
                 <div className="mt-1 text-[11px] font-medium text-white/55">{s.label}</div>
               </div>
             ))}
@@ -433,7 +436,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               { icon: Wallet, title: "Assets", body: "Deposit, withdraw, bank cards, wallet address and security." },
             ].map(({ icon: Icon, title, body }) => (
               <div key={title} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-5">
-                <Icon className="h-6 w-6 text-[#ffc107]" />
+                <Icon className="h-6 w-6 text-[#00D4C4]" />
                 <h3 className="mt-3 text-sm font-bold">{title}</h3>
                 <p className="mt-1.5 text-xs leading-relaxed text-white/55">{body}</p>
               </div>
@@ -450,9 +453,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             {["Invite-only", "Admin KYC", "Live Chat", "Verified payouts"].map((label) => (
               <div
                 key={label}
-                className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-white/15 bg-[#0c1a2e] shadow-[inset_0_0_24px_rgba(255,193,7,0.08)]"
+                className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-white/15 bg-[#0c1a2e] shadow-[inset_0_0_24px_rgba(0, 212, 196,0.08)]"
               >
-                <ShieldCheck className="h-6 w-6 text-[#ffc107]" />
+                <ShieldCheck className="h-6 w-6 text-[#00D4C4]" />
                 <span className="mt-1 px-1 text-[10px] font-bold leading-tight text-white/70">{label}</span>
               </div>
             ))}
@@ -471,9 +474,9 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         <div className="relative mx-auto max-w-[1180px] px-4 text-center sm:px-6">
           <h2 className="text-2xl font-extrabold sm:text-3xl">Dream bigger, act faster</h2>
           <p className="mx-auto mt-3 max-w-lg text-sm text-white/70">
-            Join traders using Binomo for timed markets, Copy AI Bot locks, and verified withdrawals.
+            Join traders using equiti for timed markets, Copy AI Bot locks, and verified withdrawals.
           </p>
-          <button type="button" onClick={onRegister} className={`${YELLOW_BTN} mt-6`}>
+          <button type="button" onClick={onRegister} className={`${LIME_BTN} mt-6`}>
             Sign up
           </button>
         </div>
@@ -488,14 +491,14 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           <div className="grid gap-3 md:grid-cols-3">
             {STEPS.map((s) => (
               <div key={s.n} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-6 text-center">
-                <div className="text-3xl font-black text-[#ffc107]">{s.n}</div>
+                <div className="text-3xl font-black text-[#00D4C4]">{s.n}</div>
                 <h3 className="mt-3 text-base font-bold">{s.title}</h3>
                 <p className="mt-2 text-sm text-white/55">{s.body}</p>
               </div>
             ))}
           </div>
           <div className="mt-8 text-center">
-            <button type="button" onClick={onRegister} className={YELLOW_BTN}>
+            <button type="button" onClick={onRegister} className={LIME_BTN}>
               Open an account
             </button>
           </div>
@@ -510,7 +513,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             <img
               src="/bg/hero-exchange.jpg"
               alt="Bitcoin"
-              className="h-28 w-28 rounded-full object-cover ring-4 ring-[#ffc107]/50"
+              className="h-28 w-28 rounded-full object-cover ring-4 ring-[#00D4C4]/50"
             />
           </div>
           <div className="grid gap-3 md:grid-cols-3">
@@ -520,19 +523,21 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               { icon: Headphones, title: "Priority withdrawal", body: "Verified bank cards and wallets move faster through review." },
             ].map(({ icon: Icon, title, body }) => (
               <div key={title} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-6 text-center">
-                <Icon className="mx-auto h-8 w-8 text-[#ffc107]" />
+                <Icon className="mx-auto h-8 w-8 text-[#00D4C4]" />
                 <h3 className="mt-3 font-bold">{title}</h3>
                 <p className="mt-2 text-sm text-white/55">{body}</p>
               </div>
             ))}
           </div>
           <div className="mt-8 text-center">
-            <button type="button" onClick={onRegister} className={YELLOW_BTN_SM}>
+            <button type="button" onClick={onRegister} className={LIME_BTN_SM}>
               Go for VIP
             </button>
           </div>
         </div>
       </section>
+
+      <LiveInfraStage />
 
       {/* Live looping desks */}
       <section className="bg-[#07111f] py-12 sm:py-16">
@@ -551,8 +556,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           <p className="mx-auto mt-2 max-w-lg text-sm text-white/55">
             Invite-only signup, KYC, admin-verified deposits and withdrawals.
           </p>
-          <div className="mx-auto my-8 grid h-28 w-28 place-items-center rounded-full border-4 border-[#ffc107]/40 bg-[#0c1a2e]">
-            <ShieldCheck className="h-14 w-14 text-[#ffc107]" />
+          <div className="mx-auto my-8 grid h-28 w-28 place-items-center rounded-full border-4 border-[#00D4C4]/40 bg-[#0c1a2e]">
+            <ShieldCheck className="h-14 w-14 text-[#00D4C4]" />
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             {[
@@ -561,13 +566,13 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               { icon: Wallet, title: "Fund custody", body: "Wallet addresses and bank cards stay pending until admin approval." },
             ].map(({ icon: Icon, title, body }) => (
               <div key={title} className="rounded-xl border border-white/10 bg-[#0c1a2e] p-5 text-left">
-                <Icon className="h-5 w-5 text-[#ffc107]" />
+                <Icon className="h-5 w-5 text-[#00D4C4]" />
                 <h3 className="mt-2 text-sm font-bold">{title}</h3>
                 <p className="mt-1 text-xs text-white/55">{body}</p>
               </div>
             ))}
           </div>
-          <button type="button" onClick={onRegister} className={`${YELLOW_BTN} mt-8`}>
+          <button type="button" onClick={onRegister} className={`${LIME_BTN} mt-8`}>
             Start trading
           </button>
         </div>

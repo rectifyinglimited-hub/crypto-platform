@@ -91,11 +91,11 @@ const TOPIC_BRIEFINGS = {
   info: [
     "Information desk",
     "",
-    "Binomo support — office and how to reach us:",
+    "equiti support — office and how to reach us:",
     "Dolphin Corp LLC",
     "Euro House, Richmond Hill Road",
     "Kingstown, St. Vincent and Grenadines",
-    "Email: support@binomo.com",
+    "Email: support@equiti.com",
     "",
     "Ask about accounts, deposits, VIP, loans, withdrawals, or trading.",
     "Type your question below. A manager will reply in this thread.",

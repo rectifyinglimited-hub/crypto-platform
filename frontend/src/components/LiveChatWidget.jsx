@@ -64,7 +64,7 @@ const MENU_OPTIONS = [
     key: "vip",
     label: "Request VIP",
     icon: Crown,
-    tone: "from-amber-500/20 to-[#ffc107]/10 text-[#ffc107] ring-[#ffc107]/35",
+    tone: "from-amber-500/20 to-[#00D4C4]/10 text-[#00D4C4] ring-[#00D4C4]/35",
   },
   {
     key: "loan",
@@ -99,8 +99,8 @@ const TOPIC_GUIDES = {
       "Send your username, approximate volume or deposit, and why you want VIP.",
       "Optional: attach a recent deposit receipt. Never share passwords.",
     ],
-    card: "border-[#ffc107]/30 bg-[#ffc107]/5",
-    titleClass: "text-[#ffc107]",
+    card: "border-[#00D4C4]/30 bg-[#00D4C4]/5",
+    titleClass: "text-[#00D4C4]",
   },
   loan: {
     title: "Loan desk",
@@ -171,7 +171,7 @@ function localMsg(from, body) {
 
 function infoDeskReply() {
   return [
-    "Binomo support desk — here's our office and how to reach us:",
+    "equiti support desk — here's our office and how to reach us:",
     "",
     COMPANY.legalName,
     ...COMPANY.addressLines,
@@ -645,7 +645,7 @@ export default function LiveChatWidget({
           >
             <div className="flex items-center justify-between border-b border-white/5 bg-gradient-to-r from-indigo-500/20 via-transparent to-emerald-400/20 px-4 py-3">
               <div className="flex items-center gap-2">
-                <BrandLogo variant="mark" imgClassName="h-8 w-8" />
+                <BrandLogo variant="wordmark" />
                 <div>
                   <div className="text-sm font-semibold leading-tight">
                     {TOPIC_GUIDES[menuStep]?.header || VERIFICATION_HEADER}
@@ -668,7 +668,7 @@ export default function LiveChatWidget({
               <button
                 type="button"
                 onClick={() => onNeedAuth?.()}
-                className="border-b border-[#ffc107]/20 bg-[#ffc107]/10 px-4 py-2 text-center text-[11px] font-semibold text-[#ffc107] hover:bg-[#ffc107]/15"
+                className="border-b border-[#00D4C4]/20 bg-[#00D4C4]/10 px-4 py-2 text-center text-[11px] font-semibold text-[#00D4C4] hover:bg-[#00D4C4]/15"
               >
                 Sign in for a live manager reply
               </button>
@@ -950,7 +950,7 @@ export default function LiveChatWidget({
         }}
         whileTap={{ scale: 0.94 }}
         whileHover={{ scale: 1.03 }}
-        className="pointer-events-auto relative grid h-12 w-12 place-items-center rounded-full bg-[#ffc107] text-black shadow-2xl shadow-[#ffc107]/40"
+        className="pointer-events-auto relative grid h-12 w-12 place-items-center rounded-full bg-[#00D4C4] text-black shadow-2xl shadow-[#00D4C4]/40"
       >
         <MessageCircle className="h-5 w-5" />
         {!open && unread > 0 && (

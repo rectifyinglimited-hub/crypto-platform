@@ -292,7 +292,7 @@ const OverviewView = ({
             Platform Overview
           </h2>
           <p className="text-xs text-slate-500">
-            Real-time snapshot of the Binomo network.
+            Real-time snapshot of the equiti network.
           </p>
         </div>
         <button
@@ -3008,13 +3008,10 @@ export default function AdminPanel({ user, onExit }) {
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl">
         {/* Sidebar */}
         <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-slate-900/40 p-5 backdrop-blur-sm md:block">
-          <div className="mb-6 flex items-center gap-3">
-            <BrandLogo variant="mark" imgClassName="h-9 w-9" />
-            <div>
-              <div className="text-sm font-semibold tracking-tight">binomo</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-500">
-                Admin Console
-              </div>
+          <div className="mb-6">
+            <BrandLogo />
+            <div className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">
+              Admin Console
             </div>
           </div>
 

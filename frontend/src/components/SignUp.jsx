@@ -461,17 +461,18 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
 
             <div className="relative">
               {/* Header */}
-              <div className="mb-6 flex items-center gap-3">
+              <div className="mb-6">
                 <motion.div
-                  initial={{ rotate: -12, scale: 0.6, opacity: 0 }}
-                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                  initial={{ scale: 0.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                  className="mb-3"
                 >
-                  <BrandLogo variant="mark" imgClassName="h-10 w-10" />
+                  <BrandLogo />
                 </motion.div>
                 <div>
                   <h1 className="text-lg font-semibold tracking-tight">
-                    Create your Binomo account
+                    Create your equiti account
                   </h1>
                   <p className="mt-0.5 text-xs text-slate-400">
                     Trade smarter. Track sharper. Start in under a minute.
@@ -632,7 +633,7 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
                 </motion.button>
 
                 <p className="pt-0.5 text-center text-[11px] text-slate-500">
-                  By continuing you agree to the Binomo Terms and Privacy Policy.
+                  By continuing you agree to the equiti Terms and Privacy Policy.
                 </p>
               </form>
             </div>

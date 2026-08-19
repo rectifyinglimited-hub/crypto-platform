@@ -131,14 +131,14 @@ export default function SignIn({ onSignInSuccess, onSwitchToSignUp }) {
           <div className="relative rounded-2xl border border-white/5 bg-gray-900/60 p-7 shadow-2xl backdrop-blur-sm">
             <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-transparent to-emerald-400/10 opacity-60 blur-xl" />
             <div className="relative">
-              <div className="mb-6 flex items-center gap-3">
-                <BrandLogo variant="mark" imgClassName="h-10 w-10" />
+              <div className="mb-6">
+                <BrandLogo className="mb-3" />
                 <div>
                   <h1 className="text-lg font-semibold tracking-tight">
                     Welcome back
                   </h1>
                   <p className="mt-0.5 text-xs text-slate-400">
-                    Sign in to your Binomo account.
+                    Sign in to your equiti account.
                   </p>
                 </div>
               </div>
@@ -243,7 +243,7 @@ export default function SignIn({ onSignInSuccess, onSwitchToSignUp }) {
             </div>
           </div>
           <p className="mt-5 text-center text-sm text-slate-400">
-            New to Binomo?{" "}
+            New to equiti?{" "}
             <button
               type="button"
               onClick={onSwitchToSignUp}

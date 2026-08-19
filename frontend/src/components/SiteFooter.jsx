@@ -41,7 +41,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
   };
 
   return (
-    <footer className="mt-8 border-t border-[#ffc107]/15 bg-[#05070c] py-12">
+    <footer className="mt-8 border-t border-[#00D4C4]/15 bg-[#05070c] py-12">
       <div className="mx-auto grid max-w-[1180px] gap-8 px-4 sm:grid-cols-4 sm:px-6">
         <div>
           <BrandLogo />
@@ -59,7 +59,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
                   target="_blank"
                   rel="noreferrer"
                   title={s.label}
-                  className="grid h-10 w-10 place-items-center rounded-xl border border-[#ffc107]/25 bg-white/5 text-[#ffc107] transition hover:bg-[#ffc107] hover:text-black hover:shadow-[0_0_18px_rgba(255,193,7,0.55)]"
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-[#00D4C4]/25 bg-white/5 text-[#00D4C4] transition hover:bg-[#00D4C4] hover:text-black hover:shadow-[0_0_18px_rgba(0, 212, 196,0.55)]"
                 >
                   <Icon className="h-4 w-4" />
                 </a>
@@ -105,13 +105,13 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
           </div>
           <a
             href={`mailto:${COMPANY.email}`}
-            className="mt-3 flex items-center gap-2 text-sm text-white/80 hover:text-[#ffc107]"
+            className="mt-3 flex items-center gap-2 text-sm text-white/80 hover:text-[#00D4C4]"
           >
-            <Mail className="h-3.5 w-3.5 text-[#ffc107]" />
+            <Mail className="h-3.5 w-3.5 text-[#00D4C4]" />
             {COMPANY.email}
           </a>
           <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white/70">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#ffc107]" />
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00D4C4]" />
             <p>
               <span className="font-semibold text-white">{COMPANY.legalName}</span>
               <br />
@@ -126,7 +126,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
           <button
             type="button"
             onClick={openSupport}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#ffc107] underline underline-offset-2"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#00D4C4] underline underline-offset-2"
           >
             <MessageCircle className="h-3.5 w-3.5" />
             Open Live Chat
@@ -147,11 +147,11 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
               if (onNavigate) go("certificate");
               else openCertificate();
             }}
-            className="mt-4 w-full overflow-hidden rounded-lg border border-[#ffc107]/30 text-left hover:border-[#ffc107]"
+            className="mt-4 w-full overflow-hidden rounded-lg border border-[#00D4C4]/30 text-left hover:border-[#00D4C4]"
           >
             <div className="bg-white px-2 py-2">
               <div className="text-[10px] font-extrabold tracking-tight text-black">
-                BINOMO
+                EQUITI
               </div>
               <div className="text-[8px] font-bold uppercase tracking-wider text-neutral-600">
                 Business Authorization Certificate
@@ -160,7 +160,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
                 {COMPANY.legalName} · {COMPANY.companyNo}
               </div>
             </div>
-            <div className="bg-[#0b0e11] px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-[#ffc107]">
+            <div className="bg-[#0b0e11] px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-[#00D4C4]">
               Click to verify
             </div>
           </button>

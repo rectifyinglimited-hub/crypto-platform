@@ -113,7 +113,7 @@ export default function AdminReferralVip({ toast }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Crown className="h-4 w-4 text-[#ffc107]" />
+        <Crown className="h-4 w-4 text-[#00D4C4]" />
         <h2 className="text-lg font-semibold">Referral & VIP System</h2>
         <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
           {scope}
@@ -274,7 +274,7 @@ export default function AdminReferralVip({ toast }) {
               type="button"
               disabled={running}
               onClick={runUpgrade}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#ffc107]/30 bg-[#ffc107]/10 px-4 py-2.5 text-sm font-semibold text-[#ffc107] disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#00D4C4]/30 bg-[#00D4C4]/10 px-4 py-2.5 text-sm font-semibold text-[#00D4C4] disabled:opacity-50"
             >
               {running ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

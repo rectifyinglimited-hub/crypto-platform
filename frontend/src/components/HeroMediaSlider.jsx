@@ -70,7 +70,7 @@ export default function HeroMediaSlider({ intervalMs = 4200 }) {
             aria-label={s.label}
             onClick={() => setI(idx)}
             className={`h-1.5 rounded-full transition ${
-              idx === i ? "w-6 bg-[#ffc107]" : "w-1.5 bg-white/35 hover:bg-white/60"
+              idx === i ? "w-6 bg-[#00D4C4]" : "w-1.5 bg-white/35 hover:bg-white/60"
             }`}
           />
         ))}

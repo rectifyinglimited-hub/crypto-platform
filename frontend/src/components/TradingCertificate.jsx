@@ -1,26 +1,16 @@
 /**
- * Official Binomo / Dolphin Corp LLC business authorization certificate.
- * Fashion-Nova-style public page: click the document to inspect it full-size.
+ * Official equiti / Dolphin Corp LLC business authorization certificate.
  */
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, X } from "lucide-react";
 import { BRAND, COMPANY, AUTHORIZATION as AUTH } from "../lib/brand.js";
+import BrandLogo from "./BrandLogo.jsx";
 
 export function openCertificate() {
   window.dispatchEvent(new CustomEvent("nexus:open-certificate"));
 }
 
-function BinomoMark({ className = "h-8 w-8", fill = "#111" }) {
-  return (
-    <svg viewBox="0 0 48 48" className={className} fill={fill} aria-hidden>
-      <g transform="translate(24 24) rotate(-40)">
-        <rect x="-16" y="-11.2" width="32" height="8.4" rx="4.2" />
-        <rect x="-16" y="2.8" width="32" height="8.4" rx="4.2" />
-      </g>
-    </svg>
-  );
-}
 
 function OfficialStamp({ ring, center, sub, id }) {
   const pathId = `stamp-ring-${id}`;
@@ -33,7 +23,7 @@ function OfficialStamp({ ring, center, sub, id }) {
         />
       </defs>
       <circle cx="70" cy="70" r="66" fill="none" stroke="#1a1a1a" strokeWidth="2.6" />
-      <circle cx="70" cy="70" r="61" fill="none" stroke="#c9a227" strokeWidth="3.2" />
+      <circle cx="70" cy="70" r="61" fill="none" stroke="#00D4C4" strokeWidth="3.2" />
       <circle cx="70" cy="70" r="56" fill="none" stroke="#1a1a1a" strokeWidth="1.1" />
       <text
         fill="#1a1a1a"
@@ -108,12 +98,7 @@ export function OfficialCertificateDocument() {
       <div className="relative">
         <div className="flex flex-col items-center text-center">
           <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-md bg-[#ffc107]">
-              <BinomoMark className="h-6 w-6" />
-            </span>
-            <span className="text-2xl font-extrabold tracking-tight sm:text-4xl">
-              {BRAND.name.toUpperCase()}
-            </span>
+            <BrandLogo variant="on-light" />
           </div>
           <div className="mt-2 text-[11px] font-extrabold uppercase tracking-[0.18em] sm:text-sm">
             {AUTH.documentTitle}
@@ -164,8 +149,8 @@ export function OfficialCertificateDocument() {
         <div className="mt-8 grid grid-cols-2 gap-4 sm:gap-10">
           <SignBlock
             stampId="left"
-            stampRing="AUTHORIZED BY BINOMO · ST. VINCENT · "
-            stampCenter="BINOMO"
+            stampRing="AUTHORIZED BY EQUITI · ST. VINCENT · "
+            stampCenter="EQUITI"
             stampSub="EST. 2014"
             sign={AUTH.signLeft}
           />
@@ -210,7 +195,7 @@ export function CertificatePage({ onBack, onContact }) {
     <div className="mx-auto max-w-3xl pb-8">
       <div className="px-4 py-10 text-center sm:py-14">
         <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full border border-white/20">
-          <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#ffc107]" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#00D4C4]" fill="none" stroke="currentColor" strokeWidth="1.6">
             <circle cx="12" cy="12" r="9" />
             <path d="M8 12.5l2.2 2.2L16.5 9" />
           </svg>
@@ -257,9 +242,9 @@ export function CertificatePage({ onBack, onContact }) {
             {address}.
           </p>
           <p>
-            This record confirms exclusive authorization to offer Binomo seconds
+            This record confirms exclusive authorization to offer equiti seconds
             trading, live charts, deposits, withdrawals, Copy AI Bot, and client
-            support under the Binomo brand, subject to published terms.
+            support under the equiti brand, subject to published terms.
           </p>
           <p>
             Quality, identity checks, and fund-handling standards remain the
@@ -285,7 +270,7 @@ export function CertificatePage({ onBack, onContact }) {
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-full bg-[#ffc107] px-6 py-2.5 text-sm font-extrabold text-black"
+          className="inline-flex items-center gap-2 rounded-full bg-[#9AFF3C] px-6 py-2.5 text-sm font-extrabold text-black"
         >
           Back to home <ArrowRight className="h-4 w-4" />
         </button>
@@ -335,13 +320,13 @@ export function CertificatePreview({ onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="w-full overflow-hidden rounded-2xl border border-[#ffc107]/25 text-left shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[#ffc107]"
+      className="w-full overflow-hidden rounded-2xl border border-[#00D4C4]/25 text-left shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[#00D4C4]"
       title="Click to open official certificate"
     >
       <div className="origin-top scale-[0.98]">
         <OfficialCertificateDocument />
       </div>
-      <div className="bg-[#0b0e11] px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-[#ffc107]">
+      <div className="bg-[#0b0e11] px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-[#00D4C4]">
         Click to verify official certificate
       </div>
     </button>

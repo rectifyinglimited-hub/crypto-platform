@@ -1,5 +1,5 @@
 /**
- * Binomo-style live desk: candles + MA5/10/30/60 + volume, real Binance feed.
+ * equiti-style live desk: candles + MA5/10/30/60 + volume, real Binance feed.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import {

@@ -77,10 +77,10 @@ function NavLinks({ page, onPageChange }) {
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition lg:px-3.5 lg:text-sm ${
               active
                 ? highlight
-                  ? "bg-[#ffc107]/15 text-[#ffc107]"
+                  ? "bg-[#00D4C4]/15 text-[#00D4C4]"
                   : "bg-cyan-500/15 text-cyan-300"
                 : highlight
-                  ? "text-[#ffc107]/80 hover:bg-[#ffc107]/10 hover:text-[#ffc107]"
+                  ? "text-[#00D4C4]/80 hover:bg-[#00D4C4]/10 hover:text-[#00D4C4]"
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             }`}
           >
@@ -182,7 +182,7 @@ function MobileDrawer({
               {/* Header */}
               <div className="flex items-center justify-between gap-2 border-b border-white/8 px-4 py-3.5">
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <BrandLogo variant="mark" imgClassName="h-9 w-9" />
+                  <BrandLogo />
                   <div className="min-w-0">
                     <div className="truncate text-[10px] text-slate-500">
                       {displayName}
@@ -306,10 +306,10 @@ function MobileDrawer({
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
                         active
                           ? highlight
-                            ? "bg-[#ffc107]/15 text-[#ffc107]"
+                            ? "bg-[#00D4C4]/15 text-[#00D4C4]"
                             : "bg-cyan-500/15 text-cyan-300"
                           : highlight
-                            ? "text-[#ffc107] active:bg-[#ffc107]/10"
+                            ? "text-[#00D4C4] active:bg-[#00D4C4]/10"
                             : "text-slate-200 active:bg-white/5"
                       }`}
                     >
@@ -317,7 +317,7 @@ function MobileDrawer({
                         className={`grid h-9 w-9 place-items-center rounded-xl ${
                           active || highlight
                             ? highlight
-                              ? "bg-[#ffc107]/20 text-[#ffc107]"
+                              ? "bg-[#00D4C4]/20 text-[#00D4C4]"
                               : "bg-cyan-400/20 text-cyan-300"
                             : "bg-white/[0.04] text-slate-400"
                         }`}
@@ -344,14 +344,14 @@ function MobileDrawer({
                       onClick={() => go(item.key)}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
                         active
-                          ? "bg-[#ffc107]/15 text-[#ffc107]"
+                          ? "bg-[#00D4C4]/15 text-[#00D4C4]"
                           : "text-slate-200 active:bg-white/5"
                       }`}
                     >
                       <span
                         className={`grid h-9 w-9 place-items-center rounded-xl ${
                           active
-                            ? "bg-[#ffc107]/20 text-[#ffc107]"
+                            ? "bg-[#00D4C4]/20 text-[#00D4C4]"
                             : "bg-white/[0.04] text-slate-400"
                         }`}
                       >
