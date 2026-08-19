@@ -2,7 +2,7 @@
 
 export default function SecurityShield({ className = "" }) {
   return (
-    <div className={`relative mx-auto aspect-square w-full max-w-[380px] ${className}`}>
+    <div className={`relative mx-auto h-[340px] w-full max-w-[380px] sm:h-[400px] ${className}`}>
       <div className="absolute inset-[6%] rounded-full border border-[#39FF14]/25" />
       <div className="absolute inset-[16%] rounded-full border border-[#39FF14]/40" />
 
@@ -16,7 +16,7 @@ export default function SecurityShield({ className = "" }) {
 
       <svg
         viewBox="0 0 200 220"
-        className="eq-pulse relative z-10 mx-auto mt-[12%] h-[62%] w-[62%] drop-shadow-[0_0_28px_rgba(57,255,20,0.55)]"
+        className="eq-shield-glow relative z-10 mx-auto mt-[8%] h-[70%] w-[70%]"
         aria-hidden
       >
         <defs>

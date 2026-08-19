@@ -33,9 +33,9 @@ const CITIES = [
 ];
 
 
-function RadialBack({ children, className = "" }) {
+function RadialBack({ children, className = "", id }) {
   return (
-    <section className={`relative overflow-hidden bg-black ${className}`}>
+    <section id={id} className={`relative overflow-hidden bg-black ${className}`}>
       <div className="eq-fan pointer-events-none absolute inset-0" />
       <div className="relative z-10">{children}</div>
     </section>
@@ -196,7 +196,7 @@ export function TripleDeskSection() {
 
 export function CyberSecuritySection() {
   return (
-    <RadialBack className="py-20 sm:py-24">
+    <RadialBack className="py-20 sm:py-24" id="cyber">
       <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
         <SecurityShield />
         <div>
