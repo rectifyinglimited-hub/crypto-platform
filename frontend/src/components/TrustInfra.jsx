@@ -206,9 +206,8 @@ export function CyberSecuritySection() {
             <span className="text-[#39FF14]">cyber security</span>
           </h2>
           <p className="mt-5 max-w-md text-sm leading-relaxed text-white/85 sm:text-base">
-            Real-time monitoring and anti-DDoS Shield protects every login, deposit, and
-            withdrawal from volumetric and protocol-based attacks. Admin review sits in
-            front of payouts — not after.
+            Real-time monitoring and anti-DDoS solution Shield protects your service
+            from volumetric and L4 protocol-based attacks.
           </p>
         </div>
       </div>
