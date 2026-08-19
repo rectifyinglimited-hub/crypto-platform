@@ -7,23 +7,15 @@ import { motion } from "framer-motion";
 import {
   ShieldCheck,
   Headphones,
-  Wallet,
-  Zap,
-  Timer,
-  Lock,
-  UserRound,
   Gift,
-  Landmark,
-  PiggyBank,
+  UserRound,
   BarChart3,
-  CreditCard,
   Radio,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
-import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import LiveChatWidget from "./LiveChatWidget.jsx";
 import { CertificatePage } from "./TradingCertificate.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
@@ -128,13 +120,41 @@ function useLivePrices() {
   return { markets, connected };
 }
 
-const STATS = [
-  { value: "90k+", label: "Active traders" },
-  { value: "133", label: "Countries" },
-  { value: "24/7", label: "Live support" },
-  { value: "$10", label: "Min. trade" },
-  { value: "100+", label: "Markets" },
-  { value: "Fast", label: "Withdrawals" },
+const BENEFITS = [
+  {
+    icon: BarChart3,
+    title: "Live execution",
+    body: "Seconds trades settle on a live candle desk — ETH, XRP, SOL, SHIB and more.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Verified payouts",
+    body: "Deposits and withdrawals stay pending until the admin desk signs them off.",
+  },
+  {
+    icon: Headphones,
+    title: "24/7 live chat",
+    body: "VIP, loan, and withdraw threads open with instructions before you type.",
+  },
+];
+
+const FAQ = [
+  {
+    q: "How do I open an account?",
+    a: "Sign up with a valid invite code, complete profile details, then wait for admin approval where required.",
+  },
+  {
+    q: "How do deposits and withdrawals work?",
+    a: "Submit the request with proof in Live Chat. Staff review every deposit and withdrawal before funds move.",
+  },
+  {
+    q: "What is Copy AI Bot?",
+    a: "You lock capital into an admin-assigned contract with a disclosed target yield. Nothing runs until you confirm.",
+  },
+  {
+    q: "Is there a pricing page?",
+    a: "No public VPS-style pricing table. Trading, VIP, and loans follow the conditions shown inside your equiti account.",
+  },
 ];
 
 const STEPS = [
@@ -161,6 +181,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
   const [view, setView] = useState("home");
   const [chatHint, setChatHint] = useState("info");
   const [chatOpenSignal, setChatOpenSignal] = useState(0);
+  const [openFaq, setOpenFaq] = useState(0);
   const heroRef = useRef(null);
 
   const openChat = (hint = "info") => {
@@ -284,17 +305,16 @@ export default function PublicLanding({ onSignIn, onRegister }) {
 
       {view === "home" && (
       <>
-      {/* Live strip */}
-      <div className="border-b border-white/5 bg-[#050505]">
-        <div className="mx-auto flex max-w-[1180px] items-center gap-4 overflow-x-auto px-4 py-2 text-[11px] sm:px-6">
-          <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-emerald-400">
-            <Radio className={`h-3 w-3 ${connected ? "text-emerald-400" : "text-slate-500"}`} />
+      <div className="border-b border-white/10 bg-black">
+        <div className="mx-auto flex max-w-[1180px] items-center gap-5 overflow-x-auto px-4 py-2.5 text-[11px] sm:px-6">
+          <span className="inline-flex shrink-0 items-center gap-1.5 font-bold uppercase tracking-[0.16em] text-[#C8FF00]">
+            <Radio className={`h-3 w-3 ${connected ? "text-[#C8FF00]" : "text-slate-500"}`} />
             Live
           </span>
           {PAIRS.map((p) => (
-            <span key={p.symbol} className="shrink-0 font-semibold text-white/80">
+            <span key={p.symbol} className="shrink-0 font-semibold text-white/70">
               {p.symbol}/USDT{" "}
-              <span className="tabular-nums text-[#C8FF00]">
+              <span className="tabular-nums text-white">
                 {markets[p.symbol] ? formatPrice(markets[p.symbol]) : "—"}
               </span>
             </span>
@@ -302,284 +322,139 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
       </div>
 
-      {/* Hero — person + 5 more slides, live looping candles */}
-      <section
-        ref={heroRef}
-        className="relative min-h-[560px] overflow-hidden eq-chevrons sm:min-h-[640px]"
-      >
-        <div className="eq-grid pointer-events-none absolute inset-0 opacity-50" />
-        <HeroMediaSlider />
-        <div className="relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr]">
+      <section id="trading" ref={heroRef} className="relative overflow-hidden eq-chevrons">
+        <div className="eq-grid pointer-events-none absolute inset-0 opacity-30" />
+        <div className="relative mx-auto grid max-w-[1180px] items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-2">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#C8FF00]/40 bg-black/50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#C8FF00]">
-              ETH · XRP · SOL · SHIB
-            </div>
-            <motion.h1
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="max-w-xl text-4xl font-extrabold uppercase leading-[1.05] tracking-tight sm:text-5xl md:text-[3.4rem]"
-            >
-              The trading desk behind{" "}
-              <span className="text-[#C8FF00]">live markets</span> every day
-            </motion.h1>
-            <p className="mt-3 text-base font-medium text-white/75 sm:text-lg">
-              Faster charts, safer payouts, and 24/7 support — built for traders, not a home PC.
+            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#C8FF00]">
+              equiti live desk
             </p>
-            <ul className="mt-6 grid gap-2 text-[13px] font-semibold text-white/90 sm:grid-cols-2">
+            <motion.h1
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 max-w-xl text-4xl font-extrabold uppercase leading-[1.08] tracking-tight sm:text-5xl"
+            >
+              The desk behind{" "}
+              <span className="text-[#C8FF00]">faster, safer</span> trades
+            </motion.h1>
+            <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
+              Invite-only accounts. Live candles. Admin-verified deposits and withdrawals.
+              Support stays in Live Chat — 24/7.
+            </p>
+            <ul className="mt-6 space-y-2 text-sm text-white/80">
               {[
-                "Live candles on first view",
-                "24/7 Live Chat desk",
-                "Invite-only accounts",
-                "Admin-verified withdrawals",
+                "Latency-style live prices on ETH, XRP, SOL, SHIB",
+                "Copy AI Bot locks with disclosed yield",
+                "KYC and payout review on every request",
               ].map((line) => (
-                <li key={line} className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#C8FF00]" />
+                <li key={line} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8FF00]" />
                   {line}
                 </li>
               ))}
             </ul>
-            <div className="mt-7 flex flex-wrap gap-x-7 gap-y-3 text-[13px] font-semibold text-white/90">
-              <span className="inline-flex items-center gap-2">
-                <PiggyBank className="h-5 w-5 text-[#C8FF00]" /> $10 min trade
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-[#C8FF00]" /> up to 90% profit
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-[#C8FF00]" /> 24/7 withdrawals
-              </span>
-            </div>
-            <div className="mt-8">
-              <button type="button" onClick={onRegister} className={LIME_BTN}>
-                Launch now
-              </button>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <NeonLiveGraph symbol="ETH" height={320} transparent />
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {PAIRS.map((p) => (
-                <div
-                  key={p.symbol}
-                  className="rounded-xl border border-[#C8FF00]/20 bg-black/50 px-3 py-2.5 text-center"
-                >
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#C8FF00]">
-                    {p.symbol}/USDT
-                  </div>
-                  <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-white">
-                    {markets[p.symbol] ? formatPrice(markets[p.symbol]) : "—"}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 99% profit */}
-      <section id="trading" className="bg-[#000000] py-16 text-center sm:py-20">
-        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="text-xl font-bold sm:text-2xl">The highest profitability on the market</h2>
-          <div
-            className="mt-4 font-extrabold leading-none tracking-tight text-transparent"
-            style={{
-              fontSize: "clamp(3.2rem, 12vw, 7.5rem)",
-              backgroundImage: "linear-gradient(180deg, #C8FF00 0%, #7CB800 100%)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              filter: "drop-shadow(0 0 28px rgba(200,255,0,0.35))",
-            }}
-          >
-            99% PROFIT
-          </div>
-          <p className="mx-auto mt-2 max-w-md text-sm text-white/55">
-            for ETH, XRP, SOL, and SHIB on the equiti Trade desk
-          </p>
-          <button type="button" onClick={onRegister} className={`${LIME_BTN_SM} mt-6`}>
-            Trade
-          </button>
-        </div>
-      </section>
-
-      {/* Specials */}
-      <section className="bg-[#0b0b0b] py-12 sm:py-16">
-        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-5 text-center text-xl font-bold sm:text-2xl">equiti Specials</h2>
-          <div className="overflow-hidden rounded-2xl border border-[#C8FF00]/25 bg-[#0b0b0b] px-6 py-8 sm:flex sm:items-center sm:justify-between sm:px-10">
-            <div>
-              <div className="text-lg font-extrabold sm:text-2xl">
-                Get profitability up to 90% on your first deposit
-              </div>
-              <p className="mt-1 text-sm text-white/85">
-                Fund via Deposit, wait for admin verify, then start trading.
-              </p>
-            </div>
-            <button type="button" onClick={onRegister} className={`${LIME_BTN_SM} mt-5 shrink-0 sm:mt-0`}>
-              Join
+            <button type="button" onClick={onRegister} className={`${LIME_BTN} mt-8`}>
+              Get started
             </button>
           </div>
+          <div>
+            <NeonLiveGraph symbol="ETH" height={340} transparent />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-white/10 bg-black py-16">
+        <div className="mx-auto grid max-w-[1180px] gap-10 px-4 sm:grid-cols-3 sm:px-6">
+          {BENEFITS.map(({ icon: Icon, title, body }) => (
+            <div key={title} className="text-center sm:text-left">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg border border-[#C8FF00]/30 bg-[#C8FF00]/10 sm:mx-0">
+                <Icon className="h-6 w-6 text-[#C8FF00]" />
+              </div>
+              <h3 className="mt-4 text-lg font-extrabold uppercase tracking-tight">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-white/55">{body}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       <ForexStyleShowcase />
 
-      {/* Why traders */}
-      <section id="traders" className="bg-[#000000] py-16 sm:py-20">
+      <section className="bg-black py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Why do traders choose equiti?</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {STATS.map((s) => (
-              <div key={s.label} className="rounded-xl border border-white/10 bg-[#111111] px-3 py-5 text-center">
-                <div className="text-2xl font-extrabold text-[#C8FF00] sm:text-3xl">{s.value}</div>
-                <div className="mt-1 text-[11px] font-medium text-white/55">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Products */}
-      <section className="bg-[#0b0b0b] py-16 sm:py-20">
-        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">Go top with a trusted desk</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { icon: Timer, title: "Trade", body: "Buy Long / Sell Short with live chart and countdown settlement." },
-              { icon: Zap, title: "Copy AI Bot", body: "Lock funds into admin-assigned yield contracts." },
-              { icon: Landmark, title: "Loan", body: "Borrower verification and admin-controlled loan plans." },
-              { icon: Wallet, title: "Assets", body: "Deposit, withdraw, bank cards, wallet address and security." },
-            ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="rounded-xl border border-white/10 bg-[#111111] p-5">
-                <Icon className="h-6 w-6 text-[#C8FF00]" />
-                <h3 className="mt-3 text-sm font-bold">{title}</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-white/55">{body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Trust badges */}
-      <section className="bg-[#000000] py-12 sm:py-16">
-        <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
-          <h2 className="mb-8 text-xl font-bold sm:text-2xl">Go top with a trusted leader</h2>
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            {["Invite-only", "Admin KYC", "Live Chat", "Verified payouts"].map((label) => (
-              <div
-                key={label}
-                className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-white/15 bg-[#111111] shadow-[inset_0_0_24px_rgba(200, 255, 0,0.08)]"
-              >
-                <ShieldCheck className="h-6 w-6 text-[#C8FF00]" />
-                <span className="mt-1 px-1 text-[10px] font-bold leading-tight text-white/70">{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Community */}
-      <section className="relative overflow-hidden bg-[#0b0b0b] py-16 sm:py-20">
-        <img
-          src="/bg/charts-desk.jpg"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-40"
-        />
-        <div className="absolute inset-0 bg-[#000000]/70" />
-        <div className="relative mx-auto max-w-[1180px] px-4 text-center sm:px-6">
-          <h2 className="text-2xl font-extrabold sm:text-3xl">Dream bigger, act faster</h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm text-white/70">
-            Join traders using equiti for timed markets, Copy AI Bot locks, and verified withdrawals.
-          </p>
-          <button type="button" onClick={onRegister} className={`${LIME_BTN} mt-6`}>
-            Sign up
-          </button>
-        </div>
-      </section>
-
-      {/* 3 minutes */}
-      <section className="bg-[#000000] py-16 sm:py-20">
-        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">
-            Just 3 minutes to become a trader
+          <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight sm:text-3xl">
+            Three steps to the <span className="text-[#C8FF00]">desk</span>
           </h2>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
             {STEPS.map((s) => (
-              <div key={s.n} className="rounded-xl border border-white/10 bg-[#111111] p-6 text-center">
-                <div className="text-3xl font-black text-[#C8FF00]">{s.n}</div>
-                <h3 className="mt-3 text-base font-bold">{s.title}</h3>
-                <p className="mt-2 text-sm text-white/55">{s.body}</p>
+              <div key={s.n} className="border border-white/10 bg-[#0a0a0a] p-6">
+                <div className="text-sm font-black text-[#C8FF00]">0{s.n}</div>
+                <h3 className="mt-3 text-lg font-bold uppercase">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/55">{s.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-white/10 bg-black py-16 sm:py-20">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
+          <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight sm:text-3xl">
+            VIP <span className="text-[#C8FF00]">status</span>, VIP service
+          </h2>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {[
+              { icon: UserRound, title: "Personal manager", body: "Priority Live Chat with your assigned admin." },
+              { icon: Gift, title: "Copy AI Bot yield", body: "Lock funds into admin-assigned contracts." },
+              { icon: Headphones, title: "Priority withdrawal", body: "Verified cards and wallets move faster through review." },
+            ].map(({ icon: Icon, title, body }) => (
+              <div key={title} className="border border-white/10 p-6">
+                <Icon className="h-7 w-7 text-[#C8FF00]" />
+                <h3 className="mt-4 font-bold uppercase">{title}</h3>
+                <p className="mt-2 text-sm text-white/55">{body}</p>
               </div>
             ))}
           </div>
           <div className="mt-8 text-center">
+            <button type="button" onClick={() => go("vip")} className={LIME_BTN_SM}>
+              View VIP
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="help" className="bg-black py-16 sm:py-20">
+        <div className="mx-auto max-w-[820px] px-4 sm:px-6">
+          <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight sm:text-3xl">
+            Have some <span className="text-[#C8FF00]">questions?</span>
+          </h2>
+          <div className="mt-8 divide-y divide-white/10 border border-white/10">
+            {FAQ.map((item, i) => {
+              const open = openFaq === i;
+              return (
+                <button
+                  key={item.q}
+                  type="button"
+                  onClick={() => setOpenFaq(open ? -1 : i)}
+                  className="block w-full px-5 py-4 text-left"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-bold sm:text-base">{item.q}</span>
+                    <span className="text-[#C8FF00]">{open ? "–" : "+"}</span>
+                  </div>
+                  {open && (
+                    <p className="mt-2 text-sm leading-relaxed text-white/55">{item.a}</p>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-10 text-center">
             <button type="button" onClick={onRegister} className={LIME_BTN}>
               Open an account
             </button>
           </div>
         </div>
       </section>
-
-      {/* VIP */}
-      <section className="bg-[#0b0b0b] py-16 sm:py-20">
-        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <h2 className="mb-8 text-center text-xl font-bold sm:text-2xl">VIP status, VIP services</h2>
-          <div className="mb-8 flex justify-center">
-            <img
-              src="/bg/hero-exchange.jpg"
-              alt="Bitcoin"
-              className="h-28 w-28 rounded-full object-cover ring-4 ring-[#C8FF00]/50"
-            />
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {[
-              { icon: UserRound, title: "Personal manager", body: "Priority Live Chat with your assigned admin." },
-              { icon: Gift, title: "Copy AI Bot yield", body: "Lock funds into admin-assigned contracts with target yield." },
-              { icon: Headphones, title: "Priority withdrawal", body: "Verified bank cards and wallets move faster through review." },
-            ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="rounded-xl border border-white/10 bg-[#111111] p-6 text-center">
-                <Icon className="mx-auto h-8 w-8 text-[#C8FF00]" />
-                <h3 className="mt-3 font-bold">{title}</h3>
-                <p className="mt-2 text-sm text-white/55">{body}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-8 text-center">
-            <button type="button" onClick={onRegister} className={LIME_BTN_SM}>
-              Go for VIP
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Security */}
-      <section id="help" className="bg-[#0b0b0b] py-16 sm:py-20">
-        <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
-          <h2 className="text-2xl font-extrabold sm:text-3xl">Put your trading helmet on</h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm text-white/55">
-            Invite-only signup, KYC, admin-verified deposits and withdrawals.
-          </p>
-          <div className="mx-auto my-8 grid h-28 w-28 place-items-center rounded-full border-4 border-[#C8FF00]/40 bg-[#111111]">
-            <ShieldCheck className="h-14 w-14 text-[#C8FF00]" />
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {[
-              { icon: Lock, title: "Account security", body: "Password change and profile updates from Assets → Security." },
-              { icon: ShieldCheck, title: "SSL encryption", body: "Encrypted sessions. Every deposit and withdraw is staff-reviewed." },
-              { icon: Wallet, title: "Fund custody", body: "Wallet addresses and bank cards stay pending until admin approval." },
-            ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="rounded-xl border border-white/10 bg-[#111111] p-5 text-left">
-                <Icon className="h-5 w-5 text-[#C8FF00]" />
-                <h3 className="mt-2 text-sm font-bold">{title}</h3>
-                <p className="mt-1 text-xs text-white/55">{body}</p>
-              </div>
-            ))}
-          </div>
-          <button type="button" onClick={onRegister} className={`${LIME_BTN} mt-8`}>
-            Start trading
-          </button>
-        </div>
-      </section>
-
       </>
       )}
 

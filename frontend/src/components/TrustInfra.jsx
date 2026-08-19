@@ -136,16 +136,6 @@ export function DataCentresMap() {
             </g>
           ))}
         </svg>
-        <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-          {CITIES.map((c) => (
-            <span
-              key={c.id}
-              className="rounded-sm bg-[#C8FF00] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black"
-            >
-              {c.label}
-            </span>
-          ))}
-        </div>
       </div>
     </RadialBack>
   );

@@ -41,7 +41,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
   };
 
   return (
-    <footer className="mt-8 border-t border-[#C8FF00]/15 bg-black py-12">
+    <footer className="border-t border-white/10 bg-black py-12">
       <div className="mx-auto grid max-w-[1180px] gap-8 px-4 sm:grid-cols-4 sm:px-6">
         <div>
           <BrandLogo />
