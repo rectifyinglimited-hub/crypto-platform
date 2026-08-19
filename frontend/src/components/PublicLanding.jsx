@@ -207,7 +207,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-black text-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#000000]/95 backdrop-blur-md">
+      <header className="sticky top-0 z-[80] border-b border-white/10 bg-black">
         <div className="mx-auto flex h-[58px] max-w-[1180px] items-center justify-between gap-3 px-4 sm:px-6">
           <BrandLogo
             onClick={() => {

@@ -13,8 +13,6 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
 
 import PublicLanding from "./components/PublicLanding.jsx";
 import AuthGate from "./components/AuthGate.jsx";
@@ -54,9 +52,7 @@ const SCREEN = {
 const SPLASH_MS = 1750;
 
 export default function App() {
-  const [screen, setScreen] = useState(() =>
-    getToken() ? SCREEN.BOOT : SCREEN.LANDING
-  );
+  const [screen, setScreen] = useState(SCREEN.LANDING);
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("signin");
   const splashTimer = useRef(null);
@@ -172,64 +168,31 @@ export default function App() {
   };
 
   return (
-    <AnimatePresence mode="wait">
-      {screen === SCREEN.BOOT && (
-        <motion.div
-          key="boot"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="grid min-h-screen w-full place-items-center bg-slate-950 text-slate-300"
-        >
-          <div className="flex items-center gap-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Restoring session…
-          </div>
-        </motion.div>
-      )}
-
+    <>
       {screen === SCREEN.LANDING && (
-        <div key="landing">
-          <PublicLanding
-            onSignIn={() => openAuth("signin")}
-            onRegister={() => openAuth("signup")}
-          />
-        </div>
+        <PublicLanding
+          onSignIn={() => openAuth("signin")}
+          onRegister={() => openAuth("signup")}
+        />
       )}
 
       {screen === SCREEN.AUTH && (
         <AuthGate
-          key="auth"
           initialMode={authMode}
           onAuthSuccess={handleAuthSuccess}
           onBack={() => setScreen(SCREEN.LANDING)}
         />
       )}
 
-      {screen === SCREEN.SPLASH && (
-        <motion.div
-          key="splash"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-        >
-          <SplashScreen />
-        </motion.div>
-      )}
+      {screen === SCREEN.SPLASH && <SplashScreen />}
 
       {screen === SCREEN.DASHBOARD && (
-        <Dashboard
-          key="dashboard"
-          user={user}
-          onLogout={handleLogout}
-          onOpenAdmin={goAdmin}
-        />
+        <Dashboard user={user} onLogout={handleLogout} onOpenAdmin={goAdmin} />
       )}
 
       {screen === SCREEN.ADMIN && (
-        <AdminPanel key="admin" user={user} onExit={handleLogout} />
+        <AdminPanel user={user} onExit={handleLogout} />
       )}
-    </AnimatePresence>
+    </>
   );
 }

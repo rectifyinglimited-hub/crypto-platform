@@ -30,7 +30,10 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
+  height: auto;
+  color: #ffffff;
+  background: #000000;
 }
 
 body {
@@ -269,8 +272,8 @@ select option {
   50% { opacity: 1; }
 }
 
-.eq-logo-on-dark {
-  filter: url(#eq-knock-white);
+.eq-blink {
+  animation: eq-blink 1.4s ease-in-out infinite;
 }
 
 .eq-chevrons {
