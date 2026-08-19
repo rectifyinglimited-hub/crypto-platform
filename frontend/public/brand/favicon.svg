@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
   <rect width="48" height="48" rx="10" fill="#000"/>
-  <rect x="1" y="1" width="46" height="46" rx="9" fill="none" stroke="#C8FF00" stroke-width="1.5"/>
-  <text x="24" y="33" text-anchor="middle" fill="#C8FF00" font-size="22" font-weight="800" font-family="Outfit, Sora, sans-serif">e</text>
+  <rect x="1" y="1" width="46" height="46" rx="9" fill="none" stroke="#39FF14" stroke-width="1.5"/>
+  <text x="24" y="33" text-anchor="middle" fill="#39FF14" font-size="22" font-weight="800" font-family="Outfit, Sora, sans-serif">e</text>
 </svg>

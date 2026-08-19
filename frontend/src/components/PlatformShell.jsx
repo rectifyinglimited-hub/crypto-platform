@@ -77,10 +77,10 @@ function NavLinks({ page, onPageChange }) {
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition lg:px-3.5 lg:text-sm ${
               active
                 ? highlight
-                  ? "bg-[#C8FF00]/15 text-[#C8FF00]"
+                  ? "bg-[#39FF14]/15 text-[#39FF14]"
                   : "bg-cyan-500/15 text-cyan-300"
                 : highlight
-                  ? "text-[#C8FF00]/80 hover:bg-[#C8FF00]/10 hover:text-[#C8FF00]"
+                  ? "text-[#39FF14]/80 hover:bg-[#39FF14]/10 hover:text-[#39FF14]"
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             }`}
           >
@@ -306,10 +306,10 @@ function MobileDrawer({
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
                         active
                           ? highlight
-                            ? "bg-[#C8FF00]/15 text-[#C8FF00]"
+                            ? "bg-[#39FF14]/15 text-[#39FF14]"
                             : "bg-cyan-500/15 text-cyan-300"
                           : highlight
-                            ? "text-[#C8FF00] active:bg-[#C8FF00]/10"
+                            ? "text-[#39FF14] active:bg-[#39FF14]/10"
                             : "text-slate-200 active:bg-white/5"
                       }`}
                     >
@@ -317,7 +317,7 @@ function MobileDrawer({
                         className={`grid h-9 w-9 place-items-center rounded-xl ${
                           active || highlight
                             ? highlight
-                              ? "bg-[#C8FF00]/20 text-[#C8FF00]"
+                              ? "bg-[#39FF14]/20 text-[#39FF14]"
                               : "bg-cyan-400/20 text-cyan-300"
                             : "bg-white/[0.04] text-slate-400"
                         }`}
@@ -344,14 +344,14 @@ function MobileDrawer({
                       onClick={() => go(item.key)}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
                         active
-                          ? "bg-[#C8FF00]/15 text-[#C8FF00]"
+                          ? "bg-[#39FF14]/15 text-[#39FF14]"
                           : "text-slate-200 active:bg-white/5"
                       }`}
                     >
                       <span
                         className={`grid h-9 w-9 place-items-center rounded-xl ${
                           active
-                            ? "bg-[#C8FF00]/20 text-[#C8FF00]"
+                            ? "bg-[#39FF14]/20 text-[#39FF14]"
                             : "bg-white/[0.04] text-slate-400"
                         }`}
                       >

@@ -698,8 +698,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-[#C8FF00]/35 bg-[#C8FF00]/5 p-3">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[#C8FF00]">
+        <div className="mt-4 rounded-xl border border-[#39FF14]/35 bg-[#39FF14]/5 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[#39FF14]">
             VIP lounge
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
@@ -710,7 +710,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               type="button"
               disabled={vipBusy || u?.vipStatus}
               onClick={() => onVip(true)}
-              className="rounded-xl bg-[#C8FF00] px-3 py-2 text-xs font-bold uppercase tracking-wide text-[#1a1400] disabled:opacity-40"
+              className="rounded-xl bg-[#39FF14] px-3 py-2 text-xs font-bold uppercase tracking-wide text-[#1a1400] disabled:opacity-40"
             >
               Grant VIP
             </button>
@@ -725,7 +725,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           </div>
           <div
             className={`mt-2 text-[10px] font-semibold uppercase tracking-wider ${
-              u?.vipStatus ? "text-[#C8FF00]" : "text-slate-500"
+              u?.vipStatus ? "text-[#39FF14]" : "text-slate-500"
             }`}
           >
             {u?.vipStatus ? "VIP lounge active" : "Standard lounge"} · Level{" "}
@@ -749,7 +749,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                 type="button"
                 disabled={vipLevelBusy}
                 onClick={onVipLevel}
-                className="w-full rounded-xl bg-[#C8FF00] px-3 py-2 text-xs font-bold uppercase text-[#1a1400] disabled:opacity-40"
+                className="w-full rounded-xl bg-[#39FF14] px-3 py-2 text-xs font-bold uppercase text-[#1a1400] disabled:opacity-40"
               >
                 {vipLevelBusy ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />

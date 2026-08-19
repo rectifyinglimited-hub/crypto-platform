@@ -2,7 +2,7 @@
  * equiti wordmark — teal rounded lowercase with stencil cuts on q and u.
  */
 
-const TEAL = "#00B5AD";
+const TEAL = "#39FF14";
 
 export function EquitiWordmark({
   className = "h-8 w-auto",
@@ -19,13 +19,13 @@ export function EquitiWordmark({
       <text
         x="6"
         y="70"
-        style={{ fontFamily: "Nunito, Outfit, Sora, sans-serif" }}
+        style={{ fontFamily: "Montserrat, Inter, Nunito, sans-serif" }}
         fontSize="72"
         fontWeight="800"
         letterSpacing="-2.2"
       >
         <tspan fill={onDark ? "#ffffff" : TEAL}>equi</tspan>
-        <tspan fill="#C8FF00">ti</tspan>
+        <tspan fill="#39FF14">ti</tspan>
       </text>
       <rect x="112" y="20" width="5.5" height="50" fill={gap} />
       <rect x="176" y="24" width="5" height="46" fill={gap} />
@@ -43,7 +43,7 @@ export function EquitiMark({ className = "h-8 w-8" }) {
         y="34"
         textAnchor="middle"
         fill={TEAL}
-        fontFamily="Nunito, Outfit, sans-serif"
+        fontFamily="Montserrat, Inter, sans-serif"
         fontSize="26"
         fontWeight="800"
       >
@@ -62,7 +62,7 @@ export default function BrandLogo({
   let el;
   if (variant === "stack") {
     el = (
-      <span className="inline-flex flex-col items-center rounded-2xl border border-[#C8FF00]/25 bg-black px-8 py-6">
+      <span className="inline-flex flex-col items-center rounded-2xl border border-[#39FF14]/25 bg-black px-8 py-6">
         <EquitiWordmark onDark className="h-12 w-auto" />
       </span>
     );

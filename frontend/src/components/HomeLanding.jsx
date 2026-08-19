@@ -554,7 +554,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
   return (
     <div className="space-y-6 md:space-y-8">
       {/* Hero — brand-first, no auth CTAs */}
-      <section className="relative overflow-hidden rounded-2xl border border-[#C8FF00]/20 px-5 py-8 shadow-[0_0_40px_rgba(200, 255, 0,0.08)] sm:px-8 sm:py-10 md:px-10 md:py-12">
+      <section className="relative overflow-hidden rounded-2xl border border-[#39FF14]/20 px-5 py-8 shadow-[0_0_40px_rgba(57, 255, 20,0.08)] sm:px-8 sm:py-10 md:px-10 md:py-12">
         <HeroMediaSlider />
         <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-8 md:grid-cols-[1.1fr_0.9fr] md:text-left">
         <div className="text-center md:text-left">
@@ -592,7 +592,7 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
             <button
               type="button"
               onClick={onStartTrading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#C8FF00] px-5 py-3 text-sm font-bold text-[#1a1400] shadow-[0_0_24px_rgba(200, 255, 0,0.4)] transition hover:bg-[#E8FF8A]"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#39FF14] px-5 py-3 text-sm font-bold text-[#1a1400] shadow-[0_0_24px_rgba(57, 255, 20,0.4)] transition hover:bg-[#9dff6a]"
             >
               Open Trading Terminal
               <ArrowRight className="h-4 w-4" />

@@ -9,9 +9,9 @@ export default {
           elevated: "#0a0a0a",
           surface: "#111111",
           panel: "#161616",
-          accent: "#C8FF00",
-          cyan: "#00B5AD",
-          muted: "#9aa0a6",
+          accent: "#39FF14",
+          cyan: "#39FF14",
+          muted: "#c8c8c8",
         },
         midnight: {
           950: "#06080f",
@@ -22,21 +22,21 @@ export default {
       },
       fontFamily: {
         sans: [
-          "Outfit",
-          "DM Sans",
+          "Inter",
+          "Montserrat",
           "ui-sans-serif",
           "system-ui",
           "sans-serif",
         ],
-        display: ["Sora", "Outfit", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["Montserrat", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        glow: "0 10px 40px -12px rgba(200, 255, 0, 0.45)",
+        glow: "0 10px 40px -12px rgba(57, 255, 20, 0.45)",
         panel: "0 16px 48px -24px rgba(0, 0, 0, 0.65)",
       },
       backgroundImage: {
         "nx-hero":
-          "radial-gradient(ellipse 90% 60% at 50% -10%, rgba(200,255,0,0.12), transparent 55%)",
+          "radial-gradient(ellipse 90% 60% at 50% -10%, rgba(57,255,20,0.12), transparent 55%)",
       },
     },
   },

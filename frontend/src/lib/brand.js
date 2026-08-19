@@ -7,8 +7,8 @@ export const BRAND = {
 };
 
 export const COLORS = {
-  teal: "#00B5AD",
-  lime: "#C8FF00",
+  teal: "#39FF14",
+  lime: "#39FF14",
   ink: "#000000",
 };
 
@@ -79,7 +79,7 @@ export const TRUSTED_PARTNERS = [
 
 /** Bitcoin + chart loop for the main hero. */
 export const HERO_VIDEO = "/bg/hero-crypto.mp4";
-export const HERO_POSTER = "/bg/hero-exchange.jpg";
+export const HERO_POSTER = "/bg/hero-geometry.png";
 /** Neon crypto-graphics loop for VIP / about / splash. */
 export const CRYPTO_VIDEO = "/bg/crypto-motion.mp4";
-export const CRYPTO_POSTER = "/bg/charts-desk.jpg";
+export const CRYPTO_POSTER = "/bg/servers-neon.png";
