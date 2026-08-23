@@ -37,10 +37,10 @@ const PAIRS = [
 ];
 
 const LIME_BTN =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#39FF14] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-black shadow-[0_10px_28px_-8px_rgba(57,255,20,0.45)] transition hover:bg-[#9dff6a]";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#00C2B3] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-black shadow-[0_10px_28px_-8px_rgba(0,194,179,0.45)] transition hover:bg-[#5EEAD4]";
 
 const LIME_BTN_SM =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#39FF14] px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-black transition hover:bg-[#9dff6a]";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#00C2B3] px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-black transition hover:bg-[#5EEAD4]";
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -223,19 +223,19 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             }}
           />
           <nav className="hidden items-center gap-6 text-[12px] font-bold uppercase tracking-[0.14em] text-white/80 md:flex">
-            <button type="button" onClick={() => go("trading")} className="hover:text-[#39FF14]">
+            <button type="button" onClick={() => go("trading")} className="hover:text-[#00C2B3]">
               Trading
             </button>
-            <button type="button" onClick={() => go("about")} className="hover:text-[#39FF14]">
+            <button type="button" onClick={() => go("about")} className="hover:text-[#00C2B3]">
               About us
             </button>
-            <button type="button" onClick={() => go("vip")} className="hover:text-[#39FF14]">
+            <button type="button" onClick={() => go("vip")} className="hover:text-[#00C2B3]">
               VIP
             </button>
-            <button type="button" onClick={() => go("contact")} className="hover:text-[#39FF14]">
+            <button type="button" onClick={() => go("contact")} className="hover:text-[#00C2B3]">
               Contact
             </button>
-            <button type="button" onClick={() => go("certificate")} className="hover:text-[#39FF14]">
+            <button type="button" onClick={() => go("certificate")} className="hover:text-[#00C2B3]">
               Certificate
             </button>
           </nav>
@@ -315,8 +315,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       <>
       <div className="border-b border-white/10 bg-black">
         <div className="mx-auto flex max-w-[1180px] items-center gap-5 overflow-x-auto px-4 py-2.5 text-[11px] sm:px-6">
-          <span className="inline-flex shrink-0 items-center gap-1.5 font-bold uppercase tracking-[0.16em] text-[#39FF14]">
-            <Radio className={`h-3 w-3 ${connected ? "text-[#39FF14]" : "text-slate-500"}`} />
+          <span className="inline-flex shrink-0 items-center gap-1.5 font-bold uppercase tracking-[0.16em] text-[#00C2B3]">
+            <Radio className={`h-3 w-3 ${connected ? "text-[#00C2B3]" : "text-slate-500"}`} />
             Live
           </span>
           {PAIRS.map((p) => (
@@ -337,7 +337,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             <path
               key={n}
               d={`M${40 + n * 18} 500 L${200 + n * 8} 40 L${360 - n * 18} 500`}
-              stroke={n % 2 ? "#39FF14" : "#3a3a3a"}
+              stroke={n % 2 ? "#00C2B3" : "#3a3a3a"}
               strokeOpacity={n % 2 ? 0.35 : 0.5}
               strokeWidth="1.2"
             />
@@ -351,7 +351,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               className="max-w-xl font-display text-4xl font-extrabold uppercase leading-[1.08] tracking-tight sm:text-[2.7rem]"
             >
               The equiti desk behind{" "}
-              <span className="text-[#39FF14]">live markets</span> every day
+              <span className="text-[#00C2B3]">live markets</span> every day
             </motion.h1>
             <p className="mt-4 max-w-lg text-sm text-white/85 sm:text-base">
               Faster charts, smarter locks, and safer payouts — in the browser, 24/7.
@@ -366,7 +366,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
                 "Compatible with Copy AI Bot locks",
               ].map((line) => (
                 <li key={line} className="flex items-start gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#39FF14]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#00C2B3]" />
                   {line}
                 </li>
               ))}
@@ -384,13 +384,13 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           </div>
         </div>
         <div className="relative z-10 mx-auto max-w-[1180px] px-4 pb-10 sm:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-[#39FF14]/40 bg-black px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-[#00C2B3]/40 bg-black px-5 py-4">
             <p className="text-sm text-white/80">
-              <span className="text-[#39FF14]">“</span> Switched to equiti and the desk stays live.
-              <span className="text-[#39FF14]">”</span>
+              <span className="text-[#00C2B3]">“</span> Switched to equiti and the desk stays live.
+              <span className="text-[#00C2B3]">”</span>
             </p>
             <div className="text-xs font-bold uppercase tracking-wider text-white/70">
-              <span className="text-[#39FF14]">★★★★★</span> Live desk reviews
+              <span className="text-[#00C2B3]">★★★★★</span> Live desk reviews
             </div>
           </div>
         </div>
@@ -400,8 +400,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         <div className="mx-auto grid max-w-[1180px] gap-10 px-4 sm:grid-cols-3 sm:px-6">
           {BENEFITS.map(({ icon: Icon, title, body }) => (
             <div key={title} className="text-center sm:text-left">
-              <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg border border-[#39FF14]/30 bg-[#39FF14]/10 sm:mx-0">
-                <Icon className="h-6 w-6 text-[#39FF14]" />
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg border border-[#00C2B3]/30 bg-[#00C2B3]/10 sm:mx-0">
+                <Icon className="h-6 w-6 text-[#00C2B3]" />
               </div>
               <h3 className="mt-4 text-lg font-extrabold uppercase tracking-tight">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-white/55">{body}</p>
@@ -419,12 +419,12 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       <section className="bg-black py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight sm:text-3xl">
-            Three steps to the <span className="text-[#39FF14]">desk</span>
+            Three steps to the <span className="text-[#00C2B3]">desk</span>
           </h2>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {STEPS.map((s) => (
               <div key={s.n} className="border border-white/10 bg-[#0a0a0a] p-6">
-                <div className="text-sm font-black text-[#39FF14]">0{s.n}</div>
+                <div className="text-sm font-black text-[#00C2B3]">0{s.n}</div>
                 <h3 className="mt-3 text-lg font-bold uppercase">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-white/55">{s.body}</p>
               </div>
@@ -436,7 +436,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       <section className="border-y border-white/10 bg-black py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight sm:text-3xl">
-            VIP <span className="text-[#39FF14]">status</span>, VIP service
+            VIP <span className="text-[#00C2B3]">status</span>, VIP service
           </h2>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {[
@@ -445,7 +445,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               { icon: Headphones, title: "Priority withdrawal", body: "Verified cards and wallets move faster through review." },
             ].map(({ icon: Icon, title, body }) => (
               <div key={title} className="border border-white/10 p-6">
-                <Icon className="h-7 w-7 text-[#39FF14]" />
+                <Icon className="h-7 w-7 text-[#00C2B3]" />
                 <h3 className="mt-4 font-bold uppercase">{title}</h3>
                 <p className="mt-2 text-sm text-white/55">{body}</p>
               </div>

@@ -85,7 +85,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
                   rel="noreferrer"
                   title={s.label}
                   aria-label={s.label}
-                  className="grid h-10 w-10 place-items-center rounded-xl border border-[#39FF14]/25 bg-white/5 text-[#39FF14] transition hover:bg-[#39FF14] hover:text-black hover:shadow-[0_0_18px_rgba(57,255,20,0.55)]"
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-[#00C2B3]/25 bg-white/5 text-[#00C2B3] transition hover:bg-[#00C2B3] hover:text-black hover:shadow-[0_0_18px_rgba(0,194,179,0.55)]"
                 >
                   <Icon className="h-4 w-4" />
                 </a>
@@ -131,13 +131,13 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
           </div>
           <a
             href={`mailto:${COMPANY.email}`}
-            className="mt-3 flex items-center gap-2 text-sm text-white/80 hover:text-[#39FF14]"
+            className="mt-3 flex items-center gap-2 text-sm text-white/80 hover:text-[#00C2B3]"
           >
-            <Mail className="h-3.5 w-3.5 text-[#39FF14]" />
+            <Mail className="h-3.5 w-3.5 text-[#00C2B3]" />
             {COMPANY.email}
           </a>
           <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white/70">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00C2B3]" />
             <p>
               <span className="font-semibold text-white">{COMPANY.legalName}</span>
               <br />
@@ -152,7 +152,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
           <button
             type="button"
             onClick={openSupport}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#39FF14] underline underline-offset-2"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#00C2B3] underline underline-offset-2"
           >
             <MessageCircle className="h-3.5 w-3.5" />
             Open Live Chat
@@ -173,7 +173,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
               if (onNavigate) go("certificate");
               else openCertificate();
             }}
-            className="mt-4 w-full overflow-hidden rounded-lg border border-[#39FF14]/30 text-left hover:border-[#39FF14]"
+            className="mt-4 w-full overflow-hidden rounded-lg border border-[#00C2B3]/30 text-left hover:border-[#00C2B3]"
           >
             <div className="bg-white px-2 py-2">
               <BrandLogo variant="on-light" className="scale-90" />
@@ -184,7 +184,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
                 {COMPANY.legalName} · {COMPANY.companyNo}
               </div>
             </div>
-            <div className="bg-[#0b0e11] px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-[#39FF14]">
+            <div className="bg-[#0b0e11] px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-[#00C2B3]">
               Click to verify
             </div>
           </button>

@@ -25,7 +25,7 @@ function Column({ variant, offset }) {
             const p = variant === "slow" ? raw + STEP : raw;
             const vis = i - offset;
             let color = "text-white/40";
-            if (variant === "fast" && vis === MID) color = "font-bold text-[#39FF14]";
+            if (variant === "fast" && vis === MID) color = "font-bold text-[#00C2B3]";
             if (variant === "slow" && vis === MID - 1) color = "font-semibold text-white";
             if (variant === "slow" && vis === MID) color = "font-semibold text-red-400";
             return (
@@ -44,20 +44,20 @@ function Column({ variant, offset }) {
       {variant === "fast" ? (
         <>
           <div
-            className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded-[5px] border border-[#39FF14]"
+            className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded-[5px] border border-[#00C2B3]"
             style={{ top: MID * ROW + 5, height: ROW - 10, width: 92 }}
           />
           <div
             className="pointer-events-none absolute right-full z-10 mr-2 flex items-center gap-1.5 whitespace-nowrap"
             style={{ top: MID * ROW, height: ROW }}
           >
-            <span className="grid h-5 w-5 place-items-center rounded-full bg-[#39FF14] text-black">
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-[#00C2B3] text-black">
               <Check className="h-3 w-3" strokeWidth={3} />
             </span>
-            <span className="text-[11px] font-black uppercase tracking-wide text-[#39FF14]">
+            <span className="text-[11px] font-black uppercase tracking-wide text-[#00C2B3]">
               Filled
             </span>
-            <span className="text-[#39FF14]">→</span>
+            <span className="text-[#00C2B3]">→</span>
           </div>
         </>
       ) : (
@@ -130,7 +130,7 @@ export default function FillExpectSection() {
           <h2 className="font-display text-3xl font-extrabold uppercase leading-[1.08] tracking-tight sm:text-5xl">
             Get filled on the
             <br />
-            <span className="text-[#39FF14]">price you expect.</span>
+            <span className="text-[#00C2B3]">price you expect.</span>
           </h2>
           <p className="mt-5 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
             Latency slippage can turn a winning strategy into a losing one. Put an end to
@@ -150,7 +150,7 @@ export default function FillExpectSection() {
             <div>
               <Column variant="fast" offset={offset} />
               <div className="mt-5 text-center text-sm font-extrabold">
-                <span className="text-[#39FF14]">Fast</span> <span className="text-white">Trades</span>
+                <span className="text-[#00C2B3]">Fast</span> <span className="text-white">Trades</span>
               </div>
             </div>
             <div>

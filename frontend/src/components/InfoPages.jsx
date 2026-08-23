@@ -28,7 +28,7 @@ import { CertificatePreview, openCertificate } from "./TradingCertificate.jsx";
 import { PlatformAPI } from "../lib/api.js";
 
 const LIME_BTN =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#39FF14] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_0_28px_rgba(57,255,20,0.45)] transition hover:bg-[#9dff6a]";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#00C2B3] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_0_28px_rgba(0,194,179,0.45)] transition hover:bg-[#5EEAD4]";
 
 const ABOUT_IMGS = {
   desk: "/bg/trader-desk.png",
@@ -114,7 +114,7 @@ function FaqItem({ item, open, onToggle }) {
       >
         <span className="text-sm font-semibold text-white sm:text-base">{item.q}</span>
         <ChevronDown
-          className={`h-5 w-5 shrink-0 text-[#39FF14] transition ${open ? "rotate-180" : ""}`}
+          className={`h-5 w-5 shrink-0 text-[#00C2B3] transition ${open ? "rotate-180" : ""}`}
         />
       </button>
       {open && (
@@ -132,12 +132,12 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
       {/* Hero */}
       <section className="grid items-center gap-10 lg:grid-cols-2">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
             About equiti
           </p>
           <h1 className="mt-3 font-display text-3xl font-extrabold leading-[1.12] tracking-tight sm:text-5xl">
             equiti is built for your{" "}
-            <span className="text-[#39FF14]">financial goals</span>
+            <span className="text-[#00C2B3]">financial goals</span>
           </h1>
           <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
             A professional seconds trading desk — live markets, invite-only access,
@@ -152,7 +152,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
               <button
                 type="button"
                 onClick={onSupport}
-                className="inline-flex items-center gap-2 rounded-md border border-white/20 px-6 py-3 text-sm font-bold text-white hover:border-[#39FF14]/50 hover:text-[#39FF14]"
+                className="inline-flex items-center gap-2 rounded-md border border-white/20 px-6 py-3 text-sm font-bold text-white hover:border-[#00C2B3]/50 hover:text-[#00C2B3]"
               >
                 Learn more
               </button>
@@ -195,7 +195,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 
       {/* Why choose */}
       <section>
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
           Why choose equiti?
         </p>
         <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
@@ -220,8 +220,8 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
             },
           ].map((c) => (
             <div key={c.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center">
-              <div className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[#39FF14]/30 bg-[#39FF14]/10">
-                <c.icon className="h-6 w-6 text-[#39FF14]" />
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[#00C2B3]/30 bg-[#00C2B3]/10">
+                <c.icon className="h-6 w-6 text-[#00C2B3]" />
               </div>
               <h3 className="mt-4 text-lg font-bold">{c.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-white/55">{c.body}</p>
@@ -234,7 +234,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
       <section className="overflow-hidden rounded-3xl border border-white/10 bg-[#121212]">
         <div className="grid items-stretch lg:grid-cols-2">
           <div className="flex flex-col justify-center px-6 py-10 sm:px-10">
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
               Partnerships
             </p>
             <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">
@@ -262,7 +262,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 
       {/* Trust / recognition */}
       <section>
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
           Trust & recognition
         </p>
         <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
@@ -278,10 +278,10 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
           ].map((a) => (
             <div
               key={a.label}
-              className="flex flex-col items-center rounded-2xl border border-[#39FF14]/20 bg-black/40 px-3 py-6 text-center"
+              className="flex flex-col items-center rounded-2xl border border-[#00C2B3]/20 bg-black/40 px-3 py-6 text-center"
             >
-              <div className="grid h-16 w-16 place-items-center rounded-full border-2 border-[#39FF14]/50 bg-[#39FF14]/10">
-                <a.icon className="h-7 w-7 text-[#39FF14]" />
+              <div className="grid h-16 w-16 place-items-center rounded-full border-2 border-[#00C2B3]/50 bg-[#00C2B3]/10">
+                <a.icon className="h-7 w-7 text-[#00C2B3]" />
               </div>
               <p className="mt-3 text-xs font-semibold text-white/80">{a.label}</p>
             </div>
@@ -294,7 +294,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 
       {/* Mission */}
       <section>
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
           Who we are
         </p>
         <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
@@ -319,7 +319,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
             },
           ].map((c) => (
             <div key={c.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-              <c.icon className="h-8 w-8 text-[#39FF14]" />
+              <c.icon className="h-8 w-8 text-[#00C2B3]" />
               <h3 className="mt-4 text-lg font-bold">{c.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-white/55">{c.body}</p>
             </div>
@@ -329,7 +329,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 
       {/* Team */}
       <section>
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
           Our team
         </p>
         <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
@@ -363,7 +363,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
               </div>
               <div className="p-4">
                 <h3 className="text-base font-bold">{m.name}</h3>
-                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-[#39FF14]">
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-[#00C2B3]">
                   {m.role}
                 </p>
                 <p className="mt-2 text-xs leading-relaxed text-white/55">{m.bio}</p>
@@ -377,7 +377,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
       <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04]">
         <div className="grid items-center gap-8 p-6 sm:p-10 lg:grid-cols-2">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
               Careers
             </p>
             <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">
@@ -397,7 +397,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
                 key={m.name}
                 src={m.img}
                 alt={m.name}
-                className={`aspect-square rounded-2xl border border-[#39FF14]/30 object-cover ${m.pos}`}
+                className={`aspect-square rounded-2xl border border-[#00C2B3]/30 object-cover ${m.pos}`}
               />
             ))}
           </div>
@@ -406,7 +406,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 
       {/* Social */}
       <section>
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
           Social channels
         </p>
         <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
@@ -419,9 +419,9 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
               href={s.href}
               target="_blank"
               rel="noreferrer"
-              className="flex min-h-[100px] flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] text-sm font-bold text-white transition hover:border-[#39FF14]/40 hover:text-[#39FF14]"
+              className="flex min-h-[100px] flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] text-sm font-bold text-white transition hover:border-[#00C2B3]/40 hover:text-[#00C2B3]"
             >
-              <span className="text-[#39FF14]">{s.label.slice(0, 1)}</span>
+              <span className="text-[#00C2B3]">{s.label.slice(0, 1)}</span>
               {s.label}
             </a>
           ))}
@@ -430,7 +430,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 
       {/* Mid CTA */}
       <section className="rounded-3xl bg-[#0e0e0e] px-6 py-12 text-center sm:px-10">
-        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
           Join the desk
         </p>
         <h2 className="mt-3 text-2xl font-extrabold sm:text-4xl">
@@ -443,7 +443,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 
       {/* Presence cards */}
       <section>
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
           Our presence
         </p>
         <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
@@ -473,7 +473,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 
       {/* FAQ */}
       <section className="mx-auto max-w-3xl">
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#39FF14]">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
           FAQ
         </p>
         <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
@@ -524,8 +524,8 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
               key={c.title}
               className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-6"
             >
-              <div className="grid h-12 w-12 place-items-center rounded-xl bg-[#39FF14]/15">
-                <c.icon className="h-6 w-6 text-[#39FF14]" />
+              <div className="grid h-12 w-12 place-items-center rounded-xl bg-[#00C2B3]/15">
+                <c.icon className="h-6 w-6 text-[#00C2B3]" />
               </div>
               <h3 className="mt-4 text-lg font-bold">{c.title}</h3>
               <p className="mt-2 flex-1 text-sm text-white/55">{c.body}</p>
@@ -533,7 +533,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
                 <button
                   type="button"
                   onClick={c.action}
-                  className="mt-4 text-left text-sm font-bold text-[#39FF14] hover:underline"
+                  className="mt-4 text-left text-sm font-bold text-[#00C2B3] hover:underline"
                 >
                   {c.label} →
                 </button>
@@ -544,7 +544,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
       </section>
 
       {/* Bottom CTA */}
-      <section className="rounded-3xl border border-[#39FF14]/25 bg-gradient-to-br from-[#39FF14]/10 via-black to-black px-6 py-12 text-center sm:px-10">
+      <section className="rounded-3xl border border-[#00C2B3]/25 bg-gradient-to-br from-[#00C2B3]/10 via-black to-black px-6 py-12 text-center sm:px-10">
         <BrandLogo className="mx-auto justify-center [&_svg]:h-9" />
         <h2 className="mt-5 text-2xl font-extrabold sm:text-3xl">
           Start trading online with equiti
@@ -560,7 +560,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
             <button
               type="button"
               onClick={onSupport}
-              className="inline-flex items-center gap-2 rounded-md border border-[#39FF14]/40 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-[#39FF14] hover:bg-[#39FF14]/10"
+              className="inline-flex items-center gap-2 rounded-md border border-[#00C2B3]/40 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-[#00C2B3] hover:bg-[#00C2B3]/10"
             >
               <MessageCircle className="h-4 w-4" />
               Ask Live Chat
@@ -575,14 +575,14 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-[#39FF14]/20 px-5 py-12 sm:px-10">
+      <section className="relative overflow-hidden rounded-3xl border border-[#00C2B3]/20 px-5 py-12 sm:px-10">
         <VideoBackdrop
           src={CRYPTO_VIDEO}
           poster={CRYPTO_POSTER}
           overlayClassName="bg-black/78"
         />
         <div className="relative z-10 mx-auto max-w-xl text-center">
-          <Headphones className="mx-auto h-10 w-10 text-[#39FF14]" />
+          <Headphones className="mx-auto h-10 w-10 text-[#00C2B3]" />
           <h1 className="mt-3 text-3xl font-extrabold">Contact support</h1>
           <p className="mt-3 text-sm text-white/70">
             Questions, deposits, or VIP — open Live Chat and pick Information
@@ -602,7 +602,7 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
             Office
           </div>
           <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white/80">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#39FF14]" />
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#00C2B3]" />
             <p>
               <span className="font-semibold text-white">{COMPANY.legalName}</span>
               <br />
@@ -616,7 +616,7 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
           </div>
           <a
             href={`mailto:${COMPANY.email}`}
-            className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#39FF14] hover:underline"
+            className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#00C2B3] hover:underline"
           >
             <Mail className="h-4 w-4" />
             {COMPANY.email}
@@ -633,7 +633,7 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
                 href={s.href}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-xl border border-[#39FF14]/25 px-4 py-2 text-sm font-semibold text-[#39FF14] hover:bg-[#39FF14]/10"
+                className="rounded-xl border border-[#00C2B3]/25 px-4 py-2 text-sm font-semibold text-[#00C2B3] hover:bg-[#00C2B3]/10"
               >
                 {s.label}
               </a>
@@ -705,7 +705,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-[#39FF14]/35 px-5 py-12 shadow-[0_0_50px_rgba(57, 255, 20,0.12)] sm:px-10">
+      <section className="relative overflow-hidden rounded-3xl border border-[#00C2B3]/35 px-5 py-12 shadow-[0_0_50px_rgba(0, 194, 179,0.12)] sm:px-10">
         <VideoBackdrop
           src={CRYPTO_VIDEO}
           poster={CRYPTO_POSTER}
@@ -713,7 +713,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
         />
         <div className="relative z-10 grid items-center gap-8 lg:grid-cols-2">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#39FF14]/40 bg-[#39FF14]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#39FF14]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2B3]/40 bg-[#00C2B3]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#00C2B3]">
               <Crown className="h-3.5 w-3.5" />
               {isVip ? "Lounge VIP active" : "VIP desk"}
               {level > 0 ? ` · Trading VIP ${level}` : ""}
@@ -732,7 +732,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                   <div className="text-[10px] uppercase tracking-wider text-white/45">
                     Trading VIP
                   </div>
-                  <div className="mt-1 text-lg font-extrabold text-[#39FF14]">
+                  <div className="mt-1 text-lg font-extrabold text-[#00C2B3]">
                     {level > 0 ? `VIP ${level}` : "Standard"}
                   </div>
                 </div>
@@ -764,7 +764,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#39FF14] to-cyan-400"
+                    className="h-full rounded-full bg-gradient-to-r from-[#00C2B3] to-cyan-400"
                     style={{
                       width: `${Math.round((Number(progress.progress) || 0) * 100)}%`,
                     }}
@@ -786,7 +786,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                 <button
                   type="button"
                   onClick={onReferral}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#39FF14]/40 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-[#39FF14] hover:bg-[#39FF14]/10"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#00C2B3]/40 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-[#00C2B3] hover:bg-[#00C2B3]/10"
                 >
                   Referral & bonus
                 </button>
@@ -798,8 +798,8 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
       </section>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl border border-[#39FF14]/20 bg-black/45 p-5">
-          <h3 className="flex items-center gap-2 font-bold text-[#39FF14]">
+        <div className="rounded-2xl border border-[#00C2B3]/20 bg-black/45 p-5">
+          <h3 className="flex items-center gap-2 font-bold text-[#00C2B3]">
             <Crown className="h-4 w-4" />
             Lounge VIP
           </h3>
@@ -841,12 +841,12 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                 key={t.level}
                 className={`rounded-2xl border p-3 ${
                   active
-                    ? "border-[#39FF14]/45 bg-[#39FF14]/12"
+                    ? "border-[#00C2B3]/45 bg-[#00C2B3]/12"
                     : "border-white/10 bg-black/35"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-extrabold text-[#39FF14]">
+                  <div className="text-xs font-extrabold text-[#00C2B3]">
                     {t.name || `VIP ${t.level}`}
                   </div>
                   {active ? (
@@ -888,7 +888,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                     key={t.level ?? "std"}
                     className={
                       active
-                        ? "bg-[#39FF14]/12 text-white"
+                        ? "bg-[#00C2B3]/12 text-white"
                         : "border-t border-white/5 text-white/75"
                     }
                   >
@@ -924,9 +924,9 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
         ].map(({ icon: Icon, title, body }) => (
           <div
             key={title}
-            className="rounded-2xl border border-[#39FF14]/20 bg-black/45 p-6 text-center"
+            className="rounded-2xl border border-[#00C2B3]/20 bg-black/45 p-6 text-center"
           >
-            <Icon className="mx-auto h-8 w-8 text-[#39FF14]" />
+            <Icon className="mx-auto h-8 w-8 text-[#00C2B3]" />
             <h3 className="mt-3 font-bold">{title}</h3>
             <p className="mt-2 text-sm text-white/55">{body}</p>
           </div>
@@ -935,7 +935,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
 
       <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
         <h3 className="flex items-center gap-2 font-bold">
-          <Users className="h-4 w-4 text-[#39FF14]" />
+          <Users className="h-4 w-4 text-[#00C2B3]" />
           Referral scene in one line
         </h3>
         <p className="mt-2 text-sm leading-relaxed text-white/60">

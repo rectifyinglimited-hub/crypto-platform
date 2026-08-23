@@ -44,7 +44,7 @@ export default function AuthGate({
           animate={{ opacity: 1, y: 0 }}
           className="mb-8 text-center"
         >
-          <BrandLogo variant="lockup" className="mb-3 justify-center" />
+          <BrandLogo variant="lockup" className="mb-4 justify-center [&_svg]:h-10 [&_svg]:sm:h-12" />
           <h1 className="mt-2 text-lg font-semibold tracking-tight text-slate-200">
             {mode === "signin" ? "Welcome back" : "Create your account"}
           </h1>

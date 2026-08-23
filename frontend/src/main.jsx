@@ -9,7 +9,7 @@ function showCrash(err) {
   rootEl.innerHTML = `
     <div style="min-height:100vh;background:#000;color:#fff;font-family:Montserrat,sans-serif;padding:40px">
       <div style="font-size:28px;font-weight:800">equiti</div>
-      <p style="margin-top:12px;color:#39FF14">Page hit an error. Refresh once.</p>
+      <p style="margin-top:12px;color:#00C2B3">Page hit an error. Refresh once.</p>
       <pre style="margin-top:16px;white-space:pre-wrap;color:#aaa;font-size:12px">${msg}</pre>
     </div>`;
 }

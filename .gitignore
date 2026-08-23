@@ -40,3 +40,6 @@ _touch.tmp
 # Uploaded deposit proofs
 uploads/
 backend/uploads/
+
+.vercel
+.env*

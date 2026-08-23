@@ -12,14 +12,14 @@ export default function SecurityShield({ className = "" }) {
 
   return (
     <div className={`relative mx-auto aspect-square w-full max-w-[400px] ${className}`}>
-      <div className="pointer-events-none absolute inset-[6%] rounded-full border border-[#39FF14]/30" />
-      <div className="pointer-events-none absolute inset-[16%] rounded-full border border-[#39FF14]/50" />
-      <div className="pointer-events-none absolute inset-[26%] rounded-full border border-[#39FF14]/22" />
+      <div className="pointer-events-none absolute inset-[6%] rounded-full border border-[#00C2B3]/30" />
+      <div className="pointer-events-none absolute inset-[16%] rounded-full border border-[#00C2B3]/50" />
+      <div className="pointer-events-none absolute inset-[26%] rounded-full border border-[#00C2B3]/22" />
 
       <div className="pointer-events-none absolute inset-[16%]">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="absolute inset-0" style={{ transform: `rotate(${i * 45}deg)` }}>
-            <span className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#39FF14] shadow-[0_0_12px_#39FF14]" />
+            <span className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#00C2B3] shadow-[0_0_12px_#00C2B3]" />
           </div>
         ))}
       </div>
@@ -74,16 +74,16 @@ export default function SecurityShield({ className = "" }) {
           </linearGradient>
           <linearGradient id={edge} x1="50%" y1="0%" x2="50%" y2="100%">
             <stop offset="0%" stopColor="#eaff9a" />
-            <stop offset="50%" stopColor="#39FF14" />
+            <stop offset="50%" stopColor="#00C2B3" />
             <stop offset="100%" stopColor="#146600" />
           </linearGradient>
           <linearGradient id={crest} x1="50%" y1="0%" x2="50%" y2="100%">
             <stop offset="0%" stopColor="#c8ff4a" />
-            <stop offset="55%" stopColor="#39FF14" />
+            <stop offset="55%" stopColor="#00C2B3" />
             <stop offset="100%" stopColor="#1a7a00" />
           </linearGradient>
         </defs>
-        <ellipse cx="100" cy="228" rx="38" ry="5" fill="#39FF14" opacity="0.28" />
+        <ellipse cx="100" cy="228" rx="38" ry="5" fill="#00C2B3" opacity="0.28" />
         <path
           d="M100 14 C100 14 176 36 176 36 L176 108 C176 160 138 200 100 222 C62 200 24 160 24 108 L24 36 C24 36 100 14 100 14Z"
           fill="none"

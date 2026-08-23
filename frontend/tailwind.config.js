@@ -9,8 +9,8 @@ export default {
           elevated: "#0a0a0a",
           surface: "#111111",
           panel: "#161616",
-          accent: "#39FF14",
-          cyan: "#39FF14",
+          accent: "#00C2B3",
+          cyan: "#00C2B3",
           muted: "#c8c8c8",
         },
         midnight: {
@@ -31,12 +31,12 @@ export default {
         display: ["Montserrat", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        glow: "0 10px 40px -12px rgba(57, 255, 20, 0.45)",
+        glow: "0 10px 40px -12px rgba(0, 194, 179, 0.45)",
         panel: "0 16px 48px -24px rgba(0, 0, 0, 0.65)",
       },
       backgroundImage: {
         "nx-hero":
-          "radial-gradient(ellipse 90% 60% at 50% -10%, rgba(57,255,20,0.12), transparent 55%)",
+          "radial-gradient(ellipse 90% 60% at 50% -10%, rgba(0,194,179,0.12), transparent 55%)",
       },
     },
   },

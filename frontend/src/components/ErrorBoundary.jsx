@@ -18,7 +18,7 @@ export default class ErrorBoundary extends Component {
     if (this.state.err) {
       return (
         this.props.fallback ?? (
-          <div className="p-6 text-sm text-[#39FF14]">Section failed to load.</div>
+          <div className="p-6 text-sm text-[#00C2B3]">Section failed to load.</div>
         )
       );
     }

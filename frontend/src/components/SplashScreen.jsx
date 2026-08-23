@@ -30,7 +30,7 @@ export default function SplashScreen() {
           transition={{ delay: 0.45 }}
         >
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-[#39FF14] to-cyan-400"
+            className="h-full rounded-full bg-gradient-to-r from-[#00C2B3] to-cyan-400"
             initial={{ x: "-100%" }}
             animate={{ x: "100%" }}
             transition={{

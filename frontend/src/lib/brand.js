@@ -7,8 +7,8 @@ export const BRAND = {
 };
 
 export const COLORS = {
-  teal: "#39FF14",
-  lime: "#39FF14",
+  teal: "#00C2B3",
+  lime: "#00C2B3",
   ink: "#000000",
 };
 

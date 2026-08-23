@@ -9,7 +9,7 @@ import SecurityShield from "./SecurityShield.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { PLATFORM_MARKS, BROKER_MARKS } from "./PartnerMarks.jsx";
 
-const LIME = "#39FF14";
+const LIME = "#00C2B3";
 
 const CITIES = [
   { x: 16, y: 44, label: "Los Angeles" },
@@ -91,19 +91,19 @@ export function DataCentresMap() {
     <RadialBack className="py-20 sm:py-28">
       <div className="mx-auto max-w-[1180px] px-4 text-center sm:px-6">
         <h2 className="text-2xl font-extrabold uppercase tracking-tight sm:text-[2.4rem]">
-          Trade inside key <span className="text-[#39FF14]">financial data centres</span>
+          Trade inside key <span className="text-[#00C2B3]">financial data centres</span>
         </h2>
         <p className="mt-3 text-sm text-white/70">
           We’re situated in 20 critical financial desks around the world.
         </p>
         <div className="mt-6 flex items-center justify-center gap-4 text-xs font-semibold">
-          <span className="grid h-9 w-9 place-items-center rounded-full border border-[#39FF14] text-[10px] uppercase">
+          <span className="grid h-9 w-9 place-items-center rounded-full border border-[#00C2B3] text-[10px] uppercase">
             You
           </span>
-          <span className="h-px w-24 bg-[#39FF14] eq-ping-line" />
+          <span className="h-px w-24 bg-[#00C2B3] eq-ping-line" />
           <span className="text-white/80">~ 0 – 3 millisecond</span>
-          <span className="h-px w-24 bg-[#39FF14] eq-ping-line" />
-          <span className="font-extrabold tracking-widest text-[#39FF14]">equiti</span>
+          <span className="h-px w-24 bg-[#00C2B3] eq-ping-line" />
+          <span className="font-extrabold tracking-widest text-[#00C2B3]">equiti</span>
         </div>
       </div>
       <div className="relative mx-auto mt-8 max-w-[1180px] px-1 sm:px-6">
@@ -129,7 +129,7 @@ export function DataCentresMap() {
         {CITIES.map((c) => (
           <div
             key={c.label}
-            className="pointer-events-none absolute hidden -translate-x-1/2 -translate-y-full rounded-[2px] border border-[#39FF14] bg-black px-1.5 py-0.5 text-[8px] font-semibold leading-none text-white sm:block"
+            className="pointer-events-none absolute hidden -translate-x-1/2 -translate-y-full rounded-[2px] border border-[#00C2B3] bg-black px-1.5 py-0.5 text-[8px] font-semibold leading-none text-white sm:block"
             style={{ left: `${c.x}%`, top: `${(c.y / 86) * 100}%` }}
           >
             {c.label}
@@ -145,7 +145,7 @@ export function PlatformsStrip() {
     <RadialBack className="py-16 sm:py-20">
       <h2 className="px-4 text-center text-2xl font-extrabold uppercase tracking-tight sm:text-4xl">
         <span className="text-white">Optimised for </span>
-        <span className="text-[#39FF14]">all trading platforms</span>
+        <span className="text-[#00C2B3]">all trading platforms</span>
       </h2>
       <div className="mt-10">
         <Marquee items={PLATFORM_MARKS} gap="gap-16">
@@ -162,7 +162,7 @@ export function PartnersWorldwide() {
       <h2 className="px-4 text-center text-xl font-extrabold uppercase tracking-tight sm:text-3xl">
         Supported by
         <br />
-        <span className="text-[#39FF14]">brokers & partners worldwide</span>
+        <span className="text-[#00C2B3]">brokers & partners worldwide</span>
       </h2>
       <div className="mt-10">
         <Marquee items={BROKER_MARKS} reverse gap="gap-16">
@@ -178,7 +178,7 @@ export function TripleDeskSection() {
     <section className="bg-black py-16 sm:py-20">
       <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
         <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight sm:text-3xl">
-          Live desks <span className="text-[#39FF14]">on every screen</span>
+          Live desks <span className="text-[#00C2B3]">on every screen</span>
         </h2>
         <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-white/60">
           Three live books on desktop. One focused chart on mobile. Same candles, same feed.
@@ -207,7 +207,7 @@ export function CyberSecuritySection() {
           <h2 className="font-display text-3xl font-extrabold uppercase leading-[1.08] tracking-tight sm:text-5xl">
             Cutting-edge
             <br />
-            <span className="text-[#39FF14]">cyber security</span>
+            <span className="text-[#00C2B3]">cyber security</span>
           </h2>
           <p className="mt-5 max-w-md text-sm leading-relaxed text-white/85 sm:text-base">
             Real-time monitoring and anti-DDoS solution Shield protects your service
@@ -223,20 +223,20 @@ export function BrowserDeskSection({ symbol = "XRP" }) {
   return (
     <RadialBack className="py-16 sm:py-24">
       <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-[#39FF14] bg-black p-3 shadow-[0_0_40px_rgba(57,255,20,0.12)]">
+        <div className="rounded-xl border border-[#00C2B3] bg-black p-3 shadow-[0_0_40px_rgba(0,194,179,0.12)]">
           <div className="mb-2 flex items-center justify-between px-1">
             <div className="text-sm font-bold">
-              Your desk <span className="text-[#39FF14]">running 24/7</span>
+              Your desk <span className="text-[#00C2B3]">running 24/7</span>
             </div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">equiti</span>
           </div>
-          <ErrorBoundary fallback={<div className="h-64 rounded-xl border border-[#39FF14]/30 bg-black" />}>
+          <ErrorBoundary fallback={<div className="h-64 rounded-xl border border-[#00C2B3]/30 bg-black" />}>
             <NeonLiveGraph symbol={symbol} height={260} transparent />
           </ErrorBoundary>
         </div>
         <div>
           <h2 className="text-3xl font-extrabold uppercase leading-tight sm:text-4xl">
-            <span className="text-[#39FF14]">Control your desk</span>
+            <span className="text-[#00C2B3]">Control your desk</span>
             <br />
             in your browser.
           </h2>
@@ -255,7 +255,7 @@ export function EquitiFaq({ items, openFaq, setOpenFaq }) {
     <section className="bg-black py-16 sm:py-24">
       <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
         <h2 className="text-2xl font-extrabold uppercase tracking-tight sm:text-4xl">
-          Have some <span className="text-[#39FF14]">questions?</span>
+          Have some <span className="text-[#00C2B3]">questions?</span>
         </h2>
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
           {items.map((item, i) => {
@@ -265,11 +265,11 @@ export function EquitiFaq({ items, openFaq, setOpenFaq }) {
                 key={item.q}
                 type="button"
                 onClick={() => setOpenFaq(open ? -1 : i)}
-                className="rounded-lg border border-[#39FF14] px-4 py-4 text-left"
+                className="rounded-lg border border-[#00C2B3] px-4 py-4 text-left"
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-semibold">{item.q}</span>
-                  <span className={`text-[#39FF14] transition ${open ? "rotate-180" : ""}`}>▾</span>
+                  <span className={`text-[#00C2B3] transition ${open ? "rotate-180" : ""}`}>▾</span>
                 </div>
                 {open && <p className="mt-3 text-sm leading-relaxed text-white/60">{item.a}</p>}
               </button>

@@ -461,14 +461,14 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
 
             <div className="relative">
               {/* Header */}
-              <div className="mb-6">
+              <div className="mb-6 text-center">
                 <motion.div
                   initial={{ scale: 0.6, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                  className="mb-3"
+                  className="mb-4 flex justify-center"
                 >
-                  <BrandLogo className="[&_svg]:h-10" />
+                  <BrandLogo className="justify-center [&_svg]:h-11 sm:[&_svg]:h-12" />
                 </motion.div>
                 <div>
                   <h1 className="text-lg font-semibold tracking-tight">
@@ -593,7 +593,7 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
                   whileHover={!submitting ? { scale: 1.01 } : undefined}
                   whileTap={!submitting ? { scale: 0.99 } : undefined}
                   transition={{ type: "spring", stiffness: 380, damping: 22 }}
-                  className="group relative mt-2 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 disabled:opacity-70"
+                  className="group relative mt-2 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-[#00C2B3] via-[#00a89b] to-[#5EEAD4] px-4 py-3 text-sm font-semibold text-black shadow-lg shadow-[0_10px_28px_-8px_rgba(0,194,179,0.45)] disabled:opacity-70"
                 >
                   <motion.span
                     className="pointer-events-none absolute inset-0 bg-white/20"

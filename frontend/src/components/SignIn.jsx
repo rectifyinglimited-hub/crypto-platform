@@ -89,7 +89,7 @@ export default function SignIn({ onSignInSuccess, onSwitchToSignUp }) {
           transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="absolute -right-24 top-1/3 h-[26rem] w-[26rem] rounded-full bg-emerald-500/15 blur-3xl"
+          className="absolute -right-24 top-1/3 h-[26rem] w-[26rem] rounded-full bg-[#00C2B3]/15 blur-3xl"
           animate={{ x: [0, -50, 0], y: [0, 40, 0] }}
           transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -129,10 +129,10 @@ export default function SignIn({ onSignInSuccess, onSwitchToSignUp }) {
           className="w-full max-w-md"
         >
           <div className="relative rounded-2xl border border-white/5 bg-gray-900/60 p-7 shadow-2xl backdrop-blur-sm">
-            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-transparent to-emerald-400/10 opacity-60 blur-xl" />
+            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-[#00C2B3]/10 via-transparent to-[#5EEAD4]/10 opacity-60 blur-xl" />
             <div className="relative">
-              <div className="mb-6">
-                <BrandLogo className="mb-3 [&_svg]:h-10" />
+              <div className="mb-6 text-center">
+                <BrandLogo className="mx-auto mb-3 justify-center [&_svg]:h-11" />
                 <div>
                   <h1 className="text-lg font-semibold tracking-tight">
                     Welcome back
@@ -226,7 +226,7 @@ export default function SignIn({ onSignInSuccess, onSwitchToSignUp }) {
                   disabled={submitting}
                   whileHover={!submitting ? { scale: 1.01 } : undefined}
                   whileTap={!submitting ? { scale: 0.99 } : undefined}
-                  className="group relative mt-2 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 disabled:opacity-70"
+                  className="group relative mt-2 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-[#00C2B3] via-[#00a89b] to-[#5EEAD4] px-4 py-3 text-sm font-semibold text-black shadow-lg shadow-[0_10px_28px_-8px_rgba(0,194,179,0.45)] disabled:opacity-70"
                 >
                   {submitting ? (
                     <>
