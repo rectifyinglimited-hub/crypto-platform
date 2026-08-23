@@ -10,6 +10,13 @@ function FacebookIcon({ className }) {
     </svg>
   );
 }
+function XIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <path d="M17.6 3.2h2.9l-6.3 7.2L22 20.8h-5.7l-4.5-5.9-5.1 5.9H3.8l6.8-7.8L2 3.2h5.8l4 5.4 5.8-5.4Zm-1 15.9h1.6L7.5 4.8H5.8l10.8 14.3Z" />
+    </svg>
+  );
+}
 function InstagramIcon({ className }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -26,11 +33,28 @@ function YoutubeIcon({ className }) {
     </svg>
   );
 }
+function LinkedInIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <path d="M6.2 9.2H3.4V20.5h2.8V9.2ZM4.8 3.5a1.65 1.65 0 1 0 0 3.3 1.65 1.65 0 0 0 0-3.3ZM20.6 13.1c0-3.3-1.8-4.9-4.1-4.9-1.9 0-2.7 1-3.2 1.8V9.2H10.5c0 .9 0 11.3 0 11.3h2.8v-6.3c0-.3 0-.7.1-1 .3-.7.9-1.5 2-1.5 1.4 0 2 1.1 2 2.7v6.1h2.8v-6.4Z" />
+    </svg>
+  );
+}
+function TikTokIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <path d="M16.6 4.1c.6 1.7 2 3 3.8 3.4v2.7c-1.3.1-2.5-.2-3.6-.8v5.4c0 3.4-2.7 6.1-6.1 6.1S4.6 18.2 4.6 14.8c0-3.3 2.6-6 5.9-6.1v2.8c-1.7.1-3.1 1.5-3.1 3.3 0 1.8 1.5 3.3 3.3 3.3s3.3-1.5 3.3-3.3V4.1h2.6Z" />
+    </svg>
+  );
+}
 
 const ICONS = {
   facebook: FacebookIcon,
-  instagram: InstagramIcon,
+  x: XIcon,
   youtube: YoutubeIcon,
+  linkedin: LinkedInIcon,
+  instagram: InstagramIcon,
+  tiktok: TikTokIcon,
 };
 
 export default function SiteFooter({ onNavigate, onOpenChat }) {
@@ -49,9 +73,10 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
             Digital trading terminal. Invite-gated accounts. Trade · Deposit ·
             Withdraw · Copy AI Bot.
           </p>
-          <div className="mt-4 flex items-center gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             {SOCIAL_LINKS.map((s) => {
               const Icon = ICONS[s.id];
+              if (!Icon) return null;
               return (
                 <a
                   key={s.id}
@@ -59,7 +84,8 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
                   target="_blank"
                   rel="noreferrer"
                   title={s.label}
-                  className="grid h-10 w-10 place-items-center rounded-xl border border-[#39FF14]/25 bg-white/5 text-[#39FF14] transition hover:bg-[#39FF14] hover:text-black hover:shadow-[0_0_18px_rgba(57, 255, 20,0.55)]"
+                  aria-label={s.label}
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-[#39FF14]/25 bg-white/5 text-[#39FF14] transition hover:bg-[#39FF14] hover:text-black hover:shadow-[0_0_18px_rgba(57,255,20,0.55)]"
                 >
                   <Icon className="h-4 w-4" />
                 </a>

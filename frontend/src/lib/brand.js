@@ -50,17 +50,32 @@ export const SOCIAL_LINKS = [
   {
     id: "facebook",
     label: "Facebook",
-    href: "https://www.facebook.com/profile.php?id=100090811043321",
+    href: "https://www.facebook.com/EquitiSC/",
   },
   {
-    id: "instagram",
-    label: "Instagram",
-    href: "https://www.instagram.com/",
+    id: "x",
+    label: "X",
+    href: "https://x.com/Equiti_en",
   },
   {
     id: "youtube",
     label: "YouTube",
-    href: "https://www.youtube.com/channel/UCwkD9jHgRANkwNWMKfZQm0w",
+    href: "https://www.youtube.com/channel/UCMfRYPE2cJ7XuclSbIsDgIg",
+  },
+  {
+    id: "linkedin",
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/company/equiti/",
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    href: "https://www.instagram.com/equitigcc/",
+  },
+  {
+    id: "tiktok",
+    label: "TikTok",
+    href: "https://www.tiktok.com/@equiti_group",
   },
 ];
 

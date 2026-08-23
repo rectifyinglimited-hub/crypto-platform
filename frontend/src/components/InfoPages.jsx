@@ -44,6 +44,25 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
         ))}
       </div>
 
+      <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-center">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">
+          Follow equiti
+        </div>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {SOCIAL_LINKS.map((s) => (
+            <a
+              key={s.id}
+              href={s.href}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-[#39FF14]/25 px-4 py-2 text-sm font-semibold text-[#39FF14] hover:bg-[#39FF14]/10"
+            >
+              {s.label}
+            </a>
+          ))}
+        </div>
+      </div>
+
       <section className="space-y-3">
         <div className="text-center">
           <h2 className="text-xl font-extrabold">Official certificate</h2>
