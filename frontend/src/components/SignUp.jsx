@@ -1,8 +1,8 @@
 /**
  * =============================================================================
- *  NEXUS FRONTEND — src/components/SignUp.jsx
+ *  equiti — src/components/SignUp.jsx
  * =============================================================================
- *  Premium glassmorphic sign-up screen for the Nexus crypto platform.
+ *  Premium glassmorphic sign-up screen for equiti.
  *    • Medium centered card, deep-space translucent surface, ambient blobs.
  *    • 2-column grid: Full name / Username, Phone / Country, Password / Confirm.
  *    • Icon-inlined inputs, password visibility toggle, live strength meter.
@@ -468,7 +468,7 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
                   transition={{ type: "spring", stiffness: 260, damping: 20 }}
                   className="mb-3"
                 >
-                  <BrandLogo />
+                  <BrandLogo className="[&_svg]:h-10" />
                 </motion.div>
                 <div>
                   <h1 className="text-lg font-semibold tracking-tight">

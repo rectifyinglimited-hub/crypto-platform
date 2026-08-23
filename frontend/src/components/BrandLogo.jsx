@@ -1,49 +1,49 @@
 /**
- * equiti wordmark — teal rounded lowercase with stencil cuts on q and u.
+ * equiti logo — signup, sign-in, shell, footer, splash, chat.
  */
 
-const TEAL = "#39FF14";
+import { BRAND } from "../lib/brand.js";
 
-export function EquitiWordmark({
-  className = "h-8 w-auto",
-  onDark = true,
-}) {
-  const gap = onDark ? "#000000" : "#ffffff";
+const TEAL = "#00C2B3";
+
+/** Official-style teal wordmark. */
+export function EquitiWordmark({ className = "h-8 w-auto", fill = TEAL, cut = "#000" }) {
   return (
     <svg
-      viewBox="0 0 430 92"
+      viewBox="0 0 460 100"
       className={className}
-      aria-hidden="true"
       role="img"
+      aria-label={BRAND.name}
     >
+      <title>{BRAND.name}</title>
       <text
-        x="6"
-        y="70"
-        style={{ fontFamily: "Montserrat, Inter, Nunito, sans-serif" }}
-        fontSize="72"
+        x="10"
+        y="74"
+        fill={fill}
+        style={{ fontFamily: "Montserrat, Nunito, Inter, sans-serif" }}
+        fontSize="78"
         fontWeight="800"
-        letterSpacing="-2.2"
+        letterSpacing="-2"
       >
-        <tspan fill={onDark ? "#ffffff" : TEAL}>equi</tspan>
-        <tspan fill="#39FF14">ti</tspan>
+        equiti
       </text>
-      <rect x="112" y="20" width="5.5" height="50" fill={gap} />
-      <rect x="176" y="24" width="5" height="46" fill={gap} />
+      {/* q / u stencil slits */}
+      <rect x="148" y="28" width="7" height="52" fill={cut} />
+      <rect x="218" y="32" width="6.5" height="48" fill={cut} />
     </svg>
   );
 }
 
-export function EquitiMark({ className = "h-8 w-8" }) {
+export function EquitiMark({ className = "h-9 w-9" }) {
   return (
     <svg viewBox="0 0 48 48" className={className} aria-hidden>
-      <rect width="48" height="48" rx="10" fill="#000" />
-      <rect x="1.2" y="1.2" width="45.6" height="45.6" rx="9" fill="none" stroke={TEAL} strokeWidth="1.6" />
+      <rect width="48" height="48" rx="12" fill={TEAL} />
       <text
         x="24"
         y="34"
         textAnchor="middle"
-        fill={TEAL}
-        fontFamily="Montserrat, Inter, sans-serif"
+        fill="#04120f"
+        style={{ fontFamily: "Montserrat, Inter, sans-serif" }}
         fontSize="26"
         fontWeight="800"
       >
@@ -53,6 +53,9 @@ export function EquitiMark({ className = "h-8 w-8" }) {
   );
 }
 
+/**
+ * @param {"lockup"|"wordmark"|"mark"|"stack"|"on-light"} variant
+ */
 export default function BrandLogo({
   variant = "lockup",
   className = "",
@@ -62,29 +65,31 @@ export default function BrandLogo({
   let el;
   if (variant === "stack") {
     el = (
-      <span className="inline-flex flex-col items-center rounded-2xl border border-[#39FF14]/25 bg-black px-8 py-6">
-        <EquitiWordmark onDark className="h-12 w-auto" />
+      <span className="inline-flex flex-col items-center rounded-2xl border border-[#00C2B3]/35 bg-black px-8 py-6">
+        <EquitiWordmark className="h-12 w-auto" cut="#000" />
       </span>
     );
   } else if (variant === "mark") {
     el = <EquitiMark className={imgClassName || "h-9 w-9"} />;
   } else if (variant === "wordmark") {
-    el = <EquitiWordmark onDark className="h-6 w-auto sm:h-7" />;
+    el = <EquitiWordmark className={imgClassName || "h-6 w-auto sm:h-7"} cut="#000" />;
   } else if (variant === "on-light") {
-    el = <EquitiWordmark onDark={false} className="h-8 w-auto sm:h-9" />;
+    el = <EquitiWordmark className={imgClassName || "h-8 w-auto sm:h-9"} cut="#fff" />;
   } else {
-    el = <EquitiWordmark onDark className="h-7 w-auto sm:h-8" />;
+    el = <EquitiWordmark className={imgClassName || "h-8 w-auto sm:h-9"} cut="#000" />;
   }
+
+  const wrapClass = `inline-flex shrink-0 items-center ${className}`;
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={`shrink-0 ${className}`} aria-label="equiti">
+      <button type="button" onClick={onClick} className={wrapClass} aria-label={BRAND.name}>
         {el}
       </button>
     );
   }
   return (
-    <span className={`inline-flex shrink-0 items-center ${className}`} aria-label="equiti">
+    <span className={wrapClass} aria-label={BRAND.name}>
       {el}
     </span>
   );

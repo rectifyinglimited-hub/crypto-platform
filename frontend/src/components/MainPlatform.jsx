@@ -257,7 +257,7 @@ const TopNav = ({ onSignIn, onSignUp, authed, t, theme, onToggleTheme }) => (
           className="hidden text-[10px] font-medium uppercase tracking-widest sm:inline"
           style={{ color: t.textFaint }}
         >
-          Pro Trading
+          equiti Pro
         </span>
       </div>
 

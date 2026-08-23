@@ -132,7 +132,7 @@ export default function SignIn({ onSignInSuccess, onSwitchToSignUp }) {
             <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-transparent to-emerald-400/10 opacity-60 blur-xl" />
             <div className="relative">
               <div className="mb-6">
-                <BrandLogo className="mb-3" />
+                <BrandLogo className="mb-3 [&_svg]:h-10" />
                 <div>
                   <h1 className="text-lg font-semibold tracking-tight">
                     Welcome back

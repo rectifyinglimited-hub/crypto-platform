@@ -26,7 +26,7 @@ function emptyFields(kind) {
   const base = { title: "", subtitle: "", price: "", imageUrl: "" };
   switch (kind) {
     case "nft":
-      return { ...base, rarity: "Rare", collection: "Nexus" };
+      return { ...base, rarity: "Rare", collection: "equiti" };
     case "c2c_ad":
       return {
         ...base,
@@ -101,7 +101,7 @@ function itemToFields(it) {
       return {
         ...base,
         rarity: m.rarity || "Rare",
-        collection: m.collection || "Nexus",
+        collection: m.collection || "equiti",
       };
     case "c2c_ad":
       return {
