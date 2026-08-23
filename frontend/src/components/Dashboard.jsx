@@ -1388,7 +1388,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             </motion.div>
           )}
           {page === "about" && (
-            <motion.div key="about" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-4xl">
+            <motion.div key="about" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-[1180px]">
               <AboutPage
                 onCta={() => goPage("trade")}
                 onSupport={() => openLiveChat("info")}

@@ -290,16 +290,22 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               />
             )}
             {view === "contact" && (
+              <div className="mx-auto max-w-3xl">
               <ContactPage onSupport={() => openChat("info")} ctaLabel="Open Live Chat" />
+              </div>
             )}
             {view === "vip" && (
+              <div className="mx-auto max-w-5xl">
               <VipPage onCta={onRegister} onSupport={() => openChat("vip")} />
+              </div>
             )}
             {view === "certificate" && (
+              <div className="mx-auto max-w-3xl">
               <CertificatePage
                 onBack={() => go("home")}
                 onContact={() => go("contact")}
               />
+              </div>
             )}
           </div>
         </Suspense>
