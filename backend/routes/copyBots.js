@@ -69,7 +69,47 @@ async function ensureSeedBots() {
       enabled: true,
       isTesting: false,
     },
+    {
+      name: "BTC Momentum AI",
+      tradeType: "spot_copy",
+      assetType: "BTC/USDT",
+      predictionConfidence: 74,
+      accuracyHistorical: "71%",
+      totalFollowers: 2100,
+      topSignalDirection: "Bullish",
+      summary: "Spot BTC copy desk — session momentum plus volatility bands.",
+      lockDays: 14,
+      yieldPct: 9,
+      minPrincipal: 50,
+      enabled: true,
+      isTesting: false,
+    },
   ]);
+}
+
+async function ensureCoreSpotAssets() {
+  await ensureSeedBots();
+  const existing = await CopyBot.find({ tradeType: "spot_copy" }).select(
+    "assetType"
+  );
+  const blob = existing.map((b) => String(b.assetType || "").toUpperCase()).join(" ");
+  if (!/BTC/.test(blob)) {
+    await CopyBot.create({
+      name: "BTC Momentum AI",
+      tradeType: "spot_copy",
+      assetType: "BTC/USDT",
+      predictionConfidence: 74,
+      accuracyHistorical: "71%",
+      totalFollowers: 2100,
+      topSignalDirection: "Bullish",
+      summary: "Spot BTC copy desk — session momentum plus volatility bands.",
+      lockDays: 14,
+      yieldPct: 9,
+      minPrincipal: 50,
+      enabled: true,
+      isTesting: false,
+    });
+  }
 }
 
 function serializeBot(b) {
@@ -101,7 +141,7 @@ router.get(
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    await ensureSeedBots();
+    await ensureCoreSpotAssets();
     const tradeType = String(req.query.tradeType || "spot_copy").toLowerCase();
     const filter = {
       enabled: true,
@@ -274,7 +314,7 @@ router.use(requireAuth, requireAdmin, requireDatabase);
 router.get(
   "/admin/bots",
   asyncHandler(async (req, res) => {
-    await ensureSeedBots();
+    await ensureCoreSpotAssets();
     const tradeType = req.query.tradeType;
     const tenant = tenantDocFilter(req);
     const filter = Object.keys(tenant).length

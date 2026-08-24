@@ -23,6 +23,7 @@ import {
   Info,
   BadgeCheck,
   Gift,
+  Copy,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
@@ -32,8 +33,8 @@ const MAIN_MENU = [
   { key: "home", label: "Home", icon: Home },
   { key: "market", label: "Market", icon: LineChart },
   { key: "trade", label: "Trade", icon: CandlestickChart },
-  { key: "spotcopy", label: "AI Spot Copy Trade", icon: Bot },
-  { key: "aibot", label: "AI Future Trade", icon: Bot },
+  { key: "spotcopy", label: "AI Spot Copy Trade", icon: Copy },
+  { key: "aibot", label: "AI Future Trade", icon: Bot, badge: "Testing" },
   { key: "assets", label: "Assets", icon: Wallet },
 ];
 
@@ -51,16 +52,12 @@ const COMPANY_LINKS = [
   { key: "contact", label: "Contact support", icon: Headphones },
 ];
 
-/** Desktop top bar — main + finance only (company lives in drawer/footer) */
-const DESKTOP_LINKS = [...MAIN_MENU, ...FINANCE_LINKS];
-
 function NavLinks({ page, onPageChange }) {
   return (
     <nav className="scrollbar-none flex items-center gap-1 overflow-x-auto">
-      {DESKTOP_LINKS.map((item) => {
+      {MAIN_MENU.map((item) => {
         const Icon = item.icon;
         const active = page === item.key;
-        const highlight = item.key === "vip" || item.key === "referral";
         return (
           <button
             key={item.key}
@@ -68,16 +65,17 @@ function NavLinks({ page, onPageChange }) {
             onClick={() => onPageChange(item.key)}
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition lg:px-3.5 lg:text-sm ${
               active
-                ? highlight
-                  ? "bg-[#00C2B3]/15 text-[#00C2B3]"
-                  : "bg-cyan-500/15 text-cyan-300"
-                : highlight
-                  ? "text-[#00C2B3]/80 hover:bg-[#00C2B3]/10 hover:text-[#00C2B3]"
-                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                ? "bg-cyan-500/15 text-cyan-300"
+                : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             }`}
           >
             <Icon className="h-4 w-4" />
             {item.label}
+            {item.badge ? (
+              <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
+                {item.badge}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -115,12 +113,17 @@ function DrawerNavItem({ item, page, onGo }) {
         <Icon className="h-4 w-4" />
       </span>
       <span className="flex-1">{item.label}</span>
+      {item.badge ? (
+        <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
+          {item.badge}
+        </span>
+      ) : null}
       {active && <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />}
     </button>
   );
 }
 
-/** Mobile left drawer — app-style side menu */
+/** Grouped side menu — Main, Finance & Rewards, Company, Account */
 function MobileDrawer({
   open,
   onClose,
@@ -160,7 +163,7 @@ function MobileDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px] md:hidden"
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px]"
             onClick={onClose}
           />
 
@@ -172,7 +175,7 @@ function MobileDrawer({
             animate={{ x: 0 }}
             exit={{ x: "-105%" }}
             transition={{ type: "spring", stiffness: 380, damping: 36 }}
-            className="fixed inset-y-0 left-0 z-[70] flex w-[min(86vw,20.5rem)] flex-col overflow-hidden border-r border-white/10 shadow-2xl shadow-black/60 md:hidden"
+            className="fixed inset-y-0 left-0 z-[70] flex w-[min(86vw,20.5rem)] flex-col overflow-hidden border-r border-white/10 shadow-2xl shadow-black/60"
             style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             <div className="pointer-events-none absolute inset-0">
@@ -351,7 +354,7 @@ export default function PlatformShell({
           <button
             type="button"
             onClick={() => setMobileNavOpen(true)}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-200 active:bg-white/10 md:hidden"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-200 active:bg-white/10"
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />

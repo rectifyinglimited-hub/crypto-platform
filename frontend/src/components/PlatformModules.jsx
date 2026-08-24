@@ -1823,7 +1823,7 @@ const ASSETS_MENU = [
   { key: "verification", label: "Verification", short: "Verify", icon: ShieldCheck },
   { key: "addresses", label: "Wallet Address", short: "Wallet", icon: Wallet },
   { key: "payment", label: "Payment", short: "Card", icon: CreditCard },
-  { key: "referral", label: "Referral", short: "Invite", icon: Gift },
+  { key: "referral", label: "Invite & Earn", short: "Invite", icon: Gift },
 ];
 
 const ACCOUNT_KEYS = ["funding", "spot", "contract", "delivery", "nft"];

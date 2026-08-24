@@ -16,10 +16,10 @@ import {
 import { CopyBotAPI } from "../lib/api.js";
 
 const TABS = [
-  { id: "analytics", label: "AI Analytics", icon: BarChart3 },
-  { id: "prediction", label: "Prediction & Asset", icon: Target },
-  { id: "followers", label: "Live Followers", icon: Users },
-  { id: "lock", label: "Execution & Lock", icon: Lock },
+  { id: "analytics", label: "Analytics accuracy", icon: BarChart3 },
+  { id: "prediction", label: "Prediction & asset", icon: Target },
+  { id: "followers", label: "Followers", icon: Users },
+  { id: "lock", label: "Follow/Lock", icon: Lock },
 ];
 
 function fmtUsd(n) {
@@ -256,10 +256,10 @@ export default function SpotCopyTrade({ onToast, onWalletUpdate, walletUsdt = 0 
               </div>
               <div>
                 <div className="mb-2 text-[11px] font-semibold uppercase text-slate-500">
-                  Other high-probability signals
+                  Prediction & asset · Oil / Gold / BTC
                 </div>
                 <div className="space-y-2">
-                  {bots.slice(0, 4).map((b) => (
+                  {bots.slice(0, 6).map((b) => (
                     <button
                       key={b.id}
                       type="button"

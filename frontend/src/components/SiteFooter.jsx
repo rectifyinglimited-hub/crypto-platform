@@ -71,7 +71,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
           <BrandLogo />
           <p className="mt-3 text-xs leading-relaxed text-white/45">
             Digital trading terminal. Invite-gated accounts. Trade · Deposit ·
-            Withdraw · Copy AI Bot.
+            Withdraw · Spot Copy · Future AI.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {SOCIAL_LINKS.map((s) => {
@@ -97,29 +97,29 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
           <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">
             Company
           </div>
-          <ul className="mt-3 space-y-1.5 text-sm text-white/70">
+          <ul className="mt-3 space-y-0.5 text-sm text-white/70">
             <li>
-              <button type="button" className="underline-offset-2 hover:text-white hover:underline" onClick={() => go("about")}>
+              <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("about")}>
                 About us
               </button>
             </li>
             <li>
-              <button type="button" className="underline-offset-2 hover:text-white hover:underline" onClick={() => go("referral")}>
-                Referral
+              <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("referral")}>
+                Invite & Earn
               </button>
             </li>
             <li>
-              <button type="button" className="underline-offset-2 hover:text-white hover:underline" onClick={() => go("vip")}>
+              <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("vip")}>
                 VIP
               </button>
             </li>
             <li>
-              <button type="button" className="underline-offset-2 hover:text-white hover:underline" onClick={() => go("certificate")}>
+              <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("certificate")}>
                 Certificate
               </button>
             </li>
             <li>
-              <button type="button" className="underline-offset-2 hover:text-white hover:underline" onClick={() => go("contact")}>
+              <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("contact")}>
                 Contact support
               </button>
             </li>
