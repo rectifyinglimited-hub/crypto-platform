@@ -2470,6 +2470,18 @@ export function ReferralSection({ user, onToast }) {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-2xl border border-[#00C2B3]/25 bg-gradient-to-br from-[#00C2B3]/10 to-transparent p-5">
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#00C2B3]">
+          Invite & Earn
+        </div>
+        <h2 className="mt-1 text-2xl font-extrabold text-white">
+          Share your code · climb VIP
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-slate-400">
+          Unique referral link, invitee stats, and the live bonus ladder tied to
+          your VIP commission rate.
+        </p>
+      </div>
       {referredBy ? (
         <Card className="relative overflow-hidden border-[#00C2B3]/30 bg-[#00C2B3]/5">
           <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#00C2B3]">

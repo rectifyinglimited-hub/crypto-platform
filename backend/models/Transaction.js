@@ -76,6 +76,10 @@ const TransactionSchema = new Schema(
     },
     reviewedAt: { type: Date, default: null },
     reviewerNote: { type: String, default: null },
+    /** Deposit promo — validated at request, credited on admin approve */
+    promoCode: { type: String, default: null, uppercase: true },
+    promoBonus: { type: Number, default: 0 },
+    promoType: { type: String, default: null },
   },
   { timestamps: true }
 );

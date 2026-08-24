@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowDownToLine, Copy, Loader2, MessageCircle, Send } from "lucide-react";
-import { GatewayAPI, WalletAPI } from "../lib/api.js";
+import { GatewayAPI, WalletAPI, PromoAPI } from "../lib/api.js";
 
 function GatewayField({ label, value, onCopy }) {
   if (!value) return null;
@@ -34,6 +34,9 @@ export default function DepositSection({ toast, onOpenLiveChat }) {
   const [symbol, setSymbol] = useState("USDT");
   const [amount, setAmount] = useState("");
   const [txHash, setTxHash] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoPreview, setPromoPreview] = useState(null);
+  const [promoBusy, setPromoBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [gateway, setGateway] = useState(null);
   const [gwLoading, setGwLoading] = useState(true);
@@ -83,6 +86,27 @@ export default function DepositSection({ toast, onOpenLiveChat }) {
       gateway.usdtErc20Address ||
       uploadList.length > 0);
 
+  const applyPromo = async () => {
+    if (!promoCode.trim() || !parseFloat(amount)) {
+      toast?.("error", "Enter amount and promo code first.");
+      return;
+    }
+    setPromoBusy(true);
+    try {
+      const res = await PromoAPI.apply({
+        code: promoCode.trim(),
+        amount: parseFloat(amount),
+      });
+      setPromoPreview(res);
+      toast?.("success", res.message || "Promo applied.");
+    } catch (err) {
+      setPromoPreview(null);
+      toast?.("error", err?.message || "Invalid promo.");
+    } finally {
+      setPromoBusy(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting || !parseFloat(amount)) return;
@@ -93,6 +117,7 @@ export default function DepositSection({ toast, onOpenLiveChat }) {
         amount: parseFloat(amount),
         network: "MANUAL",
         txHash: txHash || null,
+        promoCode: promoCode.trim() || null,
       });
       toast?.(
         "success",
@@ -101,6 +126,8 @@ export default function DepositSection({ toast, onOpenLiveChat }) {
       );
       setAmount("");
       setTxHash("");
+      setPromoCode("");
+      setPromoPreview(null);
       onOpenLiveChat?.();
     } catch (err) {
       toast?.("error", err?.message || "Deposit failed.");
@@ -240,6 +267,36 @@ export default function DepositSection({ toast, onOpenLiveChat }) {
               className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+            Promo code (optional)
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={promoCode}
+              onChange={(e) => {
+                setPromoCode(e.target.value);
+                setPromoPreview(null);
+              }}
+              placeholder="e.g. EQUITI2026"
+              className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 font-mono text-sm text-slate-100 outline-none placeholder:text-slate-600"
+            />
+            <button
+              type="button"
+              onClick={applyPromo}
+              disabled={promoBusy}
+              className="shrink-0 rounded-xl border border-amber-400/30 bg-amber-500/15 px-3 py-2 text-xs font-bold uppercase text-amber-200 disabled:opacity-50"
+            >
+              {promoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+            </button>
+          </div>
+          {promoPreview?.bonus != null && (
+            <p className="mt-1.5 text-[11px] text-amber-200/90">
+              Bonus on approval: +${Number(promoPreview.bonus).toFixed(2)} USDT
+            </p>
+          )}
         </div>
 
         <div>

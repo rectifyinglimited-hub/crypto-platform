@@ -365,15 +365,20 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-300/80">
-              Copy AI Bot Trading
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-300/80">
+                AI Future Trade
+              </div>
+              <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+                Testing
+              </span>
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">
               Algorithmic lock contracts
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Admin-assigned lock · live accrued profit · equity graph. Early cancel
-              forfeits yield and deducts {CANCEL_PENALTY_PCT}% of principal.
+              Future AI desk (testing). Admin-assigned lock · live accrued profit ·
+              equity graph. Spot strategies live under AI Spot Copy Trade.
             </p>
           </div>
         </div>

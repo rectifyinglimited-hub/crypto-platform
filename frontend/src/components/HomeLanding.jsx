@@ -42,7 +42,7 @@ const CORP_PILLARS = [
   {
     icon: Activity,
     title: "AI Bot & earn products",
-    body: "Contract-bound Copy AI Bot locks, Carbon ETF, ICO, and Loan — with admin-controlled yields.",
+    body: "Contract-bound AI Future locks and Spot Copy strategies — with admin-controlled yields.",
   },
   {
     icon: ShieldCheck,
@@ -55,7 +55,7 @@ const WORKFLOW = [
   {
     step: "01",
     title: "Open any market",
-    body: "Use the top nav to jump between Market, Delivery, Spot, or Copy AI Bot Trading.",
+    body: "Use the top nav for Market, Trade, AI Spot Copy, or AI Future Trade.",
   },
   {
     step: "02",
@@ -87,8 +87,8 @@ const FEATURES = [
   },
   {
     icon: Zap,
-    title: "Copy AI Bot Trading",
-    body: "Legal contract modal, lock periods, and admin-set target return percentages.",
+    title: "AI Spot Copy Trade",
+    body: "Follow Oil / Gold / BTC predictions with accuracy %, followers, and asset lock.",
   },
   {
     icon: Globe2,
@@ -622,7 +622,12 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
             </div>
           </div>
         </div>
-        <NeonLiveGraph symbol="ETH" height={320} transparent />
+        <div className="hidden md:block">
+          <NeonLiveGraph symbol="ETH" height={320} transparent />
+        </div>
+        <div className="md:hidden">
+          <NeonLiveGraph symbol="ETH" height={200} transparent />
+        </div>
         </div>
       </section>
 

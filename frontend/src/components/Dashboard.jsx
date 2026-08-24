@@ -50,6 +50,7 @@ import {
   ReferralSection,
 } from "./PlatformModules.jsx";
 import AiBotTradingPage from "./AiBotTrading.jsx";
+import SpotCopyTrade from "./SpotCopyTrade.jsx";
 import HomeLanding from "./HomeLanding.jsx";
 import SecondsTrading from "./SecondsTrading.jsx";
 import CryptoWatchlist from "./CryptoWatchlist.jsx";
@@ -1338,6 +1339,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 <MarketActivity />
               </div>
             </motion.div>
+          )}
+          {page === "spotcopy" && (
+            <SpotCopyTrade
+              key="spotcopy"
+              onToast={say}
+              onWalletUpdate={handleUserUpdate}
+              walletUsdt={walletUsdt}
+            />
           )}
           {page === "aibot" && (
             <AiBotTradingPage

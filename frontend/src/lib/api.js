@@ -454,6 +454,40 @@ export const AiBotAPI = {
       .then((r) => r.data),
 };
 
+/** Spot Copy catalog + follow locks */
+export const CopyBotAPI = {
+  list: (tradeType = "spot_copy") =>
+    api
+      .get("/copy-bots/bots", { params: { tradeType } })
+      .then((r) => r.data),
+  myLock: () => api.get("/copy-bots/spot/my-lock").then((r) => r.data),
+  follow: (payload) =>
+    api.post("/copy-bots/spot/follow", payload).then((r) => r.data),
+  adminList: (tradeType) =>
+    api
+      .get("/copy-bots/admin/bots", {
+        params: tradeType ? { tradeType } : {},
+      })
+      .then((r) => r.data),
+  adminCreate: (payload) =>
+    api.post("/copy-bots/admin/bots", payload).then((r) => r.data),
+  adminUpdate: (id, payload) =>
+    api.patch(`/copy-bots/admin/bots/${id}`, payload).then((r) => r.data),
+  adminDelete: (id) =>
+    api.delete(`/copy-bots/admin/bots/${id}`).then((r) => r.data),
+};
+
+/** Deposit promo codes */
+export const PromoAPI = {
+  apply: (payload) => api.post("/promo/apply", payload).then((r) => r.data),
+  adminList: () => api.get("/promo/admin").then((r) => r.data),
+  adminGenerate: (payload) =>
+    api.post("/promo/admin/generate", payload).then((r) => r.data),
+  adminUpdate: (id, payload) =>
+    api.patch(`/promo/admin/${id}`, payload).then((r) => r.data),
+  adminDelete: (id) => api.delete(`/promo/admin/${id}`).then((r) => r.data),
+};
+
 /** Absolute URL for /uploads/... proof images */
 export const assetUrl = (path) => {
   if (!path) return "";

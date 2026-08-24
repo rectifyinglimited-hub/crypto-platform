@@ -63,6 +63,7 @@ import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import AdminPlatformModules from "./AdminPlatformModules.jsx";
 import AdminAiBotAndMatrix from "./AdminAiBotAndMatrix.jsx";
+import AdminCopyBotsPromo from "./AdminCopyBotsPromo.jsx";
 import AdminReferralVip from "./AdminReferralVip.jsx";
 import UserControlRoom, {
   ActiveTradesAlertBar,
@@ -2969,7 +2970,8 @@ export default function AdminPanel({ user, onExit }) {
     { key: "kyc", label: "KYC Review", icon: BadgeCheck },
     { key: "details", label: "User Details", icon: CreditCard },
     { key: "platform", label: "Platform Modules", icon: Package },
-    { key: "aibot", label: "AI Bot & Algo", icon: Bot },
+    { key: "aibot", label: "AI Future & Algo", icon: Bot },
+    { key: "copybots", label: "Spot Copy & Promo", icon: Ticket },
     { key: "referral", label: "Referral & VIP", icon: Crown },
     { key: "transactions", label: "Transactions", icon: Receipt },
     { key: "gateway", label: "Gateway Settings", icon: Landmark },
@@ -3254,6 +3256,9 @@ export default function AdminPanel({ user, onExit }) {
             )}
             {section === "aibot" && (
               <AdminAiBotAndMatrix key="aibot" toast={say} />
+            )}
+            {section === "copybots" && (
+              <AdminCopyBotsPromo key="copybots" toast={say} />
             )}
             {section === "referral" && (
               <AdminReferralVip key="referral" toast={say} />

@@ -22,6 +22,7 @@ import Message from "../models/Message.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uploadProof, proofPublicUrl } from "../middleware/upload.js";
 import { emitChatMessage } from "../socket.js";
+import { validatePromoForDeposit } from "./promo.js";
 
 const router = Router();
 
@@ -92,29 +93,55 @@ router.post(
     body("amount").isFloat({ gt: 0 }),
     body("network").optional({ nullable: true, checkFalsy: true }).isString(),
     body("txHash").optional({ nullable: true, checkFalsy: true }).isString(),
+    body("promoCode").optional({ nullable: true, checkFalsy: true }).isString(),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return sendValidationError(res, errors);
 
     const symbol = req.body.symbol.toUpperCase();
+    const amount = Number(req.body.amount);
+    let promoCode = null;
+    let promoBonus = 0;
+    let promoType = null;
+
+    if (req.body.promoCode) {
+      const check = await validatePromoForDeposit(req.body.promoCode, amount);
+      if (!check.ok) {
+        return res.status(422).json({
+          success: false,
+          error: "PromoError",
+          message: check.message,
+        });
+      }
+      promoCode = check.promo.code;
+      promoBonus = check.bonus;
+      promoType = check.promo.type;
+    }
+
     const owner = await User.findById(req.auth.sub).select("adminId");
     const tx = await Transaction.create({
       user: req.auth.sub,
       adminId: owner?.adminId || null,
       kind: "deposit",
       symbol,
-      amount: Number(req.body.amount),
+      amount,
       network: req.body.network || "TRC20",
       txHash: req.body.txHash || null,
       status: "pending",
+      promoCode,
+      promoBonus,
+      promoType,
     });
 
     return res.status(201).json({
       success: true,
       message:
-        "Deposit submitted — Pending Verification / Awaiting Admin Approval.",
+        promoBonus > 0
+          ? `Deposit submitted with promo ${promoCode} (+$${promoBonus.toFixed(2)} on approval).`
+          : "Deposit submitted — Pending Verification / Awaiting Admin Approval.",
       transaction: tx,
+      promoBonus,
     });
   })
 );

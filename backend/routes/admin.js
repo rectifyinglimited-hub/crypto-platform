@@ -925,11 +925,23 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
     const current = Number(user.wallet.get(tx.symbol) || 0);
 
     if (tx.kind === "deposit") {
-      // Credit Trading Wallet (wallet[symbol], typically USDT) immediately
-      user.wallet.set(tx.symbol, current + Number(tx.amount));
+      // Credit Trading Wallet + optional promo bonus
+      const bonus = Number(tx.promoBonus || 0);
+      user.wallet.set(tx.symbol, current + Number(tx.amount) + bonus);
       user.markModified("wallet");
       await user.save();
       affectedUser = user;
+      if (tx.promoCode && bonus > 0) {
+        try {
+          const PromoCode = (await import("../models/PromoCode.js")).default;
+          await PromoCode.findOneAndUpdate(
+            { code: String(tx.promoCode).toUpperCase() },
+            { $inc: { usedCount: 1 } }
+          );
+        } catch {
+          /* ignore promo counter */
+        }
+      }
     } else if (tx.kind === "withdrawal") {
       if (!tx.fundsHeld) {
         if (current < tx.amount) {

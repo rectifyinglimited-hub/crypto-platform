@@ -30,6 +30,8 @@ import secondsTradeRoutes, {
 } from "./routes/secondsTrade.js";
 import platformRoutes from "./routes/platform.js";
 import aiBotRoutes from "./routes/aiBot.js";
+import copyBotRoutes from "./routes/copyBots.js";
+import promoRoutes from "./routes/promo.js";
 import { runVipUpgradeSweep } from "./lib/referralEngine.js";
 import { initSocket } from "./socket.js";
 import User from "./models/User.js";
@@ -107,6 +109,8 @@ app.use("/api/gateway", gatewayRoutes);
 app.use("/api/seconds-trade", secondsTradeRoutes);
 app.use("/api/platform", platformRoutes);
 app.use("/api/ai-bot", aiBotRoutes);
+app.use("/api/copy-bots", copyBotRoutes);
+app.use("/api/promo", promoRoutes);
 
 // 404
 app.use((req, res) => {
