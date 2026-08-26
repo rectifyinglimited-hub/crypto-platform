@@ -11,7 +11,7 @@ import Transaction from "../models/Transaction.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 import { tenantDocFilter } from "../middleware/tenant.js";
-import { emitWalletUpdate } from "../socket.js";
+import { emitWalletUpdate, emitSmartCopySubmitted } from "../socket.js";
 import {
   normalizeSmartCopy,
   serializeSmartCopy,
@@ -447,7 +447,7 @@ router.post(
       adminId: user.adminId || null,
       principal: 0,
       lockDays: 30,
-      yieldPct: 0,
+      yieldPct: Number(user.smartCopyCommissionPct || 0),
       startDate,
       endDate: new Date(startDate.getTime() + 30 * 86400000),
       status: "active",
@@ -460,6 +460,17 @@ router.post(
     });
 
     if (user.isModified()) await user.save();
+
+    try {
+      emitSmartCopySubmitted(lock, {
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        adminId: user.adminId,
+      });
+    } catch {
+      /* ignore socket failures */
+    }
 
     const copies = await SpotCopyLock.find({
       user: user._id,

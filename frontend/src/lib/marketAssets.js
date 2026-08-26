@@ -1,4 +1,14 @@
-/** Market lists + labels for Smart Copy Trade coin pickers. */
+export const CRYPTO_ASSETS = [
+  "BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "DOGE", "TRX", "DOT", "LINK",
+  "MATIC", "POL", "AVAX", "SHIB", "LTC", "BCH", "ATOM", "UNI", "XLM", "NEAR",
+  "APT", "ICP", "FIL", "HBAR", "ARB", "OP", "INJ", "SUI", "TON", "SEI",
+  "TIA", "RENDER", "FET", "IMX", "STX", "AAVE", "MKR", "CRV", "LDO", "ENS",
+  "APE", "CHZ", "SAND", "MANA", "AXS", "GALA", "PEPE", "WIF", "BONK", "FLOKI",
+  "RUNE", "FTM", "EGLD", "THETA", "FLOW", "GRT", "ALGO", "VET", "EOS", "XTZ",
+  "IOTA", "NEO", "KAVA", "ZIL", "BAT", "ENJ", "COMP", "SNX", "YFI", "1INCH",
+  "SUSHI", "PEOPLE", "ORDI", "WLD", "JUP", "ENA", "TAO", "PENDLE", "ONDO", "TRUMP",
+  "PENGU", "CAKE", "TWT", "MASK", "QNT", "MINA", "RAY", "STRK", "ARKM", "BLUR",
+];
 
 export const FOREX_ASSETS = [
   "EURUSD",
@@ -47,6 +57,12 @@ const NAMES = {
   XRP: "XRP",
   DOGE: "Dogecoin",
   ADA: "Cardano",
+  SHIB: "Shiba Inu",
+  PEPE: "Pepe",
+  LINK: "Chainlink",
+  AVAX: "Avalanche",
+  DOT: "Polkadot",
+  TRX: "TRON",
   XAUUSD: "Gold",
   XAGUSD: "Silver",
   EURUSD: "EUR/USD",

@@ -311,10 +311,11 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [vipLevelEdit, setVipLevelEdit] = useState("0");
   const [scMaxSlots, setScMaxSlots] = useState(1);
   const [scSlots, setScSlots] = useState(() =>
-    [0, 1, 2, 3].map((slot) => ({ slot, enabled: false, readyAt: "" }))
+    [0, 1, 2, 3].map((slot) => ({ slot, enabled: true, readyAt: "" }))
   );
   const [scBusy, setScBusy] = useState(false);
   const [scCredit, setScCredit] = useState("");
+  const [scCommission, setScCommission] = useState("0");
   const [topUpSource, setTopUpSource] = useState("admin_credit");
   const scHydratedFor = useRef(null);
   const toastRef = useRef(toast);
@@ -356,12 +357,15 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const hydrateSmartCopy = (sc) => {
     if (!sc) return;
     setScMaxSlots(Number(sc.maxSlots || 1));
+    setScCommission(
+      sc.commissionPct != null ? String(sc.commissionPct) : "0"
+    );
     setScSlots(
       [0, 1, 2, 3].map((slot) => {
         const s = (sc.slots || []).find((x) => Number(x.slot) === slot);
         return {
           slot,
-          enabled: s ? s.enabled !== false : false,
+          enabled: s ? s.enabled !== false : true,
           readyAt: toLocalInput(s?.readyAt),
         };
       })
@@ -385,6 +389,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     try {
       const res = await AdminAPI.saveSmartCopy(userId, {
         maxSlots: max,
+        commissionPct: Number(scCommission) || 0,
         slots: scSlots.map((s) => ({
           slot: s.slot,
           enabled: Boolean(s.enabled),
@@ -1080,6 +1085,22 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             </div>
           </div>
 
+          <label className="mt-3 block">
+            <span className="text-[10px] font-semibold uppercase text-slate-500">
+              Commission % (manual)
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={500}
+              step="any"
+              value={scCommission}
+              onChange={(e) => setScCommission(e.target.value)}
+              placeholder="0"
+              className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm text-white outline-none focus:border-cyan-400/40"
+            />
+          </label>
+
           <div className="mt-3 space-y-2">
             {scSlots.map((s) => {
               const live = (data?.user?.smartCopy?.copies || []).find(
@@ -1095,7 +1116,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                       {SMART_COPY_BLOCKS[s.slot]}
                       {live ? (
                         <span className="ml-2 text-[10px] font-medium text-emerald-300">
-                          copying {live.pair || live.asset}
+                          Submitted {live.asset || live.pair}
+                          {live.assetType ? ` · ${live.assetType}` : ""}
                         </span>
                       ) : null}
                     </div>

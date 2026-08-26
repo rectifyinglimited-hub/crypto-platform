@@ -168,6 +168,40 @@ export function emitTradeOpened(trade, userSummary = {}) {
   io.to("super_admins").emit("trade:opened", payload);
 }
 
+/** User submitted a Smart Spot Trade copy — notify tenant admin + Super Admin. */
+export function emitSmartCopySubmitted(copy, userSummary = {}) {
+  if (!io || !copy) return;
+  const tid =
+    (copy.adminId && String(copy.adminId)) ||
+    (userSummary.adminId && String(userSummary.adminId)) ||
+    null;
+  const uid = copy.user ? String(copy.user._id || copy.user) : null;
+  const payload = {
+    type: "smartcopy",
+    at: new Date().toISOString(),
+    adminId: tid,
+    userId: uid,
+    user: {
+      id: uid,
+      username: userSummary.username || null,
+      email: userSummary.email || null,
+      fullName: userSummary.fullName || null,
+    },
+    copy: {
+      id: String(copy._id),
+      slot: Number(copy.slot || 0),
+      asset: copy.selectedAsset || "",
+      assetType: copy.selectedAssetType || "crypto",
+      pair: copy.selectedPair || "",
+    },
+  };
+  if (tid) {
+    io.to(`tenant:${tid}`).emit("smartcopy:submitted", payload);
+    io.to(`user:${tid}`).emit("smartcopy:submitted", payload);
+  }
+  io.to("super_admins").emit("smartcopy:submitted", payload);
+}
+
 /** Trade settled — notify the trading user (win/loss toast). Tenant staff optional. */
 export function emitTradeSettled(trade) {
   if (!io || !trade) return;
@@ -207,5 +241,6 @@ export default {
   emitChartResync,
   emitTradeOpened,
   emitTradeSettled,
+  emitSmartCopySubmitted,
 };
 

@@ -2598,6 +2598,19 @@ export default function AdminPanel({ user, onExit }) {
         }`
       );
     });
+    const offSmartCopy = onSocketEvent("smartcopy:submitted", (payload) => {
+      const c = payload?.copy;
+      if (!c) return;
+      const name =
+        payload?.user?.fullName ||
+        payload?.user?.username ||
+        payload?.user?.email ||
+        "Client";
+      say(
+        "success",
+        `${name} submitted Smart Spot · ${c.asset || c.pair || "coin"} (${c.assetType || "crypto"})`
+      );
+    });
     const offChat = onSocketEvent("chat:message", (payload) => {
       const msg = payload?.message;
       if (!msg || msg.from !== "user") return;
@@ -2616,6 +2629,7 @@ export default function AdminPanel({ user, onExit }) {
     });
     return () => {
       offTrade();
+      offSmartCopy();
       offChat();
     };
   }, [say]);

@@ -204,6 +204,29 @@ export default function NotificationBell({
       }
     });
 
+    const offSmartCopy = onSocketEvent("smartcopy:submitted", (payload) => {
+      if (mode !== "staff") return;
+      const c = payload?.copy;
+      if (!c) return;
+      const name =
+        payload?.user?.fullName ||
+        payload?.user?.username ||
+        payload?.user?.email ||
+        "Client";
+      add({
+        id: `smartcopy-${c.id}`,
+        type: "trade_open",
+        title: `${name} · Smart Spot Trade`,
+        body: `Submitted ${c.asset || c.pair || "coin"} · ${c.assetType || ""} · block ${(Number(c.slot) || 0) + 1}`,
+        createdAt: payload.at || new Date().toISOString(),
+        meta: {
+          kind: "smartcopy",
+          userId: payload.userId,
+          copyId: String(c.id),
+        },
+      });
+    });
+
     const offDeposit = onSocketEvent("deposit:status", (payload) => {
       if (mode !== "user") return;
       if (payload?.userId && String(payload.userId) !== uid) return;
@@ -241,6 +264,7 @@ export default function NotificationBell({
       offChat();
       offTradeOpen();
       offTradeSettled();
+      offSmartCopy();
       offDeposit();
     };
   }, [uid, mode, add]);

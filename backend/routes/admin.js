@@ -267,6 +267,10 @@ router.put(
     if (Number.isFinite(max)) {
       user.smartCopyMaxSlots = Math.min(4, Math.max(1, Math.round(max)));
     }
+    const commission = Number(req.body.commissionPct);
+    if (Number.isFinite(commission)) {
+      user.smartCopyCommissionPct = Math.min(500, Math.max(0, commission));
+    }
     if (Array.isArray(req.body.slots)) {
       const next = [0, 1, 2, 3].map((slot) => {
         const incoming = req.body.slots.find((s) => Number(s.slot) === slot);

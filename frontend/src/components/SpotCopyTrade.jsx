@@ -13,6 +13,7 @@ import {
 import { CopyBotAPI, SecondsTradeAPI, WalletAPI } from "../lib/api.js";
 import SpotCopyChart from "./SpotCopyChart.jsx";
 import {
+  CRYPTO_ASSETS,
   FOREX_ASSETS,
   STOCK_ASSETS,
   chartSymbol,
@@ -79,7 +80,7 @@ function fmtDelta(n) {
   return `$${abs}`;
 }
 
-function CoinPicker({ asset, assetType, lists, onChange }) {
+function CoinPicker({ asset, assetType, lists, onChange, disabled }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState(assetType || "crypto");
   const [q, setQ] = useState("");
@@ -99,8 +100,9 @@ function CoinPicker({ asset, assetType, lists, onChange }) {
     <div className={`relative ${open ? "z-40" : "z-20"}`} onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex max-w-full items-center gap-1 rounded-lg border border-white/20 bg-black/40 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-md"
+        onClick={() => !disabled && setOpen((v) => !v)}
+        disabled={disabled}
+        className="inline-flex max-w-full items-center gap-1 rounded-lg border border-white/20 bg-black/40 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-md disabled:opacity-60"
       >
         <span className="truncate">
           {displayName(asset, assetType)} · {pairLabel(asset, assetType)}
@@ -138,7 +140,7 @@ function CoinPicker({ asset, assetType, lists, onChange }) {
             />
           </div>
           <div className="max-h-48 overflow-y-auto py-1">
-            {filtered.slice(0, 120).map((a) => (
+            {filtered.slice(0, 400).map((a) => (
               <button
                 key={`${tab}-${a}`}
                 type="button"
@@ -220,7 +222,7 @@ function CopySyncOverlay({ asset, assetType, secondsLeft }) {
             {secondsLeft}
           </div>
           <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">
-            Syncing copy
+            Submitting
           </div>
           <div className="mt-0.5 max-w-[7.5rem] truncate text-[10px] text-white/70">
             {displayName(asset, assetType)}
@@ -249,14 +251,11 @@ function SignalCard({
   let actionLabel = "Ready to Copy";
   let tone = "ready";
   if (copied) {
-    actionLabel = "Auto-Copying";
+    actionLabel = "Submitted";
     tone = "live";
   } else if (animating) {
-    actionLabel = "Syncing…";
+    actionLabel = "Submitting…";
     tone = "pending";
-  } else if (closedReason) {
-    actionLabel = closedReason;
-    tone = "review";
   }
 
   return (
@@ -300,6 +299,7 @@ function SignalCard({
                 asset={pick.asset}
                 assetType={pick.assetType}
                 lists={lists}
+                disabled={copied}
                 onChange={onPick}
               />
             </div>
@@ -354,6 +354,11 @@ function SignalCard({
             </button>
           </div>
         </div>
+        {closedReason && !copied && !animating ? (
+          <div className="mt-2 text-right text-[10px] text-white/40">
+            {closedReason}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -364,7 +369,7 @@ export default function SpotCopyTrade() {
   const [copies, setCopies] = useState([]);
   const [picks, setPicks] = useState(loadPicks);
   const [lists, setLists] = useState({
-    crypto: WATCHLIST_CRYPTO,
+    crypto: CRYPTO_ASSETS,
     forex: FOREX_ASSETS,
     stock: STOCK_ASSETS,
   });
@@ -402,8 +407,8 @@ export default function SpotCopyTrade() {
       ];
       setLists({
         crypto: crypto.length
-          ? [...new Set([...crypto, ...WATCHLIST_CRYPTO])]
-          : WATCHLIST_CRYPTO,
+          ? [...new Set([...crypto, ...CRYPTO_ASSETS, ...WATCHLIST_CRYPTO])]
+          : [...new Set([...CRYPTO_ASSETS, ...WATCHLIST_CRYPTO])],
         forex: forex.length
           ? [...new Set([...forex, ...FOREX_ASSETS])]
           : FOREX_ASSETS,
@@ -517,8 +522,12 @@ export default function SpotCopyTrade() {
           SMART SPOT TRADE
         </h1>
         <p className="mt-1 text-xs text-white/45">
-          Pick any crypto, forex or stock on a block · Ready to Copy is admin-gated
-          · you can activate {maxSlots} block{maxSlots > 1 ? "s" : ""}.
+          Pick Crypto / Forex / Stocks on each graph · Ready to Copy · you can
+          submit {maxSlots} block{maxSlots > 1 ? "s" : ""}
+          {Number(desk?.commissionPct) > 0
+            ? ` · admin commission ${desk.commissionPct}%`
+            : ""}
+          .
         </p>
         {error ? (
           <div className="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">

@@ -53,7 +53,7 @@ export function normalizeSmartCopy(user) {
     const found = prev.find((s) => Number(s.slot) === slot);
     return {
       slot,
-      enabled: found ? found.enabled !== false : false,
+      enabled: found ? found.enabled !== false : true,
       readyAt: found?.readyAt || null,
     };
   });
@@ -68,6 +68,7 @@ export function serializeSmartCopy(user, copies = []) {
   );
   return {
     maxSlots: Number(user.smartCopyMaxSlots || 1),
+    commissionPct: Number(user.smartCopyCommissionPct || 0),
     copiedCount: copiedSlots.size,
     slots: user.smartCopySlots.map((s) => {
       const meta = SMART_COPY_SLOTS[s.slot] || SMART_COPY_SLOTS[0];

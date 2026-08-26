@@ -167,7 +167,12 @@ const UserSchema = new Schema(
       type: Boolean,
       default: true,
     },
-    /** Smart Copy Trade — how many signal blocks this user may activate */
+    smartCopyCommissionPct: {
+      type: Number,
+      min: 0,
+      max: 500,
+      default: 0,
+    },
     smartCopyMaxSlots: {
       type: Number,
       min: 1,
@@ -178,14 +183,14 @@ const UserSchema = new Schema(
       type: [
         {
           slot: { type: Number, min: 0, max: 3 },
-          enabled: { type: Boolean, default: false },
+          enabled: { type: Boolean, default: true },
           readyAt: { type: Date, default: null },
         },
       ],
       default: () =>
         [0, 1, 2, 3].map((slot) => ({
           slot,
-          enabled: false,
+          enabled: true,
           readyAt: null,
         })),
     },
