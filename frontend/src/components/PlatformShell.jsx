@@ -24,6 +24,7 @@ import {
   BadgeCheck,
   Gift,
   Copy,
+  History,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
@@ -35,7 +36,7 @@ const MAIN_MENU = [
   { key: "trade", label: "Trade", icon: CandlestickChart },
   { key: "spotcopy", label: "Smart Spot Trade", icon: Copy },
   { key: "aibot", label: "AI Futures Strategy", icon: Bot },
-  { key: "assets", label: "Assets", icon: Wallet },
+  { key: "assets", label: "History", icon: History },
 ];
 
 const FINANCE_LINKS = [
@@ -390,7 +391,7 @@ export default function PlatformShell({
                 type="button"
                 onClick={() => handlePageChange("assets")}
                 className="hidden items-center gap-1.5 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-2.5 py-1.5 sm:inline-flex"
-                title="Assets"
+                title="History"
               >
                 <Wallet className="h-3.5 w-3.5 text-cyan-300" />
                 <span className="text-xs font-bold tabular-nums text-white">

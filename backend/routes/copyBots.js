@@ -16,7 +16,13 @@ import {
   normalizeSmartCopy,
   serializeSmartCopy,
   isSlotOpen,
+  refreshSmartCopyCycle,
+  smartCopyCycleOpen,
+  smartCopyCommissionMode,
+  smartCopyLiveRate,
+  SMART_COPY_CYCLE_MS,
 } from "../lib/smartCopy.js";
+import { applyUsdtDelta, walletObj } from "../lib/ledger.js";
 
 const router = Router();
 
@@ -32,11 +38,6 @@ function requireDatabase(_req, res, next) {
     });
   }
   return next();
-}
-
-function walletObj(w) {
-  if (w instanceof Map) return Object.fromEntries(w);
-  return { ...(w || {}) };
 }
 
 async function ensureSeedBots() {
@@ -365,6 +366,7 @@ router.get(
       return res.status(404).json({ success: false, message: "User not found." });
     }
     normalizeSmartCopy(user);
+    await refreshSmartCopyCycle(user);
     const copies = await SpotCopyLock.find({
       user: user._id,
       status: "active",
@@ -378,7 +380,7 @@ router.get(
   })
 );
 
-// POST /spot/copy — activate a signal block (no wallet lock; admin credits later)
+// POST /spot/copy — submit a signal block; credits daily commission once per 24h
 router.post(
   "/spot/copy",
   requireAuth,
@@ -405,6 +407,7 @@ router.post(
       return res.status(404).json({ success: false, message: "User not found." });
     }
     normalizeSmartCopy(user);
+    await refreshSmartCopyCycle(user);
     const slotDoc = user.smartCopySlots.find((s) => Number(s.slot) === slot);
     if (!isSlotOpen(slotDoc)) {
       return res.status(403).json({
@@ -440,16 +443,28 @@ router.post(
     }
 
     const startDate = new Date();
+    const paying = smartCopyCycleOpen(user, startDate);
+    const mode = smartCopyCommissionMode(user);
+    const rate = smartCopyLiveRate(user, startDate);
+    const bal = Number(
+      (user.wallet instanceof Map
+        ? user.wallet.get("USDT")
+        : user.wallet?.USDT) || 0
+    );
+    const credit = paying
+      ? Number(((bal * rate) / 100).toFixed(8))
+      : 0;
+
     const lock = await SpotCopyLock.create({
       user: user._id,
       bot: null,
       slot,
       adminId: user.adminId || null,
       principal: 0,
-      lockDays: 30,
-      yieldPct: Number(user.smartCopyCommissionPct || 0),
+      lockDays: 1,
+      yieldPct: rate,
       startDate,
-      endDate: new Date(startDate.getTime() + 30 * 86400000),
+      endDate: new Date(startDate.getTime() + SMART_COPY_CYCLE_MS),
       status: "active",
       assetType: pair,
       selectedAsset: asset,
@@ -459,7 +474,23 @@ router.post(
       confidenceAtFollow: null,
     });
 
-    if (user.isModified()) await user.save();
+    if (paying) {
+      user.smartCopyLastSubmitAt = startDate;
+      await applyUsdtDelta(user, credit, {
+        source: "smart_copy",
+        kind: "trade",
+        note: `Smart Spot Trade · ${mode} ${rate}% of $${bal.toFixed(2)} = $${credit.toFixed(2)} · ${pair || asset}`,
+      });
+      try {
+        emitWalletUpdate(user._id, walletObj(user.wallet), {
+          reason: "smart_copy_commission",
+        });
+      } catch {
+        /* ignore */
+      }
+    } else if (user.isModified()) {
+      await user.save();
+    }
 
     try {
       emitSmartCopySubmitted(lock, {
@@ -478,7 +509,11 @@ router.post(
     });
     res.status(201).json({
       success: true,
-      message: `Copying ${pair || asset}.`,
+      message: paying
+        ? `Submitted. Commission ${rate}% · $${credit.toFixed(2)} USDT credited.`
+        : `Copying ${pair || asset}.`,
+      credited: paying ? credit : 0,
+      rate: paying ? rate : 0,
       copy: serializeCopy(lock),
       desk: serializeSmartCopy(user, copies),
     });

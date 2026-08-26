@@ -173,6 +173,16 @@ const UserSchema = new Schema(
       max: 500,
       default: 0,
     },
+    /** auto = 2.0–2.7% of total USDT each 24h submit; manual = smartCopyCommissionPct */
+    smartCopyCommissionMode: {
+      type: String,
+      enum: ["auto", "manual"],
+      default: "auto",
+    },
+    smartCopyLastSubmitAt: {
+      type: Date,
+      default: null,
+    },
     smartCopyMaxSlots: {
       type: Number,
       min: 1,

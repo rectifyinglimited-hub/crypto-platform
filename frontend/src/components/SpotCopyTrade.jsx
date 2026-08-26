@@ -80,6 +80,21 @@ function fmtDelta(n) {
   return `$${abs}`;
 }
 
+function isSmartSpotTx(tx) {
+  const src = String(tx.source || "").toLowerCase();
+  if (src === "smart_copy") return true;
+  const note = String(tx.reviewerNote || tx.note || "");
+  return /smart spot|smart copy/i.test(note);
+}
+
+function fmtRemain(ms) {
+  const t = Math.max(0, Math.ceil(Number(ms) / 1000));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = t % 60;
+  return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+}
+
 function CoinPicker({ asset, assetType, lists, onChange, disabled }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState(assetType || "crypto");
@@ -240,6 +255,7 @@ function SignalCard({
   copied,
   canCopy,
   closedReason,
+  waitLabel,
   animating,
   secondsLeft,
   onPick,
@@ -359,6 +375,11 @@ function SignalCard({
             {closedReason}
           </div>
         ) : null}
+        {copied && waitLabel ? (
+          <div className="mt-2 text-right text-[10px] text-cyan-200/80">
+            {waitLabel}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -378,6 +399,8 @@ export default function SpotCopyTrade() {
   const [syncing, setSyncing] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(10);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [nowTs, setNowTs] = useState(Date.now());
 
   const load = useCallback(async () => {
     try {
@@ -429,6 +452,11 @@ export default function SpotCopyTrade() {
     return () => clearInterval(id);
   }, [load]);
 
+  useEffect(() => {
+    const id = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const slots = desk?.slots?.length ? desk.slots : SLOT_FALLBACK;
   const copiedSet = useMemo(
     () => new Set(copies.map((c) => Number(c.slot))),
@@ -437,6 +465,16 @@ export default function SpotCopyTrade() {
   const copiedCount = copiedSet.size;
   const maxSlots = Number(desk?.maxSlots || 1);
   const atLimit = copiedCount >= maxSlots;
+  const smartHistory = useMemo(
+    () => (history || []).filter(isSmartSpotTx),
+    [history]
+  );
+  const nextSubmitMs = desk?.nextSubmitAt
+    ? new Date(desk.nextSubmitAt).getTime() - nowTs
+    : 0;
+  const waiting = Boolean(desk?.nextSubmitAt) && nextSubmitMs > 0 && !desk?.canClaim;
+  const liveRate = Number(desk?.liveRate || 0);
+  const estimated = Number(desk?.estimatedCredit || 0);
 
   const pickFor = (slotMeta) => {
     const saved = picks[String(slotMeta.slot)];
@@ -482,9 +520,8 @@ export default function SpotCopyTrade() {
         pair: pairLabel(pick.asset, pick.assetType),
       });
       setDesk(res.desk || desk);
-      if (res.desk) {
-        /* copies refreshed below */
-      }
+      setNotice(res.message || "Submitted.");
+      setError("");
       await load();
     } catch (err) {
       setError(err?.message || "Copy failed.");
@@ -522,13 +559,26 @@ export default function SpotCopyTrade() {
           SMART SPOT TRADE
         </h1>
         <p className="mt-1 text-xs text-white/45">
-          Pick Crypto / Forex / Stocks on each graph · Ready to Copy · you can
-          submit {maxSlots} block{maxSlots > 1 ? "s" : ""}
-          {Number(desk?.commissionPct) > 0
-            ? ` · admin commission ${desk.commissionPct}%`
+          Submit to receive today’s commission on your total balance
+          {liveRate > 0
+            ? ` · ${desk?.commissionMode === "manual" ? "manual" : "auto"} ${liveRate.toFixed(1)}% ≈ $${estimated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             : ""}
-          .
+          . Come back after 24 hours to submit again.
         </p>
+        {waiting ? (
+          <p className="mt-2 text-xs font-semibold text-cyan-200">
+            Next submit in {fmtRemain(nextSubmitMs)}
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-emerald-200/80">
+            Ready to submit · you can copy {maxSlots} block{maxSlots > 1 ? "s" : ""}
+          </p>
+        )}
+        {notice ? (
+          <div className="mt-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+            {notice}
+          </div>
+        ) : null}
         {error ? (
           <div className="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
             {error}
@@ -564,6 +614,9 @@ export default function SpotCopyTrade() {
                 copied={copied}
                 canCopy={canCopy}
                 closedReason={closedReason}
+                waitLabel={
+                  copied && waiting ? `Next submit in ${fmtRemain(nextSubmitMs)}` : ""
+                }
                 animating={animating}
                 secondsLeft={secondsLeft}
                 onPick={(asset, type) =>
@@ -580,21 +633,20 @@ export default function SpotCopyTrade() {
             <History className="h-4 w-4 text-cyan-300" />
             <div>
               <h2 className="text-sm font-semibold text-white">
-                Balance history
+                SMART SPOT TRADE history
               </h2>
               <p className="text-[11px] text-white/40">
-                One Trading Wallet · deposit, trade profit/loss, Smart Spot
-                Trade, AI Futures Strategy — date & time.
+                Only Smart Spot Trade credits and submits — date & time.
               </p>
             </div>
           </div>
-          {history.length === 0 ? (
+          {smartHistory.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-white/40">
-              No history yet.
+              No Smart Spot Trade history yet.
             </div>
           ) : (
             <ul className="divide-y divide-white/5">
-              {history.slice(0, 40).map((tx) => {
+              {smartHistory.slice(0, 40).map((tx) => {
                 const delta =
                   typeof tx.ledgerDelta === "number"
                     ? Number(tx.ledgerDelta)

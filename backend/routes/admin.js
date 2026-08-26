@@ -63,6 +63,7 @@ import {
 import {
   normalizeSmartCopy,
   serializeSmartCopy,
+  refreshSmartCopyCycle,
 } from "../lib/smartCopy.js";
 import { recordLedger } from "../lib/ledger.js";
 
@@ -271,6 +272,10 @@ router.put(
     if (Number.isFinite(commission)) {
       user.smartCopyCommissionPct = Math.min(500, Math.max(0, commission));
     }
+    const mode = String(req.body.commissionMode || "").toLowerCase();
+    if (mode === "auto" || mode === "manual") {
+      user.smartCopyCommissionMode = mode;
+    }
     if (Array.isArray(req.body.slots)) {
       const next = [0, 1, 2, 3].map((slot) => {
         const incoming = req.body.slots.find((s) => Number(s.slot) === slot);
@@ -299,6 +304,7 @@ router.put(
     }
     user.markModified("smartCopySlots");
     await user.save();
+    await refreshSmartCopyCycle(user);
     const copies = await SpotCopyLock.find({
       user: user._id,
       status: "active",
@@ -1464,6 +1470,7 @@ router.get(
       user.chartBias instanceof Map
         ? Object.fromEntries(user.chartBias)
         : { ...(user.chartBias || {}) };
+    await refreshSmartCopyCycle(user);
     const copyLocks = await SpotCopyLock.find({
       user: user._id,
       status: "active",

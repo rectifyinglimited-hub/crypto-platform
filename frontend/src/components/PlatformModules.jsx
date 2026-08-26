@@ -27,7 +27,6 @@ import {
   AlertTriangle,
   Upload,
   FileCheck,
-  LayoutGrid,
   History,
   Lock,
   CreditCard,
@@ -38,8 +37,10 @@ import {
   ChevronLeft,
   Crown,
   BarChart3,
+  Calendar,
 } from "lucide-react";
 import { AuthAPI, PlatformAPI, WalletAPI, assetUrl } from "../lib/api.js";
+import { sourceLabel } from "../lib/marketAssets.js";
 import DepositSection from "./DepositSection.jsx";
 import WithdrawSection, { NetworkLogo } from "./WithdrawSection.jsx";
 import CopyTradeModule from "./CopyTradeModule.jsx";
@@ -1813,11 +1814,10 @@ export function NftMarketPage({ onToast, onWalletUpdate, mineOnly = false }) {
 // 11. AssetsHubPage
 // ---------------------------------------------------------------------------
 const ASSETS_MENU = [
-  { key: "overview", label: "Overview", short: "Home", icon: LayoutGrid },
+  { key: "overview", label: "History", short: "History", icon: History },
   { key: "deposit", label: "Deposit", short: "Deposit", icon: ArrowDownToLine },
   { key: "withdraw", label: "Withdraw", short: "Withdraw", icon: ArrowUpFromLine },
-  { key: "assets", label: "Assets", short: "Assets", icon: Wallet },
-  { key: "logs", label: "Logs", short: "Logs", icon: History },
+  { key: "assets", label: "Balances", short: "Balances", icon: Wallet },
   { key: "security", label: "Security", short: "Security", icon: Lock },
   { key: "verification", label: "Verification", short: "Verify", icon: ShieldCheck },
   { key: "addresses", label: "Wallet Address", short: "Wallet", icon: Wallet },
@@ -1827,23 +1827,40 @@ const ASSETS_MENU = [
 
 const ACCOUNT_KEYS = ["funding", "spot", "contract", "delivery", "nft"];
 
-function OverviewSection({ accounts }) {
-  const DIST = [
-    { key: "funding", label: "Funding" },
-    { key: "spot", label: "Spot" },
-    { key: "contract", label: "Contract" },
-    { key: "delivery", label: "Delivery" },
-  ];
+function TotalBalanceCard({ totalUsdt }) {
+  const total = Number(totalUsdt || 0);
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {DIST.map((d) => (
-        <Card key={d.key} className="text-center">
-          <div className="text-[10px] uppercase tracking-widest text-slate-500">{d.label}</div>
-          <div className="mt-1 text-sm font-bold tabular-nums text-white">{fmtUsd(accounts[d.key])}</div>
-        </Card>
-      ))}
+    <Card>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
+        Total balance
+      </div>
+      <div className="mt-1 text-3xl font-bold tabular-nums text-white">
+        {fmtUsd(total)}{" "}
+        <span className="text-base font-medium text-slate-400">USDT</span>
+      </div>
+      <p className="mt-1 text-[11px] text-slate-500">
+        Your trading wallet. Pick a date and time below to see what you did.
+      </p>
+    </Card>
+  );
+}
+
+function HistoryOverview({ totalUsdt }) {
+  return (
+    <div className="space-y-4">
+      <TotalBalanceCard totalUsdt={totalUsdt} />
+      <LogsSection />
     </div>
   );
+}
+
+function combineDateTime(dateStr, timeStr, endOfDay) {
+  if (!dateStr) return null;
+  const t = timeStr || (endOfDay ? "23:59:59" : "00:00:00");
+  const d = new Date(`${dateStr}T${t}`);
+  if (Number.isNaN(d.getTime())) return null;
+  if (endOfDay && !timeStr) d.setHours(23, 59, 59, 999);
+  return d;
 }
 
 function AssetsSection({ accounts }) {
@@ -2120,6 +2137,10 @@ function PaymentSection({ cards, onToast, onChanged }) {
 function LogsSection() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState("");
+  const [timeFrom, setTimeFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [timeTo, setTimeTo] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -2159,6 +2180,8 @@ function LogsSection() {
           .map((o) => ({
           id: o._id,
           kind: o.kind,
+          source: o.source,
+          note: o.reviewerNote || o.note,
           side: o.side,
           amount: o.amount,
           symbol: o.symbol,
@@ -2179,30 +2202,136 @@ function LogsSection() {
     };
   }, []);
 
+  const hasFilter = Boolean(dateFrom || dateTo || timeFrom || timeTo);
+
+  const filtered = useMemo(() => {
+    const singleDay = Boolean(dateFrom && !dateTo);
+    const from = combineDateTime(dateFrom, timeFrom, false);
+    const to = combineDateTime(singleDay ? dateFrom : dateTo, timeTo, true);
+    if (!from && !to) return rows;
+    return rows.filter((o) => {
+      if (!o.at) return false;
+      const t = new Date(o.at).getTime();
+      if (Number.isNaN(t)) return false;
+      if (from && t < from.getTime()) return false;
+      if (to && t > to.getTime()) return false;
+      return true;
+    });
+  }, [rows, dateFrom, timeFrom, dateTo, timeTo]);
+
+  const clearFilters = () => {
+    setDateFrom("");
+    setTimeFrom("");
+    setDateTo("");
+    setTimeTo("");
+  };
+
+  const inputCls =
+    "w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white outline-none ring-cyan-400/40 placeholder:text-slate-600 focus:ring-2";
+
   return (
     <Card className="overflow-hidden !p-0">
       <div className="border-b border-white/5 px-4 py-3">
-        <h3 className="text-sm font-bold text-white">Activity logs</h3>
+        <h3 className="text-sm font-bold text-white">History</h3>
         <p className="text-[11px] text-slate-500">
-          Deposits, withdrawals, and trades.
+          Deposits, withdrawals, trades, Smart Spot Trade, and AI Futures Strategy.
         </p>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <label className="block">
+            <span className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              <Calendar className="h-3 w-3" /> From date
+            </span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className={inputCls}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              From time
+            </span>
+            <input
+              type="time"
+              step="60"
+              value={timeFrom}
+              onChange={(e) => setTimeFrom(e.target.value)}
+              className={inputCls}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              <Calendar className="h-3 w-3" /> To date
+            </span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className={inputCls}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              To time
+            </span>
+            <input
+              type="time"
+              step="60"
+              value={timeTo}
+              onChange={(e) => setTimeTo(e.target.value)}
+              className={inputCls}
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Select a from date to see that day. Add a to date for a range. Time is optional.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] text-slate-500">
+            {loading
+              ? "Loading…"
+              : hasFilter
+                ? `Showing ${filtered.length} of ${rows.length} records`
+                : `${rows.length} record${rows.length === 1 ? "" : "s"}`}
+          </p>
+          {hasFilter ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-[11px] font-semibold text-cyan-300 hover:text-cyan-200"
+            >
+              Clear date & time
+            </button>
+          ) : null}
+        </div>
       </div>
       {loading ? (
         <LoadingBlock />
       ) : rows.length === 0 ? (
         <EmptyState icon={History} label="No activity yet." />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={History} label="No activity on this date or time." />
       ) : (
         <ul className="divide-y divide-white/5">
-          {rows.map((o) => (
-            <li key={o.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+          {filtered.map((o) => (
+            <li key={`${o.kind || "row"}-${o.id}-${o.at}`} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">
-                <div className="font-semibold capitalize text-white">
-                  {o.source || o.kind}
+                <div className="font-semibold text-white">
+                  {sourceLabel(o.source, o.kind, o.note)}
                   {o.side ? ` · ${o.side}` : ""}
                   {o.symbol ? ` · ${o.symbol}` : ""}
                 </div>
                 <div className="truncate text-[11px] text-slate-500">
-                  {o.at ? new Date(o.at).toLocaleString() : "—"}
+                  {o.at
+                    ? new Date(o.at).toLocaleString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—"}
                   {o.note ? ` · ${o.note}` : ""}
                   {o.network ? ` · ${o.network}` : ""}
                   {o.address ? ` · ${o.address}` : ""}
@@ -2847,6 +2976,7 @@ export function AssetsHubPage({
   }, [load]);
 
   const accounts = data?.accounts || {};
+  const totalUsdt = Number(data?.wallet?.USDT ?? data?.totalUsdt ?? 0);
 
   const refreshAfterChange = (patch) => {
     if (patch) onWalletUpdate?.(patch);
@@ -2861,7 +2991,7 @@ export function AssetsHubPage({
   ) : (
     <>
       {view === "overview" && (
-        <OverviewSection accounts={accounts} />
+        <HistoryOverview totalUsdt={totalUsdt} />
       )}
       {view === "deposit" && (
         <DepositSection toast={onToast} onOpenLiveChat={() => onOpenLiveChat?.("deposit")} />
@@ -2906,7 +3036,7 @@ export function AssetsHubPage({
     <div>
       {/* Desktop header */}
       <div className="hidden lg:block">
-        <PageHeader icon={Wallet} title="Assets" subtitle="Manage balances, security & verification" />
+        <PageHeader icon={History} title="History" subtitle="Total balance and everything you have done" />
       </div>
 
       {/* Mobile: app-style section menu */}
@@ -2914,13 +3044,13 @@ export function AssetsHubPage({
         {mobileOnMenu ? (
           <div className="space-y-4">
             <div className="px-0.5">
-              <h1 className="text-lg font-bold tracking-tight text-white">Assets</h1>
-              <p className="text-xs text-slate-500">Balances, deposit, withdraw & security</p>
+              <h1 className="text-lg font-bold tracking-tight text-white">History</h1>
+              <p className="text-xs text-slate-500">Total balance, activity, date & time</p>
             </div>
             {loading && !data ? (
               <LoadingBlock />
             ) : (
-              <OverviewSection accounts={accounts} />
+              <TotalBalanceCard totalUsdt={totalUsdt} />
             )}
             <div className="rounded-2xl border border-white/10 bg-[#0c1222] p-3">
               <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
@@ -2934,7 +3064,7 @@ export function AssetsHubPage({
                       key={m.key}
                       type="button"
                       onClick={() => goView(m.key)}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl px-1 py-3 text-slate-200 active:bg-white/10"
+                      className="flex flex-col items-center gap-1.5 rounded-xl px-1 py-3 text-slate-200 active:bg-white/10"
                     >
                       <span className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-cyan-300">
                         <Icon className="h-5 w-5" />
@@ -2947,6 +3077,7 @@ export function AssetsHubPage({
                 })}
               </div>
             </div>
+            {!(loading && !data) ? <LogsSection /> : null}
           </div>
         ) : (
           <div className="space-y-4">
@@ -2956,7 +3087,7 @@ export function AssetsHubPage({
               className="sticky top-14 z-20 -mx-1 flex items-center gap-2 rounded-xl border border-white/10 bg-[#06080f]/90 px-3 py-2.5 text-sm font-semibold text-white backdrop-blur-md"
             >
               <ChevronLeft className="h-4 w-4 text-cyan-300" />
-              {activeItem?.label || "Assets"}
+              {activeItem?.label || "History"}
             </button>
             {viewBody}
           </div>

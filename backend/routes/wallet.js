@@ -337,7 +337,7 @@ router.get(
     if (kind) filter.kind = kind;
     const transactions = await Transaction.find(filter)
       .sort({ createdAt: -1 })
-      .limit(200);
+      .limit(500);
     return res.json({ success: true, transactions });
   })
 );

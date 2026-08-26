@@ -316,6 +316,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [scBusy, setScBusy] = useState(false);
   const [scCredit, setScCredit] = useState("");
   const [scCommission, setScCommission] = useState("0");
+  const [scMode, setScMode] = useState("auto");
   const [topUpSource, setTopUpSource] = useState("admin_credit");
   const scHydratedFor = useRef(null);
   const toastRef = useRef(toast);
@@ -360,6 +361,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     setScCommission(
       sc.commissionPct != null ? String(sc.commissionPct) : "0"
     );
+    setScMode(sc.commissionMode === "manual" ? "manual" : "auto");
     setScSlots(
       [0, 1, 2, 3].map((slot) => {
         const s = (sc.slots || []).find((x) => Number(x.slot) === slot);
@@ -389,6 +391,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     try {
       const res = await AdminAPI.saveSmartCopy(userId, {
         maxSlots: max,
+        commissionMode: scMode,
         commissionPct: Number(scCommission) || 0,
         slots: scSlots.map((s) => ({
           slot: s.slot,
@@ -1058,10 +1061,70 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             Smart Spot Trade
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
-            Turn each Ready to Copy block on/off, schedule an open time, and set
-            how many blocks this user may copy (1–4). Credits go into the same
-            Trading Wallet and show as Smart Spot Trade in history.
+            Auto pays 2.0–2.7% of the user’s current total USDT each time they
+            submit (rate moves day by day). Manual uses the % you type. After
+            one submit they must come back after 24 hours to submit again.
           </p>
+
+          <div className="mt-3">
+            <span className="text-[10px] font-semibold uppercase text-slate-500">
+              Commission
+            </span>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {[
+                { id: "auto", label: "Auto 2.0–2.7%" },
+                { id: "manual", label: "Manual" },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setScMode(m.id)}
+                  className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${
+                    scMode === m.id
+                      ? "border-cyan-400/40 bg-cyan-500/20 text-cyan-200"
+                      : "border-white/10 text-slate-400 hover:bg-white/5"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            {scMode === "auto" ? (
+              <p className="mt-2 text-[11px] text-emerald-200/90">
+                Today’s auto rate for this user:{" "}
+                <span className="font-semibold">
+                  {Number(data?.user?.smartCopy?.autoRate || 0).toFixed(1)}%
+                </span>{" "}
+                of total ${fmt(data?.user?.smartCopy?.walletUsdt)} ≈ $
+                {fmt(data?.user?.smartCopy?.estimatedCredit)} USDT. Next
+                submit:{" "}
+                {data?.user?.smartCopy?.canClaim
+                  ? "ready now"
+                  : data?.user?.smartCopy?.nextSubmitAt
+                    ? new Date(
+                        data.user.smartCopy.nextSubmitAt
+                      ).toLocaleString()
+                    : "first submit"}
+                .
+              </p>
+            ) : (
+              <label className="mt-2 block">
+                <span className="text-[10px] font-semibold uppercase text-slate-500">
+                  Commission % (manual)
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={500}
+                  step="any"
+                  value={scCommission}
+                  onChange={(e) => setScCommission(e.target.value)}
+                  placeholder="0"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm text-white outline-none focus:border-cyan-400/40"
+                />
+              </label>
+            )}
+          </div>
 
           <div className="mt-3">
             <span className="text-[10px] font-semibold uppercase text-slate-500">
@@ -1084,22 +1147,6 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               ))}
             </div>
           </div>
-
-          <label className="mt-3 block">
-            <span className="text-[10px] font-semibold uppercase text-slate-500">
-              Commission % (manual)
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={500}
-              step="any"
-              value={scCommission}
-              onChange={(e) => setScCommission(e.target.value)}
-              placeholder="0"
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm text-white outline-none focus:border-cyan-400/40"
-            />
-          </label>
 
           <div className="mt-3 space-y-2">
             {scSlots.map((s) => {
