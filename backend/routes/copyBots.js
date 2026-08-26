@@ -309,7 +309,7 @@ router.post(
       status: "completed",
       source: "smart_copy",
       ledgerDelta: -principal,
-      reviewerNote: `Smart Copy Trade lock · ${bot.name} · ${bot.assetType}`,
+      reviewerNote: `Smart Spot Trade lock · ${bot.name} · ${bot.assetType}`,
     });
 
     try {

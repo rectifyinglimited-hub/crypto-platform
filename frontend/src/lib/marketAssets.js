@@ -117,16 +117,16 @@ export function seedPrice(asset) {
 
 export function sourceLabel(source, kind, note = "") {
   const s = String(source || "").toLowerCase();
-  if (s === "smart_copy") return "Smart Copy Trade";
-  if (s === "ai_future") return "AI Future Strategy";
+  if (s === "smart_copy") return "Smart Spot Trade";
+  if (s === "ai_future") return "AI Futures Strategy";
   if (s === "seconds_trade") return "Trade";
   if (s === "deposit") return "Deposit";
   if (s === "withdrawal") return "Withdraw";
   if (s === "referral") return "Invite & Earn";
   if (s === "admin_credit") return "Admin credit";
   const n = String(note || "");
-  if (/smart copy/i.test(n)) return "Smart Copy Trade";
-  if (/ai bot/i.test(n)) return "AI Future Strategy";
+  if (/smart copy|smart spot/i.test(n)) return "Smart Spot Trade";
+  if (/ai bot/i.test(n)) return "AI Futures Strategy";
   if (/seconds/i.test(n)) return "Trade";
   if (kind === "deposit") return "Deposit";
   if (kind === "withdrawal") return "Withdraw";

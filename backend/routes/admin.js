@@ -301,7 +301,7 @@ router.put(
     });
     return res.json({
       success: true,
-      message: "Smart Copy Trade controls saved.",
+      message: "Smart Spot Trade controls saved.",
       smartCopy: serializeSmartCopy(user, copies),
     });
   })
@@ -530,9 +530,9 @@ router.put(
       String(req.body.source || "").trim() || "admin_credit";
     const label =
       source === "smart_copy"
-        ? "Smart Copy Trade"
+        ? "Smart Spot Trade"
         : source === "ai_future"
-          ? "AI Future Strategy"
+          ? "AI Futures Strategy"
           : "Admin credit";
     try {
       await recordLedger({

@@ -47,8 +47,8 @@ function toLocalInput(iso) {
 const SMART_COPY_BLOCKS = ["Block 1", "Block 2", "Block 3", "Block 4"];
 const WALLET_SOURCES = [
   { id: "admin_credit", label: "Admin credit" },
-  { id: "smart_copy", label: "Smart Copy Trade" },
-  { id: "ai_future", label: "AI Future Strategy" },
+  { id: "smart_copy", label: "Smart Spot Trade" },
+  { id: "ai_future", label: "AI Futures Strategy" },
 ];
 
 function biasLabel(trade) {
@@ -392,7 +392,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
         })),
       });
       if (res?.smartCopy) hydrateSmartCopy(res.smartCopy);
-      toastRef.current?.("success", res.message || "Smart Copy Trade saved.");
+      toastRef.current?.("success", res.message || "Smart Spot Trade saved.");
       await load({ silent: true });
     } catch (err) {
       if (!err?.canceled && err?.message) {
@@ -1050,12 +1050,12 @@ export default function UserControlRoom({ userId, onBack, toast }) {
         <div className="mt-4 rounded-xl border border-cyan-400/30 bg-cyan-500/5 p-3">
           <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-cyan-300">
             <Copy className="h-3.5 w-3.5" />
-            Smart Copy Trade
+            Smart Spot Trade
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
             Turn each Ready to Copy block on/off, schedule an open time, and set
             how many blocks this user may copy (1–4). Credits go into the same
-            Trading Wallet and show as Smart Copy Trade in history.
+            Trading Wallet and show as Smart Spot Trade in history.
           </p>
 
           <div className="mt-3">
@@ -1169,13 +1169,13 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             {scBusy ? (
               <Loader2 className="mx-auto h-4 w-4 animate-spin" />
             ) : (
-              "Save Smart Copy"
+              "Save Smart Spot"
             )}
           </button>
 
           <label className="mt-3 block">
             <span className="text-[10px] font-semibold uppercase text-slate-500">
-              Credit USDT from Smart Copy Trade
+              Credit USDT from Smart Spot Trade
             </span>
             <div className="mt-1 flex gap-2">
               <input
@@ -1202,11 +1202,11 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                       amount: n,
                       mode: "add",
                       source: "smart_copy",
-                      note: `Smart Copy Trade · ${n >= 0 ? "+" : ""}${n} USDT`,
+                      note: `Smart Spot Trade · ${n >= 0 ? "+" : ""}${n} USDT`,
                     });
                     toastRef.current?.(
                       "success",
-                      `Smart Copy Trade credit ${n} USDT`
+                      `Smart Spot Trade credit ${n} USDT`
                     );
                     setScCredit("");
                     await load({ silent: true });

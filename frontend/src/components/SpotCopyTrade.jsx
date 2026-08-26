@@ -412,7 +412,7 @@ export default function SpotCopyTrade() {
           : STOCK_ASSETS,
       });
     } catch (err) {
-      setError(err?.message || "Failed to load Smart Copy Trade.");
+      setError(err?.message || "Failed to load Smart Spot Trade.");
     } finally {
       setLoading(false);
     }
@@ -492,7 +492,7 @@ export default function SpotCopyTrade() {
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-24 text-slate-400">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading Smart Copy Trade…
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading Smart Spot Trade…
       </div>
     );
   }
@@ -514,7 +514,7 @@ export default function SpotCopyTrade() {
 
       <div className="relative z-10 mx-auto max-w-6xl pb-10 pt-2">
         <h1 className="text-xl font-semibold tracking-[0.04em] text-white sm:text-2xl">
-          SMART COPY TRADE
+          SMART SPOT TRADE
         </h1>
         <p className="mt-1 text-xs text-white/45">
           Pick any crypto, forex or stock on a block · Ready to Copy is admin-gated
@@ -574,8 +574,8 @@ export default function SpotCopyTrade() {
                 Balance history
               </h2>
               <p className="text-[11px] text-white/40">
-                One Trading Wallet · deposit, trade profit/loss, Smart Copy, AI
-                Future Strategy — date & time.
+                One Trading Wallet · deposit, trade profit/loss, Smart Spot
+                Trade, AI Futures Strategy — date & time.
               </p>
             </div>
           </div>

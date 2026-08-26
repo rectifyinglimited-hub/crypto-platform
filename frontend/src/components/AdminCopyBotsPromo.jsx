@@ -174,7 +174,7 @@ export default function AdminCopyBotsPromo({ toast }) {
               value={form.tradeType}
               onChange={(e) => setForm((f) => ({ ...f, tradeType: e.target.value }))}
             >
-              <option value="spot_copy">Smart Copy</option>
+              <option value="spot_copy">Smart Spot</option>
               <option value="future_ai">Future AI</option>
             </select>
           </label>
