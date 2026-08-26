@@ -129,6 +129,8 @@ router.post(
       network: req.body.network || "TRC20",
       txHash: req.body.txHash || null,
       status: "pending",
+      source: "deposit",
+      ledgerDelta: 0,
       promoCode,
       promoBonus,
       promoType,

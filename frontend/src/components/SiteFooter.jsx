@@ -71,7 +71,7 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
           <BrandLogo />
           <p className="mt-3 text-xs leading-relaxed text-white/45">
             Digital trading terminal. Invite-gated accounts. Trade · Deposit ·
-            Withdraw · Spot Copy · Future AI.
+            Withdraw · Smart Copy Trade · AI Future Strategy.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {SOCIAL_LINKS.map((s) => {

@@ -206,6 +206,8 @@ router.post(
       usdValue: principal,
       status: "completed",
       reviewerNote: `AI Bot lock ${lockDays}d · daily commission ${yieldPct}%`,
+      source: "ai_future",
+      ledgerDelta: -principal,
     });
 
     return res.status(201).json({
@@ -278,6 +280,8 @@ router.post(
       usdValue: payout,
       status: "completed",
       reviewerNote: `AI Bot claim · principal $${principal} + ${pct}% daily × ${days}d = $${payout}`,
+      source: "ai_future",
+      ledgerDelta: payout,
     });
 
     return res.json({
@@ -344,6 +348,8 @@ router.post(
       usdValue: refund,
       status: "completed",
       reviewerNote: `AI Bot cancel · forfeit yield · 15% penalty $${penalty} · refund $${refund}`,
+      source: "ai_future",
+      ledgerDelta: refund,
     });
 
     return res.json({

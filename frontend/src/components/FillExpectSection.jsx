@@ -140,23 +140,25 @@ export default function FillExpectSection() {
 
         <div
           ref={stageRef}
-          className="select-none px-2 py-4 sm:px-8"
+          className="w-full min-w-0 select-none overflow-x-auto px-2 py-4 sm:overflow-visible sm:px-8"
           onMouseMove={onMove}
           onMouseLeave={() => {
             zoneRef.current = "mid";
           }}
         >
-          <div className="flex min-w-[560px] items-start justify-center gap-24">
-            <div>
+          <div className="mx-auto flex w-full min-w-0 max-w-full items-start justify-center gap-8 sm:min-w-[560px] sm:gap-24">
+            <div className="min-w-0 flex-1 sm:flex-none">
               <Column variant="fast" offset={offset} />
               <div className="mt-5 text-center text-sm font-extrabold">
-                <span className="text-[#00C2B3]">Fast</span> <span className="text-white">Trades</span>
+                <span className="text-[#00C2B3]">Fast</span>{" "}
+                <span className="text-white">Trades</span>
               </div>
             </div>
-            <div>
+            <div className="min-w-0 flex-1 sm:flex-none">
               <Column variant="slow" offset={offset} />
               <div className="mt-5 text-center text-sm font-extrabold">
-                <span className="text-red-400">Slow</span> <span className="text-white">Trades</span>
+                <span className="text-red-400">Slow</span>{" "}
+                <span className="text-white">Trades</span>
               </div>
             </div>
           </div>

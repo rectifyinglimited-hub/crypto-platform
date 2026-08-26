@@ -34,7 +34,6 @@ import {
   Gift,
   ArrowDownToLine,
   ArrowUpFromLine,
-  Send,
   Plus,
   ChevronLeft,
   Crown,
@@ -1828,20 +1827,7 @@ const ASSETS_MENU = [
 
 const ACCOUNT_KEYS = ["funding", "spot", "contract", "delivery", "nft"];
 
-function ActionBtn({ icon: Icon, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] py-3 text-slate-200 transition hover:bg-white/[0.07]"
-    >
-      <Icon className="h-4 w-4 text-cyan-300" />
-      <span className="text-[10px] font-semibold">{label}</span>
-    </button>
-  );
-}
-
-function OverviewSection({ total, accounts, onOpenDeposit, onOpenWithdraw, onTransfer, onConvert }) {
+function OverviewSection({ accounts }) {
   const DIST = [
     { key: "funding", label: "Funding" },
     { key: "spot", label: "Spot" },
@@ -1849,207 +1835,29 @@ function OverviewSection({ total, accounts, onOpenDeposit, onOpenWithdraw, onTra
     { key: "delivery", label: "Delivery" },
   ];
   return (
-    <>
-      <Card className="border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">Total Assets</div>
-        <div className="mt-1 text-3xl font-bold text-white">
-          {fmtUsd(total)} <span className="text-base font-medium text-slate-400">USDT</span>
-        </div>
-        <div className="mt-4 grid grid-cols-4 gap-2">
-          <ActionBtn icon={ArrowDownToLine} label="Deposit" onClick={onOpenDeposit} />
-          <ActionBtn icon={ArrowUpFromLine} label="Withdraw" onClick={onOpenWithdraw} />
-          <ActionBtn icon={Send} label="Transfer" onClick={onTransfer} />
-          <ActionBtn icon={Repeat} label="Convert" onClick={onConvert} />
-        </div>
-      </Card>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {DIST.map((d) => (
-          <Card key={d.key} className="text-center">
-            <div className="text-[10px] uppercase tracking-widest text-slate-500">{d.label}</div>
-            <div className="mt-1 text-sm font-bold tabular-nums text-white">{fmtUsd(accounts[d.key])}</div>
-          </Card>
-        ))}
-      </div>
-    </>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {DIST.map((d) => (
+        <Card key={d.key} className="text-center">
+          <div className="text-[10px] uppercase tracking-widest text-slate-500">{d.label}</div>
+          <div className="mt-1 text-sm font-bold tabular-nums text-white">{fmtUsd(accounts[d.key])}</div>
+        </Card>
+      ))}
+    </div>
   );
 }
 
-function AssetsSection({ accounts, onToast, onChanged }) {
-  const [from, setFrom] = useState("delivery");
-  const [to, setTo] = useState("spot");
-  const [amount, setAmount] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0 || from === to || submitting) return;
-    setSubmitting(true);
-    try {
-      const res = await PlatformAPI.transfer({ from, to, amount: amt });
-      onToast?.("success", res.message || "Transfer completed.");
-      onChanged?.({ accounts: res.accounts, wallet: res.wallet });
-      setAmount("");
-    } catch (err) {
-      onToast?.("error", err?.message || "Transfer failed.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <>
-      <Card>
-        <h3 className="mb-3 text-sm font-bold text-white">Account Balances</h3>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {ACCOUNT_KEYS.map((k) => (
-            <div key={k} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-              <div className="text-[10px] uppercase tracking-widest text-slate-500 capitalize">{k}</div>
-              <div className="mt-1 text-sm font-bold tabular-nums text-white">{fmtUsd(accounts[k])}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-      <Card>
-        <h3 className="mb-3 text-sm font-bold text-white">Transfer Between Accounts</h3>
-        <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-[10px] uppercase tracking-widest text-slate-500">From</label>
-              <select
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm capitalize text-white outline-none"
-              >
-                {ACCOUNT_KEYS.map((k) => (
-                  <option key={k} value={k} className="bg-slate-900">
-                    {k}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-[10px] uppercase tracking-widest text-slate-500">To</label>
-              <select
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm capitalize text-white outline-none"
-              >
-                {ACCOUNT_KEYS.map((k) => (
-                  <option key={k} value={k} className="bg-slate-900">
-                    {k}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <input
-            type="number"
-            step="any"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Amount"
-            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
-          />
-          <button
-            type="submit"
-            disabled={submitting || !parseFloat(amount) || from === to}
-            className={`${PRIMARY_BTN} w-full`}
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Transfer"}
-          </button>
-        </form>
-      </Card>
-    </>
-  );
-}
-
-const CONVERT_ASSETS = ["USDT", "BTC", "ETH", "SOL"];
-
-function ConvertSection({ wallet, onToast, onChanged }) {
-  const [fromAsset, setFromAsset] = useState("USDT");
-  const [toAsset, setToAsset] = useState("BTC");
-  const [amount, setAmount] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0 || fromAsset === toAsset || submitting) return;
-    setSubmitting(true);
-    try {
-      const res = await PlatformAPI.convert({ fromAsset, toAsset, amount: amt });
-      onToast?.("success", res.message || "Converted.");
-      onChanged?.({ wallet: res.wallet, accounts: res.accounts });
-      setAmount("");
-    } catch (err) {
-      onToast?.("error", err?.message || "Conversion failed.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
+function AssetsSection({ accounts }) {
   return (
     <Card>
-      <h3 className="mb-1 text-sm font-bold text-white">Convert</h3>
-      <p className="mb-3 text-[11px] text-slate-500">
-        Swap BTC / ETH / SOL freely. Coin → USDT goes to Funding only — it does not top up Trading Wallet. Deposit (or win) to add trading balance.
-      </p>
-      <form onSubmit={submit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <select
-            value={fromAsset}
-            onChange={(e) => setFromAsset(e.target.value)}
-            className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none"
-          >
-            {CONVERT_ASSETS.map((a) => (
-              <option key={a} value={a} className="bg-slate-900">
-                {a}
-              </option>
-            ))}
-          </select>
-          <select
-            value={toAsset}
-            onChange={(e) => setToAsset(e.target.value)}
-            className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none"
-          >
-            {CONVERT_ASSETS.map((a) => (
-              <option key={a} value={a} className="bg-slate-900">
-                {a}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-500">
-            <span>Amount</span>
-            <span>
-              Avail: {fmtNum(wallet?.[fromAsset] || 0, 6)} {fromAsset}
-            </span>
+      <h3 className="mb-3 text-sm font-bold text-white">Account Balances</h3>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {ACCOUNT_KEYS.map((k) => (
+          <div key={k} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+            <div className="text-[10px] uppercase tracking-widest text-slate-500 capitalize">{k}</div>
+            <div className="mt-1 text-sm font-bold tabular-nums text-white">{fmtUsd(accounts[k])}</div>
           </div>
-          <input
-            type="number"
-            step="any"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={submitting || !parseFloat(amount) || fromAsset === toAsset}
-          className={`${PRIMARY_BTN} w-full`}
-        >
-          {submitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <>
-              <Repeat className="h-4 w-4" /> Convert
-            </>
-          )}
-        </button>
-      </form>
+        ))}
+      </div>
     </Card>
   );
 }
@@ -2321,18 +2129,34 @@ function LogsSection() {
     ])
       .then(([txRes, ordRes]) => {
         if (cancelled) return;
-        const txs = (txRes.transactions || []).map((t) => ({
+        const HIDDEN_KINDS = new Set(["convert", "conversion", "transfer"]);
+        const txs = (txRes.transactions || [])
+          .filter(
+            (t) =>
+              !HIDDEN_KINDS.has(String(t.kind || "").toLowerCase()) &&
+              !HIDDEN_KINDS.has(String(t.source || "").toLowerCase())
+          )
+          .map((t) => ({
           id: t._id,
           kind: t.kind,
+          source: t.source,
+          note: t.reviewerNote,
           side: t.side,
-          amount: t.amount,
+          amount:
+            typeof t.ledgerDelta === "number"
+              ? t.ledgerDelta
+              : t.kind === "withdrawal"
+                ? -Number(t.amount)
+                : Number(t.amount),
           symbol: t.symbol,
           status: t.status,
           network: t.network,
           address: t.address,
           at: t.createdAt,
         }));
-        const orders = (ordRes.orders || []).map((o) => ({
+        const orders = (ordRes.orders || [])
+          .filter((o) => !HIDDEN_KINDS.has(String(o.kind || "").toLowerCase()))
+          .map((o) => ({
           id: o._id,
           kind: o.kind,
           side: o.side,
@@ -2360,7 +2184,7 @@ function LogsSection() {
       <div className="border-b border-white/5 px-4 py-3">
         <h3 className="text-sm font-bold text-white">Activity logs</h3>
         <p className="text-[11px] text-slate-500">
-          Deposits, withdrawals, trades and conversions.
+          Deposits, withdrawals, and trades.
         </p>
       </div>
       {loading ? (
@@ -2373,18 +2197,29 @@ function LogsSection() {
             <li key={o.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">
                 <div className="font-semibold capitalize text-white">
-                  {o.kind}
+                  {o.source || o.kind}
                   {o.side ? ` · ${o.side}` : ""}
                   {o.symbol ? ` · ${o.symbol}` : ""}
                 </div>
                 <div className="truncate text-[11px] text-slate-500">
                   {o.at ? new Date(o.at).toLocaleString() : "—"}
+                  {o.note ? ` · ${o.note}` : ""}
                   {o.network ? ` · ${o.network}` : ""}
                   {o.address ? ` · ${o.address}` : ""}
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="tabular-nums text-white">{fmtUsd(o.amount)}</div>
+                <div
+                  className={`tabular-nums ${
+                    Number(o.amount) > 0
+                      ? "text-emerald-300"
+                      : Number(o.amount) < 0
+                        ? "text-rose-300"
+                        : "text-white"
+                  }`}
+                >
+                  {fmtUsd(o.amount)}
+                </div>
                 <StatusBadge status={o.status} />
               </div>
             </li>
@@ -3012,7 +2847,6 @@ export function AssetsHubPage({
   }, [load]);
 
   const accounts = data?.accounts || {};
-  const total = ACCOUNT_KEYS.reduce((s, k) => s + Number(accounts[k] || 0), 0);
 
   const refreshAfterChange = (patch) => {
     if (patch) onWalletUpdate?.(patch);
@@ -3027,14 +2861,7 @@ export function AssetsHubPage({
   ) : (
     <>
       {view === "overview" && (
-        <OverviewSection
-          total={total}
-          accounts={accounts}
-          onOpenDeposit={openDeposit}
-          onOpenWithdraw={openWithdraw}
-          onTransfer={() => setView("assets")}
-          onConvert={() => setView("convert")}
-        />
+        <OverviewSection accounts={accounts} />
       )}
       {view === "deposit" && (
         <DepositSection toast={onToast} onOpenLiveChat={() => onOpenLiveChat?.("deposit")} />
@@ -3051,10 +2878,7 @@ export function AssetsHubPage({
         />
       )}
       {view === "assets" && (
-        <AssetsSection accounts={accounts} onToast={onToast} onChanged={refreshAfterChange} />
-      )}
-      {view === "convert" && (
-        <ConvertSection wallet={data?.wallet} onToast={onToast} onChanged={refreshAfterChange} />
+        <AssetsSection accounts={accounts} />
       )}
       {view === "verification" && (
         <VerificationSection user={user} onOpenKyc={onOpenKyc} borrowerKyc={data?.borrowerKyc} />
@@ -3096,14 +2920,7 @@ export function AssetsHubPage({
             {loading && !data ? (
               <LoadingBlock />
             ) : (
-              <OverviewSection
-                total={total}
-                accounts={accounts}
-                onOpenDeposit={openDeposit}
-                onOpenWithdraw={openWithdraw}
-                onTransfer={() => setView("assets")}
-                onConvert={() => setView("convert")}
-              />
+              <OverviewSection accounts={accounts} />
             )}
             <div className="rounded-2xl border border-white/10 bg-[#0c1222] p-3">
               <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">

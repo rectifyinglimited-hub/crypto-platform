@@ -167,6 +167,28 @@ const UserSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    /** Smart Copy Trade — how many signal blocks this user may activate */
+    smartCopyMaxSlots: {
+      type: Number,
+      min: 1,
+      max: 4,
+      default: 1,
+    },
+    smartCopySlots: {
+      type: [
+        {
+          slot: { type: Number, min: 0, max: 3 },
+          enabled: { type: Boolean, default: false },
+          readyAt: { type: Date, default: null },
+        },
+      ],
+      default: () =>
+        [0, 1, 2, 3].map((slot) => ({
+          slot,
+          enabled: false,
+          readyAt: null,
+        })),
+    },
     /** Admin-granted VIP lounge on the user desk */
     vipStatus: {
       type: Boolean,

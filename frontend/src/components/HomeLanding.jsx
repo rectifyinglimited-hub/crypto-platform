@@ -42,7 +42,7 @@ const CORP_PILLARS = [
   {
     icon: Activity,
     title: "AI Bot & earn products",
-    body: "Contract-bound AI Future locks and Spot Copy strategies — with admin-controlled yields.",
+    body: "Contract-bound AI Future Strategy locks and Smart Copy Trade signals — with admin-controlled yields.",
   },
   {
     icon: ShieldCheck,
@@ -55,7 +55,7 @@ const WORKFLOW = [
   {
     step: "01",
     title: "Open any market",
-    body: "Use the top nav for Market, Trade, AI Spot Copy, or AI Future Trade.",
+    body: "Use the top nav for Market, Trade, Smart Copy Trade, or AI Future Strategy.",
   },
   {
     step: "02",
@@ -87,8 +87,8 @@ const FEATURES = [
   },
   {
     icon: Zap,
-    title: "AI Spot Copy Trade",
-    body: "Follow Oil / Gold / BTC predictions with accuracy %, followers, and asset lock.",
+    title: "Smart Copy Trade",
+    body: "Pick any crypto, forex, or stock on a signal block and copy when admin opens Ready to Copy.",
   },
   {
     icon: Globe2,

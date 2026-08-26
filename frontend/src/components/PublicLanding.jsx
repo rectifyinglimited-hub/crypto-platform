@@ -37,10 +37,10 @@ const PAIRS = [
 ];
 
 const LIME_BTN =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#00C2B3] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-black shadow-[0_10px_28px_-8px_rgba(0,194,179,0.45)] transition hover:bg-[#5EEAD4]";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[#00C2B3] px-5 py-3 text-sm font-extrabold uppercase tracking-wide text-black shadow-[0_10px_28px_-8px_rgba(0,194,179,0.45)] transition hover:bg-[#5EEAD4] sm:px-7";
 
 const LIME_BTN_SM =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[#00C2B3] px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-black transition hover:bg-[#5EEAD4]";
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[#00C2B3] px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-black transition hover:bg-[#5EEAD4] sm:px-5 sm:py-2.5 sm:text-xs";
 
 function formatPrice(n) {
   const v = Number(n) || 0;
@@ -348,7 +348,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             <motion.h1
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              className="max-w-xl font-display text-4xl font-extrabold uppercase leading-[1.08] tracking-tight sm:text-[2.7rem]"
+              className="max-w-xl font-display text-[1.75rem] font-extrabold uppercase leading-[1.1] tracking-tight sm:text-4xl sm:leading-[1.08] md:text-[2.7rem]"
             >
               The equiti desk behind{" "}
               <span className="text-[#00C2B3]">live markets</span> every day

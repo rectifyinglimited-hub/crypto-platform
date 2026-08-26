@@ -19,9 +19,11 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Bot,
+  Copy,
 } from "lucide-react";
 import { AdminAPI, AiBotAPI, assetUrl } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
+import { sourceLabel } from "../lib/marketAssets.js";
 
 const AI_BOT_DAY_PRESETS = [7, 15, 30, 40, 60, 90];
 
@@ -31,6 +33,23 @@ function fmt(n) {
     maximumFractionDigits: 8,
   });
 }
+
+function toLocalInput(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+
+const SMART_COPY_BLOCKS = ["Block 1", "Block 2", "Block 3", "Block 4"];
+const WALLET_SOURCES = [
+  { id: "admin_credit", label: "Admin credit" },
+  { id: "smart_copy", label: "Smart Copy Trade" },
+  { id: "ai_future", label: "AI Future Strategy" },
+];
 
 function biasLabel(trade) {
   // Direction-aware: LONG win↑/loss↓ · SHORT win↓/loss↑
@@ -290,6 +309,14 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [vipBusy, setVipBusy] = useState(false);
   const [vipLevelBusy, setVipLevelBusy] = useState(false);
   const [vipLevelEdit, setVipLevelEdit] = useState("0");
+  const [scMaxSlots, setScMaxSlots] = useState(1);
+  const [scSlots, setScSlots] = useState(() =>
+    [0, 1, 2, 3].map((slot) => ({ slot, enabled: false, readyAt: "" }))
+  );
+  const [scBusy, setScBusy] = useState(false);
+  const [scCredit, setScCredit] = useState("");
+  const [topUpSource, setTopUpSource] = useState("admin_credit");
+  const scHydratedFor = useRef(null);
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
@@ -325,6 +352,56 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       setLoading(false);
     }
   }, [userId]);
+
+  const hydrateSmartCopy = (sc) => {
+    if (!sc) return;
+    setScMaxSlots(Number(sc.maxSlots || 1));
+    setScSlots(
+      [0, 1, 2, 3].map((slot) => {
+        const s = (sc.slots || []).find((x) => Number(x.slot) === slot);
+        return {
+          slot,
+          enabled: s ? s.enabled !== false : false,
+          readyAt: toLocalInput(s?.readyAt),
+        };
+      })
+    );
+  };
+
+  useEffect(() => {
+    scHydratedFor.current = null;
+  }, [userId]);
+
+  useEffect(() => {
+    const sc = data?.user?.smartCopy;
+    if (!sc || scHydratedFor.current === userId) return;
+    hydrateSmartCopy(sc);
+    scHydratedFor.current = userId;
+  }, [data, userId]);
+
+  const onSaveSmartCopy = async () => {
+    const max = Math.min(4, Math.max(1, Number(scMaxSlots) || 1));
+    setScBusy(true);
+    try {
+      const res = await AdminAPI.saveSmartCopy(userId, {
+        maxSlots: max,
+        slots: scSlots.map((s) => ({
+          slot: s.slot,
+          enabled: Boolean(s.enabled),
+          readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
+        })),
+      });
+      if (res?.smartCopy) hydrateSmartCopy(res.smartCopy);
+      toastRef.current?.("success", res.message || "Smart Copy Trade saved.");
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setScBusy(false);
+    }
+  };
 
   const onVerifyTx = async (tx, action) => {
     setTxBusy(tx._id);
@@ -970,13 +1047,208 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           </div>
         </div>
 
+        <div className="mt-4 rounded-xl border border-cyan-400/30 bg-cyan-500/5 p-3">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+            <Copy className="h-3.5 w-3.5" />
+            Smart Copy Trade
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Turn each Ready to Copy block on/off, schedule an open time, and set
+            how many blocks this user may copy (1–4). Credits go into the same
+            Trading Wallet and show as Smart Copy Trade in history.
+          </p>
+
+          <div className="mt-3">
+            <span className="text-[10px] font-semibold uppercase text-slate-500">
+              Max copy blocks
+            </span>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {[1, 2, 3, 4].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setScMaxSlots(n)}
+                  className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${
+                    Number(scMaxSlots) === n
+                      ? "border-cyan-400/40 bg-cyan-500/20 text-cyan-200"
+                      : "border-white/10 text-slate-400 hover:bg-white/5"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {scSlots.map((s) => {
+              const live = (data?.user?.smartCopy?.copies || []).find(
+                (c) => Number(c.slot) === s.slot
+              );
+              return (
+                <div
+                  key={s.slot}
+                  className="rounded-lg border border-white/10 bg-black/25 p-2.5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs font-semibold text-white">
+                      {SMART_COPY_BLOCKS[s.slot]}
+                      {live ? (
+                        <span className="ml-2 text-[10px] font-medium text-emerald-300">
+                          copying {live.pair || live.asset}
+                        </span>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setScSlots((prev) =>
+                          prev.map((row) =>
+                            row.slot === s.slot
+                              ? { ...row, enabled: !row.enabled }
+                              : row
+                          )
+                        )
+                      }
+                      className={`rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase ${
+                        s.enabled
+                          ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200"
+                          : "border-white/10 bg-black/30 text-slate-400"
+                      }`}
+                    >
+                      {s.enabled ? "ON" : "OFF"}
+                    </button>
+                  </div>
+                  <label className="mt-2 block">
+                    <span className="text-[10px] font-semibold uppercase text-slate-500">
+                      Opens at (optional)
+                    </span>
+                    <div className="mt-1 flex gap-1.5">
+                      <input
+                        type="datetime-local"
+                        value={s.readyAt}
+                        onChange={(e) =>
+                          setScSlots((prev) =>
+                            prev.map((row) =>
+                              row.slot === s.slot
+                                ? { ...row, readyAt: e.target.value }
+                                : row
+                            )
+                          )
+                        }
+                        className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 font-mono text-[11px] text-white outline-none focus:border-cyan-400/40"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setScSlots((prev) =>
+                            prev.map((row) =>
+                              row.slot === s.slot
+                                ? { ...row, readyAt: "" }
+                                : row
+                            )
+                          )
+                        }
+                        className="rounded-lg border border-white/10 px-2 text-[10px] text-slate-400"
+                      >
+                        Now
+                      </button>
+                    </div>
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            disabled={scBusy}
+            onClick={onSaveSmartCopy}
+            className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-950 disabled:opacity-50"
+          >
+            {scBusy ? (
+              <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+            ) : (
+              "Save Smart Copy"
+            )}
+          </button>
+
+          <label className="mt-3 block">
+            <span className="text-[10px] font-semibold uppercase text-slate-500">
+              Credit USDT from Smart Copy Trade
+            </span>
+            <div className="mt-1 flex gap-2">
+              <input
+                type="number"
+                step="any"
+                value={scCredit}
+                onChange={(e) => setScCredit(e.target.value)}
+                placeholder="e.g. 50"
+                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm text-white outline-none focus:border-cyan-400/40"
+              />
+              <button
+                type="button"
+                disabled={topUpBusy}
+                onClick={async () => {
+                  const n = Number(scCredit);
+                  if (!Number.isFinite(n) || n === 0) {
+                    toastRef.current?.("error", "Enter a non-zero amount.");
+                    return;
+                  }
+                  setTopUpBusy(true);
+                  try {
+                    await AdminAPI.updateBalance(userId, {
+                      symbol: "USDT",
+                      amount: n,
+                      mode: "add",
+                      source: "smart_copy",
+                      note: `Smart Copy Trade · ${n >= 0 ? "+" : ""}${n} USDT`,
+                    });
+                    toastRef.current?.(
+                      "success",
+                      `Smart Copy Trade credit ${n} USDT`
+                    );
+                    setScCredit("");
+                    await load({ silent: true });
+                  } catch (err) {
+                    if (!err?.canceled && err?.message) {
+                      toastRef.current?.("error", err.message);
+                    }
+                  } finally {
+                    setTopUpBusy(false);
+                  }
+                }}
+                className="rounded-xl bg-cyan-500 px-3 py-2 text-[11px] font-bold text-cyan-950 disabled:opacity-50"
+              >
+                Credit
+              </button>
+            </div>
+          </label>
+        </div>
+
         <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
           <label className="block text-[11px] font-bold uppercase tracking-wider text-cyan-300">
             Add USDT to Trading Wallet
           </label>
           <p className="mt-0.5 text-[10px] text-slate-500">
-            Precise decimals (e.g. 0.09, 10.55, −175).
+            One Trading Wallet. History label follows the source you pick.
           </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {WALLET_SOURCES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setTopUpSource(s.id)}
+                className={`rounded-lg border px-2.5 py-1 text-[10px] font-semibold ${
+                  topUpSource === s.id
+                    ? "border-cyan-400/40 bg-cyan-500/20 text-cyan-200"
+                    : "border-white/10 text-slate-400 hover:bg-white/5"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
           <div className="mt-2 flex gap-2">
             <input
               type="number"
@@ -1001,6 +1273,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                     symbol: "USDT",
                     amount: n,
                     mode: "add",
+                    source: topUpSource,
                   });
                   toastRef.current?.(
                     "success",
@@ -1039,6 +1312,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                   symbol: "USDT",
                   amount: 0,
                   mode: "set",
+                  source: "admin_credit",
+                  note: "Admin cleared Trading Wallet to $0.00",
                 });
                 toastRef.current?.("success", "Balance cleared to $0.00 USDT");
                 await load({ silent: true });
@@ -1140,6 +1415,61 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           </div>
         </div>
       )}
+
+      <div>
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          Wallet history
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-white/10">
+          {(data?.transactions || []).length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-slate-500">
+              No wallet history yet.
+            </div>
+          ) : (
+            <ul className="divide-y divide-white/5">
+              {(data.transactions || []).map((tx) => {
+                const delta =
+                  typeof tx.ledgerDelta === "number"
+                    ? Number(tx.ledgerDelta)
+                    : tx.kind === "withdrawal"
+                      ? -Number(tx.amount)
+                      : Number(tx.amount);
+                return (
+                  <li
+                    key={tx._id}
+                    className="flex items-start justify-between gap-3 px-4 py-3 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-semibold text-white">
+                        {sourceLabel(tx.source, tx.kind, tx.reviewerNote)}
+                        {tx.symbol ? ` · ${tx.symbol}` : ""}
+                      </div>
+                      <div className="truncate text-[11px] text-slate-500">
+                        {tx.createdAt
+                          ? new Date(tx.createdAt).toLocaleString()
+                          : "—"}
+                        {tx.reviewerNote ? ` · ${tx.reviewerNote}` : ""}
+                      </div>
+                    </div>
+                    <div
+                      className={`shrink-0 font-mono text-sm font-bold ${
+                        delta > 0
+                          ? "text-emerald-300"
+                          : delta < 0
+                            ? "text-rose-300"
+                            : "text-white/60"
+                      }`}
+                    >
+                      {delta > 0 ? "+" : ""}
+                      {fmt(delta)}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
 
       <div>
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">

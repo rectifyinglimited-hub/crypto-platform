@@ -12,6 +12,11 @@ import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 import { tenantDocFilter } from "../middleware/tenant.js";
 import { emitWalletUpdate } from "../socket.js";
+import {
+  normalizeSmartCopy,
+  serializeSmartCopy,
+  isSlotOpen,
+} from "../lib/smartCopy.js";
 
 const router = Router();
 
@@ -98,13 +103,30 @@ async function ensureCoreSpotAssets() {
       name: "BTC Momentum AI",
       tradeType: "spot_copy",
       assetType: "BTC/USDT",
-      predictionConfidence: 74,
-      accuracyHistorical: "71%",
-      totalFollowers: 2100,
-      topSignalDirection: "Bullish",
-      summary: "Spot BTC copy desk — session momentum plus volatility bands.",
+      predictionConfidence: 62,
+      accuracyHistorical: "62%",
+      totalFollowers: 1800,
+      topSignalDirection: "Bearish",
+      summary: "Volatile Dip",
       lockDays: 14,
       yieldPct: 9,
+      minPrincipal: 50,
+      enabled: true,
+      isTesting: false,
+    });
+  }
+  if (!/EUR/.test(blob)) {
+    await CopyBot.create({
+      name: "EUR Range AI",
+      tradeType: "spot_copy",
+      assetType: "EUR/USD",
+      predictionConfidence: 70,
+      accuracyHistorical: "70%",
+      totalFollowers: 3500,
+      topSignalDirection: "Neutral",
+      summary: "Ranging Market",
+      lockDays: 21,
+      yieldPct: 6,
       minPrincipal: 50,
       enabled: true,
       isTesting: false,
@@ -223,14 +245,17 @@ router.post(
       });
     }
 
-    const existing = await SpotCopyLock.findOne({
+    const userCheck = await User.findById(req.auth.sub);
+    if (userCheck) normalizeSmartCopy(userCheck);
+    const activeCount = await SpotCopyLock.countDocuments({
       user: req.auth.sub,
       status: "active",
     });
-    if (existing) {
+    const maxSlots = Number(userCheck?.smartCopyMaxSlots || 1);
+    if (activeCount >= maxSlots) {
       return res.status(400).json({
         success: false,
-        message: "You already have an active Spot Copy lock.",
+        message: `Copy limit reached (${maxSlots} block${maxSlots > 1 ? "s" : ""}).`,
       });
     }
 
@@ -282,7 +307,9 @@ router.post(
       amount: principal,
       usdValue: principal,
       status: "completed",
-      reviewerNote: `Spot Copy follow · ${bot.name} · ${bot.assetType}`,
+      source: "smart_copy",
+      ledgerDelta: -principal,
+      reviewerNote: `Smart Copy Trade lock · ${bot.name} · ${bot.assetType}`,
     });
 
     try {
@@ -304,6 +331,145 @@ router.post(
         assetType: bot.assetType,
       },
       user: { id: user._id, wallet: walletObj(user.wallet) },
+    });
+  })
+);
+
+function serializeCopy(lock) {
+  return {
+    id: String(lock._id),
+    slot: Number(lock.slot || 0),
+    principal: Number(lock.principal || 0),
+    lockDays: lock.lockDays,
+    yieldPct: lock.yieldPct,
+    startDate: lock.startDate,
+    endDate: lock.endDate,
+    assetType: lock.assetType,
+    selectedAsset: lock.selectedAsset || "",
+    selectedAssetType: lock.selectedAssetType || "crypto",
+    selectedPair: lock.selectedPair || lock.assetType || "",
+    signalAtFollow: lock.signalAtFollow,
+    confidenceAtFollow: lock.confidenceAtFollow,
+    bot: lock.bot ? serializeBot(lock.bot) : null,
+  };
+}
+
+// GET /spot/desk — Smart Copy Trade state (slots + copies)
+router.get(
+  "/spot/desk",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const user = await User.findById(req.auth.sub);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+    normalizeSmartCopy(user);
+    const copies = await SpotCopyLock.find({
+      user: user._id,
+      status: "active",
+    }).populate("bot");
+    if (user.isModified()) await user.save();
+    res.json({
+      success: true,
+      desk: serializeSmartCopy(user, copies),
+      copies: copies.map(serializeCopy),
+    });
+  })
+);
+
+// POST /spot/copy — activate a signal block (no wallet lock; admin credits later)
+router.post(
+  "/spot/copy",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const slot = Number(req.body.slot);
+    const asset = String(req.body.asset || "").toUpperCase().trim();
+    const assetType = ["forex", "stock"].includes(
+      String(req.body.assetType || "").toLowerCase()
+    )
+      ? String(req.body.assetType).toLowerCase()
+      : "crypto";
+    const pair = String(req.body.pair || asset).trim();
+
+    if (!Number.isInteger(slot) || slot < 0 || slot > 3) {
+      return res.status(400).json({ success: false, message: "Invalid signal block." });
+    }
+    if (!asset) {
+      return res.status(400).json({ success: false, message: "Select a coin first." });
+    }
+
+    const user = await User.findById(req.auth.sub);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+    normalizeSmartCopy(user);
+    const slotDoc = user.smartCopySlots.find((s) => Number(s.slot) === slot);
+    if (!isSlotOpen(slotDoc)) {
+      return res.status(403).json({
+        success: false,
+        message: slotDoc?.readyAt
+          ? `This signal opens at ${new Date(slotDoc.readyAt).toLocaleString()}.`
+          : "This signal is closed by admin.",
+      });
+    }
+
+    const existingSlot = await SpotCopyLock.findOne({
+      user: user._id,
+      slot,
+      status: "active",
+    });
+    if (existingSlot) {
+      return res.status(400).json({
+        success: false,
+        message: "This block is already copying.",
+      });
+    }
+
+    const activeCount = await SpotCopyLock.countDocuments({
+      user: user._id,
+      status: "active",
+    });
+    const maxSlots = Number(user.smartCopyMaxSlots || 1);
+    if (activeCount >= maxSlots) {
+      return res.status(400).json({
+        success: false,
+        message: `You can copy ${maxSlots} block${maxSlots > 1 ? "s" : ""} only.`,
+      });
+    }
+
+    const startDate = new Date();
+    const lock = await SpotCopyLock.create({
+      user: user._id,
+      bot: null,
+      slot,
+      adminId: user.adminId || null,
+      principal: 0,
+      lockDays: 30,
+      yieldPct: 0,
+      startDate,
+      endDate: new Date(startDate.getTime() + 30 * 86400000),
+      status: "active",
+      assetType: pair,
+      selectedAsset: asset,
+      selectedAssetType: assetType,
+      selectedPair: pair,
+      signalAtFollow: "Copy",
+      confidenceAtFollow: null,
+    });
+
+    if (user.isModified()) await user.save();
+
+    const copies = await SpotCopyLock.find({
+      user: user._id,
+      status: "active",
+    });
+    res.status(201).json({
+      success: true,
+      message: `Copying ${pair || asset}.`,
+      copy: serializeCopy(lock),
+      desk: serializeSmartCopy(user, copies),
     });
   })
 );

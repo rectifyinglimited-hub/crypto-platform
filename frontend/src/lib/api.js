@@ -257,6 +257,8 @@ export const AdminAPI = {
     api.get("/admin/seconds-trades/active").then((r) => r.data),
   userControlRoom: (id) =>
     api.get(`/admin/users/${id}/control-room`).then((r) => r.data),
+  saveSmartCopy: (id, payload) =>
+    api.put(`/admin/users/${id}/smart-copy`, payload).then((r) => r.data),
   // Stamp WIN/LOSS + Manual Balance Add — settles at timer = 0 only
   forceTradeOutcome: (id, outcome, amount) =>
     api
@@ -461,6 +463,9 @@ export const CopyBotAPI = {
       .get("/copy-bots/bots", { params: { tradeType } })
       .then((r) => r.data),
   myLock: () => api.get("/copy-bots/spot/my-lock").then((r) => r.data),
+  desk: () => api.get("/copy-bots/spot/desk").then((r) => r.data),
+  copySlot: (payload) =>
+    api.post("/copy-bots/spot/copy", payload).then((r) => r.data),
   follow: (payload) =>
     api.post("/copy-bots/spot/follow", payload).then((r) => r.data),
   adminList: (tradeType) =>

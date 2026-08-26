@@ -40,44 +40,51 @@ const ABOUT_IMGS = {
   servers: "/bg/servers-neon.png",
   circuit: "/bg/circuit-neon.png",
   geometry: "/bg/hero-geometry.png",
-  teamCollage: "/bg/team/team-collage.jpg",
+  heroPortrait: "/bg/about-hero-portrait.jpg",
 };
 
 const TEAM = [
   {
-    img: "/bg/team/team-1.png",
-    pos: "object-top",
-    name: "Marcus Hale",
-    role: "Chief Executive Officer",
-    bio: "Leads equiti’s desk strategy — invite-gated growth, verified payouts, and a product that feels like a real trading app.",
+    img: "/bg/team/team-1.jpg",
+    pos: "object-[center_12%]",
+    name: "Adrian Cole",
+    role: "Managing Director",
+    bio: "Guides equiti’s long-term desk strategy — invite-gated growth, verified payouts, and a product that feels like a real trading app.",
   },
   {
     img: "/bg/team/team-2.png",
     pos: "object-[center_20%]",
-    name: "Elena Voss",
+    name: "Claire Bennet",
     role: "Head of Risk & Compliance",
     bio: "Owns KYC reviews, deposit proofs, and withdrawal checks so every transfer stays accountable and secure.",
   },
   {
-    img: "/bg/team/team-3.png",
-    pos: "object-[70%_35%]",
-    name: "Sophia Lang",
+    img: "/bg/team/team-3.jpg",
+    pos: "object-[center_18%]",
+    name: "Olivia Hart",
     role: "Head of Client Success",
     bio: "Runs Live Chat quality and VIP routing — making sure traders get clear answers on deposits, loans, and desk help.",
   },
   {
-    img: "/bg/team/team-4.png",
-    pos: "object-center",
-    name: "Amara Okonkwo",
+    img: "/bg/team/team-4.jpg",
+    pos: "object-[center_22%]",
+    name: "Naomi Brooks",
     role: "Markets & Product Lead",
     bio: "Shapes live charts, Copy AI Bot locks, and the seconds-trading experience across desktop and mobile.",
   },
   {
-    img: "/bg/team/team-5.png",
-    pos: "object-[75%_70%]",
-    name: "Daniel Okeke",
+    img: "/bg/team/team-5.jpg",
+    pos: "object-[center_20%]",
+    name: "David Okonkwo",
     role: "Chief Operating Officer",
     bio: "Coordinates ops, partner rails, and day-to-day desk reliability so equiti stays online around the clock.",
+  },
+  {
+    img: "/bg/team/team-6.png",
+    pos: "object-[center_18%]",
+    name: "Kenji Morita",
+    role: "Chief Financial Officer",
+    bio: "Oversees treasury, settlement rails, and financial controls so deposits and payouts stay clean and on time.",
   },
 ];
 
@@ -159,36 +166,11 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-6 grid-rows-3 gap-2.5 sm:gap-3">
+        <div className="mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] p-1.5 sm:max-w-none sm:rounded-3xl sm:p-2 lg:justify-self-end">
           <img
-            src={ABOUT_IMGS.desk}
-            alt=""
-            className="col-span-3 row-span-2 h-full min-h-[140px] w-full rounded-2xl object-cover"
-          />
-          <img
-            src={ABOUT_IMGS.charts}
-            alt=""
-            className="col-span-3 row-span-1 h-28 w-full rounded-2xl object-cover sm:h-32"
-          />
-          <img
-            src={ABOUT_IMGS.exchange}
-            alt=""
-            className="col-span-3 row-span-1 h-28 w-full rounded-2xl object-cover sm:h-32"
-          />
-          <img
-            src={ABOUT_IMGS.city}
-            alt=""
-            className="col-span-2 row-span-1 h-24 w-full rounded-2xl object-cover"
-          />
-          <img
-            src={ABOUT_IMGS.network}
-            alt=""
-            className="col-span-2 row-span-1 h-24 w-full rounded-2xl object-cover"
-          />
-          <img
-            src={ABOUT_IMGS.glow}
-            alt=""
-            className="col-span-2 row-span-1 h-24 w-full rounded-2xl object-cover"
+            src={ABOUT_IMGS.heroPortrait}
+            alt="equiti leadership"
+            className="aspect-[4/5] h-auto w-full rounded-xl object-cover object-top sm:rounded-2xl lg:aspect-[5/6]"
           />
         </div>
       </section>
@@ -340,15 +322,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
           focused on verified funds, live markets, and support that stays online.
         </p>
 
-        <div className="mx-auto mt-10 max-w-lg overflow-hidden rounded-3xl border border-white/10">
-          <img
-            src={ABOUT_IMGS.teamCollage}
-            alt="equiti team"
-            className="h-auto w-full object-cover"
-          />
-        </div>
-
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-5 md:grid-cols-3 xl:grid-cols-6">
           {TEAM.map((m) => (
             <article
               key={m.name}
@@ -358,15 +332,18 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
                 <img
                   src={m.img}
                   alt={m.name}
-                  className={`h-full w-full scale-110 object-cover ${m.pos}`}
+                  className={`h-full w-full object-cover ${m.pos}`}
+                  loading="lazy"
                 />
               </div>
-              <div className="p-4">
-                <h3 className="text-base font-bold">{m.name}</h3>
-                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-[#00C2B3]">
+              <div className="p-3 sm:p-4">
+                <h3 className="text-sm font-bold sm:text-base">{m.name}</h3>
+                <p className="mt-1 text-[10px] font-bold uppercase leading-snug tracking-wider text-[#00C2B3] sm:text-[11px]">
                   {m.role}
                 </p>
-                <p className="mt-2 text-xs leading-relaxed text-white/55">{m.bio}</p>
+                <p className="mt-2 text-[11px] leading-relaxed text-white/55 sm:text-xs">
+                  {m.bio}
+                </p>
               </div>
             </article>
           ))}
@@ -391,13 +368,13 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
               Talk to the desk
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {TEAM.slice(0, 3).map((m) => (
               <img
                 key={m.name}
                 src={m.img}
                 alt={m.name}
-                className={`aspect-square rounded-2xl border border-[#00C2B3]/30 object-cover ${m.pos}`}
+                className={`aspect-square w-full rounded-2xl border border-[#00C2B3]/30 object-cover ${m.pos}`}
               />
             ))}
           </div>
@@ -545,7 +522,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 
       {/* Bottom CTA */}
       <section className="rounded-3xl border border-[#00C2B3]/25 bg-gradient-to-br from-[#00C2B3]/10 via-black to-black px-6 py-12 text-center sm:px-10">
-        <BrandLogo className="mx-auto justify-center [&_svg]:h-9" />
+        <BrandLogo className="mx-auto justify-center" imgClassName="h-9 w-auto" />
         <h2 className="mt-5 text-2xl font-extrabold sm:text-3xl">
           Start trading online with equiti
         </h2>

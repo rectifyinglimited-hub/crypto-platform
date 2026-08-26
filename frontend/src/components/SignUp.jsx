@@ -352,7 +352,7 @@ const AmbientBlobs = () => (
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
-export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
+export default function SignUp({ onSignUpSuccess, onSwitchToSignIn, embedded = false }) {
   const [values, setValues] = useState({
     fullName: "",
     username: "",
@@ -439,40 +439,59 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, x: -60 }}
       transition={{ duration: 0.4 }}
-      className="relative min-h-screen w-full overflow-hidden bg-[#070915] text-slate-100"
+      className={
+        embedded
+          ? "relative w-full text-slate-100"
+          : "relative min-h-screen w-full overflow-hidden bg-[#070915] text-slate-100"
+      }
     >
-      <AmbientBlobs />
+      {!embedded && <AmbientBlobs />}
       <Toast
         kind={toast.kind}
         message={toast.message}
         onClose={() => setToast({ kind: null, message: "" })}
       />
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
+      <div
+        className={
+          embedded
+            ? "relative z-10 w-full p-5 sm:p-6"
+            : "relative z-10 flex min-h-screen items-center justify-center px-4 py-10"
+        }
+      >
         <motion.div
           initial={{ opacity: 0, y: 24, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ type: "spring", stiffness: 220, damping: 26 }}
           className="w-full max-w-2xl"
         >
-          <div className="relative rounded-2xl border border-white/5 bg-gray-900/60 p-7 shadow-2xl backdrop-blur-sm">
-            {/* Corner glow */}
-            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-transparent to-emerald-400/10 opacity-60 blur-xl" />
+          <div
+            className={
+              embedded
+                ? "relative"
+                : "relative rounded-2xl border border-white/5 bg-gray-900/60 p-7 shadow-2xl backdrop-blur-sm"
+            }
+          >
+            {!embedded && (
+              <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-transparent to-emerald-400/10 opacity-60 blur-xl" />
+            )}
 
             <div className="relative">
-              {/* Header */}
-              <div className="mb-6 text-center">
-                <motion.div
-                  initial={{ scale: 0.6, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                  className="mb-4 flex justify-center"
-                >
-                  <BrandLogo className="justify-center [&_svg]:h-11 sm:[&_svg]:h-12" />
-                </motion.div>
-                <div>
-                  <h1 className="text-lg font-semibold tracking-tight">
-                    Create your equiti account
+              {/* Header — logo only when standalone (AuthGate already has title) */}
+              <div className="mb-5 flex flex-col items-center text-center sm:mb-6">
+                {!embedded && (
+                  <motion.div
+                    initial={{ scale: 0.6, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                    className="mb-4 flex w-full justify-center"
+                  >
+                    <BrandLogo imgClassName="h-8 sm:h-9" />
+                  </motion.div>
+                )}
+                <div className="w-full">
+                  <h1 className="text-base font-semibold tracking-tight sm:text-lg">
+                    {embedded ? "Register" : "Create your equiti account"}
                   </h1>
                   <p className="mt-0.5 text-xs text-slate-400">
                     Trade smarter. Track sharper. Start in under a minute.
@@ -541,12 +560,13 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
                           type="button"
                           onClick={() => setShowPassword((s) => !s)}
                           whileTap={{ scale: 0.9 }}
-                          className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
                         >
                           {showPassword ? (
-                            <EyeOff className="h-3.5 w-3.5" />
+                            <EyeOff className="h-4 w-4" />
                           ) : (
-                            <Eye className="h-3.5 w-3.5" />
+                            <Eye className="h-4 w-4" />
                           )}
                         </motion.button>
                       }
@@ -566,12 +586,13 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
                         type="button"
                         onClick={() => setShowConfirm((s) => !s)}
                         whileTap={{ scale: 0.9 }}
-                        className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                        aria-label={showConfirm ? "Hide password" : "Show password"}
                       >
                         {showConfirm ? (
-                          <EyeOff className="h-3.5 w-3.5" />
+                          <EyeOff className="h-4 w-4" />
                         ) : (
-                          <Eye className="h-3.5 w-3.5" />
+                          <Eye className="h-4 w-4" />
                         )}
                       </motion.button>
                     }
@@ -639,16 +660,18 @@ export default function SignUp({ onSignUpSuccess, onSwitchToSignIn }) {
             </div>
           </div>
 
-          <p className="mt-5 text-center text-sm text-slate-400">
-            Already have an account?{" "}
-            <button
-              type="button"
-              onClick={onSwitchToSignIn}
-              className="font-semibold text-indigo-300 hover:text-indigo-200"
-            >
-              Sign in
-            </button>
-          </p>
+          {!embedded && (
+            <p className="mt-5 text-center text-sm text-slate-400">
+              Already have an account?{" "}
+              <button
+                type="button"
+                onClick={onSwitchToSignIn}
+                className="font-semibold text-indigo-300 hover:text-indigo-200"
+              >
+                Sign in
+              </button>
+            </p>
+          )}
         </motion.div>
       </div>
     </motion.div>

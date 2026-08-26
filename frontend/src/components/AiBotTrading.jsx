@@ -367,7 +367,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-300/80">
-                AI Future Trade
+                AI Future Strategy
               </div>
               <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
                 Testing
@@ -378,7 +378,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate }) {
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
               Future AI desk (testing). Admin-assigned lock · live accrued profit ·
-              equity graph. Spot strategies live under AI Spot Copy Trade.
+              equity graph. Copy strategies live under Smart Copy Trade.
             </p>
           </div>
         </div>

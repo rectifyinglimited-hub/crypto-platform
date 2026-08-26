@@ -641,7 +641,7 @@ export default function LiveChatWidget({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 300, damping: 24 }}
-            className="pointer-events-auto flex h-[560px] w-[360px] max-w-[92vw] flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/90 shadow-2xl shadow-indigo-500/20 backdrop-blur-xl"
+            className="pointer-events-auto flex h-[min(560px,calc(100dvh-5.5rem))] w-[min(360px,calc(100vw-2rem))] max-w-[92vw] flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/90 shadow-2xl shadow-indigo-500/20 backdrop-blur-xl"
           >
             <div className="flex items-center justify-between border-b border-white/5 bg-gradient-to-r from-indigo-500/20 via-transparent to-emerald-400/20 px-4 py-3">
               <div className="flex items-center gap-2">

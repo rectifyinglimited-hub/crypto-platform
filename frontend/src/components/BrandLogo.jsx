@@ -1,42 +1,30 @@
 /**
  * equiti logo — signup, sign-in, shell, footer, splash, chat.
+ * Tight-cropped PNG; height is always set so the native 700px asset never blows up layout.
  */
 
 import { BRAND } from "../lib/brand.js";
 
 const TEAL = "#00C2B3";
+const WORDMARK_SRC = "/brand/equiti-wordmark.png";
 
-/** Official-style teal wordmark. */
-export function EquitiWordmark({ className = "h-8 w-auto", fill = TEAL, cut = "#000" }) {
+/** Official teal wordmark. Pass Tailwind height (e.g. h-8); never leave height auto. */
+export function EquitiWordmark({ className = "h-8" }) {
   return (
-    <svg
-      viewBox="0 0 460 100"
-      className={className}
-      role="img"
-      aria-label={BRAND.name}
-    >
-      <title>{BRAND.name}</title>
-      <text
-        x="10"
-        y="74"
-        fill={fill}
-        style={{ fontFamily: "Montserrat, Nunito, Inter, sans-serif" }}
-        fontSize="78"
-        fontWeight="800"
-        letterSpacing="-2"
-      >
-        equiti
-      </text>
-      {/* q / u stencil slits */}
-      <rect x="148" y="28" width="7" height="52" fill={cut} />
-      <rect x="218" y="32" width="6.5" height="48" fill={cut} />
-    </svg>
+    <img
+      src={WORDMARK_SRC}
+      alt={BRAND.name}
+      draggable={false}
+      width={200}
+      height={58}
+      className={`block w-auto max-w-[min(100%,11rem)] object-contain object-center ${className}`}
+    />
   );
 }
 
 export function EquitiMark({ className = "h-9 w-9" }) {
   return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden>
+    <svg viewBox="0 0 48 48" className={`block shrink-0 ${className}`} aria-hidden>
       <rect width="48" height="48" rx="12" fill={TEAL} />
       <text
         x="24"
@@ -66,20 +54,20 @@ export default function BrandLogo({
   if (variant === "stack") {
     el = (
       <span className="inline-flex flex-col items-center rounded-2xl border border-[#00C2B3]/35 bg-black px-8 py-6">
-        <EquitiWordmark className="h-12 w-auto" cut="#000" />
+        <EquitiWordmark className="h-10 sm:h-12" />
       </span>
     );
   } else if (variant === "mark") {
     el = <EquitiMark className={imgClassName || "h-9 w-9"} />;
   } else if (variant === "wordmark") {
-    el = <EquitiWordmark className={imgClassName || "h-6 w-auto sm:h-7"} cut="#000" />;
+    el = <EquitiWordmark className={imgClassName || "h-6 sm:h-7"} />;
   } else if (variant === "on-light") {
-    el = <EquitiWordmark className={imgClassName || "h-8 w-auto sm:h-9"} cut="#fff" />;
+    el = <EquitiWordmark className={imgClassName || "h-8 sm:h-9"} />;
   } else {
-    el = <EquitiWordmark className={imgClassName || "h-8 w-auto sm:h-9"} cut="#000" />;
+    el = <EquitiWordmark className={imgClassName || "h-8 sm:h-9"} />;
   }
 
-  const wrapClass = `inline-flex shrink-0 items-center ${className}`;
+  const wrapClass = `inline-flex shrink-0 items-center justify-center ${className}`;
 
   if (onClick) {
     return (

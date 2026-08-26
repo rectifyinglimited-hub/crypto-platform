@@ -32,6 +32,8 @@ body,
   height: auto;
   color: #ffffff;
   background: #000000;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
@@ -44,6 +46,12 @@ body {
     radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 194, 179, 0.10), transparent),
     radial-gradient(ellipse 60% 40% at 100% 0%, rgba(0, 194, 179, 0.04), transparent);
   background-attachment: fixed;
+}
+
+@media (max-width: 767px) {
+  body {
+    background-attachment: scroll;
+  }
 }
 
 .font-display {

@@ -69,6 +69,7 @@ import UserControlRoom, {
   ActiveTradesAlertBar,
 } from "./UserControlRoom.jsx";
 import { isStaffRole, isSuperAdminRole, roleLabel } from "../lib/roles.js";
+import { sourceLabel } from "../lib/marketAssets.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1428,7 +1429,7 @@ const TransactionsView = ({
                 ) : (
                   <Receipt className="h-3.5 w-3.5 text-indigo-300" />
                 )}
-                {t.kind}
+                {sourceLabel(t.source, t.kind, t.reviewerNote)}
               </div>
               <div className="col-span-2 tabular-nums text-slate-200">
                 {fmt(t.amount, 6)} {t.symbol}
@@ -2970,8 +2971,8 @@ export default function AdminPanel({ user, onExit }) {
     { key: "kyc", label: "KYC Review", icon: BadgeCheck },
     { key: "details", label: "User Details", icon: CreditCard },
     { key: "platform", label: "Platform Modules", icon: Package },
-    { key: "aibot", label: "AI Future & Algo", icon: Bot },
-    { key: "copybots", label: "Spot Copy & Promo", icon: Ticket },
+    { key: "aibot", label: "AI Future Strategy", icon: Bot },
+    { key: "copybots", label: "Smart Copy & Promo", icon: Ticket },
     { key: "referral", label: "Referral & VIP", icon: Crown },
     { key: "transactions", label: "Transactions", icon: Receipt },
     { key: "gateway", label: "Gateway Settings", icon: Landmark },

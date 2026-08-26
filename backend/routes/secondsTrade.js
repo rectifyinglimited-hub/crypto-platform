@@ -420,6 +420,8 @@ export async function settleTrade(
         usdValue: payout,
         status: "completed",
         reviewerNote: note,
+        source: "seconds_trade",
+        ledgerDelta: payout,
       });
     } else if (hasManual) {
       // Force LOSS: New Balance = Current + Stake − Manual Balance Add
@@ -442,6 +444,8 @@ export async function settleTrade(
         usdValue: returned,
         status: "completed",
         reviewerNote: `Seconds LOSS · stake $${stakeAmt} − manual $${manualAmt} → returned $${returned} · ${reason}`,
+        source: "seconds_trade",
+        ledgerDelta: returned,
       });
     } else {
       // Stake already deducted on open — permanent full loss, no further debit
@@ -458,6 +462,8 @@ export async function settleTrade(
         usdValue: 0,
         status: "completed",
         reviewerNote: `Seconds LOSS · stake −$${stakeAmt} · ${reason}`,
+        source: "seconds_trade",
+        ledgerDelta: 0,
       });
     }
 
@@ -889,6 +895,8 @@ router.post(
       usdValue: stakeAmt,
       status: "completed",
       reviewerNote: `Seconds trade OPEN ${direction.toUpperCase()} ${durationSec}s`,
+      source: "seconds_trade",
+      ledgerDelta: -stakeAmt,
     });
 
     try {

@@ -54,11 +54,17 @@ import {
   emitChartQuote,
 } from "../socket.js";
 import SystemSettings from "../models/SystemSettings.js";
+import SpotCopyLock from "../models/SpotCopyLock.js";
 import {
   volume30d,
   ensureReferralCode,
   runVipUpgradeSweep,
 } from "../lib/referralEngine.js";
+import {
+  normalizeSmartCopy,
+  serializeSmartCopy,
+} from "../lib/smartCopy.js";
+import { recordLedger } from "../lib/ledger.js";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -230,6 +236,73 @@ router.put(
             ? Object.fromEntries(user.wallet)
             : user.wallet,
       },
+    });
+  })
+);
+
+// PUT /users/:id/smart-copy — Control Room: Ready-to-Copy slots + max copies
+router.put(
+  "/users/:id/smart-copy",
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user id.",
+      });
+    }
+    const scoped = await assertTenantUser(req, id);
+    if (scoped.status) {
+      return res.status(scoped.status).json({
+        success: false,
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
+      });
+    }
+    const user = scoped.user;
+    normalizeSmartCopy(user);
+    const max = Number(req.body.maxSlots);
+    if (Number.isFinite(max)) {
+      user.smartCopyMaxSlots = Math.min(4, Math.max(1, Math.round(max)));
+    }
+    if (Array.isArray(req.body.slots)) {
+      const next = [0, 1, 2, 3].map((slot) => {
+        const incoming = req.body.slots.find((s) => Number(s.slot) === slot);
+        const cur = user.smartCopySlots.find((s) => Number(s.slot) === slot) || {
+          slot,
+          enabled: true,
+          readyAt: null,
+        };
+        if (!incoming) return cur;
+        let readyAt = cur.readyAt || null;
+        if (incoming.readyAt === null || incoming.readyAt === "") readyAt = null;
+        else if (incoming.readyAt) {
+          const d = new Date(incoming.readyAt);
+          readyAt = Number.isNaN(d.getTime()) ? cur.readyAt : d;
+        }
+        return {
+          slot,
+          enabled:
+            incoming.enabled === undefined
+              ? cur.enabled !== false
+              : Boolean(incoming.enabled),
+          readyAt,
+        };
+      });
+      user.smartCopySlots = next;
+    }
+    user.markModified("smartCopySlots");
+    await user.save();
+    const copies = await SpotCopyLock.find({
+      user: user._id,
+      status: "active",
+    });
+    return res.json({
+      success: true,
+      message: "Smart Copy Trade controls saved.",
+      smartCopy: serializeSmartCopy(user, copies),
     });
   })
 );
@@ -440,9 +513,41 @@ router.put(
       mode === "add"
         ? Number((current + amount).toFixed(8))
         : Number(Number(amount).toFixed(8));
+    if (next < 0) {
+      return res.status(422).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Balance cannot go below 0.",
+      });
+    }
     user.wallet.set(symbol, next);
     user.markModified("wallet");
     await user.save();
+
+    const delta =
+      mode === "add" ? amount : Number((next - current).toFixed(8));
+    const source =
+      String(req.body.source || "").trim() || "admin_credit";
+    const label =
+      source === "smart_copy"
+        ? "Smart Copy Trade"
+        : source === "ai_future"
+          ? "AI Future Strategy"
+          : "Admin credit";
+    try {
+      await recordLedger({
+        user,
+        delta,
+        source,
+        kind: "trade",
+        symbol,
+        note:
+          String(req.body.note || "").trim() ||
+          `${label} · ${delta >= 0 ? "+" : ""}${delta} ${symbol}`,
+      });
+    } catch {
+      /* history write should not block the credit */
+    }
 
     const wallet =
       user.wallet instanceof Map
@@ -931,6 +1036,8 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
       user.markModified("wallet");
       await user.save();
       affectedUser = user;
+      tx.source = tx.source || "deposit";
+      tx.ledgerDelta = Number(tx.amount) + bonus;
       if (tx.promoCode && bonus > 0) {
         try {
           const PromoCode = (await import("../models/PromoCode.js")).default;
@@ -1353,6 +1460,10 @@ router.get(
       user.chartBias instanceof Map
         ? Object.fromEntries(user.chartBias)
         : { ...(user.chartBias || {}) };
+    const copyLocks = await SpotCopyLock.find({
+      user: user._id,
+      status: "active",
+    });
 
     res.json({
       success: true,
@@ -1390,6 +1501,17 @@ router.get(
         chartQuote: user.chartQuote || null,
         kyc: user.kyc,
         createdAt: user.createdAt,
+        smartCopy: {
+          ...serializeSmartCopy(normalizeSmartCopy(user), copyLocks),
+          copies: copyLocks.map((c) => ({
+            id: String(c._id),
+            slot: Number(c.slot || 0),
+            asset: c.selectedAsset || "",
+            assetType: c.selectedAssetType || "crypto",
+            pair: c.selectedPair || "",
+            at: c.createdAt,
+          })),
+        },
       },
       openTrades: openTrades.map((t) => serializeAdminTrade(t, user)),
       recentTrades: recentTrades.map((t) => serializeAdminTrade(t, user)),

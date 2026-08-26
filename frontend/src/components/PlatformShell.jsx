@@ -33,8 +33,8 @@ const MAIN_MENU = [
   { key: "home", label: "Home", icon: Home },
   { key: "market", label: "Market", icon: LineChart },
   { key: "trade", label: "Trade", icon: CandlestickChart },
-  { key: "spotcopy", label: "AI Spot Copy Trade", icon: Copy },
-  { key: "aibot", label: "AI Future Trade", icon: Bot, badge: "Testing" },
+  { key: "spotcopy", label: "Smart Copy Trade", icon: Copy },
+  { key: "aibot", label: "AI Future Strategy", icon: Bot, badge: "Testing" },
   { key: "assets", label: "Assets", icon: Wallet },
 ];
 

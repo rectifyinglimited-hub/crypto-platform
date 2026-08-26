@@ -36,6 +36,15 @@ const TransactionSchema = new Schema(
       required: true,
       index: true,
     },
+    /** Where the USDT move came from — one wallet, labeled history */
+    source: {
+      type: String,
+      default: null,
+      index: true,
+      trim: true,
+    },
+    /** Signed Trading Wallet change (+ credit / − debit) */
+    ledgerDelta: { type: Number, default: 0 },
     side: {
       // For trades only.
       type: String,
