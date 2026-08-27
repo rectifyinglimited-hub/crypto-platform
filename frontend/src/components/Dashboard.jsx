@@ -57,6 +57,7 @@ import CryptoWatchlist from "./CryptoWatchlist.jsx";
 import MarketActivity from "./MarketActivity.jsx";
 import TradeHistory from "./TradeHistory.jsx";
 import ProfileSetup from "./ProfileSetup.jsx";
+import AccountSettings from "./AccountSettings.jsx";
 import DepositSection from "./DepositSection.jsx";
 import WithdrawSection from "./WithdrawSection.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
@@ -1017,7 +1018,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     if (key === "withdraw") setAssetsView("withdraw");
     if (key === "trade") setTab("trading");
     else if (key === "assets" || key === "deposit" || key === "withdraw") setTab("wallet");
-    else if (key === "account") setTab("settings");
+    else if (key === "account" || key === "settings") setTab("settings");
     else if (key === "home") setTab("home");
     else if (key === "market") setTab("trading");
   };
@@ -1408,10 +1409,23 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           )}
           {page === "account" && (
             <motion.div key="account" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl space-y-4">
-              <ProfileSetup user={me} toast={say} onSaved={(u) => handleUserUpdate(u)} onLogout={handleLogout} />
-              <button type="button" onClick={() => setKycOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/25 bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-200">
-                <ShieldCheck className="h-4 w-4" /> Identity Verification (ID Card / License)
-              </button>
+              <ProfileSetup
+                user={me}
+                toast={say}
+                onSaved={(u) => handleUserUpdate(u)}
+                onOpenSettings={() => goPage("settings")}
+              />
+            </motion.div>
+          )}
+          {page === "settings" && (
+            <motion.div key="settings" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl space-y-4">
+              <AccountSettings
+                user={me}
+                toast={say}
+                onSaved={(u) => handleUserUpdate(u)}
+                onLogout={handleLogout}
+                onOpenKyc={() => setKycOpen(true)}
+              />
             </motion.div>
           )}
           {page === "about" && (

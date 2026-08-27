@@ -25,6 +25,7 @@ import {
   Gift,
   Copy,
   History,
+  Settings,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
@@ -286,10 +287,7 @@ function MobileDrawer({
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    onOpenAccount?.();
-                    onClose?.();
-                  }}
+                  onClick={() => go("account")}
                   className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${
                     page === "account"
                       ? "bg-cyan-500/15 text-cyan-300"
@@ -304,6 +302,26 @@ function MobileDrawer({
                     }`}
                   >
                     <UserRound className="h-4 w-4" />
+                  </span>
+                  Profile
+                </button>
+                <button
+                  type="button"
+                  onClick={() => go("settings")}
+                  className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${
+                    page === "settings"
+                      ? "bg-cyan-500/15 text-cyan-300"
+                      : "text-slate-300 active:bg-white/5"
+                  }`}
+                >
+                  <span
+                    className={`grid h-9 w-9 place-items-center rounded-xl ${
+                      page === "settings"
+                        ? "bg-cyan-400/20 text-cyan-300"
+                        : "bg-white/[0.04] text-slate-400"
+                    }`}
+                  >
+                    <Settings className="h-4 w-4" />
                   </span>
                   Account Setting
                 </button>
@@ -422,7 +440,7 @@ export default function PlatformShell({
               }`}
             >
               <UserRound className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Account</span>
+              <span className="hidden sm:inline">Profile</span>
               {uid ? (
                 <span className="hidden font-mono text-[10px] tabular-nums text-cyan-300/90 sm:inline">
                   {uid}
