@@ -140,7 +140,7 @@ const NAMES = {
 };
 
 const SEEDS = {
-  BTC: 68000,
+  BTC: 80000,
   ETH: 3500,
   XAUUSD: 2350,
   EURUSD: 1.085,

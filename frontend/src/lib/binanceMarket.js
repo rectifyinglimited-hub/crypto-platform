@@ -25,8 +25,15 @@ export function toBinanceSymbol(asset, quote = "USDT") {
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
   if (!a) return null;
-  if (a.length === 6 && /^(EUR|GBP|USD|AUD|NZD|XAU|XAG)/.test(a)) {
-    if (a.endsWith("USD")) return `${a.slice(0, 3)}USDT`;
+  if (a === "XAUUSD") return "PAXGUSDT";
+  if (a === "XAGUSD") return null;
+  // EURUSD → EURUSDT. Do not map USDJPY → USDUSDT (~1).
+  if (
+    a.length === 6 &&
+    a.endsWith("USD") &&
+    /^(EUR|GBP|AUD|NZD)/.test(a)
+  ) {
+    return `${a.slice(0, 3)}USDT`;
   }
   if (a.endsWith(q)) return a;
   return `${a}${q}`;

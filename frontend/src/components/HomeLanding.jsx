@@ -20,6 +20,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
+import { fetchLiveQuoteMap, tapePriceFromMap } from "../lib/liveQuotes.js";
 import HeroMediaSlider from "./HeroMediaSlider.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
@@ -281,16 +282,24 @@ function MarketOverviewGrid() {
 
   const loadMarkets = useCallback(async () => {
     try {
-      const res = await SecondsTradeAPI.markets();
+      const [map, res] = await Promise.all([
+        fetchLiveQuoteMap().catch(() => null),
+        SecondsTradeAPI.markets().catch(() => ({ markets: [] })),
+      ]);
       const list = (res.markets || []).filter((m) => m.assetType === "crypto");
       const next = {};
       for (const m of list) {
-        if (OVERVIEW_ASSETS.some((a) => a.symbol === m.asset)) {
-          next[m.asset] = Number(m.price) || 0;
-          targets.current[m.asset] = Number(m.price) || 0;
-          if (displays.current[m.asset] == null) {
-            displays.current[m.asset] = Number(m.price) || 0;
-          }
+        if (!OVERVIEW_ASSETS.some((a) => a.symbol === m.asset)) continue;
+        const px =
+          tapePriceFromMap(map, m.asset, "USDT", "crypto") ||
+          Number(m.rawPrice) ||
+          Number(m.price) ||
+          0;
+        if (!(px > 0)) continue;
+        next[m.asset] = px;
+        targets.current[m.asset] = px;
+        if (displays.current[m.asset] == null) {
+          displays.current[m.asset] = px;
         }
       }
       setMarkets((prev) => ({ ...prev, ...next }));

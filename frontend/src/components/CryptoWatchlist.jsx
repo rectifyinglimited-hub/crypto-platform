@@ -1,11 +1,12 @@
 /**
- * Multi-asset crypto watchlist — loads live markets from API (400+ pairs).
+ * Market watchlist — live Binance tape (same feed as the trade chart).
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
+import { resolveMarketPrice, useLiveQuoteMap } from "../lib/liveQuotes.js";
 
 /** Fallback if markets API is empty — kept for SecondsTrading import compat */
 export const WATCHLIST_CRYPTO = [
@@ -15,10 +16,23 @@ export const WATCHLIST_CRYPTO = [
   "PEPE", "WIF", "BONK", "FLOKI", "INJ", "SEI", "TIA", "RENDER", "FET", "IMX",
 ];
 
-function WatchRow({ asset, quote = "USDT", price, flash, onSelect }) {
+function formatPx(price) {
+  if (!(price > 0)) return "—";
+  if (price >= 1000)
+    return price.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (price >= 1) return price.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  return price.toPrecision(4);
+}
+
+function WatchRow({ asset, quote = "USDT", price, flash, onSelect, assetType }) {
   const up = flash === "up";
   const down = flash === "down";
-  const pair = `${asset}/${quote}`;
+  const pair =
+    assetType === "forex" && String(asset).length >= 6
+      ? `${String(asset).slice(0, 3)}/${String(asset).slice(3)}`
+      : assetType === "stock"
+        ? `${asset}/USD`
+        : `${asset}/${quote}`;
   return (
     <button
       type="button"
@@ -26,7 +40,7 @@ function WatchRow({ asset, quote = "USDT", price, flash, onSelect }) {
         onSelect?.(asset);
         window.dispatchEvent(
           new CustomEvent("nexus:select-asset", {
-            detail: { asset, assetType: "crypto", quote },
+            detail: { asset, assetType: assetType || "crypto", quote },
           })
         );
       }}
@@ -40,25 +54,23 @@ function WatchRow({ asset, quote = "USDT", price, flash, onSelect }) {
       </div>
       <div
         className={`font-mono text-xs tabular-nums ${
-          up ? "text-emerald-300" : down ? "text-rose-300" : "text-slate-200"
+          up ? "text-emerald-300" : down ? "text-rose-300" : "text-cyan-200"
         }`}
       >
-        {price > 0
-          ? price >= 1
-            ? price.toLocaleString(undefined, { maximumFractionDigits: 4 })
-            : price.toPrecision(4)
-          : "—"}
+        {formatPx(price)}
       </div>
     </button>
   );
 }
 
 export default function CryptoWatchlist({ onSelectAsset }) {
-  const [rows, setRows] = useState([]);
+  const [markets, setMarkets] = useState([]);
+  const [quote, setQuote] = useState("USDT");
   const [query, setQuery] = useState("");
   const [flashes, setFlashes] = useState({});
   const prevPrices = useRef({});
   const flashTimers = useRef({});
+  const quoteMap = useLiveQuoteMap(1500);
 
   const tickFlash = useCallback((asset, dir) => {
     setFlashes((f) => ({ ...f, [asset]: dir }));
@@ -76,45 +88,57 @@ export default function CryptoWatchlist({ onSelectAsset }) {
   const load = useCallback(async () => {
     try {
       const res = await SecondsTradeAPI.markets();
-      const list = (res.markets || []).filter((m) => m.assetType === "crypto");
-      const quote = res.chartQuote === "USDC" ? "USDC" : "USDT";
-      const seen = new Set();
-      const next = [];
-      for (const m of list) {
-        if (seen.has(m.asset)) continue;
-        seen.add(m.asset);
-        const px =
-          quote === "USDC" && m.quotes?.USDC
-            ? Number(m.quotes.USDC)
-            : Number(m.price) || 0;
-        next.push({ asset: m.asset, quote, price: px });
-      }
-
-      for (const row of next) {
-        const prev = prevPrices.current[row.asset];
-        if (prev != null && row.price !== prev) {
-          tickFlash(row.asset, row.price > prev ? "up" : "down");
-        }
-        prevPrices.current[row.asset] = row.price;
-      }
-      setRows(next);
+      const list = res.markets || [];
+      setQuote(res.chartQuote === "USDC" ? "USDC" : "USDT");
+      setMarkets(list);
     } catch {
       /* ignore transient */
     }
-  }, [tickFlash]);
+  }, []);
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 2000);
+    const id = setInterval(load, 8000);
     return () => {
       clearInterval(id);
       Object.values(flashTimers.current).forEach(clearTimeout);
     };
   }, [load]);
 
+  const rows = useMemo(() => {
+    const seen = new Set();
+    const next = [];
+    for (const m of markets) {
+      const key = `${m.assetType}-${m.asset}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const q = m.assetType === "crypto" ? quote : "USD";
+      next.push({
+        asset: m.asset,
+        quote: q,
+        assetType: m.assetType || "crypto",
+        price: resolveMarketPrice(m, quoteMap, q),
+      });
+    }
+    return next;
+  }, [markets, quoteMap, quote]);
+
+  useEffect(() => {
+    for (const row of rows) {
+      const key = `${row.assetType}-${row.asset}`;
+      const prev = prevPrices.current[key];
+      if (prev != null && row.price !== prev && row.price > 0) {
+        tickFlash(key, row.price > prev ? "up" : "down");
+      }
+      prevPrices.current[key] = row.price;
+    }
+  }, [rows, tickFlash]);
+
   const filtered = query.trim()
-    ? rows.filter((r) =>
-        r.asset.toLowerCase().includes(query.trim().toLowerCase())
+    ? rows.filter(
+        (r) =>
+          r.asset.toLowerCase().includes(query.trim().toLowerCase()) ||
+          String(r.quote).toLowerCase().includes(query.trim().toLowerCase())
       )
     : rows;
 
@@ -152,11 +176,12 @@ export default function CryptoWatchlist({ onSelectAsset }) {
         ) : (
           filtered.map((r) => (
             <WatchRow
-              key={`${r.asset}-${r.quote}`}
+              key={`${r.assetType}-${r.asset}-${r.quote}`}
               asset={r.asset}
               quote={r.quote}
+              assetType={r.assetType}
               price={r.price}
-              flash={flashes[r.asset]}
+              flash={flashes[`${r.assetType}-${r.asset}`]}
               onSelect={onSelectAsset}
             />
           ))

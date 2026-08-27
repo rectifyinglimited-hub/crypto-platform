@@ -221,10 +221,14 @@ export default function SecondsTrading({
     [markets, asset]
   );
   const rawPrice =
-    (displayQuote === "USDC" && market?.quotes?.USDC) ||
-    market?.quotes?.[displayQuote] ||
-    market?.price ||
-    0;
+    Number(market?.rawPrice) > 0
+      ? Number(market.rawPrice)
+      : Number(
+          (displayQuote === "USDC" && market?.quotes?.USDC) ||
+            market?.quotes?.[displayQuote] ||
+            market?.price ||
+            0
+        );
   const price = Number(tapePrice) > 0 ? Number(tapePrice) : rawPrice;
   const activeForAsset = active.find((t) => t.asset === asset);
   const prev = series.length > 1 ? series[series.length - 2] : price;
@@ -260,6 +264,7 @@ export default function SecondsTrading({
       if (stocks.length) setStockList(stocks);
       const m = list.find((x) => x.asset === asset);
       const px =
+        Number(m?.rawPrice) ||
         (displayQuote === "USDC" && m?.quotes?.USDC) ||
         m?.quotes?.[displayQuote] ||
         m?.price;

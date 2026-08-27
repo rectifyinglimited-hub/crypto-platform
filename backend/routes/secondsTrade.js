@@ -38,6 +38,7 @@ import {
   toExchangeSymbol,
   normalizeQuote,
   resolveAssetType,
+  fetchYahooQuoteMap,
 } from "../lib/tradeAssets.js";
 
 const router = Router();
@@ -168,16 +169,29 @@ function priceDecimals(sym, price) {
   return 2;
 }
 
-async function fetchLivePrice(asset, tickerMap, quote = "USDT") {
+async function loadQuoteFeeds() {
+  const [tickerMap, yahooMap] = await Promise.all([
+    fetchBinanceTickerMap(),
+    fetchYahooQuoteMap(),
+  ]);
+  return { tickerMap, yahooMap: yahooMap || {} };
+}
+
+async function fetchLivePrice(asset, tickerMap, quote = "USDT", yahooMap = null) {
   const sym = String(asset).toUpperCase();
-  const q = normalizeQuote(quote, resolveAssetType(sym) || "crypto");
-  const pair = toExchangeSymbol(sym, q);
+  const type = resolveAssetType(sym) || "crypto";
+  const q = normalizeQuote(quote, type);
+  const pair = toExchangeSymbol(sym, type === "forex" || type === "stock" ? "USDT" : q);
   if (pair && tickerMap?.[pair] > 0) return tickerMap[pair];
   if (q === "USDC") {
     const usdtPair = toExchangeSymbol(sym, "USDT");
     if (usdtPair && tickerMap?.[usdtPair] > 0) return tickerMap[usdtPair];
   }
-  if (!tickerMap && pair && (CRYPTO_ASSETS.includes(sym) || FOREX_ASSETS.includes(sym))) {
+  if (yahooMap?.[sym] > 0 && (type === "stock" || type === "forex")) {
+    return yahooMap[sym];
+  }
+  const mapEmpty = !tickerMap || Object.keys(tickerMap).length === 0;
+  if (mapEmpty && pair && (CRYPTO_ASSETS.includes(sym) || FOREX_ASSETS.includes(sym))) {
     try {
       const ctrl = AbortSignal.timeout(4000);
       const res = await fetch(
@@ -210,10 +224,13 @@ async function fetchLivePrice(asset, tickerMap, quote = "USDT") {
       }
     }
   }
+  let ymap = yahooMap;
+  if ((!ymap || ymap[sym] == null) && (type === "stock" || type === "forex")) {
+    ymap = await fetchYahooQuoteMap();
+  }
+  if (ymap?.[sym] > 0) return ymap[sym];
   const base = fallbackPrice(sym);
-  const jitter = 1 + (Math.random() - 0.5) * 0.004;
-  const p = base * jitter;
-  return Number(p.toFixed(priceDecimals(sym, p)));
+  return Number(base.toFixed(priceDecimals(sym, base)));
 }
 
 function applyBias(price, biasPercent) {
@@ -638,20 +655,21 @@ router.get(
       ...FOREX_ASSETS.map((a) => ({ asset: a, assetType: "forex" })),
       ...STOCK_ASSETS.map((a) => ({ asset: a, assetType: "stock" })),
     ];
-    const tickerMap = await fetchBinanceTickerMap();
+    const { tickerMap, yahooMap } = await loadQuoteFeeds();
     const markets = await Promise.all(
       assets.map(async ({ asset, assetType }) => {
         const quote = assetType === "crypto" ? "USDT" : "USD";
-        const price = await fetchLivePrice(asset, tickerMap, quote);
+        const price = await fetchLivePrice(asset, tickerMap, quote, yahooMap);
         const priceUsdc =
           assetType === "crypto"
-            ? await fetchLivePrice(asset, tickerMap, "USDC")
+            ? await fetchLivePrice(asset, tickerMap, "USDC", yahooMap)
             : price;
         return {
           asset,
           assetType,
           quote,
           price,
+          rawPrice: price,
           quotes: assetType === "crypto" ? { USDT: price, USDC: priceUsdc } : undefined,
         };
       })
@@ -682,14 +700,14 @@ router.get(
       ...STOCK_ASSETS.map((a) => ({ asset: a, assetType: "stock" })),
     ];
 
-    const tickerMap = await fetchBinanceTickerMap();
+    const { tickerMap, yahooMap } = await loadQuoteFeeds();
 
     const prices = await Promise.all(
       assets.map(async ({ asset, assetType }) => {
-        const priceUsdt = await fetchLivePrice(asset, tickerMap, "USDT");
+        const priceUsdt = await fetchLivePrice(asset, tickerMap, "USDT", yahooMap);
         const priceUsdc =
           assetType === "crypto"
-            ? await fetchLivePrice(asset, tickerMap, "USDC")
+            ? await fetchLivePrice(asset, tickerMap, "USDC", yahooMap)
             : priceUsdt;
         const bias = Number(biasMap[asset] || 0);
         return {
@@ -722,14 +740,14 @@ router.get(
 
     const merged = prices.map((p) => {
       const hasTrade = Object.prototype.hasOwnProperty.call(tradeBias, p.asset);
-      const idleBias = Math.abs(Number(p.biasPercent) || 0) > 5 ? 0 : p.biasPercent;
-      const bias = hasTrade ? tradeBias[p.asset] : idleBias;
-      const usdt = applyBias(p.rawPrice, bias);
-      const usdc = applyBias(p.rawUsdc, bias);
+      const bias = hasTrade ? tradeBias[p.asset] : 0;
+      const usdt = hasTrade ? applyBias(p.rawPrice, bias) : p.rawPrice;
+      const usdc = hasTrade ? applyBias(p.rawUsdc, bias) : p.rawUsdc;
       return {
         asset: p.asset,
         assetType: p.assetType,
         quote: p.assetType === "crypto" ? forcedQuote || "USDT" : "USD",
+        rawPrice: p.rawPrice,
         price: usdt,
         quotes:
           p.assetType === "crypto" ? { USDT: usdt, USDC: usdc } : undefined,

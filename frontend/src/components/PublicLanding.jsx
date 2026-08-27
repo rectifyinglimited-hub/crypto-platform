@@ -13,6 +13,7 @@ import {
   Radio,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
+import { fetchLiveQuoteMap, tapePriceFromMap } from "../lib/liveQuotes.js";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
 import HeroMediaSlider from "./HeroMediaSlider.jsx";
@@ -64,10 +65,23 @@ function useLivePrices() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await SecondsTradeAPI.publicMarkets();
+        const [map, res] = await Promise.all([
+          fetchLiveQuoteMap().catch(() => null),
+          SecondsTradeAPI.publicMarkets().catch(() => ({ markets: [] })),
+        ]);
         if (cancelled) return;
+        const seen = new Set();
+        for (const p of PAIRS) {
+          const live = tapePriceFromMap(map, p.symbol, "USDT", "crypto");
+          if (live > 0) {
+            ingest(p.symbol, live);
+            seen.add(p.symbol);
+          }
+        }
         for (const m of res.markets || []) {
-          if (PAIRS.some((p) => p.symbol === m.asset)) ingest(m.asset, m.price);
+          if (!PAIRS.some((p) => p.symbol === m.asset)) continue;
+          if (seen.has(m.asset)) continue;
+          ingest(m.asset, m.rawPrice || m.price);
         }
       } catch {
         /* ignore */
@@ -82,7 +96,8 @@ function useLivePrices() {
   }, [ingest]);
 
   useEffect(() => {
-    const streams = "btcusdt@ticker/ethusdt@ticker/solusdt@ticker";
+    const streams =
+      "btcusdt@ticker/ethusdt@ticker/solusdt@ticker/xrpusdt@ticker/shibusdt@ticker";
     const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
     let ws;
     let closed = false;

@@ -39,7 +39,7 @@ import {
   BarChart3,
   Calendar,
 } from "lucide-react";
-import { AuthAPI, PlatformAPI, WalletAPI, assetUrl } from "../lib/api.js";
+import { AuthAPI, PlatformAPI, WalletAPI, SecondsTradeAPI, assetUrl } from "../lib/api.js";
 import {
   sourceLabel,
   historyKind,
@@ -53,6 +53,7 @@ import DepositSection from "./DepositSection.jsx";
 import WithdrawSection, { NetworkLogo } from "./WithdrawSection.jsx";
 import CopyTradeModule from "./CopyTradeModule.jsx";
 import BrandLogo from "./BrandLogo.jsx";
+import { resolveMarketPrice, useLiveQuoteMap } from "../lib/liveQuotes.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -244,12 +245,6 @@ function OrderModal({
 // ---------------------------------------------------------------------------
 // 1. MarketPage
 // ---------------------------------------------------------------------------
-function pseudoChange(id) {
-  let h = 0;
-  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 1000;
-  return (h / 1000) * 8 - 4;
-}
-
 const MARKET_CATS = [
   { id: "Crypto", type: "crypto", assets: CRYPTO_ASSETS },
   { id: "Forex", type: "forex", assets: FOREX_ASSETS },
@@ -280,10 +275,29 @@ export function MarketPage({
     : inferredCat;
   const [cat, setCat] = useState(startCat);
   const [q, setQ] = useState("");
+  const [tape, setTape] = useState([]);
+  const quoteMap = useLiveQuoteMap(2000);
 
   useEffect(() => {
     setCat(startCat);
   }, [startCat]);
+
+  useEffect(() => {
+    let on = true;
+    const load = () => {
+      SecondsTradeAPI.markets()
+        .then((res) => {
+          if (on) setTape(res.markets || []);
+        })
+        .catch(() => {});
+    };
+    load();
+    const id = setInterval(load, 8000);
+    return () => {
+      on = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const builtin = useMemo(() => {
     const group = MARKET_CATS.find((c) => c.id === cat) || MARKET_CATS[0];
@@ -388,17 +402,26 @@ export function MarketPage({
               <tr className="border-b border-white/5 text-left text-[10px] uppercase tracking-widest text-slate-500">
                 <th className="px-4 py-3 font-semibold">Pair</th>
                 <th className="hidden px-4 py-3 font-semibold sm:table-cell">Category</th>
-                <th className="px-4 py-3 font-semibold">24h Change</th>
+                <th className="px-4 py-3 font-semibold">Last</th>
                 <th className="px-4 py-3 text-right font-semibold">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {filtered.map((it) => {
-                const change = pseudoChange(it._id);
-                const positive = change >= 0;
                 const isHit =
                   highlight &&
                   String(it.meta?.base || "").toUpperCase() === highlight;
+                const asset = String(it.meta?.base || "").toUpperCase();
+                const type = it.meta?.assetType || "crypto";
+                const qte = type === "crypto" ? "USDT" : "USD";
+                const m = tape.find(
+                  (x) => x.asset === asset && (x.assetType || "crypto") === type
+                );
+                const last = resolveMarketPrice(
+                  m || { asset, assetType: type },
+                  quoteMap,
+                  qte
+                );
                 return (
                   <tr
                     key={it._id}
@@ -413,13 +436,18 @@ export function MarketPage({
                     <td className="hidden px-4 py-3 text-slate-400 sm:table-cell">
                       {it.meta?.category || cat}
                     </td>
-                    <td
-                      className={`px-4 py-3 font-semibold tabular-nums ${
-                        positive ? "text-emerald-400" : "text-rose-400"
-                      }`}
-                    >
-                      {positive ? "+" : ""}
-                      {change.toFixed(2)}%
+                    <td className="px-4 py-3 font-mono text-sm font-semibold tabular-nums text-cyan-200">
+                      {last > 0
+                        ? last >= 1000
+                          ? last.toLocaleString(undefined, {
+                              maximumFractionDigits: 2,
+                            })
+                          : last >= 1
+                            ? last.toLocaleString(undefined, {
+                                maximumFractionDigits: 4,
+                              })
+                            : last.toPrecision(4)
+                        : "—"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button

@@ -119,10 +119,13 @@ export function toExchangeSymbol(asset, quote = "USDT") {
   const q = String(quote || "USDT").toUpperCase();
   if (!a) return null;
   if (FOREX_ASSETS.includes(a)) {
-    if (a.endsWith("USD") && a.length === 6) return `${a.slice(0, 3)}USDT`;
     if (a === "XAUUSD") return "PAXGUSDT";
     if (a === "XAGUSD") return null;
-    return `${a.slice(0, 3)}USDT`;
+    // EURUSD → EURUSDT. Do not map USDJPY → USDUSDT (~1).
+    if (a.endsWith("USD") && a.length === 6 && !a.startsWith("USD")) {
+      return `${a.slice(0, 3)}USDT`;
+    }
+    return null;
   }
   if (a.endsWith(q)) return a;
   return `${a}${q}`;
@@ -146,7 +149,7 @@ export function resolveAssetType(asset) {
 }
 
 export const FALLBACK_PRICES = {
-  BTC: 68000,
+  BTC: 80000,
   ETH: 3500,
   SOL: 145,
   BNB: 580,
@@ -210,4 +213,89 @@ export function fallbackPrice(asset) {
   let h = 0;
   for (const c of sym) h = (h * 33 + c.charCodeAt(0)) % 100000;
   return Number((0.05 + (h % 5000) / 100).toFixed(6));
+}
+
+/** Yahoo / FX last prices for stocks + forex pairs Binance does not list. */
+let yahooQuoteCache = { at: 0, map: null, inflight: null };
+
+function yahooQuerySymbol(asset, assetType) {
+  const a = String(asset || "").toUpperCase();
+  if (assetType === "stock") return a;
+  if (assetType === "forex") {
+    if (a === "XAUUSD") return "GC=F";
+    if (a === "XAGUSD") return "SI=F";
+    return `${a}=X`;
+  }
+  return null;
+}
+
+function sparkLastPrice(entry) {
+  const closes = entry?.close;
+  if (Array.isArray(closes)) {
+    for (let i = closes.length - 1; i >= 0; i--) {
+      const px = Number(closes[i]);
+      if (Number.isFinite(px) && px > 0) return px;
+    }
+  }
+  const px = Number(entry?.regularMarketPrice ?? entry?.chartPreviousClose);
+  return Number.isFinite(px) && px > 0 ? px : 0;
+}
+
+export async function fetchYahooQuoteMap() {
+  const now = Date.now();
+  if (yahooQuoteCache.map && now - yahooQuoteCache.at < 20_000) {
+    return yahooQuoteCache.map;
+  }
+  if (yahooQuoteCache.inflight) return yahooQuoteCache.inflight;
+
+  const queries = [
+    ...STOCK_ASSETS.map((a) => ({ asset: a, q: yahooQuerySymbol(a, "stock") })),
+    ...FOREX_ASSETS.map((a) => ({ asset: a, q: yahooQuerySymbol(a, "forex") })),
+  ].filter((row) => row.q);
+
+  yahooQuoteCache.inflight = (async () => {
+    const map = { ...(yahooQuoteCache.map || {}) };
+    const chunkSize = 40;
+    const chunks = [];
+    for (let i = 0; i < queries.length; i += chunkSize) {
+      chunks.push(queries.slice(i, i + chunkSize));
+    }
+    await Promise.all(
+      chunks.map(async (chunk) => {
+        try {
+          const symbols = chunk.map((c) => c.q).join(",");
+          const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${encodeURIComponent(symbols)}&range=1d&interval=1d`;
+          const res = await fetch(url, {
+            signal: AbortSignal.timeout(8000),
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              Accept: "application/json",
+            },
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          const byYahoo = new Map(chunk.map((c) => [c.q, c.asset]));
+          const rows = Array.isArray(data?.spark?.result)
+            ? data.spark.result
+            : Object.values(data || {}).filter((row) => row && row.symbol);
+          for (const row of rows) {
+            const asset = byYahoo.get(String(row.symbol || ""));
+            const px = sparkLastPrice(row);
+            if (!asset || !(px > 0)) continue;
+            map[asset] = px;
+          }
+        } catch {
+          /* keep previous cache for this chunk */
+        }
+      })
+    );
+    yahooQuoteCache = { at: Date.now(), map, inflight: null };
+    return map;
+  })().catch(() => {
+    yahooQuoteCache.inflight = null;
+    return yahooQuoteCache.map || {};
+  });
+
+  return yahooQuoteCache.inflight;
 }
