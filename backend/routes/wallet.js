@@ -367,10 +367,9 @@ router.get(
     const balance = Number(wallet.USDT || 0);
     const transactions = await Transaction.find({
       user: req.auth.sub,
-      ledgerDelta: { $ne: 0 },
     })
       .sort({ createdAt: 1 })
-      .select("createdAt ledgerDelta")
+      .select("createdAt updatedAt ledgerDelta amount usdValue kind status fundsHeld")
       .limit(2500)
       .lean();
 

@@ -32,16 +32,22 @@ function fmtAxis(n) {
 
 function fmtX(t, spanMs) {
   const d = new Date(t);
-  if (spanMs && spanMs <= 8 * 86400000) {
+  if (spanMs <= 36 * 3600000) {
+    return d.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  if (spanMs <= 10 * 86400000) {
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
-  return d.toLocaleDateString(undefined, { month: "short" });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export default function BalanceTrendCard({ user }) {
   const fillId = useId().replace(/:/g, "");
   const live = Number(user?.wallet?.USDT || 0);
-  const [range, setRange] = useState("30d");
+  const [range, setRange] = useState("all");
   const [raw, setRaw] = useState(() => flatSeries(live));
 
   useEffect(() => {
@@ -63,7 +69,6 @@ export default function BalanceTrendCard({ user }) {
         setRaw(
           buildBalanceSeries({
             current: live,
-            createdAt: user?.createdAt,
             transactions: res?.transactions || [],
           })
         );
@@ -72,18 +77,27 @@ export default function BalanceTrendCard({ user }) {
       }
     };
     load();
+    const tick = setInterval(load, 20000);
     return () => {
       cancelled = true;
+      clearInterval(tick);
     };
-  }, [live, user?.createdAt, user?.id, user?._id]);
+  }, [live, user?.id, user?._id]);
 
   const series = useMemo(() => {
     const spec = RANGES.find((r) => r.id === range);
     const sliced = sliceSeries(raw, spec?.ms || 0);
     if (sliced.length >= 2) {
       const next = sliced.map((p) => ({ ...p }));
-      next[next.length - 1].v = live;
-      next[next.length - 1].t = Date.now();
+      const lastP = next[next.length - 1];
+      const now = Date.now();
+      if (Math.abs(lastP.v - live) > 1e-8) {
+        next.push({ t: now, v: lastP.v });
+        next.push({ t: now, v: live });
+      } else {
+        lastP.t = now;
+        lastP.v = live;
+      }
       return next;
     }
     return flatSeries(live);
@@ -108,9 +122,11 @@ export default function BalanceTrendCard({ user }) {
   const lo = min - span * 0.12;
   const hi = max + span * 0.12;
   const rng = hi - lo || 1;
-  const xy = series.map((p, i) => {
-    const x =
-      pad.l + (i / Math.max(series.length - 1, 1)) * (W - pad.l - pad.r);
+  const t0 = series[0].t;
+  const t1 = series[series.length - 1].t;
+  const spanT = Math.max(t1 - t0, 1);
+  const xy = series.map((p) => {
+    const x = pad.l + ((p.t - t0) / spanT) * (W - pad.l - pad.r);
     const y = pad.t + ((hi - p.v) / rng) * (H - pad.t - pad.b);
     return [x, y];
   });
@@ -124,14 +140,11 @@ export default function BalanceTrendCard({ user }) {
     y: pad.t + t * (H - pad.t - pad.b),
     v: hi - t * rng,
   }));
-  const spanMs = series[series.length - 1].t - series[0].t;
-  const xTicks = [0, 0.33, 0.66, 1].map((t) => {
-    const i = Math.min(
-      series.length - 1,
-      Math.round(t * (series.length - 1))
-    );
-    return { x: xy[i][0], label: fmtX(series[i].t, spanMs) };
-  });
+  const spanMs = spanT;
+  const xTicks = [0, 0.33, 0.66, 1].map((frac) => ({
+    x: pad.l + frac * (W - pad.l - pad.r),
+    label: fmtX(t0 + frac * spanT, spanMs),
+  }));
 
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-5">
@@ -241,8 +254,8 @@ export default function BalanceTrendCard({ user }) {
           fill="none"
           stroke={stroke}
           strokeWidth="2.4"
-          strokeLinejoin="round"
-          strokeLinecap="round"
+          strokeLinejoin="miter"
+          strokeLinecap="butt"
         />
         {xy.length > 0 && (
           <circle
