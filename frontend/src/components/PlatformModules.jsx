@@ -40,7 +40,15 @@ import {
   Calendar,
 } from "lucide-react";
 import { AuthAPI, PlatformAPI, WalletAPI, assetUrl } from "../lib/api.js";
-import { sourceLabel } from "../lib/marketAssets.js";
+import {
+  sourceLabel,
+  historyKind,
+  CRYPTO_ASSETS,
+  FOREX_ASSETS,
+  STOCK_ASSETS,
+  displayName,
+  pairLabel,
+} from "../lib/marketAssets.js";
 import DepositSection from "./DepositSection.jsx";
 import WithdrawSection, { NetworkLogo } from "./WithdrawSection.jsx";
 import CopyTradeModule from "./CopyTradeModule.jsx";
@@ -242,36 +250,100 @@ function pseudoChange(id) {
   return (h / 1000) * 8 - 4;
 }
 
-export function MarketPage({ onNavigate, onTradePair }) {
-  const { items, loading } = useCatalog("market_pair");
-  const [cat, setCat] = useState("Crypto");
+const MARKET_CATS = [
+  { id: "Crypto", type: "crypto", assets: CRYPTO_ASSETS },
+  { id: "Forex", type: "forex", assets: FOREX_ASSETS },
+  { id: "Stocks", type: "stock", assets: STOCK_ASSETS },
+];
+
+function categoryFromAsset(asset, assetType) {
+  if (assetType === "stock") return "Stocks";
+  if (assetType === "forex") return "Forex";
+  if (assetType === "crypto") return "Crypto";
+  const a = String(asset || "").toUpperCase();
+  if (STOCK_ASSETS.includes(a)) return "Stocks";
+  if (FOREX_ASSETS.includes(a)) return "Forex";
+  return "Crypto";
+}
+
+export function MarketPage({
+  onNavigate,
+  onTradePair,
+  initialCategory,
+  initialAsset,
+  initialAssetType,
+}) {
+  const { items: catalogItems, loading } = useCatalog("market_pair");
+  const inferredCat = categoryFromAsset(initialAsset, initialAssetType || initialCategory);
+  const startCat = ["Crypto", "Forex", "Stocks"].includes(initialCategory)
+    ? initialCategory
+    : inferredCat;
+  const [cat, setCat] = useState(startCat);
   const [q, setQ] = useState("");
-  const filtered = items.filter((it) => {
-    if ((it.meta?.category || "Crypto") !== cat) return false;
+
+  useEffect(() => {
+    setCat(startCat);
+  }, [startCat]);
+
+  const builtin = useMemo(() => {
+    const group = MARKET_CATS.find((c) => c.id === cat) || MARKET_CATS[0];
+    return group.assets.map((asset) => ({
+      _id: `${group.type}-${asset}`,
+      title: pairLabel(asset, group.type),
+      subtitle: displayName(asset, group.type),
+      meta: {
+        category: group.id,
+        base: asset,
+        quote: group.type === "crypto" ? "USDT" : "USD",
+        assetType: group.type,
+      },
+    }));
+  }, [cat]);
+
+  const extraFromCatalog = useMemo(() => {
+    const have = new Set(builtin.map((r) => String(r.title).toUpperCase()));
+    return (catalogItems || [])
+      .filter((it) => (it.meta?.category || "Crypto") === cat)
+      .filter((it) => !have.has(String(it.title || "").toUpperCase()))
+      .map((it) => ({
+        ...it,
+        meta: {
+          ...it.meta,
+          assetType:
+            cat === "Stocks" ? "stock" : cat === "Forex" ? "forex" : "crypto",
+        },
+      }));
+  }, [catalogItems, cat, builtin]);
+
+  const rows = useMemo(() => [...builtin, ...extraFromCatalog], [builtin, extraFromCatalog]);
+  const filtered = rows.filter((it) => {
     if (!q.trim()) return true;
     const s = q.trim().toLowerCase();
     return (
       String(it.title || "").toLowerCase().includes(s) ||
+      String(it.subtitle || "").toLowerCase().includes(s) ||
       String(it.meta?.base || "").toLowerCase().includes(s)
     );
   });
+  const highlight = String(initialAsset || "").toUpperCase();
 
   const openTrade = (it) => {
-    const category = it.meta?.category || cat || "Crypto";
+    const group = MARKET_CATS.find((c) => c.id === cat) || MARKET_CATS[0];
     const base = String(it.meta?.base || it.title?.split("/")?.[0] || "BTC")
       .toUpperCase()
       .replace(/[^A-Z0-9]/g, "");
     const payload = {
-      asset: category === "Crypto" && base ? base : "BTC",
-      assetType: "crypto",
+      asset: base,
+      assetType: it.meta?.assetType || group.type,
       pair: it.title,
-      category,
+      category: cat,
+      quote: it.meta?.quote || (group.type === "crypto" ? "USDT" : "USD"),
     };
     if (typeof onTradePair === "function") {
       onTradePair(payload);
       return;
     }
-    onNavigate?.("delivery");
+    onNavigate?.("trade");
   };
 
   return (
@@ -279,20 +351,20 @@ export function MarketPage({ onNavigate, onTradePair }) {
       <PageHeader
         icon={LineChart}
         title="Market"
-        subtitle={`${items.length || "…"} pairs across Forex & Crypto`}
+        subtitle={`${CRYPTO_ASSETS.length} crypto · ${FOREX_ASSETS.length} forex · ${STOCK_ASSETS.length} stocks`}
       />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="inline-flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
-          {["Crypto", "Forex"].map((c) => (
+          {MARKET_CATS.map((c) => (
             <button
-              key={c}
+              key={c.id}
               type="button"
-              onClick={() => setCat(c)}
+              onClick={() => setCat(c.id)}
               className={`rounded-lg px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
-                cat === c ? "bg-cyan-500/15 text-cyan-300" : "text-slate-400 hover:text-slate-200"
+                cat === c.id ? "bg-cyan-500/15 text-cyan-300" : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              {c}
+              {c.id}
             </button>
           ))}
         </div>
@@ -305,7 +377,7 @@ export function MarketPage({ onNavigate, onTradePair }) {
         <div className="text-[11px] text-slate-500">{filtered.length} shown</div>
       </div>
       <Card className="overflow-hidden !p-0">
-        {loading ? (
+        {loading && !builtin.length ? (
           <LoadingBlock />
         ) : filtered.length === 0 ? (
           <EmptyState icon={LineChart} label="No pairs listed yet." />
@@ -324,14 +396,22 @@ export function MarketPage({ onNavigate, onTradePair }) {
               {filtered.map((it) => {
                 const change = pseudoChange(it._id);
                 const positive = change >= 0;
+                const isHit =
+                  highlight &&
+                  String(it.meta?.base || "").toUpperCase() === highlight;
                 return (
-                  <tr key={it._id} className="transition hover:bg-white/[0.02]">
+                  <tr
+                    key={it._id}
+                    className={`transition hover:bg-white/[0.02] ${
+                      isHit ? "bg-cyan-500/10" : ""
+                    }`}
+                  >
                     <td className="px-4 py-3">
                       <div className="font-semibold text-white">{it.title}</div>
                       <div className="text-[11px] text-slate-500">{it.subtitle}</div>
                     </td>
                     <td className="hidden px-4 py-3 text-slate-400 sm:table-cell">
-                      {it.meta?.category}
+                      {it.meta?.category || cat}
                     </td>
                     <td
                       className={`px-4 py-3 font-semibold tabular-nums ${
@@ -2134,9 +2214,17 @@ function PaymentSection({ cards, onToast, onChanged }) {
   );
 }
 
+const HISTORY_MENUS = [
+  { id: "all", label: "All" },
+  { id: "seconds_trade", label: "Trade" },
+  { id: "smart_copy", label: "Smart Spot Trade" },
+  { id: "ai_future", label: "AI Futures Strategy" },
+];
+
 function LogsSection() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [menu, setMenu] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [timeFrom, setTimeFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -2202,14 +2290,16 @@ function LogsSection() {
     };
   }, []);
 
-  const hasFilter = Boolean(dateFrom || dateTo || timeFrom || timeTo);
+  const hasDateFilter = Boolean(dateFrom || dateTo || timeFrom || timeTo);
 
   const filtered = useMemo(() => {
     const singleDay = Boolean(dateFrom && !dateTo);
     const from = combineDateTime(dateFrom, timeFrom, false);
     const to = combineDateTime(singleDay ? dateFrom : dateTo, timeTo, true);
-    if (!from && !to) return rows;
     return rows.filter((o) => {
+      const bucket = historyKind(o.source, o.kind, o.note);
+      if (menu !== "all" && bucket !== menu) return false;
+      if (!from && !to) return true;
       if (!o.at) return false;
       const t = new Date(o.at).getTime();
       if (Number.isNaN(t)) return false;
@@ -2217,7 +2307,16 @@ function LogsSection() {
       if (to && t > to.getTime()) return false;
       return true;
     });
-  }, [rows, dateFrom, timeFrom, dateTo, timeTo]);
+  }, [rows, menu, dateFrom, timeFrom, dateTo, timeTo]);
+
+  const menuCounts = useMemo(() => {
+    const counts = { all: rows.length, seconds_trade: 0, smart_copy: 0, ai_future: 0 };
+    for (const o of rows) {
+      const bucket = historyKind(o.source, o.kind, o.note);
+      if (counts[bucket] != null) counts[bucket] += 1;
+    }
+    return counts;
+  }, [rows]);
 
   const clearFilters = () => {
     setDateFrom("");
@@ -2229,13 +2328,40 @@ function LogsSection() {
   const inputCls =
     "w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white outline-none ring-cyan-400/40 placeholder:text-slate-600 focus:ring-2";
 
+  const menuLabel = HISTORY_MENUS.find((m) => m.id === menu)?.label || "History";
+
   return (
     <Card className="overflow-hidden !p-0">
       <div className="border-b border-white/5 px-4 py-3">
         <h3 className="text-sm font-bold text-white">History</h3>
         <p className="text-[11px] text-slate-500">
-          Deposits, withdrawals, trades, Smart Spot Trade, and AI Futures Strategy.
+          Select Trade, Smart Spot Trade, or AI Futures Strategy — then date & time.
         </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {HISTORY_MENUS.map((m) => {
+            const active = menu === m.id;
+            const count = menuCounts[m.id];
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setMenu(m.id)}
+                className={`rounded-xl border px-3 py-1.5 text-[11px] font-semibold transition ${
+                  active
+                    ? "border-cyan-400/40 bg-cyan-500/20 text-cyan-200"
+                    : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                }`}
+              >
+                {m.label}
+                {typeof count === "number" ? (
+                  <span className={`ml-1.5 tabular-nums ${active ? "text-cyan-100/80" : "text-slate-600"}`}>
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <label className="block">
             <span className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
@@ -2291,11 +2417,11 @@ function LogsSection() {
           <p className="text-[11px] text-slate-500">
             {loading
               ? "Loading…"
-              : hasFilter
+              : menu !== "all" || hasDateFilter
                 ? `Showing ${filtered.length} of ${rows.length} records`
                 : `${rows.length} record${rows.length === 1 ? "" : "s"}`}
           </p>
-          {hasFilter ? (
+          {hasDateFilter ? (
             <button
               type="button"
               onClick={clearFilters}
@@ -2311,7 +2437,14 @@ function LogsSection() {
       ) : rows.length === 0 ? (
         <EmptyState icon={History} label="No activity yet." />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={History} label="No activity on this date or time." />
+        <EmptyState
+          icon={History}
+          label={
+            hasDateFilter
+              ? `No ${menuLabel} activity on this date or time.`
+              : `No ${menuLabel} history yet.`
+          }
+        />
       ) : (
         <ul className="divide-y divide-white/5">
           {filtered.map((o) => (

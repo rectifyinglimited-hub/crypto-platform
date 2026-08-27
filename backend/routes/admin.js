@@ -64,6 +64,7 @@ import {
   normalizeSmartCopy,
   serializeSmartCopy,
   refreshSmartCopyCycle,
+  SMART_COPY_SLOTS,
 } from "../lib/smartCopy.js";
 import { recordLedger } from "../lib/ledger.js";
 
@@ -283,6 +284,7 @@ router.put(
           slot,
           enabled: true,
           readyAt: null,
+          accuracy: null,
         };
         if (!incoming) return cur;
         let readyAt = cur.readyAt || null;
@@ -291,6 +293,11 @@ router.put(
           const d = new Date(incoming.readyAt);
           readyAt = Number.isNaN(d.getTime()) ? cur.readyAt : d;
         }
+        const meta = SMART_COPY_SLOTS[slot] || SMART_COPY_SLOTS[0];
+        const accuracy =
+          incoming.accuracy === undefined
+            ? cur.accuracy
+            : Math.min(100, Math.max(0, Math.round(Number(incoming.accuracy))));
         return {
           slot,
           enabled:
@@ -298,6 +305,9 @@ router.put(
               ? cur.enabled !== false
               : Boolean(incoming.enabled),
           readyAt,
+          accuracy: Number.isFinite(Number(accuracy))
+            ? Number(accuracy)
+            : meta.accuracy,
         };
       });
       user.smartCopySlots = next;

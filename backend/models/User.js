@@ -195,6 +195,7 @@ const UserSchema = new Schema(
           slot: { type: Number, min: 0, max: 3 },
           enabled: { type: Boolean, default: true },
           readyAt: { type: Date, default: null },
+          accuracy: { type: Number, min: 0, max: 100, default: null },
         },
       ],
       default: () =>

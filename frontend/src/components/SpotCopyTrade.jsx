@@ -95,7 +95,7 @@ function fmtRemain(ms) {
   return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
 }
 
-function CoinPicker({ asset, assetType, lists, onChange, disabled }) {
+function CoinPicker({ asset, assetType, lists, onChange, onOpenMarket, disabled }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState(assetType || "crypto");
   const [q, setQ] = useState("");
@@ -162,6 +162,7 @@ function CoinPicker({ asset, assetType, lists, onChange, disabled }) {
                 onClick={() => {
                   onChange(a, tab);
                   setOpen(false);
+                  onOpenMarket?.({ asset: a, assetType: tab });
                 }}
                 className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-xs ${
                   a === asset && tab === assetType
@@ -260,6 +261,7 @@ function SignalCard({
   secondsLeft,
   onPick,
   onCopy,
+  onOpenMarket,
 }) {
   const name = displayName(pick.asset, pick.assetType);
   const pair = pairLabel(pick.asset, pick.assetType);
@@ -307,9 +309,18 @@ function SignalCard({
       <div className="relative z-10 flex h-full min-h-[250px] flex-col p-4 sm:min-h-[290px] sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[15px] font-semibold tracking-wide text-white sm:text-lg">
+            <button
+              type="button"
+              onClick={() =>
+                onOpenMarket?.({
+                  asset: pick.asset,
+                  assetType: pick.assetType,
+                })
+              }
+              className="text-left text-[15px] font-semibold tracking-wide text-white hover:text-cyan-200 sm:text-lg"
+            >
               AI Prediction: {name}
-            </div>
+            </button>
             <div className="mt-2">
               <CoinPicker
                 asset={pick.asset}
@@ -317,6 +328,7 @@ function SignalCard({
                 lists={lists}
                 disabled={copied}
                 onChange={onPick}
+                onOpenMarket={onOpenMarket}
               />
             </div>
             <div className="mt-2 text-[11px] font-medium text-white/80">
@@ -385,7 +397,7 @@ function SignalCard({
   );
 }
 
-export default function SpotCopyTrade() {
+export default function SpotCopyTrade({ onOpenMarket }) {
   const [desk, setDesk] = useState(null);
   const [copies, setCopies] = useState([]);
   const [picks, setPicks] = useState(loadPicks);
@@ -623,6 +635,7 @@ export default function SpotCopyTrade() {
                   setPick(slotMeta.slot, asset, type)
                 }
                 onCopy={() => startCopy(slotMeta)}
+                onOpenMarket={onOpenMarket}
               />
             );
           })}

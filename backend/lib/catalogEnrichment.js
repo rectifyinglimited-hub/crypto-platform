@@ -4,6 +4,7 @@
  */
 
 import PlatformCatalog from "../models/PlatformCatalog.js";
+import { STOCK_ASSETS } from "./tradeAssets.js";
 
 const CRYPTO_BASES = [
   "BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "DOGE", "TRX", "DOT", "LINK",
@@ -117,6 +118,18 @@ export function buildMarketPairSeed() {
       sortOrder: sort++,
     });
   }
+  for (const ticker of STOCK_ASSETS) {
+    rows.push({
+      kind: "market_pair",
+      title: `${ticker}/USD`,
+      subtitle: "Stocks",
+      price: 0,
+      meta: { category: "Stocks", base: ticker, quote: "USD" },
+      enabled: true,
+      featured: false,
+      sortOrder: sort++,
+    });
+  }
   // Pad to ≥500 with synthetic crypto index pairs if needed
   let i = 1;
   while (rows.length < 500) {
@@ -185,6 +198,34 @@ export async function ensureCatalogEnrichment(adminId = null) {
         () => {}
       );
     }
+  }
+
+  const stockTitles = STOCK_ASSETS.map((t) => `${t}/USD`);
+  const haveStocks = await PlatformCatalog.find({
+    ...filter,
+    kind: "market_pair",
+    title: { $in: stockTitles },
+  })
+    .select("title")
+    .lean();
+  const haveStockSet = new Set(haveStocks.map((e) => e.title));
+  const missingStocks = STOCK_ASSETS.filter(
+    (t) => !haveStockSet.has(`${t}/USD`)
+  ).map((ticker, i) => ({
+    kind: "market_pair",
+    title: `${ticker}/USD`,
+    subtitle: "Stocks",
+    price: 0,
+    meta: { category: "Stocks", base: ticker, quote: "USD" },
+    enabled: true,
+    featured: false,
+    sortOrder: 8000 + i,
+    adminId,
+  }));
+  if (missingStocks.length) {
+    await PlatformCatalog.insertMany(missingStocks, { ordered: false }).catch(
+      () => {}
+    );
   }
 
   const nftCount = await PlatformCatalog.countDocuments({

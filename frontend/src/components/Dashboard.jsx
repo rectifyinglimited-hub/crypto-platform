@@ -1007,6 +1007,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const [chatHint, setChatHint] = useState(null);
   const [assetsView, setAssetsView] = useState("overview");
   const [tradeIntent, setTradeIntent] = useState(null); // { asset, assetType, pair }
+  const [marketIntent, setMarketIntent] = useState(null);
 
   const goPage = (p) => {
     const key = p === "delivery" || p === "spot" || p === "perpetual" ? "trade" : p;
@@ -1292,11 +1293,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           )}
           {page === "market" && (
             <MarketPage
-              key="market"
+              key={`market-${marketIntent?.at || "desk"}`}
               onToast={say}
               onNavigate={goPage}
               onTradePair={openTradeDesk}
               user={me}
+              initialAsset={marketIntent?.asset}
+              initialAssetType={marketIntent?.assetType}
+              initialCategory={marketIntent?.category}
             />
           )}
           {page === "deposit" && (
@@ -1346,6 +1350,20 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               onToast={say}
               onWalletUpdate={handleUserUpdate}
               walletUsdt={walletUsdt}
+              onOpenMarket={(payload = {}) => {
+                setMarketIntent({
+                  asset: String(payload.asset || "").toUpperCase(),
+                  assetType: payload.assetType || "crypto",
+                  category:
+                    payload.assetType === "stock"
+                      ? "Stocks"
+                      : payload.assetType === "forex"
+                        ? "Forex"
+                        : "Crypto",
+                  at: Date.now(),
+                });
+                goPage("market");
+              }}
             />
           )}
           {page === "aibot" && (

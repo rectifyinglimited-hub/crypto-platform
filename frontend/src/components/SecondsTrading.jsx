@@ -16,6 +16,7 @@ import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
 import { onSocketEvent } from "../lib/socket.js";
 import { WATCHLIST_CRYPTO } from "./CryptoWatchlist.jsx";
+import { STOCK_ASSETS, FOREX_ASSETS } from "../lib/marketAssets.js";
 import FuturesChart from "./FuturesChart.jsx";
 
 const TOASTED_KEY = "nexus_toasted_trades";
@@ -113,13 +114,8 @@ function persistToasted(set) {
 }
 
 const DURATIONS = [60, 90, 120];
-const STOCKS = [
-  "AAPL", "TSLA", "AMZN", "NVDA", "GOOGL", "MSFT", "META", "NFLX", "AMD", "INTC",
-];
-const FOREX = [
-  "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
-  "EURGBP", "XAUUSD",
-];
+const STOCKS = STOCK_ASSETS;
+const FOREX = FOREX_ASSETS;
 const CRYPTO_FALLBACK = WATCHLIST_CRYPTO;
 
 function pairLabel(asset, quote, type) {

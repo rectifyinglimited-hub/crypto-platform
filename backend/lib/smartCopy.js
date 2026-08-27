@@ -50,6 +50,12 @@ export function isSlotOpen(slotDoc, now = new Date()) {
   return true;
 }
 
+export function clampAccuracy(n, fallback = 70) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.min(100, Math.max(0, Math.round(v)));
+}
+
 export function smartCopyCommissionMode(user) {
   return user?.smartCopyCommissionMode === "manual" ? "manual" : "auto";
 }
@@ -121,10 +127,12 @@ export function normalizeSmartCopy(user) {
   const prev = Array.isArray(user.smartCopySlots) ? user.smartCopySlots : [];
   user.smartCopySlots = [0, 1, 2, 3].map((slot) => {
     const found = prev.find((s) => Number(s.slot) === slot);
+    const meta = SMART_COPY_SLOTS[slot] || SMART_COPY_SLOTS[0];
     return {
       slot,
       enabled: found ? found.enabled !== false : true,
       readyAt: found?.readyAt || null,
+      accuracy: clampAccuracy(found?.accuracy, meta.accuracy),
     };
   });
   return user;
@@ -165,7 +173,7 @@ export function serializeSmartCopy(user, copies = []) {
         readyAt: s.readyAt || null,
         isOpen: open,
         copied,
-        accuracy: meta.accuracy,
+        accuracy: clampAccuracy(s.accuracy, meta.accuracy),
         prediction: meta.prediction,
         followers: meta.followers,
         bar: meta.bar,

@@ -311,7 +311,12 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [vipLevelEdit, setVipLevelEdit] = useState("0");
   const [scMaxSlots, setScMaxSlots] = useState(1);
   const [scSlots, setScSlots] = useState(() =>
-    [0, 1, 2, 3].map((slot) => ({ slot, enabled: true, readyAt: "" }))
+    [0, 1, 2, 3].map((slot) => ({
+      slot,
+      enabled: true,
+      readyAt: "",
+      accuracy: String([94, 88, 70, 62][slot] || 70),
+    }))
   );
   const [scBusy, setScBusy] = useState(false);
   const [scCredit, setScCredit] = useState("");
@@ -369,6 +374,10 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           slot,
           enabled: s ? s.enabled !== false : true,
           readyAt: toLocalInput(s?.readyAt),
+          accuracy:
+            s?.accuracy != null && Number.isFinite(Number(s.accuracy))
+              ? String(Math.round(Number(s.accuracy)))
+              : String([94, 88, 70, 62][slot] || 70),
         };
       })
     );
@@ -397,6 +406,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           slot: s.slot,
           enabled: Boolean(s.enabled),
           readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
+          accuracy: Math.min(100, Math.max(0, Math.round(Number(s.accuracy) || 0))),
         })),
       });
       if (res?.smartCopy) hydrateSmartCopy(res.smartCopy);
@@ -1187,6 +1197,73 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                     >
                       {s.enabled ? "ON" : "OFF"}
                     </button>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-[10px] font-semibold uppercase text-slate-500">
+                      AI Prediction Accuracy
+                    </span>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setScSlots((prev) =>
+                            prev.map((row) =>
+                              row.slot === s.slot
+                                ? {
+                                    ...row,
+                                    accuracy: String(
+                                      Math.max(0, Number(row.accuracy || 0) - 1)
+                                    ),
+                                  }
+                                : row
+                            )
+                          )
+                        }
+                        className="rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/5"
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={s.accuracy}
+                        onChange={(e) =>
+                          setScSlots((prev) =>
+                            prev.map((row) =>
+                              row.slot === s.slot
+                                ? { ...row, accuracy: e.target.value }
+                                : row
+                            )
+                          )
+                        }
+                        className="w-16 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-center font-mono text-sm text-white outline-none focus:border-cyan-400/40"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setScSlots((prev) =>
+                            prev.map((row) =>
+                              row.slot === s.slot
+                                ? {
+                                    ...row,
+                                    accuracy: String(
+                                      Math.min(100, Number(row.accuracy || 0) + 1)
+                                    ),
+                                  }
+                                : row
+                            )
+                          )
+                        }
+                        className="rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/5"
+                      >
+                        +
+                      </button>
+                      <span className="text-[11px] text-slate-500">%</span>
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Save Smart Spot to keep this number on the user cards.
+                    </p>
                   </div>
                   <label className="mt-2 block">
                     <span className="text-[10px] font-semibold uppercase text-slate-500">

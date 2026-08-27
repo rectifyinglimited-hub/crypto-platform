@@ -27,26 +27,19 @@ export const FOREX_ASSETS = [
 ];
 
 export const STOCK_ASSETS = [
-  "AAPL",
-  "TSLA",
-  "AMZN",
-  "NVDA",
-  "GOOGL",
-  "MSFT",
-  "META",
-  "NFLX",
-  "AMD",
-  "INTC",
-  "BA",
-  "DIS",
-  "KO",
-  "PEP",
-  "NKE",
-  "JPM",
-  "V",
-  "MA",
-  "BABA",
-  "ORCL",
+  "AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "TSLA", "AVGO", "JPM",
+  "LLY", "V", "UNH", "XOM", "MA", "COST", "JNJ", "WMT", "PG", "HD",
+  "ORCL", "NFLX", "ABBV", "CVX", "BAC", "KO", "MRK", "CRM", "AMD", "PEP",
+  "TMO", "CSCO", "ADBE", "LIN", "ACN", "MCD", "WFC", "IBM", "GE", "CAT",
+  "NOW", "INTU", "DIS", "QCOM", "TXN", "AMAT", "UBER", "AMGN", "PFE", "NKE",
+  "LOW", "BA", "SBUX", "GS", "INTC", "HON", "BKNG", "RTX", "SPGI", "ISRG",
+  "DE", "BLK", "SYK", "MDT", "TJX", "GILD", "ADP", "LMT", "C", "ADI",
+  "VRTX", "ETN", "REGN", "SCHW", "CB", "PANW", "MU", "LRCX", "KLAC", "SNPS",
+  "CDNS", "CRWD", "SHOP", "SNOW", "PLTR", "COIN", "HOOD", "SQ", "PYPL", "ABNB",
+  "RIVN", "LCID", "NIO", "BABA", "JD", "PDD", "BIDU", "TSM", "ASML", "SAP",
+  "SONY", "TM", "NVO", "UL", "BP", "SHEL", "BHP", "RIO", "VALE", "NEM",
+  "FCX", "F", "GM", "RACE", "SPOT", "ROKU", "SNAP", "PINS", "ZM", "NET",
+  "DDOG", "OKTA", "ZS", "GME", "AMC", "DKNG", "MSTR", "APP", "ARM", "SMCI",
 ];
 
 const NAMES = {
@@ -81,8 +74,69 @@ const NAMES = {
   AMZN: "Amazon",
   NVDA: "NVIDIA",
   GOOGL: "Alphabet",
+  GOOG: "Alphabet Class C",
   MSFT: "Microsoft",
   META: "Meta",
+  NFLX: "Netflix",
+  AMD: "AMD",
+  INTC: "Intel",
+  BA: "Boeing",
+  DIS: "Disney",
+  KO: "Coca-Cola",
+  PEP: "PepsiCo",
+  NKE: "Nike",
+  JPM: "JPMorgan",
+  V: "Visa",
+  MA: "Mastercard",
+  BABA: "Alibaba",
+  ORCL: "Oracle",
+  AVGO: "Broadcom",
+  LLY: "Eli Lilly",
+  UNH: "UnitedHealth",
+  XOM: "ExxonMobil",
+  COST: "Costco",
+  JNJ: "Johnson & Johnson",
+  WMT: "Walmart",
+  PG: "Procter & Gamble",
+  HD: "Home Depot",
+  ABBV: "AbbVie",
+  CVX: "Chevron",
+  BAC: "Bank of America",
+  MRK: "Merck",
+  CRM: "Salesforce",
+  TMO: "Thermo Fisher",
+  CSCO: "Cisco",
+  ADBE: "Adobe",
+  MCD: "McDonald's",
+  IBM: "IBM",
+  GE: "GE",
+  CAT: "Caterpillar",
+  NOW: "ServiceNow",
+  INTU: "Intuit",
+  QCOM: "Qualcomm",
+  TXN: "Texas Instruments",
+  UBER: "Uber",
+  PFE: "Pfizer",
+  GS: "Goldman Sachs",
+  PANW: "Palo Alto",
+  CRWD: "CrowdStrike",
+  SHOP: "Shopify",
+  SNOW: "Snowflake",
+  PLTR: "Palantir",
+  COIN: "Coinbase",
+  HOOD: "Robinhood",
+  PYPL: "PayPal",
+  ABNB: "Airbnb",
+  TSM: "TSMC",
+  ASML: "ASML",
+  SAP: "SAP",
+  SONY: "Sony",
+  TM: "Toyota",
+  SPOT: "Spotify",
+  GME: "GameStop",
+  MSTR: "MicroStrategy",
+  SMCI: "Super Micro",
+  ARM: "Arm",
 };
 
 const SEEDS = {
@@ -148,4 +202,13 @@ export function sourceLabel(source, kind, note = "") {
   if (kind === "withdrawal") return "Withdraw";
   if (kind === "referral") return "Invite & Earn";
   return kind ? String(kind).replace(/_/g, " ") : "Balance";
+}
+
+/** History menu bucket: trade | smart_copy | ai_future | other */
+export function historyKind(source, kind, note = "") {
+  const label = sourceLabel(source, kind, note);
+  if (label === "Smart Spot Trade") return "smart_copy";
+  if (label === "AI Futures Strategy") return "ai_future";
+  if (label === "Trade") return "seconds_trade";
+  return "other";
 }
