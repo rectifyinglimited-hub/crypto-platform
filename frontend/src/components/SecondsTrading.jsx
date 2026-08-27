@@ -189,6 +189,7 @@ export default function SecondsTrading({
   const [now, setNow] = useState(Date.now());
   const [priceFlash, setPriceFlash] = useState(null); // "up" | "down" | null
   const [liveEarnings, setLiveEarnings] = useState(0);
+  const [tapePrice, setTapePrice] = useState(null);
   const settling = useRef(new Set());
   const toasted = useRef(loadToastedSet());
   const displayPrice = useRef(null);
@@ -224,8 +225,7 @@ export default function SecondsTrading({
     market?.quotes?.[displayQuote] ||
     market?.price ||
     0;
-  // Chart header uses smoothed series so Graph UP/DOWN never looks like a jump
-  const price = series.length ? series[series.length - 1] : rawPrice;
+  const price = Number(tapePrice) > 0 ? Number(tapePrice) : rawPrice;
   const activeForAsset = active.find((t) => t.asset === asset);
   const prev = series.length > 1 ? series[series.length - 2] : price;
   // While a trade is open, color chart vs entry so Graph HIGH looks UP / LOW looks DOWN
@@ -407,24 +407,25 @@ export default function SecondsTrading({
 
   useEffect(() => {
     setSeries([]);
+    setTapePrice(null);
     displayPrice.current = null;
     targetPrice.current = null;
     lastTickPrice.current = null;
     setPriceFlash(null);
-  }, [asset, displayQuote]);
+  }, [asset, displayQuote, assetType]);
 
-  // Flash green/red on every second tick when the selected pair moves
+  // Flash green/red when the desk tape moves
   useEffect(() => {
-    if (!rawPrice) return;
+    if (!price) return;
     const prev = lastTickPrice.current;
-    if (prev != null && rawPrice !== prev) {
-      const dir = rawPrice > prev ? "up" : "down";
+    if (prev != null && price !== prev) {
+      const dir = price > prev ? "up" : "down";
       setPriceFlash(dir);
       if (flashTimer.current) clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setPriceFlash(null), 650);
     }
-    lastTickPrice.current = rawPrice;
-  }, [rawPrice]);
+    lastTickPrice.current = price;
+  }, [price]);
 
   useEffect(
     () => () => {
@@ -748,11 +749,20 @@ export default function SecondsTrading({
         asset={asset}
         assetType={assetType}
         quote={displayQuote}
-        overridePrice={price || rawPrice || null}
+        overridePrice={
+          assetType === "stock"
+            ? rawPrice || null
+            : activeForAsset
+              ? rawPrice || null
+              : null
+        }
         entryPrice={
           activeForAsset ? Number(activeForAsset.entryPrice) || null : null
         }
         tradeSide={activeForAsset?.direction || null}
+        onLivePrice={(px) => {
+          if (Number(px) > 0) setTapePrice(Number(px));
+        }}
       />
 
       {/* Duration */}

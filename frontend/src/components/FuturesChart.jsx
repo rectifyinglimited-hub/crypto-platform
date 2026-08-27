@@ -104,10 +104,21 @@ function paintLastWithBias(marketCandle, biasedPrice, maxPct = MAX_BIAS_PCT) {
 
 function toDisplayCandles(marketList, biasedPrice, maxPct = MAX_BIAS_PCT) {
   if (!marketList.length) return marketList;
+  const marketClose = Number(marketList[marketList.length - 1]?.close);
+  const o = Number(biasedPrice);
+  // Ignore leftover Force-Win bias that is far from the live tape (that
+  // made the desk header, big price, and Y-axis show three different numbers).
+  const useBias =
+    Number.isFinite(o) &&
+    o > 0 &&
+    Number.isFinite(marketClose) &&
+    marketClose > 0 &&
+    Math.abs(o / marketClose - 1) <= maxPct * 1.25;
+  if (!useBias) return marketList;
   const out = marketList.slice();
   out[out.length - 1] = paintLastWithBias(
     out[out.length - 1],
-    biasedPrice,
+    o,
     maxPct
   );
   return out;
@@ -292,10 +303,12 @@ export default function FuturesChart({
   const entryRef = useRef(entryPrice);
   entryRef.current = entryPrice;
   const entryLineRef = useRef(null);
+  const onLivePriceRef = useRef(onLivePrice);
+  onLivePriceRef.current = onLivePrice;
   const [displayPrice, setDisplayPrice] = useState(null);
 
-  /** First paint: 15 daily Binance candles */
-  const [tf, setTf] = useState("15d");
+  /** Live trading desk — 15m tape (15d still available in the TF bar) */
+  const [tf, setTf] = useState("15m");
   const [stats, setStats] = useState(null);
   const [flash, setFlash] = useState(null);
   const [connected, setConnected] = useState(false);
@@ -358,6 +371,7 @@ export default function FuturesChart({
     const liveClose = display[display.length - 1]?.close;
     if (Number.isFinite(liveClose)) {
       setDisplayPrice(liveClose);
+      onLivePriceRef.current?.(liveClose);
       const prev = lastPriceRef.current;
       if (prev != null && liveClose !== prev) {
         setFlash(liveClose > prev ? "up" : "down");
@@ -606,7 +620,6 @@ export default function FuturesChart({
         flashTimer.current = setTimeout(() => setFlash(null), 700);
       }
       lastPriceRef.current = price;
-      onLivePrice?.(price);
     };
 
     const seedHistory = (list) => {
@@ -691,17 +704,17 @@ export default function FuturesChart({
           if (!alive || gen !== loadGen.current) return;
           setStats((prev) => ({ ...(prev || {}), ...t }));
           if (Number.isFinite(t.lastPrice)) {
+            const last =
+              marketCandlesRef.current[marketCandlesRef.current.length - 1];
+            const bucket = intervalMs(tfMeta.interval) / 1000;
+            const next = synthCandleFromPrice(
+              last,
+              t.lastPrice,
+              bucket,
+              Math.floor(Date.now() / 1000)
+            );
+            upsertMarket(next);
             pushFlash(t.lastPrice);
-            if (tfMeta.interval === "1s") {
-              const last = marketCandlesRef.current[marketCandlesRef.current.length - 1];
-              const next = synthCandleFromPrice(
-                last,
-                t.lastPrice,
-                1,
-                Math.floor(Date.now() / 1000)
-              );
-              upsertMarket(next);
-            }
           }
         },
         onKline: (k) => {
@@ -849,15 +862,14 @@ export default function FuturesChart({
 
   const entry = Number(entryPrice);
   const hasOpenTrade = Number.isFinite(entry) && entry > 0 && tradeSide;
-  // Live Binance ticker when idle; biased display only while a trade is open
-  const last = hasOpenTrade
-    ? Number.isFinite(Number(displayPrice)) && Number(displayPrice) > 0
+  const last =
+    Number.isFinite(Number(displayPrice)) && Number(displayPrice) > 0
       ? Number(displayPrice)
-      : Number.isFinite(Number(overridePrice)) && Number(overridePrice) > 0
-        ? Number(overridePrice)
-        : stats?.lastPrice
-    : stats?.lastPrice ??
-      (Number.isFinite(Number(displayPrice)) ? Number(displayPrice) : null);
+      : Number.isFinite(Number(stats?.lastPrice)) && Number(stats.lastPrice) > 0
+        ? Number(stats.lastPrice)
+        : Number.isFinite(Number(overridePrice)) && Number(overridePrice) > 0
+          ? Number(overridePrice)
+          : null;
   const chg = Number(stats?.priceChangePercent || 0);
   const vsEntry =
     hasOpenTrade &&

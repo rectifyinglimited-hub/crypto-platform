@@ -722,7 +722,8 @@ router.get(
 
     const merged = prices.map((p) => {
       const hasTrade = Object.prototype.hasOwnProperty.call(tradeBias, p.asset);
-      const bias = hasTrade ? tradeBias[p.asset] : p.biasPercent;
+      const idleBias = Math.abs(Number(p.biasPercent) || 0) > 5 ? 0 : p.biasPercent;
+      const bias = hasTrade ? tradeBias[p.asset] : idleBias;
       const usdt = applyBias(p.rawPrice, bias);
       const usdc = applyBias(p.rawUsdc, bias);
       return {
