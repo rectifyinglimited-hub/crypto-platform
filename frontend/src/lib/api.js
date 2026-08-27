@@ -366,6 +366,8 @@ export const WalletAPI = {
     api.post("/wallet/withdraw-request", payload).then((r) => r.data),
   transactions: (params = {}) =>
     api.get("/wallet/transactions", { params }).then((r) => r.data),
+  balanceHistory: () =>
+    api.get("/wallet/balance-history").then((r) => r.data),
 };
 
 /** CXM-style platform modules */

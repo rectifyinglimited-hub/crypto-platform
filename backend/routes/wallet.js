@@ -7,6 +7,7 @@
  *    POST /api/wallet/deposit-proof   (multipart: amount + screenshot)
  *    POST /api/wallet/withdraw-request  (holds funds immediately)
  *    GET  /api/wallet/transactions
+ *    GET  /api/wallet/balance-history
  *    GET  /api/wallet/deposit-address/:symbol
  * =============================================================================
  */
@@ -23,6 +24,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { uploadProof, proofPublicUrl } from "../middleware/upload.js";
 import { emitChatMessage } from "../socket.js";
 import { validatePromoForDeposit } from "./promo.js";
+import { buildBalanceSeries } from "../lib/balanceSeries.js";
 
 const router = Router();
 
@@ -339,6 +341,57 @@ router.get(
       .sort({ createdAt: -1 })
       .limit(500);
     return res.json({ success: true, transactions });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// GET /balance-history — USDT line for Account (works for older ledgers too)
+// ---------------------------------------------------------------------------
+router.get(
+  "/balance-history",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const user = await User.findById(req.auth.sub).select("wallet createdAt");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "User not found.",
+      });
+    }
+    const wallet =
+      user.wallet instanceof Map
+        ? Object.fromEntries(user.wallet)
+        : { ...(user.wallet || {}) };
+    const balance = Number(wallet.USDT || 0);
+    const transactions = await Transaction.find({
+      user: req.auth.sub,
+      ledgerDelta: { $ne: 0 },
+    })
+      .sort({ createdAt: 1 })
+      .select("createdAt ledgerDelta")
+      .limit(2500)
+      .lean();
+
+    const series = buildBalanceSeries({
+      current: balance,
+      createdAt: user.createdAt,
+      transactions,
+    });
+    const first = series[0]?.v ?? balance;
+    const last = series[series.length - 1]?.v ?? balance;
+    const changeAbs = Number((last - first).toFixed(8));
+    const changePct =
+      first !== 0 ? Number(((changeAbs / Math.abs(first)) * 100).toFixed(2)) : 0;
+
+    return res.json({
+      success: true,
+      balance,
+      series,
+      changeAbs,
+      changePct,
+    });
   })
 );
 

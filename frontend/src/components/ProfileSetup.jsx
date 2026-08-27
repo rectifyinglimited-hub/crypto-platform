@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { AuthAPI } from "../lib/api.js";
 import { publicUid } from "../lib/userUid.js";
+import BalanceTrendCard from "./BalanceTrendCard.jsx";
 
 const TRC20_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
 const AVATAR_MAX_BYTES = 900_000;
@@ -183,6 +184,7 @@ export default function ProfileSetup({ user, onSaved, toast, onLogout }) {
 
   return (
     <div className="space-y-4">
+      <BalanceTrendCard user={user} />
       <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-5">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div>

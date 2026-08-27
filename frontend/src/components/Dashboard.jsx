@@ -1407,7 +1407,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             />
           )}
           {page === "account" && (
-            <motion.div key="account" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-2xl space-y-4">
+            <motion.div key="account" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl space-y-4">
               <ProfileSetup user={me} toast={say} onSaved={(u) => handleUserUpdate(u)} onLogout={handleLogout} />
               <button type="button" onClick={() => setKycOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/25 bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-200">
                 <ShieldCheck className="h-4 w-4" /> Identity Verification (ID Card / License)
