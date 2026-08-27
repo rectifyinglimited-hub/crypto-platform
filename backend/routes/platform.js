@@ -70,7 +70,25 @@ function ensureAccounts(user) {
   return user;
 }
 
-function syncUsdtFromAccounts(user) {
+function unifyTradingWallet(user) {
+  ensureAccounts(user);
+  if (!(user.wallet instanceof Map)) user.wallet = new Map();
+  const usdt = Number(user.wallet.get("USDT") || 0);
+  const sum = ["funding", "spot", "contract", "delivery", "nft"].reduce(
+    (s, k) => s + Number(user.accountBalances.get(k) || 0),
+    0
+  );
+  const total = Number(Math.max(usdt, sum).toFixed(8));
+  user.wallet.set("USDT", total);
+  user.accountBalances.set("funding", 0);
+  user.accountBalances.set("spot", 0);
+  user.accountBalances.set("contract", 0);
+  user.accountBalances.set("nft", 0);
+  user.accountBalances.set("delivery", total);
+  user.markModified("wallet");
+  user.markModified("accountBalances");
+  return total;
+}
   ensureAccounts(user);
   const total = ["funding", "spot", "contract", "delivery", "nft"].reduce(
     (s, k) => s + Number(user.accountBalances.get(k) || 0),
@@ -447,9 +465,9 @@ router.get(
       return res.status(404).json({ success: false, message: "User not found." });
     }
     ensureAccounts(user);
+    const total = unifyTradingWallet(user);
     await user.save();
     const accounts = accountsObj(user.accountBalances);
-    const total = Object.values(accounts).reduce((s, n) => s + Number(n || 0), 0);
     return res.json({
       success: true,
       totalUsdt: total,

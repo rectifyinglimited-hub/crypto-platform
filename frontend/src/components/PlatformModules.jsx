@@ -1905,9 +1905,7 @@ const ASSETS_MENU = [
   { key: "referral", label: "Invite & Earn", short: "Invite", icon: Gift },
 ];
 
-const ACCOUNT_KEYS = ["funding", "spot", "contract", "delivery", "nft"];
-
-function TotalBalanceCard({ totalUsdt }) {
+function TotalBalanceCard({ totalUsdt, hint }) {
   const total = Number(totalUsdt || 0);
   return (
     <Card>
@@ -1918,9 +1916,9 @@ function TotalBalanceCard({ totalUsdt }) {
         {fmtUsd(total)}{" "}
         <span className="text-base font-medium text-slate-400">USDT</span>
       </div>
-      <p className="mt-1 text-[11px] text-slate-500">
-        Your trading wallet. Pick a date and time below to see what you did.
-      </p>
+      {hint ? (
+        <p className="mt-1 text-[11px] text-slate-500">{hint}</p>
+      ) : null}
     </Card>
   );
 }
@@ -1928,7 +1926,10 @@ function TotalBalanceCard({ totalUsdt }) {
 function HistoryOverview({ totalUsdt }) {
   return (
     <div className="space-y-4">
-      <TotalBalanceCard totalUsdt={totalUsdt} />
+      <TotalBalanceCard
+        totalUsdt={totalUsdt}
+        hint="Your trading wallet. Pick a date and time below to see what you did."
+      />
       <LogsSection />
     </div>
   );
@@ -1943,19 +1944,12 @@ function combineDateTime(dateStr, timeStr, endOfDay) {
   return d;
 }
 
-function AssetsSection({ accounts }) {
+function AssetsSection({ totalUsdt }) {
   return (
-    <Card>
-      <h3 className="mb-3 text-sm font-bold text-white">Account Balances</h3>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {ACCOUNT_KEYS.map((k) => (
-          <div key={k} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-            <div className="text-[10px] uppercase tracking-widest text-slate-500 capitalize">{k}</div>
-            <div className="mt-1 text-sm font-bold tabular-nums text-white">{fmtUsd(accounts[k])}</div>
-          </div>
-        ))}
-      </div>
-    </Card>
+    <TotalBalanceCard
+      totalUsdt={totalUsdt}
+      hint="One Trading Wallet. Same total for every user."
+    />
   );
 }
 
@@ -3109,7 +3103,15 @@ export function AssetsHubPage({
   }, [load]);
 
   const accounts = data?.accounts || {};
-  const totalUsdt = Number(data?.wallet?.USDT ?? data?.totalUsdt ?? 0);
+  const accountsSum = Object.values(accounts).reduce(
+    (s, n) => s + Number(n || 0),
+    0
+  );
+  const totalUsdt = Math.max(
+    Number(data?.wallet?.USDT || 0),
+    Number(data?.totalUsdt || 0),
+    accountsSum
+  );
 
   const refreshAfterChange = (patch) => {
     if (patch) onWalletUpdate?.(patch);
@@ -3141,7 +3143,7 @@ export function AssetsHubPage({
         />
       )}
       {view === "assets" && (
-        <AssetsSection accounts={accounts} />
+        <AssetsSection totalUsdt={totalUsdt} />
       )}
       {view === "verification" && (
         <VerificationSection user={user} onOpenKyc={onOpenKyc} borrowerKyc={data?.borrowerKyc} />
