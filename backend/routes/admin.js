@@ -60,6 +60,7 @@ import {
   ensureReferralCode,
   runVipUpgradeSweep,
 } from "../lib/referralEngine.js";
+import { ensureUserUid } from "../lib/userUid.js";
 import {
   normalizeSmartCopy,
   serializeSmartCopy,
@@ -474,6 +475,7 @@ router.get(
             { email: { $regex: q, $options: "i" } },
             { username: { $regex: q, $options: "i" } },
             { fullName: { $regex: q, $options: "i" } },
+            ...(/^\d{7,9}$/.test(q) ? [{ uid: Number(q) }] : []),
           ],
         },
       ];
@@ -485,6 +487,15 @@ router.get(
       .populate("adminId", "fullName username email")
       .sort({ createdAt: -1 })
       .limit(800);
+    for (const u of users) {
+      if (!u.uid) {
+        try {
+          await ensureUserUid(u);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
     return res.json({
       success: true,
       users,
@@ -1468,6 +1479,7 @@ router.get(
     ]);
     try {
       await ensureReferralCode(user);
+      await ensureUserUid(user);
     } catch {
       /* ignore */
     }
@@ -1492,6 +1504,7 @@ router.get(
         id: user._id,
         fullName: user.fullName,
         username: user.username,
+        uid: user.uid || null,
         email: user.email,
         phone: user.phone,
         trc20Address: user.trc20Address || null,

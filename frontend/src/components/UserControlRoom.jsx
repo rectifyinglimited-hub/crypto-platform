@@ -707,6 +707,11 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           {u?.fullName || u?.email || "User"}
         </div>
         <div className="text-xs text-slate-400">{u?.email}</div>
+        {u?.uid ? (
+          <div className="mt-1 font-mono text-[11px] tabular-nums text-cyan-300">
+            UID {u.uid}
+          </div>
+        ) : null}
         {u?.trc20Address && (
           <div className="mt-2 break-all font-mono text-[10px] text-slate-500">
             User TRC-20 · {u.trc20Address}

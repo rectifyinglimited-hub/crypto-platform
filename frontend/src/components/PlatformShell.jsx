@@ -208,6 +208,11 @@ function MobileDrawer({
                     <div className="truncate text-[10px] text-slate-500">
                       {displayName}
                     </div>
+                    {user?.uid ? (
+                      <div className="font-mono text-[10px] tabular-nums text-cyan-300/90">
+                        UID {user.uid}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <button

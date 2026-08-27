@@ -59,6 +59,16 @@ const UserSchema = new Schema(
         "Username must be 3-24 chars: letters, numbers, . _ -",
       ],
     },
+    /** Public 9-digit UID shown on the account (backfilled for older users). */
+    uid: {
+      type: Number,
+      unique: true,
+      sparse: true,
+      index: true,
+      min: 10000000,
+      max: 999999999,
+      default: null,
+    },
     email: {
       type: String,
       required: [true, "Email is required."],

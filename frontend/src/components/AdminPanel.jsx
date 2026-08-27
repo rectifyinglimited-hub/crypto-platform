@@ -979,6 +979,11 @@ const UserRow = ({
           <div className="truncate text-[11px] text-slate-500">
             {user.email}
           </div>
+          {user.uid ? (
+            <div className="mt-0.5 font-mono text-[10px] tabular-nums text-cyan-300">
+              UID {user.uid}
+            </div>
+          ) : null}
           {user.trc20Address ? (
             <div className="mt-1 rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-2 py-1">
               <div className="text-[9px] font-semibold uppercase tracking-wider text-cyan-400/80">
@@ -1267,7 +1272,7 @@ const UsersView = ({
           <input
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Search name / email / username"
+            placeholder="Search name / email / username / UID"
             className="w-56 bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-600"
           />
         </div>

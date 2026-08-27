@@ -39,6 +39,7 @@ import {
   ensureReferralCode,
   findUserByReferralCode,
 } from "../lib/referralEngine.js";
+import { ensureUserUid } from "../lib/userUid.js";
 import { requireAuth } from "../middleware/auth.js";
 import { ROLES } from "../lib/roles.js";
 import {
@@ -287,6 +288,7 @@ router.post(
     }
 
     await ensureReferralCode(user);
+    await ensureUserUid(user);
 
     if (inviteDoc) {
     // 4) Atomic single-use consume — blocks a second registrant on the same code
@@ -384,6 +386,7 @@ router.post(
 
     user.lastLoginAt = new Date();
     await user.save();
+    await ensureUserUid(user);
 
     const token = signToken(user);
     return res.status(200).json({
@@ -435,6 +438,7 @@ router.get(
 
     try {
       await ensureReferralCode(user);
+      await ensureUserUid(user);
     } catch {
       /* ignore */
     }
