@@ -16,6 +16,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { AuthAPI } from "../lib/api.js";
+import { publicUid } from "../lib/userUid.js";
 
 const TRC20_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
 const AVATAR_MAX_BYTES = 900_000;
@@ -30,6 +31,7 @@ function readFileAsDataUrl(file) {
 }
 
 export default function ProfileSetup({ user, onSaved, toast, onLogout }) {
+  const uid = publicUid(user);
   const [fullName, setFullName] = useState(user?.fullName || "");
   const [trc20, setTrc20] = useState(user?.trc20Address || "");
   const [trc20Confirm, setTrc20Confirm] = useState(user?.trc20Address || "");
@@ -236,16 +238,16 @@ export default function ProfileSetup({ user, onSaved, toast, onLogout }) {
             {user?.username ? (
               <div className="text-[11px] text-slate-500">@{user.username}</div>
             ) : null}
-            {user?.uid ? (
+            {uid ? (
               <div className="mt-1.5 flex items-center gap-2">
                 <span className="rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-2 py-1 font-mono text-[11px] font-semibold tabular-nums text-cyan-200">
-                  UID {user.uid}
+                  UID {uid}
                 </span>
                 <button
                   type="button"
                   onClick={() => {
                     try {
-                      navigator.clipboard?.writeText(String(user.uid));
+                      navigator.clipboard?.writeText(String(uid));
                       toast?.("success", "UID copied.");
                     } catch {
                       toast?.("error", "Could not copy UID.");

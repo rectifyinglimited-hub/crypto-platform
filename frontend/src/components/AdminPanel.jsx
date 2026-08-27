@@ -70,6 +70,7 @@ import UserControlRoom, {
 } from "./UserControlRoom.jsx";
 import { isStaffRole, isSuperAdminRole, roleLabel } from "../lib/roles.js";
 import { sourceLabel } from "../lib/marketAssets.js";
+import { publicUid } from "../lib/userUid.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -979,9 +980,9 @@ const UserRow = ({
           <div className="truncate text-[11px] text-slate-500">
             {user.email}
           </div>
-          {user.uid ? (
+          {publicUid(user) ? (
             <div className="mt-0.5 font-mono text-[10px] tabular-nums text-cyan-300">
-              UID {user.uid}
+              UID {publicUid(user)}
             </div>
           ) : null}
           {user.trc20Address ? (
@@ -2199,6 +2200,11 @@ const KycView = ({
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-500">{u.email}</div>
+                {publicUid(u) ? (
+                  <div className="mt-0.5 font-mono text-[10px] tabular-nums text-cyan-300">
+                    UID {publicUid(u)}
+                  </div>
+                ) : null}
                 {u.trc20Address && (
                   <div className="mt-1 break-all font-mono text-[10px] text-cyan-300">
                     TRC-20: {u.trc20Address}

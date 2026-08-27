@@ -25,6 +25,7 @@ import BrandLogo from "./BrandLogo.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import LiveMarketDesks from "./LiveMarketDesks.jsx";
 import { ForexStyleShowcase } from "./TrustInfra.jsx";
+import { publicUid } from "../lib/userUid.js";
 
 const OVERVIEW_ASSETS = [
   { symbol: "ETH", name: "Ethereum" },
@@ -551,6 +552,7 @@ function MarketOverviewGrid() {
 }
 
 export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, onStartTrading }) {
+  const uid = publicUid(user);
   return (
     <div className="space-y-6 md:space-y-8">
       {/* Hero — brand-first, no auth CTAs */}
@@ -581,6 +583,11 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
             Welcome back{user?.fullName ? `, ${user.fullName.split(" ")[0]}` : ""}
             . Review live market overview here — open the Trading tab when you
             are ready to place live positions.
+            {uid ? (
+              <span className="mt-2 block font-mono text-xs tabular-nums text-cyan-300/90">
+                UID {uid}
+              </span>
+            ) : null}
           </motion.p>
 
           <motion.div

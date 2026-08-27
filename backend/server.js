@@ -37,6 +37,7 @@ import { initSocket } from "./socket.js";
 import User from "./models/User.js";
 import { ROLES } from "./lib/roles.js";
 import { getSoleSuperAdmin } from "./lib/superAdmin.js";
+import { backfillMissingUserUids } from "./lib/userUid.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, ".env") });
@@ -253,6 +254,11 @@ const connectDatabase = async () => {
     DB_READY = true;
     console.log(`\x1b[32m[db]\x1b[0m MongoDB connected.`);
     await ensureSeedSuperAdmin();
+    try {
+      await backfillMissingUserUids();
+    } catch (err) {
+      console.warn(`[uid] backfill skipped: ${err?.message || err}`);
+    }
 
     mongoose.connection.on("disconnected", () => {
       DB_READY = false;

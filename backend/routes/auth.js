@@ -39,7 +39,7 @@ import {
   ensureReferralCode,
   findUserByReferralCode,
 } from "../lib/referralEngine.js";
-import { ensureUserUid } from "../lib/userUid.js";
+import { ensureUserUid, uidFromAccountId } from "../lib/userUid.js";
 import { requireAuth } from "../middleware/auth.js";
 import { ROLES } from "../lib/roles.js";
 import {
@@ -121,6 +121,11 @@ const sanitizeUser = (user) => {
     obj.chartBias = Object.fromEntries(obj.chartBias);
   }
   obj.id = obj._id?.toString?.() || obj._id;
+  const uid = Number(obj.uid);
+  obj.uid =
+    Number.isFinite(uid) && uid >= 10000000 && uid <= 999999999
+      ? uid
+      : uidFromAccountId(obj.id) || null;
   return obj;
 };
 
@@ -438,9 +443,13 @@ router.get(
 
     try {
       await ensureReferralCode(user);
-      await ensureUserUid(user);
     } catch {
       /* ignore */
+    }
+    try {
+      await ensureUserUid(user);
+    } catch (err) {
+      console.warn(`[uid] ensure failed for ${user._id}: ${err?.message || err}`);
     }
 
     let globalTradingEnabled = true;
@@ -544,6 +553,11 @@ router.put(
       user.avatar = raw === "" || raw == null ? null : raw;
     }
     await user.save();
+    try {
+      await ensureUserUid(user);
+    } catch (err) {
+      console.warn(`[uid] profile ensure failed for ${user._id}: ${err?.message || err}`);
+    }
 
     return res.json({
       success: true,

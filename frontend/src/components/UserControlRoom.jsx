@@ -24,6 +24,7 @@ import {
 import { AdminAPI, AiBotAPI, assetUrl } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
 import { sourceLabel } from "../lib/marketAssets.js";
+import { publicUid } from "../lib/userUid.js";
 
 const AI_BOT_DAY_PRESETS = [7, 15, 30, 40, 60, 90];
 
@@ -707,9 +708,9 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           {u?.fullName || u?.email || "User"}
         </div>
         <div className="text-xs text-slate-400">{u?.email}</div>
-        {u?.uid ? (
+        {publicUid(u) ? (
           <div className="mt-1 font-mono text-[11px] tabular-nums text-cyan-300">
-            UID {u.uid}
+            UID {publicUid(u)}
           </div>
         ) : null}
         {u?.trc20Address && (

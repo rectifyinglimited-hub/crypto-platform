@@ -29,6 +29,7 @@ import {
 import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
+import { publicUid } from "../lib/userUid.js";
 
 const MAIN_MENU = [
   { key: "home", label: "Home", icon: Home },
@@ -138,6 +139,7 @@ function MobileDrawer({
 }) {
   const displayName =
     user?.fullName || user?.username || user?.email?.split("@")[0] || "Trader";
+  const uid = publicUid(user);
 
   useEffect(() => {
     if (!open) return;
@@ -208,9 +210,9 @@ function MobileDrawer({
                     <div className="truncate text-[10px] text-slate-500">
                       {displayName}
                     </div>
-                    {user?.uid ? (
+                    {uid ? (
                       <div className="font-mono text-[10px] tabular-nums text-cyan-300/90">
-                        UID {user.uid}
+                        UID {uid}
                       </div>
                     ) : null}
                   </div>
@@ -344,6 +346,7 @@ export default function PlatformShell({
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const kycApproved = user?.kyc?.status === "approved";
+  const uid = publicUid(user);
 
   const handlePageChange = (key) => {
     onPageChange?.(key);
@@ -420,6 +423,11 @@ export default function PlatformShell({
             >
               <UserRound className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Account</span>
+              {uid ? (
+                <span className="hidden font-mono text-[10px] tabular-nums text-cyan-300/90 sm:inline">
+                  {uid}
+                </span>
+              ) : null}
             </button>
 
             <button
