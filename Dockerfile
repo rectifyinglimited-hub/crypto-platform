@@ -1,4 +1,4 @@
-# Railway: API only. Frontend stays on Vercel.
+# API only (Render). Frontend stays on Vercel.
 FROM node:20-alpine
 
 WORKDIR /app
