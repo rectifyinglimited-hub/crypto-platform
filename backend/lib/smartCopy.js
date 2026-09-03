@@ -1,7 +1,32 @@
 import SpotCopyLock from "../models/SpotCopyLock.js";
 
 export const SMART_COPY_CYCLE_MS = 24 * 60 * 60 * 1000;
-export const SMART_COPY_AUTO_RATES = [2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7];
+
+/** AI Futures Strategy lock amount → Smart Spot blocks + auto daily %. */
+export const SMART_COPY_TIERS = [
+  { minPrincipal: 3000, slots: 4, autoRate: 2.5 },
+  { minPrincipal: 2000, slots: 3, autoRate: 2.2 },
+  { minPrincipal: 1000, slots: 2, autoRate: 1.7 },
+  { minPrincipal: 500, slots: 1, autoRate: 1.0 },
+];
+
+export function aiFuturesPrincipal(user) {
+  if (!user?.aiBotActive) return 0;
+  const n = Number(user.aiBotPrincipal || 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+export function smartCopyTier(principal) {
+  const p = Number(principal) || 0;
+  for (const t of SMART_COPY_TIERS) {
+    if (p >= t.minPrincipal) return t;
+  }
+  return { minPrincipal: 0, slots: 0, autoRate: 0 };
+}
+
+export function smartCopyUnlocked(user) {
+  return smartCopyTier(aiFuturesPrincipal(user)).slots > 0;
+}
 
 export const SMART_COPY_SLOTS = [
   {
@@ -57,27 +82,18 @@ export function clampAccuracy(n, fallback = 70) {
 }
 
 export function smartCopyCommissionMode(user) {
-  return user?.smartCopyCommissionMode === "manual" ? "manual" : "auto";
+  return user?.smartCopyCommissionMode === "auto" ? "auto" : "manual";
 }
 
-/** Stable per-user daily rate between 2.0% and 2.7%. */
-export function smartCopyAutoRate(userId, at = new Date()) {
-  const day = at.toISOString().slice(0, 10);
-  const seed = `${userId}:${day}`;
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i += 1) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const steps = SMART_COPY_AUTO_RATES;
-  return steps[Math.abs(h) % steps.length];
+export function smartCopyAutoRate(user) {
+  return smartCopyTier(aiFuturesPrincipal(user)).autoRate;
 }
 
-export function smartCopyLiveRate(user, at = new Date()) {
+export function smartCopyLiveRate(user) {
   if (smartCopyCommissionMode(user) === "manual") {
     return Number(user.smartCopyCommissionPct || 0);
   }
-  return smartCopyAutoRate(user._id, at);
+  return smartCopyAutoRate(user);
 }
 
 export function smartCopyNextSubmitAt(user) {
@@ -118,61 +134,74 @@ function walletUsdt(user) {
 }
 
 export function normalizeSmartCopy(user) {
-  const max = Math.min(4, Math.max(1, Number(user.smartCopyMaxSlots || 1)));
-  user.smartCopyMaxSlots = max;
+  const tier = smartCopyTier(aiFuturesPrincipal(user));
+  user.smartCopyMaxSlots = tier.slots;
   if (user.smartCopyCommissionMode !== "auto" && user.smartCopyCommissionMode !== "manual") {
-    user.smartCopyCommissionMode =
-      Number(user.smartCopyCommissionPct) > 0 ? "manual" : "auto";
+    user.smartCopyCommissionMode = "manual";
   }
   const prev = Array.isArray(user.smartCopySlots) ? user.smartCopySlots : [];
   user.smartCopySlots = [0, 1, 2, 3].map((slot) => {
     const found = prev.find((s) => Number(s.slot) === slot);
     const meta = SMART_COPY_SLOTS[slot] || SMART_COPY_SLOTS[0];
+    const rawAcc = found?.accuracy;
     return {
       slot,
       enabled: found ? found.enabled !== false : true,
       readyAt: found?.readyAt || null,
-      accuracy: clampAccuracy(found?.accuracy, meta.accuracy),
+      accuracy:
+        rawAcc == null || rawAcc === ""
+          ? meta.accuracy
+          : clampAccuracy(rawAcc, meta.accuracy),
     };
   });
   return user;
 }
 
-export function serializeSmartCopy(user, copies = []) {
+export function serializeSmartCopy(user, copies = [], extra = {}) {
   normalizeSmartCopy(user);
   const now = new Date();
   const copiedSlots = new Set(
     copies.map((c) => Number(c.slot)).filter((n) => n >= 0)
   );
   const mode = smartCopyCommissionMode(user);
-  const autoRate = smartCopyAutoRate(user._id, now);
-  const liveRate = smartCopyLiveRate(user, now);
+  const principal = aiFuturesPrincipal(user);
+  const tier = smartCopyTier(principal);
+  const autoRate = tier.autoRate;
+  const liveRate = smartCopyLiveRate(user);
   const usdt = walletUsdt(user);
   const last = user.smartCopyLastSubmitAt || null;
   const nextAt = smartCopyNextSubmitAt(user);
   const canClaim = smartCopyCycleOpen(user, now);
+  const unlocked = tier.slots > 0;
+  const maxSlots = tier.slots;
+  const base = principal > 0 ? principal : 0;
   return {
-    maxSlots: Number(user.smartCopyMaxSlots || 1),
+    unlocked,
+    requiredPrincipal: 500,
+    aiPrincipal: principal,
+    maxSlots,
     commissionMode: mode,
     commissionPct: Number(user.smartCopyCommissionPct || 0),
     autoRate,
     liveRate,
     walletUsdt: usdt,
-    estimatedCredit: Number(((usdt * liveRate) / 100).toFixed(8)),
+    estimatedCredit: Number(((base * liveRate) / 100).toFixed(8)),
     lastSubmitAt: last,
     nextSubmitAt: nextAt,
     canClaim,
     copiedCount: copiedSlots.size,
+    pendingCommission: extra.pendingCommission || null,
     slots: user.smartCopySlots.map((s) => {
       const meta = SMART_COPY_SLOTS[s.slot] || SMART_COPY_SLOTS[0];
       const copied = copiedSlots.has(s.slot);
-      const open = isSlotOpen(s, now);
+      const open = unlocked && s.slot < maxSlots && isSlotOpen(s, now);
       return {
         slot: s.slot,
         enabled: s.enabled !== false,
         readyAt: s.readyAt || null,
         isOpen: open,
         copied,
+        lockedByTier: !unlocked || s.slot >= maxSlots,
         accuracy: clampAccuracy(s.accuracy, meta.accuracy),
         prediction: meta.prediction,
         followers: meta.followers,

@@ -20,9 +20,11 @@ import {
   smartCopyCycleOpen,
   smartCopyCommissionMode,
   smartCopyLiveRate,
+  smartCopyUnlocked,
+  aiFuturesPrincipal,
   SMART_COPY_CYCLE_MS,
 } from "../lib/smartCopy.js";
-import { applyUsdtDelta, walletObj } from "../lib/ledger.js";
+import { walletObj } from "../lib/ledger.js";
 
 const router = Router();
 
@@ -248,11 +250,18 @@ router.post(
 
     const userCheck = await User.findById(req.auth.sub);
     if (userCheck) normalizeSmartCopy(userCheck);
+    if (!smartCopyUnlocked(userCheck)) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Smart Spot Trade opens after you buy AI Futures Strategy ($500 unlocks 1 block).",
+      });
+    }
     const activeCount = await SpotCopyLock.countDocuments({
       user: req.auth.sub,
       status: "active",
     });
-    const maxSlots = Number(userCheck?.smartCopyMaxSlots || 1);
+    const maxSlots = Number(userCheck?.smartCopyMaxSlots || 0);
     if (activeCount >= maxSlots) {
       return res.status(400).json({
         success: false,
@@ -336,6 +345,25 @@ router.post(
   })
 );
 
+function serializePendingCommission(tx) {
+  if (!tx) return null;
+  return {
+    id: String(tx._id),
+    amount: Number(tx.amount || 0),
+    status: tx.status,
+    createdAt: tx.createdAt,
+    note: tx.reviewerNote || "",
+  };
+}
+
+async function latestPendingCommission(userId) {
+  return Transaction.findOne({
+    user: userId,
+    source: "smart_copy",
+    status: "pending",
+  }).sort({ createdAt: -1 });
+}
+
 function serializeCopy(lock) {
   return {
     id: String(lock._id),
@@ -371,10 +399,13 @@ router.get(
       user: user._id,
       status: "active",
     }).populate("bot");
+    const pending = await latestPendingCommission(user._id);
     if (user.isModified()) await user.save();
     res.json({
       success: true,
-      desk: serializeSmartCopy(user, copies),
+      desk: serializeSmartCopy(user, copies, {
+        pendingCommission: serializePendingCommission(pending),
+      }),
       copies: copies.map(serializeCopy),
     });
   })
@@ -408,7 +439,21 @@ router.post(
     }
     normalizeSmartCopy(user);
     await refreshSmartCopyCycle(user);
+    if (!smartCopyUnlocked(user)) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Smart Spot Trade opens after you buy AI Futures Strategy. $500 unlocks 1 block, $1000 → 2, $2000 → 3, $3000+ → 4.",
+      });
+    }
+    const maxSlots = Number(user.smartCopyMaxSlots || 0);
     const slotDoc = user.smartCopySlots.find((s) => Number(s.slot) === slot);
+    if (slot >= maxSlots) {
+      return res.status(403).json({
+        success: false,
+        message: `Your AI Futures Strategy lock ($${aiFuturesPrincipal(user).toFixed(0)}) unlocks ${maxSlots} block${maxSlots === 1 ? "" : "s"}.`,
+      });
+    }
     if (!isSlotOpen(slotDoc)) {
       return res.status(403).json({
         success: false,
@@ -434,7 +479,6 @@ router.post(
       user: user._id,
       status: "active",
     });
-    const maxSlots = Number(user.smartCopyMaxSlots || 1);
     if (activeCount >= maxSlots) {
       return res.status(400).json({
         success: false,
@@ -445,14 +489,10 @@ router.post(
     const startDate = new Date();
     const paying = smartCopyCycleOpen(user, startDate);
     const mode = smartCopyCommissionMode(user);
-    const rate = smartCopyLiveRate(user, startDate);
-    const bal = Number(
-      (user.wallet instanceof Map
-        ? user.wallet.get("USDT")
-        : user.wallet?.USDT) || 0
-    );
+    const rate = smartCopyLiveRate(user);
+    const principal = aiFuturesPrincipal(user);
     const credit = paying
-      ? Number(((bal * rate) / 100).toFixed(8))
+      ? Number(((principal * rate) / 100).toFixed(8))
       : 0;
 
     const lock = await SpotCopyLock.create({
@@ -474,31 +514,61 @@ router.post(
       confidenceAtFollow: null,
     });
 
+    let pendingCommission = await latestPendingCommission(user._id);
+    let credited = 0;
+    let requested = 0;
+    let message = `Copying ${pair || asset}.`;
+
     if (paying) {
       user.smartCopyLastSubmitAt = startDate;
-      await applyUsdtDelta(user, credit, {
-        source: "smart_copy",
-        kind: "trade",
-        note: `Smart Spot Trade · ${mode} ${rate}% of $${bal.toFixed(2)} = $${credit.toFixed(2)} · ${pair || asset}`,
-      });
-      try {
-        emitWalletUpdate(user._id, walletObj(user.wallet), {
-          reason: "smart_copy_commission",
-        });
-      } catch {
-        /* ignore */
+      if (mode === "auto" && credit > 0) {
+        if (!pendingCommission) {
+          pendingCommission = await Transaction.create({
+            user: user._id,
+            adminId: user.adminId || null,
+            kind: "trade",
+            side: "buy",
+            symbol: "USDT",
+            amount: credit,
+            usdValue: credit,
+            ledgerDelta: 0,
+            status: "pending",
+            source: "smart_copy",
+            reviewerNote: `Smart Spot Trade · auto ${rate}% of AI Futures $${principal.toFixed(2)} = $${credit.toFixed(2)} · pending admin approval · ${pair || asset}`,
+          });
+        }
+        requested = Number(pendingCommission.amount || credit);
+        message = `Submitted. Commission $${requested.toFixed(2)} sent to admin for approval.`;
+        if (user.isModified()) await user.save();
+      } else if (mode === "manual") {
+        message =
+          credit > 0
+            ? `Submitted. Manual commission ${rate}% ≈ $${credit.toFixed(2)} — admin will credit your wallet.`
+            : "Submitted. Admin will add your Smart Spot commission manually.";
+        if (user.isModified()) await user.save();
+      } else if (user.isModified()) {
+        await user.save();
       }
     } else if (user.isModified()) {
       await user.save();
     }
 
     try {
-      emitSmartCopySubmitted(lock, {
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        adminId: user.adminId,
-      });
+      emitSmartCopySubmitted(
+        lock,
+        {
+          username: user.username,
+          email: user.email,
+          fullName: user.fullName,
+          adminId: user.adminId,
+        },
+        {
+          commission:
+            requested > 0
+              ? { amount: requested, rate, status: "pending" }
+              : null,
+        }
+      );
     } catch {
       /* ignore socket failures */
     }
@@ -509,13 +579,14 @@ router.post(
     });
     res.status(201).json({
       success: true,
-      message: paying
-        ? `Submitted. Commission ${rate}% · $${credit.toFixed(2)} USDT credited.`
-        : `Copying ${pair || asset}.`,
-      credited: paying ? credit : 0,
+      message,
+      credited,
+      requested,
       rate: paying ? rate : 0,
       copy: serializeCopy(lock),
-      desk: serializeSmartCopy(user, copies),
+      desk: serializeSmartCopy(user, copies, {
+        pendingCommission: serializePendingCommission(pendingCommission),
+      }),
     });
   })
 );

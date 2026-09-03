@@ -1359,8 +1359,8 @@ const TransactionsView = ({
           Transaction Queue
         </h2>
         <p className="text-xs text-slate-500">
-          Review deposit and withdrawal requests. Approving adjusts wallet
-          balances automatically.
+          Review deposit, withdrawal, and Smart Spot Trade commission requests.
+          Approving credits the Trading Wallet.
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -2619,7 +2619,9 @@ export default function AdminPanel({ user, onExit }) {
         "Client";
       say(
         "success",
-        `${name} submitted Smart Spot · ${c.asset || c.pair || "coin"} (${c.assetType || "crypto"})`
+        payload?.commission?.amount
+          ? `${name} · Smart Spot commission $${Number(payload.commission.amount).toFixed(2)} pending approval`
+          : `${name} submitted Smart Spot · ${c.asset || c.pair || "coin"} (${c.assetType || "crypto"})`
       );
     });
     const offChat = onSocketEvent("chat:message", (payload) => {

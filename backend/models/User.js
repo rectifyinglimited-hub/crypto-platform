@@ -182,11 +182,11 @@ const UserSchema = new Schema(
       max: 500,
       default: 0,
     },
-    /** auto = 2.0–2.7% of total USDT each 24h submit; manual = smartCopyCommissionPct */
+    /** auto = AI Futures tier % (admin must approve); manual = admin credit */
     smartCopyCommissionMode: {
       type: String,
       enum: ["auto", "manual"],
-      default: "auto",
+      default: "manual",
     },
     smartCopyLastSubmitAt: {
       type: Date,
@@ -194,9 +194,9 @@ const UserSchema = new Schema(
     },
     smartCopyMaxSlots: {
       type: Number,
-      min: 1,
+      min: 0,
       max: 4,
-      default: 1,
+      default: 0,
     },
     smartCopySlots: {
       type: [

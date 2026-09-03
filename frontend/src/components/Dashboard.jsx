@@ -1365,6 +1365,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 });
                 goPage("market");
               }}
+              onGoAiFutures={() => goPage("aibot")}
             />
           )}
           {page === "aibot" && (

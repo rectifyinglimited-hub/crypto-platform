@@ -1077,9 +1077,10 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             Smart Spot Trade
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
-            Auto pays 2.0–2.7% of the user’s current total USDT each time they
-            submit (rate moves day by day). Manual uses the % you type. After
-            one submit they must come back after 24 hours to submit again.
+            Smart Spot opens only after this user buys AI Futures Strategy.
+            Blocks: $500 → 1, $1000 → 2, $2000 → 3, $3000+ → 4. Auto daily % of
+            that lock: 1% / 1.7% / 2.2% / 2.5% — submit creates a request you
+            approve in Transactions. Manual = credit USDT below (instant).
           </p>
 
           <div className="mt-3">
@@ -1088,8 +1089,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             </span>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {[
-                { id: "auto", label: "Auto 2.0–2.7%" },
-                { id: "manual", label: "Manual" },
+                { id: "manual", label: "Manual credit" },
+                { id: "auto", label: "Auto (admin approve)" },
               ].map((m) => (
                 <button
                   key={m.id}
@@ -1107,13 +1108,12 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             </div>
             {scMode === "auto" ? (
               <p className="mt-2 text-[11px] text-emerald-200/90">
-                Today’s auto rate for this user:{" "}
+                Auto rate from AI Futures lock ${fmt(data?.user?.smartCopy?.aiPrincipal)}:{" "}
                 <span className="font-semibold">
                   {Number(data?.user?.smartCopy?.autoRate || 0).toFixed(1)}%
                 </span>{" "}
-                of total ${fmt(data?.user?.smartCopy?.walletUsdt)} ≈ $
-                {fmt(data?.user?.smartCopy?.estimatedCredit)} USDT. Next
-                submit:{" "}
+                ≈ ${fmt(data?.user?.smartCopy?.estimatedCredit)} USDT. Submit
+                sends a pending request. Next submit:{" "}
                 {data?.user?.smartCopy?.canClaim
                   ? "ready now"
                   : data?.user?.smartCopy?.nextSubmitAt
@@ -1122,6 +1122,12 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                       ).toLocaleString()
                     : "first submit"}
                 .
+                {data?.user?.smartCopy?.pendingCommission ? (
+                  <span className="mt-1 block font-semibold text-amber-200">
+                    Pending approval $
+                    {fmt(data.user.smartCopy.pendingCommission.amount)}
+                  </span>
+                ) : null}
               </p>
             ) : (
               <label className="mt-2 block">
@@ -1144,24 +1150,15 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
           <div className="mt-3">
             <span className="text-[10px] font-semibold uppercase text-slate-500">
-              Max copy blocks
+              Open blocks (from AI Futures lock)
             </span>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {[1, 2, 3, 4].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setScMaxSlots(n)}
-                  className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${
-                    Number(scMaxSlots) === n
-                      ? "border-cyan-400/40 bg-cyan-500/20 text-cyan-200"
-                      : "border-white/10 text-slate-400 hover:bg-white/5"
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
+            <p className="mt-1.5 text-[11px] text-cyan-200">
+              {data?.user?.smartCopy?.unlocked
+                ? `${Number(data?.user?.smartCopy?.maxSlots || 0)} block${
+                    Number(data?.user?.smartCopy?.maxSlots || 0) === 1 ? "" : "s"
+                  } open · lock $${fmt(data?.user?.smartCopy?.aiPrincipal)}`
+                : "Locked — user has not bought AI Futures Strategy yet"}
+            </p>
           </div>
 
           <div className="mt-3 space-y-2">

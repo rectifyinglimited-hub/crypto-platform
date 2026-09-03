@@ -217,7 +217,9 @@ export default function NotificationBell({
         id: `smartcopy-${c.id}`,
         type: "trade_open",
         title: `${name} · Smart Spot Trade`,
-        body: `Submitted ${c.asset || c.pair || "coin"} · ${c.assetType || ""} · block ${(Number(c.slot) || 0) + 1}`,
+        body: payload?.commission?.amount
+          ? `Commission $${Number(payload.commission.amount).toFixed(2)} pending approval · ${c.asset || c.pair || "coin"} · block ${(Number(c.slot) || 0) + 1}`
+          : `Submitted ${c.asset || c.pair || "coin"} · ${c.assetType || ""} · block ${(Number(c.slot) || 0) + 1}`,
         createdAt: payload.at || new Date().toISOString(),
         meta: {
           kind: "smartcopy",
@@ -239,23 +241,26 @@ export default function NotificationBell({
         payload?.transactionId ||
         payload?.transaction?._id ||
         `${Date.now()}`;
+      const isSmart = String(payload?.source || "") === "smart_copy";
       if (status === "APPROVED" || status === "APPROVE") {
         add({
           id: `deposit-${id}`,
           type: "trade_win",
-          title: "Deposit approved",
+          title: isSmart ? "Smart Spot commission approved" : "Deposit approved",
           body: `$${amt} credited to your Trading Wallet`,
           createdAt: new Date().toISOString(),
-          meta: { kind: "deposit", transactionId: String(id) },
+          meta: { kind: isSmart ? "smart_copy" : "deposit", transactionId: String(id) },
         });
       } else if (status === "REJECTED" || status === "REJECT") {
         add({
           id: `deposit-${id}`,
           type: "trade_loss",
-          title: "Deposit rejected",
-          body: "Your deposit was declined. Balance unchanged.",
+          title: isSmart ? "Smart Spot commission declined" : "Deposit rejected",
+          body: isSmart
+            ? "Your Smart Spot commission request was declined."
+            : "Your deposit was declined. Balance unchanged.",
           createdAt: new Date().toISOString(),
-          meta: { kind: "deposit", transactionId: String(id) },
+          meta: { kind: isSmart ? "smart_copy" : "deposit", transactionId: String(id) },
         });
       }
     });

@@ -397,7 +397,7 @@ function SignalCard({
   );
 }
 
-export default function SpotCopyTrade({ onOpenMarket }) {
+export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
   const [desk, setDesk] = useState(null);
   const [copies, setCopies] = useState([]);
   const [picks, setPicks] = useState(loadPicks);
@@ -475,8 +475,10 @@ export default function SpotCopyTrade({ onOpenMarket }) {
     [copies]
   );
   const copiedCount = copiedSet.size;
-  const maxSlots = Number(desk?.maxSlots || 1);
+  const maxSlots = Number(desk?.maxSlots || 0);
+  const unlocked = Boolean(desk?.unlocked) && maxSlots > 0;
   const atLimit = copiedCount >= maxSlots;
+  const pending = desk?.pendingCommission;
   const smartHistory = useMemo(
     () => (history || []).filter(isSmartSpotTx),
     [history]
@@ -513,7 +515,7 @@ export default function SpotCopyTrade({ onOpenMarket }) {
   };
 
   const startCopy = async (slotMeta) => {
-    if (syncing != null) return;
+    if (syncing != null || !desk?.unlocked) return;
     const pick = pickFor(slotMeta);
     setSyncing(slotMeta.slot);
     setSecondsLeft(10);
@@ -571,13 +573,36 @@ export default function SpotCopyTrade({ onOpenMarket }) {
           SMART SPOT TRADE
         </h1>
         <p className="mt-1 text-xs text-white/45">
-          Submit to receive today’s commission on your total balance
-          {liveRate > 0
-            ? ` · ${desk?.commissionMode === "manual" ? "manual" : "auto"} ${liveRate.toFixed(1)}% ≈ $${estimated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          Opens after you buy AI Futures Strategy · $500 = 1 block · $1000 = 2 ·
+          $2000 = 3 · $3000+ = 4. Auto commission is % of that lock (1 / 1.7 /
+          2.2 / 2.5) and waits for admin approval. Manual commission is added by
+          admin.
+          {unlocked && liveRate > 0
+            ? ` · ${desk?.commissionMode === "manual" ? "manual" : "auto"} ${liveRate.toFixed(1)}% of $${Number(desk?.aiPrincipal || 0).toLocaleString()} ≈ $${estimated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             : ""}
-          . Come back after 24 hours to submit again.
         </p>
-        {waiting ? (
+        {!unlocked ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2.5">
+            <p className="text-xs text-amber-100">
+              Smart Spot Trade is locked. Buy AI Futures Strategy first — then
+              your blocks open from that lock amount.
+            </p>
+            {typeof onGoAiFutures === "function" ? (
+              <button
+                type="button"
+                onClick={onGoAiFutures}
+                className="rounded-lg bg-cyan-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-950"
+              >
+                Open AI Futures
+              </button>
+            ) : null}
+          </div>
+        ) : pending ? (
+          <p className="mt-2 text-xs font-semibold text-amber-200">
+            Commission ${Number(pending.amount || 0).toFixed(2)} is waiting for
+            admin approval.
+          </p>
+        ) : waiting ? (
           <p className="mt-2 text-xs font-semibold text-cyan-200">
             Next submit in {fmtRemain(nextSubmitMs)}
           </p>
@@ -605,7 +630,11 @@ export default function SpotCopyTrade({ onOpenMarket }) {
             const otherSync = syncing != null && syncing !== slotMeta.slot;
             let closedReason = "";
             if (copied) closedReason = "";
-            else if (!slotMeta.isOpen) {
+            else if (!unlocked) {
+              closedReason = "Buy AI Futures Strategy";
+            } else if (slotMeta.lockedByTier) {
+              closedReason = "Locked — raise AI Futures lock";
+            } else if (!slotMeta.isOpen) {
               closedReason = slotMeta.readyAt
                 ? `Opens ${new Date(slotMeta.readyAt).toLocaleString()}`
                 : "Closed";
@@ -613,6 +642,7 @@ export default function SpotCopyTrade({ onOpenMarket }) {
               closedReason = "Locked";
             }
             const canCopy =
+              unlocked &&
               !copied &&
               slotMeta.isOpen &&
               !atLimit &&
@@ -683,6 +713,9 @@ export default function SpotCopyTrade({ onOpenMarket }) {
                         {tx.createdAt
                           ? new Date(tx.createdAt).toLocaleString()
                           : "—"}
+                        {tx.status && tx.status !== "completed"
+                          ? ` · ${String(tx.status).toUpperCase()}`
+                          : ""}
                         {tx.reviewerNote ? ` · ${tx.reviewerNote}` : ""}
                       </div>
                     </div>

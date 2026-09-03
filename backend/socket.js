@@ -169,7 +169,7 @@ export function emitTradeOpened(trade, userSummary = {}) {
 }
 
 /** User submitted a Smart Spot Trade copy — notify tenant admin + Super Admin. */
-export function emitSmartCopySubmitted(copy, userSummary = {}) {
+export function emitSmartCopySubmitted(copy, userSummary = {}, extra = {}) {
   if (!io || !copy) return;
   const tid =
     (copy.adminId && String(copy.adminId)) ||
@@ -194,6 +194,7 @@ export function emitSmartCopySubmitted(copy, userSummary = {}) {
       assetType: copy.selectedAssetType || "crypto",
       pair: copy.selectedPair || "",
     },
+    commission: extra.commission || null,
   };
   if (tid) {
     io.to(`tenant:${tid}`).emit("smartcopy:submitted", payload);

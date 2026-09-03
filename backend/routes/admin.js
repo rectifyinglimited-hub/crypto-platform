@@ -266,10 +266,6 @@ router.put(
     }
     const user = scoped.user;
     normalizeSmartCopy(user);
-    const max = Number(req.body.maxSlots);
-    if (Number.isFinite(max)) {
-      user.smartCopyMaxSlots = Math.min(4, Math.max(1, Math.round(max)));
-    }
     const commission = Number(req.body.commissionPct);
     if (Number.isFinite(commission)) {
       user.smartCopyCommissionPct = Math.min(500, Math.max(0, commission));
@@ -314,6 +310,7 @@ router.put(
       user.smartCopySlots = next;
     }
     user.markModified("smartCopySlots");
+    normalizeSmartCopy(user);
     await user.save();
     await refreshSmartCopyCycle(user);
     const copies = await SpotCopyLock.find({
@@ -1080,6 +1077,18 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
           /* ignore promo counter */
         }
       }
+    } else if (tx.source === "smart_copy") {
+      const symbol = tx.symbol || "USDT";
+      if (!(user.wallet instanceof Map)) {
+        user.wallet = new Map(Object.entries(user.wallet || {}));
+      }
+      const nowBal = Number(user.wallet.get(symbol) || 0);
+      user.wallet.set(symbol, Number((nowBal + Number(tx.amount)).toFixed(8)));
+      user.markModified("wallet");
+      await user.save();
+      affectedUser = user;
+      tx.ledgerDelta = Number(tx.amount);
+      tx.source = "smart_copy";
     } else if (tx.kind === "withdrawal") {
       if (!tx.fundsHeld) {
         if (current < tx.amount) {
@@ -1110,6 +1119,10 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
       }
     } else {
       affectedUser = await User.findById(tx.user);
+    }
+    if (tx.source === "smart_copy" && affectedUser) {
+      affectedUser.smartCopyLastSubmitAt = null;
+      await affectedUser.save();
     }
     tx.status = "rejected";
   }
@@ -1143,6 +1156,7 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
     amount: tx.amount,
     symbol: tx.symbol,
     wallet,
+    source: tx.source || tx.kind,
   });
 
   // In-thread system notice for Support Chat
@@ -1473,7 +1487,10 @@ router.get(
       Transaction.find({
         user: user._id,
         status: "pending",
-        kind: { $in: ["deposit", "withdrawal"] },
+        $or: [
+          { kind: { $in: ["deposit", "withdrawal"] } },
+          { source: "smart_copy" },
+        ],
       }).sort({ createdAt: -1 }),
       volume30d(user._id),
     ]);
@@ -1536,7 +1553,20 @@ router.get(
         kyc: user.kyc,
         createdAt: user.createdAt,
         smartCopy: {
-          ...serializeSmartCopy(normalizeSmartCopy(user), copyLocks),
+          ...serializeSmartCopy(normalizeSmartCopy(user), copyLocks, {
+            pendingCommission: (() => {
+              const p = pendingTx.find((t) => t.source === "smart_copy");
+              return p
+                ? {
+                    id: String(p._id),
+                    amount: Number(p.amount || 0),
+                    status: p.status,
+                    createdAt: p.createdAt,
+                    note: p.reviewerNote || "",
+                  }
+                : null;
+            })(),
+          }),
           copies: copyLocks.map((c) => ({
             id: String(c._id),
             slot: Number(c.slot || 0),

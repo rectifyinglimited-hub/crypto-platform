@@ -10,6 +10,7 @@ import Transaction from "../models/Transaction.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 import { tenantDocFilter, tenantUserFilter } from "../middleware/tenant.js";
+import { normalizeSmartCopy } from "../lib/smartCopy.js";
 
 const router = Router();
 
@@ -194,6 +195,7 @@ router.post(
     });
 
     user.aiBotContractId = contract._id;
+    normalizeSmartCopy(user);
     await user.save();
 
     await Transaction.create({
@@ -260,6 +262,7 @@ router.post(
     user.aiBotEndDate = null;
     user.aiBotPrincipal = 0;
     user.aiBotContractId = null;
+    normalizeSmartCopy(user);
     await user.save();
 
     if (contractId) {
@@ -328,6 +331,7 @@ router.post(
     user.aiBotPrincipal = 0;
     user.aiBotContractId = null;
     user.aiBotContractAcceptedAt = null;
+    normalizeSmartCopy(user);
     await user.save();
 
     if (contractId) {
