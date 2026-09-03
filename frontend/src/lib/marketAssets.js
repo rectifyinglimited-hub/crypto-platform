@@ -185,6 +185,31 @@ export function seedPrice(asset) {
   return Number((0.05 + (h % 5000) / 100).toFixed(6));
 }
 
+/** User-facing P/L for seconds trades. OPEN stake rows are hidden (null). */
+export function secondsTradeDisplayAmount(tx) {
+  const note = String(tx?.reviewerNote || tx?.note || "");
+  const src = String(tx?.source || "").toLowerCase();
+  const isSeconds =
+    src === "seconds_trade" || /seconds/i.test(note);
+  if (!isSeconds) return undefined;
+  const stake = Number(tx?.amount || 0);
+  const delta = Number(
+    typeof tx?.ledgerDelta === "number"
+      ? tx.ledgerDelta
+      : tx?.usdValue ?? tx?.amount ?? 0
+  );
+  if (/OPEN/i.test(note)) return null;
+  if (/WIN/i.test(note)) {
+    const profit = delta - stake;
+    return Number.isFinite(profit) ? profit : delta;
+  }
+  if (/LOSS/i.test(note)) {
+    const lost = delta === 0 ? stake : stake - delta;
+    return -Math.abs(Number(lost) || 0);
+  }
+  return Number.isFinite(delta) ? delta : 0;
+}
+
 export function sourceLabel(source, kind, note = "") {
   const s = String(source || "").toLowerCase();
   if (s === "smart_copy") return "Smart Spot Trade";

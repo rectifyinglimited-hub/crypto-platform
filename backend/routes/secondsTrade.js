@@ -1028,9 +1028,10 @@ router.get(
         row.profit += profit;
         row.net += profit;
       } else if (t.status === "lost") {
+        const lost = Number(t.lossAmount != null ? t.lossAmount : t.stake || 0);
         row.losses += 1;
-        row.lossAmount += Number(t.stake || 0);
-        row.net -= Number(t.stake || 0);
+        row.lossAmount += lost;
+        row.net -= lost;
       }
     }
     const daily = Object.values(byDay).sort((a, b) =>
@@ -1038,8 +1039,13 @@ router.get(
     );
 
     const wins = serialized.filter((t) => t.status === "won");
+    const losses = serialized.filter((t) => t.status === "lost");
     const profit = wins.reduce(
       (s, t) => s + Math.max(0, Number(t.payout || 0) - Number(t.stake || 0)),
+      0
+    );
+    const lostSum = losses.reduce(
+      (s, t) => s + Number(t.lossAmount != null ? t.lossAmount : t.stake || 0),
       0
     );
 
@@ -1049,9 +1055,10 @@ router.get(
       daily,
       totals: {
         wins: wins.length,
-        losses: serialized.filter((t) => t.status === "lost").length,
+        losses: losses.length,
         profit,
-        net: daily.reduce((s, d) => s + d.net, 0),
+        lost: lostSum,
+        net: profit - lostSum,
       },
     });
   })

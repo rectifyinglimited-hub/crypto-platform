@@ -43,6 +43,7 @@ import { AuthAPI, PlatformAPI, WalletAPI, SecondsTradeAPI, assetUrl } from "../l
 import {
   sourceLabel,
   historyKind,
+  secondsTradeDisplayAmount,
   CRYPTO_ASSETS,
   FOREX_ASSETS,
   STOCK_ASSETS,
@@ -82,11 +83,14 @@ export function useCatalog(kind) {
 const PRIMARY_BTN =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 
-const fmtUsd = (n) =>
-  `$${Number(n || 0).toLocaleString(undefined, {
+const fmtUsd = (n) => {
+  const v = Number(n) || 0;
+  const abs = Math.abs(v).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
+  return v < 0 ? `-$${abs}` : `$${abs}`;
+};
 const fmtNum = (n, d = 6) =>
   Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: d });
 
@@ -102,6 +106,8 @@ const STATUS_TONE = {
   approved: "border-emerald-400/25 bg-emerald-500/10 text-emerald-300",
   active: "border-emerald-400/25 bg-emerald-500/10 text-emerald-300",
   completed: "border-emerald-400/25 bg-emerald-500/10 text-emerald-300",
+  won: "border-emerald-400/25 bg-emerald-500/10 text-emerald-300",
+  lost: "border-rose-400/25 bg-rose-500/10 text-rose-300",
   filled: "border-emerald-400/25 bg-emerald-500/10 text-emerald-300",
   pending: "border-amber-400/25 bg-amber-500/10 text-amber-300",
   open: "border-amber-400/25 bg-amber-500/10 text-amber-300",
@@ -2267,24 +2273,35 @@ function LogsSection() {
               !HIDDEN_KINDS.has(String(t.kind || "").toLowerCase()) &&
               !HIDDEN_KINDS.has(String(t.source || "").toLowerCase())
           )
-          .map((t) => ({
-          id: t._id,
-          kind: t.kind,
-          source: t.source,
-          note: t.reviewerNote,
-          side: t.side,
-          amount:
-            typeof t.ledgerDelta === "number"
-              ? t.ledgerDelta
-              : t.kind === "withdrawal"
-                ? -Number(t.amount)
-                : Number(t.amount),
-          symbol: t.symbol,
-          status: t.status,
-          network: t.network,
-          address: t.address,
-          at: t.createdAt,
-        }));
+          .map((t) => {
+            const display = secondsTradeDisplayAmount(t);
+            if (display === null) return null;
+            const note = String(t.reviewerNote || "");
+            let status = t.status;
+            if (/WIN/i.test(note)) status = "won";
+            else if (/LOSS/i.test(note)) status = "lost";
+            return {
+              id: t._id,
+              kind: t.kind,
+              source: t.source,
+              note: t.reviewerNote,
+              side: t.side,
+              amount:
+                display !== undefined
+                  ? display
+                  : typeof t.ledgerDelta === "number"
+                    ? t.ledgerDelta
+                    : t.kind === "withdrawal"
+                      ? -Number(t.amount)
+                      : Number(t.amount),
+              symbol: t.symbol,
+              status,
+              network: t.network,
+              address: t.address,
+              at: t.createdAt,
+            };
+          })
+          .filter(Boolean);
         const orders = (ordRes.orders || [])
           .filter((o) => !HIDDEN_KINDS.has(String(o.kind || "").toLowerCase()))
           .map((o) => ({
@@ -2298,8 +2315,16 @@ function LogsSection() {
           status: o.status,
           at: o.createdAt,
         }));
+        const merged = [...txs, ...orders].sort(
+          (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()
+        );
+        let running = 0;
+        for (const row of merged) {
+          running += Number(row.amount) || 0;
+          row.balanceAfter = running;
+        }
         setRows(
-          [...txs, ...orders].sort(
+          merged.sort(
             (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()
           )
         );
@@ -2502,8 +2527,14 @@ function LogsSection() {
                         : "text-white"
                   }`}
                 >
+                  {Number(o.amount) > 0 ? "+" : ""}
                   {fmtUsd(o.amount)}
                 </div>
+                {o.balanceAfter != null ? (
+                  <div className="text-[10px] tabular-nums text-slate-500">
+                    Bal {fmtUsd(o.balanceAfter)}
+                  </div>
+                ) : null}
                 <StatusBadge status={o.status} />
               </div>
             </li>

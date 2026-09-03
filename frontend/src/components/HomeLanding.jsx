@@ -622,7 +622,12 @@ export default function HomeLanding({ user, walletUsdt = 0, liveEarnings = 0, on
               <div className="text-[10px] uppercase tracking-wider text-emerald-400/90">
                 Live Earnings
               </div>
-              <div className="mt-1 text-lg font-bold tabular-nums text-emerald-300">
+              <div
+                className={`mt-1 text-lg font-bold tabular-nums ${
+                  Number(liveEarnings) < 0 ? "text-rose-300" : "text-emerald-300"
+                }`}
+              >
+                {Number(liveEarnings) > 0 ? "+" : ""}
                 {formatUsd(liveEarnings)}
               </div>
             </div>

@@ -1122,11 +1122,17 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const loadLiveEarnings = async () => {
     try {
       const res = await SecondsTradeAPI.history();
+      if (typeof res.totals?.net === "number") {
+        setLiveEarnings(res.totals.net);
+        return;
+      }
       let total = 0;
       for (const t of res.trades || []) {
         const s = String(t.status || "").toLowerCase();
         if (s === "won" || s === "win") {
           total += Math.max(0, Number(t.payout || 0) - Number(t.stake || 0));
+        } else if (s === "lost" || s === "loss") {
+          total -= Number(t.lossAmount != null ? t.lossAmount : t.stake || 0);
         }
       }
       setLiveEarnings(total);

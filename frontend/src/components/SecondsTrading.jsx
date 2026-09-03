@@ -328,10 +328,12 @@ export default function SecondsTrading({
       let total = 0;
       for (const t of trades) {
         if (isTradeWon(t)) total += winProfit(t);
+        else if (isTradeLost(t)) {
+          total -= Number(t.lossAmount != null ? t.lossAmount : t.stake || 0);
+        }
       }
-      // Prefer server totals when present (wins-only profit sum)
-      if (typeof res.totals?.profit === "number") {
-        setLiveEarnings(res.totals.profit);
+      if (typeof res.totals?.net === "number") {
+        setLiveEarnings(res.totals.net);
       } else {
         setLiveEarnings(total);
       }
@@ -626,15 +628,26 @@ export default function SecondsTrading({
             USDT · wins included · use until 0
           </div>
         </div>
-        <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 to-cyan-500/5 p-4">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400/90">
+        <div className={`rounded-2xl border p-4 ${
+          Number(liveEarnings) < 0
+            ? "border-rose-500/25 bg-gradient-to-br from-rose-500/15 to-cyan-500/5"
+            : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 to-cyan-500/5"
+        }`}>
+          <div className={`text-[11px] font-semibold uppercase tracking-wider ${
+            Number(liveEarnings) < 0 ? "text-rose-400/90" : "text-emerald-400/90"
+          }`}>
             Live Earnings
           </div>
-          <div className="mt-1 text-xl font-bold tracking-tight tabular-nums text-emerald-300">
-            ${formatUsd(liveEarnings)}
+          <div
+            className={`mt-1 text-xl font-bold tracking-tight tabular-nums ${
+              Number(liveEarnings) < 0 ? "text-rose-300" : "text-emerald-300"
+            }`}
+          >
+            {Number(liveEarnings) > 0 ? "+" : Number(liveEarnings) < 0 ? "-" : ""}
+            ${formatUsd(Math.abs(Number(liveEarnings) || 0))}
           </div>
           <div className="mt-0.5 text-[10px] text-slate-500">
-            Lifetime wins (already in wallet)
+            Net profit / loss (in wallet)
           </div>
         </div>
       </div>
