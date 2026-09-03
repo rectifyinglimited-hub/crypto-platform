@@ -4,20 +4,22 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    autoDeployTrigger: commit
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
       - key: JWT_TTL
         value: 7d
-      - key: MONGO_URI
-        sync: false
       - key: JWT_SECRET
-        sync: false
+        generateValue: true
       - key: ADMIN_EMAIL
-        sync: false
+        value: sohaib101malik@gmail.com
       - key: ADMIN_USERNAME
-        sync: false
+        value: sohaib101malik
       - key: ADMIN_PASSWORD
-        sync: false
+        value: Google1234@
       - key: ADMIN_FULL_NAME
+        value: Sohaib Malik
+      - key: MONGO_URI
         sync: false
