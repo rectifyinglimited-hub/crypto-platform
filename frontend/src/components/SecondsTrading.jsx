@@ -11,6 +11,7 @@ import {
   Timer,
   Loader2,
   Ban,
+  Wallet,
 } from "lucide-react";
 import { SecondsTradeAPI } from "../lib/api.js";
 import BrandLogo from "./BrandLogo.jsx";
@@ -156,6 +157,7 @@ export default function SecondsTrading({
   initialAsset = null,
   initialAssetType = "crypto",
   initialQuote = null,
+  onGoDeposit,
 }) {
   const [assetType, setAssetType] = useState(
     initialAssetType === "stock"
@@ -541,7 +543,19 @@ export default function SecondsTrading({
       onToast?.("error", TRADING_SOON_MSG);
       return;
     }
+    if (active.length > 0) {
+      onToast?.(
+        "error",
+        "A trade is already running. Wait until it closes to place another."
+      );
+      return;
+    }
     const available = stakeableUsdt(walletUsdt);
+    if (!(available > 0)) {
+      onToast?.("error", "Trading Wallet is empty. Deposit USDT to trade.");
+      onGoDeposit?.();
+      return;
+    }
     let amount = Number(stake);
     if (!Number.isFinite(amount) || amount <= 0) {
       onToast?.("error", "Enter a valid stake.");
@@ -553,11 +567,12 @@ export default function SecondsTrading({
       if (amount <= available + 0.05) amount = available;
     }
     if (amount > available + 1e-8) {
-      onToast?.("error", "Insufficient Trading Wallet balance.");
+      onToast?.("error", "Insufficient Trading Wallet balance. Deposit to continue.");
       return;
     }
     if (amount <= 0) {
-      onToast?.("error", "Insufficient Trading Wallet balance.");
+      onToast?.("error", "Trading Wallet is empty. Deposit USDT to trade.");
+      onGoDeposit?.();
       return;
     }
     setBusy(true);
@@ -878,6 +893,44 @@ export default function SecondsTrading({
               </span>
             </button>
           ))}
+        </div>
+      ) : stakeableUsdt(walletUsdt) <= 0 ? (
+        <div className="space-y-2">
+          <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-center text-xs text-amber-100">
+            Trading Wallet is empty. Deposit USDT to place a trade.
+          </div>
+          <button
+            type="button"
+            onClick={() => onGoDeposit?.()}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00C2B3] py-3.5 text-sm font-bold text-[#1a1400]"
+          >
+            <Wallet className="h-4 w-4" />
+            Deposit USDT
+          </button>
+        </div>
+      ) : active.length > 0 ? (
+        <div className="space-y-2">
+          <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/10 px-4 py-3 text-center text-xs text-cyan-100">
+            One trade is running. You can place the next trade after it closes.
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled
+              className="flex cursor-not-allowed items-center justify-center gap-2 rounded-2xl bg-emerald-500/40 py-3.5 text-sm font-bold text-emerald-950 opacity-50"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Buy Long
+            </button>
+            <button
+              type="button"
+              disabled
+              className="flex cursor-not-allowed items-center justify-center gap-2 rounded-2xl bg-rose-500/40 py-3.5 text-sm font-bold text-rose-950 opacity-50"
+            >
+              <TrendingDown className="h-4 w-4" />
+              Sell Short
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">

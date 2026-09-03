@@ -1343,6 +1343,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   initialAsset={tradeIntent?.asset || "BTC"}
                   initialAssetType={tradeIntent?.assetType || "crypto"}
                   initialQuote={tradeIntent?.quote || "USDT"}
+                  onGoDeposit={() => goPage("deposit")}
                 />
               </div>
               <div className="space-y-4">

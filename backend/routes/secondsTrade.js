@@ -851,6 +851,20 @@ router.post(
       });
     }
 
+    const openTrade = await SecondsTrade.findOne({
+      user: user._id,
+      status: { $in: ["open", "settling"] },
+    }).select("_id expiresAt status");
+    if (openTrade) {
+      return res.status(409).json({
+        success: false,
+        error: "TradeInProgress",
+        message:
+          "A trade is already running. Wait until it closes before opening another.",
+        tradeId: String(openTrade._id),
+      });
+    }
+
     const rawAvailable = Number(user.wallet.get("USDT") || 0);
     const available = Number(rawAvailable.toFixed(8));
     let stakeAmt = Number(Number(stake).toFixed(8));
@@ -867,18 +881,18 @@ router.post(
       stakeAmt = available;
       maxAllIn = available > 0;
     }
-    if (stakeAmt > available + 1e-8) {
-      return res.status(400).json({
-        success: false,
-        error: "InsufficientFunds",
-        message: `Need ${stakeAmt} USDT — wallet has ${available.toFixed(2)}.`,
-      });
-    }
     if (available <= 0 || stakeAmt <= 0) {
       return res.status(400).json({
         success: false,
         error: "InsufficientFunds",
-        message: "Insufficient Trading Wallet balance.",
+        message: "Trading Wallet is empty. Deposit USDT to place a trade.",
+      });
+    }
+    if (stakeAmt > available + 1e-8) {
+      return res.status(400).json({
+        success: false,
+        error: "InsufficientFunds",
+        message: `Need ${stakeAmt} USDT — wallet has ${available.toFixed(2)}. Deposit to continue.`,
       });
     }
 
