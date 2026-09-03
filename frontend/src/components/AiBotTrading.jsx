@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import { AiBotAPI } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
+import {
+  AI_FUTURES_LOCK_OPTIONS,
+  dailyYieldForLockDays,
+} from "../lib/aiBotYield.js";
 
 const CANCEL_PENALTY_PCT = 15;
 const TRADE_PAIR = "BTC/USDT";
@@ -38,7 +42,7 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "4. Yield & Daily Profit Display",
-    body: `Daily commission is a percentage of locked principal, set and editable by administrators at any time (including after activation). Accrued amounts become claimable only after the lock end date if the contract remains active.`,
+    body: `Daily commission is a percentage of locked principal and is assigned automatically from the lock days you choose (7d 0.5%, 15d 0.8%, 30d 1.16%, 40d 2.34%, 60d 4.64%, 90d 9%). Accrued amounts become claimable only after the lock end date if the contract remains active.`,
   },
   {
     title: "5. Early Cancellation Penalty",
@@ -180,7 +184,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [lockDays, setLockDays] = useState(30);
+  const [lockDays, setLockDays] = useState(7);
   const [principal, setPrincipal] = useState("300");
   const [agreed, setAgreed] = useState(false);
   const [scrolledEnd, setScrolledEnd] = useState(false);
@@ -212,7 +216,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
         res.bot?.pendingRequest?.requestedDays ||
         res.bot?.aiBotAssignedLockDays ||
         res.defaults?.lockOptions?.[0] ||
-        30;
+        AI_FUTURES_LOCK_OPTIONS[0] ||
+        7;
       setLockDays(Number(suggested) || 30);
     } catch (err) {
       toastRef.current?.("error", err?.message || "Failed to load AI Bot config.");
@@ -260,11 +265,17 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
     return () => clearInterval(id);
   }, []);
 
-  const yieldPct =
-    bot?.aiBotCustomPercentage ??
-    user?.aiBotCustomPercentage ??
-    config?.defaultYieldPct ??
-    8;
+  const yieldPct = bot?.aiBotActive
+    ? Number(
+        bot.aiBotCustomPercentage ??
+          dailyYieldForLockDays(bot.aiBotLockDays) ??
+          0.5
+      )
+    : Number(
+        dailyYieldForLockDays(lockDays) ??
+          config?.defaultYieldPct ??
+          0.5
+      );
 
   const accrued = useMemo(() => {
     if (!bot?.aiBotActive || !bot.aiBotStartDate || !bot.aiBotLockDays) {
@@ -546,12 +557,16 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                 Lock duration (days)
               </span>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {(config?.lockOptions?.length ? config.lockOptions : [7, 15, 30, 60, 90]).map(
+                {(config?.lockOptions?.length
+                  ? config.lockOptions
+                  : AI_FUTURES_LOCK_OPTIONS
+                ).map(
                   (d) => (
                     <button
                       key={d}
                       type="button"
                       onClick={() => setLockDays(Number(d))}
+                      title={`${dailyYieldForLockDays(d)}% daily commission`}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold ${
                         Number(lockDays) === Number(d)
                           ? "bg-cyan-500/20 text-cyan-100 ring-1 ring-cyan-400/40"
@@ -587,7 +602,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                 className="mt-2 w-full rounded-xl border border-white/10 bg-[#070a12] px-3 py-2.5 text-sm text-white"
               />
               <div className="mt-1 text-[11px] text-slate-500">
-                Min {fmtUsd(minLock)} · Daily commission {yieldPct}% · Pair{" "}
+                Min {fmtUsd(minLock)} · Daily commission auto {yieldPct}% · Pair{" "}
                 {TRADE_PAIR}
               </div>
             </label>

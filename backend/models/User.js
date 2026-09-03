@@ -144,7 +144,7 @@ const UserSchema = new Schema(
     aiBotLockDays: { type: Number, default: null },
     aiBotStartDate: { type: Date, default: null },
     aiBotEndDate: { type: Date, default: null },
-    /** Admin-set daily commission % of locked principal (editable anytime). */
+    /** Daily commission % of locked principal — auto from lock days. */
     aiBotCustomPercentage: {
       type: Number,
       min: 0,

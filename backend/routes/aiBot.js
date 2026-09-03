@@ -14,6 +14,12 @@ import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 import { tenantDocFilter, tenantUserFilter } from "../middleware/tenant.js";
 import { normalizeSmartCopy } from "../lib/smartCopy.js";
+import {
+  AI_FUTURES_DAILY_YIELD,
+  dailyYieldForLockDays,
+  mergeAiFuturesLockOptions,
+  resolveAiFuturesDailyYield,
+} from "../lib/aiBotYield.js";
 import { emitWalletUpdate, emitAiBotLockRequest } from "../socket.js";
 
 const router = Router();
@@ -72,7 +78,14 @@ async function persistBotState(user) {
         aiBotAssignedLockDays: user.aiBotAssignedLockDays ?? null,
         aiBotStartDate: user.aiBotStartDate ?? null,
         aiBotEndDate: user.aiBotEndDate ?? null,
-        aiBotCustomPercentage: user.aiBotCustomPercentage ?? 8,
+        aiBotCustomPercentage:
+          user.aiBotCustomPercentage != null &&
+          Number.isFinite(Number(user.aiBotCustomPercentage))
+            ? Number(user.aiBotCustomPercentage)
+            : resolveAiFuturesDailyYield(
+                user.aiBotLockDays || user.aiBotAssignedLockDays,
+                0.5
+              ),
         aiBotPrincipal: Number(user.aiBotPrincipal || 0),
         aiBotContractId: user.aiBotContractId || null,
         aiBotContractAcceptedAt: user.aiBotContractAcceptedAt || null,
@@ -86,13 +99,17 @@ async function persistBotState(user) {
 }
 
 function serializeUserBot(user, pendingRequest = null) {
+  const lockDays = user.aiBotLockDays || user.aiBotAssignedLockDays;
   return {
     aiBotActive: !!user.aiBotActive,
     aiBotLockDays: user.aiBotLockDays,
     aiBotAssignedLockDays: user.aiBotAssignedLockDays,
     aiBotStartDate: user.aiBotStartDate,
     aiBotEndDate: user.aiBotEndDate,
-    aiBotCustomPercentage: user.aiBotCustomPercentage,
+    aiBotCustomPercentage: resolveAiFuturesDailyYield(
+      lockDays,
+      user.aiBotCustomPercentage
+    ),
     aiBotPrincipal: user.aiBotPrincipal,
     aiBotContractId: user.aiBotContractId,
     aiBotContractAcceptedAt: user.aiBotContractAcceptedAt,
@@ -147,9 +164,7 @@ async function refundHeldPrincipal(user, amount, note) {
 async function startApprovedLock(user, request, lockDays, contractVersion) {
   const days = clampLockDays(lockDays);
   const principal = Number(request.principal || 0);
-  const yieldPct = Number(
-    request.yieldPct || user.aiBotCustomPercentage || 8
-  );
+  const yieldPct = dailyYieldForLockDays(days) ?? Number(request.yieldPct || 0.5);
   const startDate = new Date();
   const endDate = new Date(startDate.getTime() + days * 86400000);
 
@@ -189,11 +204,14 @@ async function startApprovedLock(user, request, lockDays, contractVersion) {
 
 /** Daily commission % of principal. Total target = daily × lock days. */
 function dailyCommissionPct(userOrPct) {
-  const pct =
-    typeof userOrPct === "number"
-      ? userOrPct
-      : Number(userOrPct?.aiBotCustomPercentage || 0);
-  return Number.isFinite(pct) ? pct : 0;
+  if (typeof userOrPct === "number") {
+    return Number.isFinite(userOrPct) ? userOrPct : 0;
+  }
+  const mapped = resolveAiFuturesDailyYield(
+    userOrPct?.aiBotLockDays || userOrPct?.aiBotAssignedLockDays,
+    userOrPct?.aiBotCustomPercentage
+  );
+  return Number.isFinite(Number(mapped)) ? Number(mapped) : 0;
 }
 
 function lockDayCount(user) {
@@ -218,17 +236,16 @@ router.get(
     const platform = await PlatformConfig.getSingleton();
     const defaults = platform.aiBotDefaults || {};
     const user = await loadTrader(req.auth.sub);
-    const lockOptions = Array.isArray(defaults.lockOptions) && defaults.lockOptions.length
-      ? defaults.lockOptions.map(Number).filter((n) => n > 0)
-      : [7, 15, 30, 60, 90];
+    const lockOptions = mergeAiFuturesLockOptions(defaults.lockOptions);
     const pending = user ? await findPendingLock(user._id) : null;
     const wallet = user ? walletObj(user.wallet) : {};
     return res.json({
       success: true,
       defaults: {
-        defaultYieldPct: defaults.defaultYieldPct ?? 8,
+        defaultYieldPct: dailyYieldForLockDays(lockOptions[0]) ?? 0.5,
         minPrincipal: minAiPrincipal(defaults),
         lockOptions,
+        dailyYieldByDays: AI_FUTURES_DAILY_YIELD,
         contractVersion: defaults.contractVersion || "v1.0",
         adminAssignedOnly: false,
       },
@@ -297,11 +314,7 @@ async function activateNow(req, res) {
     });
   }
 
-  const yieldPct =
-    user.aiBotCustomPercentage != null &&
-    Number.isFinite(Number(user.aiBotCustomPercentage))
-      ? Number(user.aiBotCustomPercentage)
-      : Number(defaults.defaultYieldPct ?? 8);
+  const yieldPct = dailyYieldForLockDays(lockDays) ?? 0.5;
 
   const existing = await findPendingLock(user._id);
   let request = existing;
@@ -748,10 +761,16 @@ router.get(
   requireDatabase,
   asyncHandler(async (_req, res) => {
     const platform = await PlatformConfig.getSingleton();
+    const stored = platform.aiBotDefaults || {};
     return res.json({
       success: true,
       algoMatrix: platform.algoMatrix || defaultMatrixSafe(),
-      aiBotDefaults: platform.aiBotDefaults || {},
+      aiBotDefaults: {
+        ...stored,
+        lockOptions: mergeAiFuturesLockOptions(stored.lockOptions),
+        dailyYieldByDays: AI_FUTURES_DAILY_YIELD,
+        defaultYieldPct: dailyYieldForLockDays(7) ?? 0.5,
+      },
       globalTradingEnabled: platform.globalTradingEnabled !== false,
     });
   })
@@ -794,11 +813,9 @@ router.put(
     if (body.aiBotDefaults) {
       const d = body.aiBotDefaults;
       platform.aiBotDefaults = {
-        defaultYieldPct: Number(d.defaultYieldPct ?? 8),
+        defaultYieldPct: Number(d.defaultYieldPct ?? 0.5),
         minPrincipal: Number(d.minPrincipal ?? 50),
-        lockOptions: Array.isArray(d.lockOptions)
-          ? d.lockOptions.map(Number).filter((n) => n > 0)
-          : [7, 15, 30, 90],
+        lockOptions: mergeAiFuturesLockOptions(d.lockOptions),
         contractVersion: String(d.contractVersion || "v1.0"),
       };
       platform.markModified("aiBotDefaults");
@@ -829,7 +846,44 @@ router.patch(
     }
 
     const messages = [];
-    if (req.body.aiBotCustomPercentage !== undefined) {
+    let daysChanged = false;
+
+    if (req.body.aiBotAssignedLockDays !== undefined) {
+      const days = Number(req.body.aiBotAssignedLockDays);
+      if (!Number.isFinite(days) || days < 1 || days > 3650) {
+        return res.status(422).json({
+          success: false,
+          message: "Lock days must be 1–3650.",
+        });
+      }
+      user.aiBotAssignedLockDays = days;
+      daysChanged = true;
+      messages.push(`lock ${days} days`);
+      if (user.aiBotActive && user.aiBotStartDate) {
+        user.aiBotLockDays = days;
+        user.aiBotEndDate = new Date(
+          new Date(user.aiBotStartDate).getTime() + days * 86400000
+        );
+        messages.push("active lock dates updated");
+      }
+    }
+
+    const lockDaysForYield = user.aiBotLockDays || user.aiBotAssignedLockDays;
+    if (daysChanged) {
+      const pct = dailyYieldForLockDays(lockDaysForYield) ?? 0.5;
+      user.aiBotCustomPercentage = pct;
+      messages.push(`daily commission ${pct}% (auto from ${lockDaysForYield}d)`);
+      if (user.aiBotActive) {
+        const contractFilter = user.aiBotContractId
+          ? { _id: user.aiBotContractId }
+          : { user: user._id, status: "active" };
+        await AiBotContract.findOneAndUpdate(contractFilter, {
+          customPercentage: pct,
+          lockDays: user.aiBotLockDays || lockDaysForYield,
+          endDate: user.aiBotEndDate,
+        });
+      }
+    } else if (req.body.aiBotCustomPercentage !== undefined) {
       const pct = Number(req.body.aiBotCustomPercentage);
       if (!Number.isFinite(pct) || pct < 0 || pct > 500) {
         return res.status(422).json({
@@ -846,32 +900,6 @@ router.patch(
         await AiBotContract.findOneAndUpdate(contractFilter, {
           customPercentage: pct,
         });
-      }
-    }
-
-    if (req.body.aiBotAssignedLockDays !== undefined) {
-      const days = Number(req.body.aiBotAssignedLockDays);
-      if (!Number.isFinite(days) || days < 1 || days > 3650) {
-        return res.status(422).json({
-          success: false,
-          message: "Lock days must be 1–3650.",
-        });
-      }
-      user.aiBotAssignedLockDays = days;
-      messages.push(`lock ${days} days`);
-      if (user.aiBotActive && user.aiBotStartDate) {
-        user.aiBotLockDays = days;
-        user.aiBotEndDate = new Date(
-          new Date(user.aiBotStartDate).getTime() + days * 86400000
-        );
-        const contractFilter = user.aiBotContractId
-          ? { _id: user.aiBotContractId }
-          : { user: user._id, status: "active" };
-        await AiBotContract.findOneAndUpdate(contractFilter, {
-          lockDays: days,
-          endDate: user.aiBotEndDate,
-        });
-        messages.push("active lock dates updated");
       }
     }
 

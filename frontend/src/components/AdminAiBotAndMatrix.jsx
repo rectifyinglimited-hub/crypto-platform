@@ -12,6 +12,11 @@ import {
 } from "lucide-react";
 import { AiBotAPI } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
+import {
+  AI_FUTURES_LOCK_OPTIONS,
+  dailyYieldForLockDays,
+  resolveAiFuturesDailyYield,
+} from "../lib/aiBotYield.js";
 
 export default function AdminAiBotAndMatrix({ toast }) {
   const say = toast || (() => {});
@@ -82,9 +87,9 @@ export default function AdminAiBotAndMatrix({ toast }) {
         highPatternKey: res.algoMatrix?.highPatternKey || "A",
       });
       setDefaults({
-        defaultYieldPct: res.aiBotDefaults?.defaultYieldPct ?? 8,
+        defaultYieldPct: res.aiBotDefaults?.defaultYieldPct ?? 0.5,
         minPrincipal: res.aiBotDefaults?.minPrincipal ?? 50,
-        lockOptions: (res.aiBotDefaults?.lockOptions || [7, 15, 30, 90]).join(","),
+        lockOptions: (res.aiBotDefaults?.lockOptions || AI_FUTURES_LOCK_OPTIONS).join(","),
         contractVersion: res.aiBotDefaults?.contractVersion || "v1.0",
       });
     } catch (err) {
@@ -198,7 +203,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
         aiBotDefaults: {
           defaultYieldPct: Number(defaults.defaultYieldPct),
           minPrincipal: Number(defaults.minPrincipal),
-          lockOptions: lockOptions.length ? lockOptions : [7, 15, 30, 90],
+          lockOptions: lockOptions.length ? lockOptions : AI_FUTURES_LOCK_OPTIONS,
           contractVersion: defaults.contractVersion,
         },
       });
@@ -237,9 +242,14 @@ export default function AdminAiBotAndMatrix({ toast }) {
           className="w-20 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs"
           placeholder="Days"
           value={dayEdits[u._id] ?? u.aiBotAssignedLockDays ?? ""}
-          onChange={(e) =>
-            setDayEdits((prev) => ({ ...prev, [u._id]: e.target.value }))
-          }
+          onChange={(e) => {
+            const v = e.target.value;
+            setDayEdits((prev) => ({ ...prev, [u._id]: v }));
+            const mapped = dailyYieldForLockDays(v);
+            if (mapped != null) {
+              setYieldEdits((prev) => ({ ...prev, [u._id]: String(mapped) }));
+            }
+          }}
         />
         <span className="text-[11px] text-slate-500">days</span>
         <input
@@ -247,14 +257,19 @@ export default function AdminAiBotAndMatrix({ toast }) {
           min={0}
           max={500}
           step="any"
-          className="w-20 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs"
+          readOnly
+          className="w-20 cursor-default rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs"
           placeholder="Daily %"
-          value={yieldEdits[u._id] ?? u.aiBotCustomPercentage ?? ""}
-          onChange={(e) =>
-            setYieldEdits((prev) => ({ ...prev, [u._id]: e.target.value }))
+          value={
+            yieldEdits[u._id] ??
+            resolveAiFuturesDailyYield(
+              dayEdits[u._id] ?? u.aiBotAssignedLockDays ?? u.aiBotLockDays,
+              u.aiBotCustomPercentage
+            ) ??
+            ""
           }
         />
-        <span className="text-[11px] text-slate-500">daily %</span>
+        <span className="text-[11px] text-slate-500">daily % auto</span>
         <button
           type="button"
           disabled={savingId === u._id}

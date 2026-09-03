@@ -25,8 +25,13 @@ import { AdminAPI, AiBotAPI, assetUrl } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
 import { sourceLabel } from "../lib/marketAssets.js";
 import { publicUid } from "../lib/userUid.js";
+import {
+  AI_FUTURES_LOCK_OPTIONS,
+  dailyYieldForLockDays,
+  resolveAiFuturesDailyYield,
+} from "../lib/aiBotYield.js";
 
-const AI_BOT_DAY_PRESETS = [7, 15, 30, 40, 60, 90];
+const AI_BOT_DAY_PRESETS = AI_FUTURES_LOCK_OPTIONS;
 
 function fmt(n) {
   return Number(n || 0).toLocaleString(undefined, {
@@ -418,19 +423,17 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       setData(res);
       const u = res?.user;
       if (u) {
-        setBotDays(
+        const nextDays =
           u.aiBotPendingRequest?.requestedDays != null
-            ? String(u.aiBotPendingRequest.requestedDays)
+            ? u.aiBotPendingRequest.requestedDays
             : u.aiBotAssignedLockDays != null
-              ? String(u.aiBotAssignedLockDays)
-              : u.aiBotLockDays != null
-                ? String(u.aiBotLockDays)
-                : ""
-        );
+              ? u.aiBotAssignedLockDays
+              : u.aiBotLockDays;
+        setBotDays(nextDays != null ? String(nextDays) : "");
         setBotYield(
-          u.aiBotCustomPercentage != null
-            ? String(u.aiBotCustomPercentage)
-            : "8"
+          String(
+            resolveAiFuturesDailyYield(nextDays, u.aiBotCustomPercentage) ?? 0.5
+          )
         );
         setForcePct(
           u.tradeControlPercentage != null
@@ -666,13 +669,13 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
   const onAssignAiBot = async () => {
     const days = Number(botDays);
-    const pct = Number(botYield);
+    const pct = dailyYieldForLockDays(days) ?? Number(botYield);
     if (!Number.isFinite(days) || days < 1) {
       toastRef.current?.("error", "Select or enter lock days (e.g. 40).");
       return;
     }
     if (!Number.isFinite(pct) || pct < 0 || pct > 500) {
-      toastRef.current?.("error", "Enter a valid daily commission % (0–500).");
+      toastRef.current?.("error", "Daily commission could not be assigned for those days.");
       return;
     }
     setBotBusy(true);
@@ -1034,7 +1037,10 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             ) : null}
             <div className="flex flex-wrap gap-1.5">
               {AI_BOT_DAY_PRESETS.map((d) => (
-                <button key={d} type="button" onClick={() => setBotDays(String(d))}
+                <button key={d} type="button" onClick={() => {
+                  setBotDays(String(d));
+                  setBotYield(String(dailyYieldForLockDays(d)));
+                }}
                   className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition ${
                     String(botDays) === String(d)
                       ? "bg-teal-500/20 text-teal-200 ring-1 ring-teal-400/30"
@@ -1044,18 +1050,27 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                 </button>
               ))}
             </div>
+            <p className="mt-2 text-[10px] text-slate-500">
+              Daily commission auto: 7d 0.5% · 15d 0.8% · 30d 1.16% · 40d 2.34% · 60d 4.64% · 90d 9%
+            </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <label className="block">
                 <span className="text-[10px] font-semibold uppercase text-slate-500">Lock days</span>
                 <input type="number" min={1} max={3650} value={botDays}
-                  onChange={(e) => setBotDays(e.target.value)} placeholder="e.g. 40"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setBotDays(v);
+                    const mapped = dailyYieldForLockDays(v);
+                    if (mapped != null) setBotYield(String(mapped));
+                  }} placeholder="e.g. 40"
                   className={`mt-1 w-full font-mono ${inputClass}`} />
               </label>
               <label className="block">
-                <span className="text-[10px] font-semibold uppercase text-slate-500">Daily commission %</span>
+                <span className="text-[10px] font-semibold uppercase text-slate-500">Daily commission % (auto)</span>
                 <input type="number" min={0} max={500} step="any" value={botYield}
-                  onChange={(e) => setBotYield(e.target.value)} placeholder="8"
-                  className={`mt-1 w-full font-mono ${inputClass}`} />
+                  readOnly
+                  placeholder="0.5"
+                  className={`mt-1 w-full cursor-default font-mono ${inputClass}`} />
               </label>
               <div className="flex flex-wrap items-end gap-2">
                 {u?.aiBotPendingRequest ? (
@@ -1087,13 +1102,19 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               ) : u?.aiBotActive ? (
                 <span className="font-semibold text-teal-300">
                   Active {u.aiBotLockDays || u.aiBotAssignedLockDays} days · daily commission{" "}
-                  {u.aiBotCustomPercentage ?? 8}% until{" "}
+                  {resolveAiFuturesDailyYield(
+                    u.aiBotLockDays || u.aiBotAssignedLockDays,
+                    u.aiBotCustomPercentage
+                  )}% until{" "}
                   {u.aiBotEndDate ? new Date(u.aiBotEndDate).toLocaleDateString() : "—"}
                 </span>
               ) : u?.aiBotAssignedLockDays ? (
                 <span className="font-semibold text-teal-300">
                   Last lock {u.aiBotAssignedLockDays} days · daily commission{" "}
-                  {u.aiBotCustomPercentage ?? 8}%
+                  {resolveAiFuturesDailyYield(
+                    u.aiBotAssignedLockDays,
+                    u.aiBotCustomPercentage
+                  )}%
                 </span>
               ) : (
                 <span className="font-semibold text-slate-400">No lock yet — user can request from their wallet</span>

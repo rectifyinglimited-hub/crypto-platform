@@ -96,7 +96,7 @@ app.get("/", (_req, res) => {
   res.status(200).json({
     message: "Nexus API is online.",
     docs: "/health",
-    version: "1.6.1",
+    version: "1.6.2",
   });
 });
 

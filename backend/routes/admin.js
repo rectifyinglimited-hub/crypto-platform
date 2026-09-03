@@ -71,6 +71,7 @@ import {
   SMART_COPY_SLOTS,
 } from "../lib/smartCopy.js";
 import { recordLedger } from "../lib/ledger.js";
+import { resolveAiFuturesDailyYield } from "../lib/aiBotYield.js";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -1577,7 +1578,10 @@ router.get(
         aiBotActive: !!user.aiBotActive,
         aiBotAssignedLockDays: user.aiBotAssignedLockDays ?? null,
         aiBotLockDays: user.aiBotLockDays ?? null,
-        aiBotCustomPercentage: user.aiBotCustomPercentage ?? 8,
+        aiBotCustomPercentage: resolveAiFuturesDailyYield(
+          user.aiBotLockDays || user.aiBotAssignedLockDays,
+          user.aiBotCustomPercentage
+        ),
         aiBotPrincipal: user.aiBotPrincipal ?? 0,
         aiBotStartDate: user.aiBotStartDate || null,
         aiBotEndDate: user.aiBotEndDate || null,

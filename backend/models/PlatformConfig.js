@@ -40,13 +40,13 @@ const PlatformConfigSchema = new Schema(
       type: {
         defaultYieldPct: { type: Number, default: 8, min: 0, max: 500 },
         minPrincipal: { type: Number, default: 300 },
-        lockOptions: { type: [Number], default: [7, 15, 30, 90] },
+        lockOptions: { type: [Number], default: [7, 15, 30, 40, 60, 90] },
         contractVersion: { type: String, default: "v1.0" },
       },
       default: () => ({
-        defaultYieldPct: 8,
+        defaultYieldPct: 0.5,
         minPrincipal: 300,
-        lockOptions: [7, 15, 30, 90],
+        lockOptions: [7, 15, 30, 40, 60, 90],
         contractVersion: "v1.0",
       }),
     },
