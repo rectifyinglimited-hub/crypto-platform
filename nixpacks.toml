@@ -1,5 +1,8 @@
+[variables]
+NIXPACKS_NODE_VERSION = "20"
+
 [phases.install]
 cmds = ["npm --prefix backend ci --omit=dev"]
 
 [start]
-cmd = "node backend/server.js"
+cmd = "node scripts/start-api.mjs"
