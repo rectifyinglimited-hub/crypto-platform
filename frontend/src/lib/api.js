@@ -112,6 +112,14 @@ api.interceptors.response.use(
   }
 );
 
+function isMissingRoute(err) {
+  const msg = String(err?.message || "");
+  return (
+    err?.error === "NotFound" ||
+    /^Route (GET|POST|PUT|PATCH|DELETE) /i.test(msg)
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Typed wrappers
 // ---------------------------------------------------------------------------
@@ -407,20 +415,55 @@ export const PlatformAPI = {
 /** AI Bot Trading + algorithm matrix */
 export const AiBotAPI = {
   config: () => api.get("/ai-bot/config").then((r) => r.data),
-  requestLock: (payload) =>
-    api.post("/ai-bot/request", payload).then((r) => r.data),
+  requestLock: async (payload) => {
+    try {
+      return (await api.post("/ai-bot/request", payload)).data;
+    } catch (err) {
+      if (!isMissingRoute(err)) throw err;
+      return (await api.post("/ai-bot/activate", payload)).data;
+    }
+  },
   activate: (payload) =>
-    api.post("/ai-bot/request", payload).then((r) => r.data),
-  cancelRequest: () =>
-    api.post("/ai-bot/request/cancel").then((r) => r.data),
+    api.post("/ai-bot/activate", payload).then((r) => r.data),
+  cancelRequest: async () => {
+    try {
+      return (await api.post("/ai-bot/request/cancel")).data;
+    } catch (err) {
+      if (!isMissingRoute(err)) throw err;
+      throw {
+        success: false,
+        message: "Cancel is not available on this API yet.",
+      };
+    }
+  },
   claim: () => api.post("/ai-bot/claim").then((r) => r.data),
   cancel: () => api.post("/ai-bot/cancel").then((r) => r.data),
-  adminRequests: (status = "pending") =>
-    api
-      .get("/ai-bot/admin/requests", { params: status ? { status } : {} })
-      .then((r) => r.data),
-  adminReviewRequest: (id, payload) =>
-    api.post(`/ai-bot/admin/requests/${id}/review`, payload).then((r) => r.data),
+  adminRequests: async (status = "pending") => {
+    try {
+      return (
+        await api.get("/ai-bot/admin/requests", {
+          params: status ? { status } : {},
+        })
+      ).data;
+    } catch (err) {
+      if (isMissingRoute(err)) {
+        return { success: true, requests: [], unsupported: true };
+      }
+      throw err;
+    }
+  },
+  adminReviewRequest: async (id, payload) => {
+    try {
+      return (await api.post(`/ai-bot/admin/requests/${id}/review`, payload))
+        .data;
+    } catch (err) {
+      if (!isMissingRoute(err)) throw err;
+      throw {
+        success: false,
+        message: "Lock-request approval needs the updated API.",
+      };
+    }
+  },
   adminContracts: (status) =>
     api
       .get("/ai-bot/admin/contracts", {

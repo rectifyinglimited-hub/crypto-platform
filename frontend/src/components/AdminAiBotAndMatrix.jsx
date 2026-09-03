@@ -30,6 +30,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
   const [requests, setRequests] = useState([]);
   const [reviewDays, setReviewDays] = useState({});
   const [reviewingId, setReviewingId] = useState(null);
+  const [lockInboxReady, setLockInboxReady] = useState(true);
 
   const loadBots = useCallback(async () => {
     setLoading(true);
@@ -45,9 +46,13 @@ export default function AdminAiBotAndMatrix({ toast }) {
       setUsers(usersRes?.users || []);
       setContracts(contractsRes?.contracts || []);
       setRequests(reqRes?.requests || []);
+      setLockInboxReady(reqRes?.unsupported !== true);
       const failed = settled.find((s) => s.status === "rejected");
-      if (failed) {
-        say("error", failed.reason?.message || "Some AI Futures data failed to load.");
+      if (failed && failed.reason?.error !== "NotFound") {
+        const msg = String(failed.reason?.message || "");
+        if (!/^Route (GET|POST) /i.test(msg)) {
+          say("error", failed.reason?.message || "Some AI Futures data failed to load.");
+        }
       }
     } catch (err) {
       say("error", err?.message || "Failed to load AI bots.");
@@ -314,6 +319,11 @@ export default function AdminAiBotAndMatrix({ toast }) {
             <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-300/80">
               Pending lock requests ({requests.length})
             </div>
+            {!lockInboxReady ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-slate-400">
+                Assign or change days with Save below. User lock requests appear here after the API refresh.
+              </div>
+            ) : null}
             {requests.map((row) => (
               <div
                 key={row.id}
@@ -357,11 +367,11 @@ export default function AdminAiBotAndMatrix({ toast }) {
                 </button>
               </div>
             ))}
-            {!requests.length && (
+            {!lockInboxReady ? null : !requests.length ? (
               <div className="rounded-xl border border-white/5 px-3 py-3 text-center text-xs text-slate-500">
                 No pending lock requests.
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="flex gap-2">
