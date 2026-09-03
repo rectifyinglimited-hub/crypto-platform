@@ -415,14 +415,8 @@ export const PlatformAPI = {
 /** AI Bot Trading + algorithm matrix */
 export const AiBotAPI = {
   config: () => api.get("/ai-bot/config").then((r) => r.data),
-  requestLock: async (payload) => {
-    try {
-      return (await api.post("/ai-bot/request", payload)).data;
-    } catch (err) {
-      if (!isMissingRoute(err)) throw err;
-      return (await api.post("/ai-bot/activate", payload)).data;
-    }
-  },
+  requestLock: (payload) =>
+    api.post("/ai-bot/activate", payload).then((r) => r.data),
   activate: (payload) =>
     api.post("/ai-bot/activate", payload).then((r) => r.data),
   cancelRequest: async () => {

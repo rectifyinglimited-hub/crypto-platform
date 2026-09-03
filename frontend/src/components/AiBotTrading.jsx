@@ -21,6 +21,7 @@ import { onSocketEvent } from "../lib/socket.js";
 
 const CANCEL_PENALTY_PCT = 15;
 const TRADE_PAIR = "BTC/USDT";
+const MIN_AI_LOCK_USDT = 300;
 
 const CONTRACT_SECTIONS = [
   {
@@ -29,11 +30,11 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "2. Nature of the Service",
-    body: `Funds allocated are deducted from your Trading Wallet when you send the lock request. Target yield is set by administrators and is illustrative — not a bank deposit or guaranteed return.`,
+    body: `Funds allocated are deducted from your Trading Wallet when you confirm. Target yield is set by administrators and is illustrative — not a bank deposit or guaranteed return.`,
   },
   {
     title: "3. Lock Periods",
-    body: `You choose lock days from your Trading Wallet balance and send a request. An administrator must approve the lock and may increase or decrease the days before the contract starts. Once active you cannot change principal or trade pair.`,
+    body: `You choose lock days. Confirming starts the lock immediately if your Trading Wallet has at least $300. Administrators may later increase or decrease the days on an active contract. Once active you cannot change principal or trade pair.`,
   },
   {
     title: "4. Yield & Daily Profit Display",
@@ -69,7 +70,7 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "12. Acknowledgement",
-    body: `By confirming you have read this Agreement including the ${CANCEL_PENALTY_PCT}% early-cancel penalty, accept all risk disclosures, and authorize holding principal until an administrator approves your requested lock duration.`,
+    body: `By confirming you have read this Agreement including the ${CANCEL_PENALTY_PCT}% early-cancel penalty, accept all risk disclosures, and authorize deduction of principal for the chosen lock duration.`,
   },
 ];
 
@@ -180,7 +181,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
   const [modalOpen, setModalOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [lockDays, setLockDays] = useState(30);
-  const [principal, setPrincipal] = useState("100");
+  const [principal, setPrincipal] = useState("300");
   const [agreed, setAgreed] = useState(false);
   const [scrolledEnd, setScrolledEnd] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -193,7 +194,10 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
   const toastRef = useRef(onToast);
   toastRef.current = onToast;
 
-  const pending = bot?.pendingRequest?.status === "pending" ? bot.pendingRequest : null;
+  const minLock = Math.max(
+    MIN_AI_LOCK_USDT,
+    Number(config?.minPrincipal || MIN_AI_LOCK_USDT)
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -315,13 +319,12 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
       toastRef.current?.("error", "Choose lock days first.");
       return;
     }
-    if (!(walletUsdt > 0)) {
-      toastRef.current?.("error", "Trading Wallet is empty. Deposit USDT first.");
+    if (walletUsdt + 1e-8 < minLock) {
+      toastRef.current?.(
+        "error",
+        `AI Futures needs at least ${fmtUsd(minLock)} in your Trading Wallet.`
+      );
       onGoDeposit?.();
-      return;
-    }
-    if (pending) {
-      toastRef.current?.("error", "Your request is already waiting for admin.");
       return;
     }
     setAgreed(false);
@@ -341,12 +344,21 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
       toastRef.current?.("error", "Choose lock days first.");
       return;
     }
+    const amount = Number(principal);
+    if (!Number.isFinite(amount) || amount < minLock) {
+      toastRef.current?.("error", `Minimum principal is ${fmtUsd(minLock)}.`);
+      return;
+    }
+    if (amount > walletUsdt + 1e-8) {
+      toastRef.current?.("error", "Not enough Trading Wallet balance.");
+      return;
+    }
     setBusy(true);
     setFormError("");
     try {
-      const res = await AiBotAPI.requestLock({
+      const res = await AiBotAPI.activate({
         lockDays: days,
-        principal: Number(principal),
+        principal: amount,
         contractAccepted: true,
         contractVersion: config?.contractVersion || "v1.0",
       });
@@ -355,32 +367,12 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
         onWalletUpdate?.({ wallet: res.wallet });
         setWalletUsdt(Number(res.wallet.USDT || 0));
       }
-      toastRef.current?.(
-        "success",
-        res.message || "Request sent to admin for approval."
-      );
+      toastRef.current?.("success", res.message || "AI Futures started.");
       setModalOpen(false);
     } catch (err) {
-      const msg = err?.message || "Request failed. Try again.";
+      const msg = err?.message || "Start failed. Try again.";
       setFormError(msg);
       toastRef.current?.("error", msg);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const cancelPending = async () => {
-    setBusy(true);
-    try {
-      const res = await AiBotAPI.cancelRequest();
-      setBot(res.bot);
-      if (res.wallet) {
-        onWalletUpdate?.({ wallet: res.wallet });
-        if (typeof res.wallet.USDT === "number") setWalletUsdt(Number(res.wallet.USDT));
-      }
-      toastRef.current?.("success", res.message || "Request cancelled.");
-    } catch (err) {
-      toastRef.current?.("error", err?.message || "Cancel failed.");
     } finally {
       setBusy(false);
     }
@@ -445,8 +437,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
               Algorithmic lock contracts
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Choose lock days from your wallet · admin approves or adjusts ·
-              live accrued profit. Copy strategies live under Smart Spot Trade.
+              Lock from $300 · pick your days · starts when you confirm. Admin can
+              still change days later.
             </p>
           </div>
         </div>
@@ -532,29 +524,10 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
         </div>
       ) : (
         <div className="space-y-4 rounded-2xl border border-white/10 bg-[#0d1424] p-5">
-          {pending ? (
-            <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
-              <div className="text-sm font-semibold text-amber-100">
-                Waiting for admin approval
-              </div>
-              <p className="mt-1 text-xs text-amber-100/80">
-                You requested <strong>{pending.requestedDays} days</strong> with{" "}
-                {fmtUsd(pending.principal)} held from your Trading Wallet. Admin
-                can approve this, or increase / decrease the days.
-              </p>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={cancelPending}
-                className="mt-3 rounded-lg border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-slate-200 disabled:opacity-50"
-              >
-                {busy ? "Cancelling…" : "Cancel request & refund"}
-              </button>
-            </div>
-          ) : walletUsdt <= 0 ? (
+          {walletUsdt + 1e-8 < minLock ? (
             <div className="space-y-3">
               <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-center text-xs text-amber-100">
-                Trading Wallet is empty. Deposit USDT to choose lock days and start AI Futures.
+                Trading Wallet needs at least {fmtUsd(minLock)} to start AI Futures.
               </div>
               <button
                 type="button"
@@ -599,7 +572,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                 className="mt-2 w-full rounded-xl border border-white/10 bg-[#070a12] px-3 py-2.5 text-sm text-white"
               />
               <div className="mt-1 text-[11px] text-slate-500">
-                Wallet {fmtUsd(walletUsdt)} · request goes to admin for approval
+                Wallet {fmtUsd(walletUsdt)} · starts instantly at confirm
               </div>
             </div>
             <label className="block">
@@ -608,13 +581,13 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
               </span>
               <input
                 type="number"
-                min={config?.minPrincipal || 50}
+                min={minLock}
                 value={principal}
                 onChange={(e) => setPrincipal(e.target.value)}
                 className="mt-2 w-full rounded-xl border border-white/10 bg-[#070a12] px-3 py-2.5 text-sm text-white"
               />
               <div className="mt-1 text-[11px] text-slate-500">
-                Min {fmtUsd(config?.minPrincipal || 50)} · Daily commission {yieldPct}% · Pair{" "}
+                Min {fmtUsd(minLock)} · Daily commission {yieldPct}% · Pair{" "}
                 {TRADE_PAIR}
               </div>
             </label>
@@ -626,7 +599,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3.5 text-sm font-bold text-slate-950 disabled:opacity-50 sm:w-auto sm:px-8"
           >
             <FileText className="h-4 w-4" />
-            Review & send to admin
+            Review & start AI Trading
           </button>
             </>
           )}
@@ -679,11 +652,11 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                   </section>
                 ))}
                 <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-[12px] text-amber-100/90">
-                  Requested lock: <strong>{lockDays} days</strong> · Principal:{" "}
+                  Lock: <strong>{lockDays} days</strong> · Principal:{" "}
                   <strong>{fmtUsd(principal)}</strong> · Daily commission:{" "}
                   <strong>{yieldPct}%</strong> · Pair: <strong>{TRADE_PAIR}</strong>
                   <br />
-                  Admin can approve or change the days. Early cancel = no profit + {CANCEL_PENALTY_PCT}% principal deduction.
+                  Starts when you confirm. Early cancel = no profit + {CANCEL_PENALTY_PCT}% principal deduction.
                 </div>
               </div>
               <div className="space-y-3 border-t border-white/5 px-4 py-3">
@@ -712,7 +685,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3 text-sm font-bold text-slate-950 disabled:opacity-40"
                 >
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  {busy ? "Sending request…" : "Confirm & send lock request"}
+                  {busy ? "Starting…" : "Confirm & start AI Trading"}
                 </button>
               </div>
             </motion.div>

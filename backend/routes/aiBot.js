@@ -108,6 +108,14 @@ function clampLockDays(raw) {
   return Math.min(3650, n);
 }
 
+const MIN_AI_LOCK_USDT = 300;
+
+function minAiPrincipal(defaults) {
+  const n = Number(defaults?.minPrincipal);
+  if (Number.isFinite(n) && n > MIN_AI_LOCK_USDT) return n;
+  return MIN_AI_LOCK_USDT;
+}
+
 async function findPendingLock(userId) {
   return AiBotLockRequest.findOne({ user: userId, status: "pending" });
 }
@@ -219,7 +227,7 @@ router.get(
       success: true,
       defaults: {
         defaultYieldPct: defaults.defaultYieldPct ?? 8,
-        minPrincipal: defaults.minPrincipal ?? 50,
+        minPrincipal: minAiPrincipal(defaults),
         lockOptions,
         contractVersion: defaults.contractVersion || "v1.0",
         adminAssignedOnly: false,
@@ -231,9 +239,9 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
-// POST /request (and /activate) — user picks days; funds held until admin approves
+// POST /activate — user with $300+ wallet starts immediately (admin can edit days later)
 // ---------------------------------------------------------------------------
-async function submitLockRequest(req, res) {
+async function activateNow(req, res) {
   const principal = Number(Number(req.body.principal).toFixed(8));
   const accepted = Boolean(req.body.contractAccepted);
   const contractVersion = String(req.body.contractVersion || "v1.0");
@@ -254,7 +262,7 @@ async function submitLockRequest(req, res) {
 
   const platform = await PlatformConfig.getSingleton();
   const defaults = platform.aiBotDefaults || {};
-  const minPrincipal = Number(defaults.minPrincipal ?? 50);
+  const minPrincipal = minAiPrincipal(defaults);
 
   const user = await loadTrader(req.auth.sub);
   if (!user) {
@@ -267,33 +275,25 @@ async function submitLockRequest(req, res) {
     });
   }
 
-  const existing = await findPendingLock(user._id);
-  if (existing) {
-    return res.status(409).json({
+  const usdt = usdtOf(user);
+  if (!(usdt >= minPrincipal)) {
+    return res.status(422).json({
       success: false,
-      error: "RequestPending",
-      message:
-        "Your lock request is waiting for admin approval. You can cancel it to send a new one.",
-      pendingRequest: serializeAiBotLockRequest(existing),
+      error: "InsufficientFunds",
+      message: `AI Futures needs at least $${minPrincipal.toFixed(0)} in your Trading Wallet.`,
     });
   }
-
   if (!Number.isFinite(principal) || principal < minPrincipal) {
     return res.status(422).json({
       success: false,
       message: `Minimum principal is $${minPrincipal}.`,
     });
   }
-
-  const usdt = usdtOf(user);
-  if (!(usdt > 0) || principal > usdt + 1e-8) {
+  if (principal > usdt + 1e-8) {
     return res.status(422).json({
       success: false,
       error: "InsufficientFunds",
-      message:
-        usdt <= 0
-          ? "Trading Wallet is empty. Deposit USDT to start AI Futures."
-          : `Need ${principal} USDT — wallet has ${usdt.toFixed(2)}. Deposit to continue.`,
+      message: `Need ${principal} USDT — wallet has ${usdt.toFixed(2)}.`,
     });
   }
 
@@ -303,10 +303,27 @@ async function submitLockRequest(req, res) {
       ? Number(user.aiBotCustomPercentage)
       : Number(defaults.defaultYieldPct ?? 8);
 
-  setUsdt(user, Math.max(0, usdt - principal));
-
-  let request;
-  try {
+  const existing = await findPendingLock(user._id);
+  let request = existing;
+  if (!request) {
+    setUsdt(user, Math.max(0, usdt - principal));
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { wallet: walletObj(user.wallet) } }
+    );
+    await Transaction.create({
+      user: user._id,
+      adminId: user.adminId || null,
+      kind: "trade",
+      side: "sell",
+      symbol: "AI-BOT",
+      amount: principal,
+      usdValue: principal,
+      status: "completed",
+      reviewerNote: `AI Futures lock ${lockDays}d · daily commission ${yieldPct}%`,
+      source: "ai_future",
+      ledgerDelta: -principal,
+    });
     request = await AiBotLockRequest.create({
       user: user._id,
       adminId: user.adminId || null,
@@ -316,60 +333,43 @@ async function submitLockRequest(req, res) {
       status: "pending",
       contractVersion,
     });
-  } catch (err) {
-    setUsdt(user, usdt);
-    if (err?.code === 11000) {
-      const again = await findPendingLock(user._id);
-      return res.status(409).json({
-        success: false,
-        error: "RequestPending",
-        message:
-          "Your lock request is waiting for admin approval. You can cancel it to send a new one.",
-        pendingRequest: serializeAiBotLockRequest(again),
-      });
-    }
-    throw err;
   }
 
-  user.aiBotPendingRequestId = request._id;
-  await persistBotState(user);
-
-  await Transaction.create({
-    user: user._id,
-    adminId: user.adminId || null,
-    kind: "trade",
-    side: "sell",
-    symbol: "AI-BOT",
-    amount: principal,
-    usdValue: principal,
-    status: "completed",
-    reviewerNote: `AI Futures request ${lockDays}d · $${principal} held for admin approval`,
-    source: "ai_future",
-    ledgerDelta: -principal,
-  });
+  const days = clampLockDays(lockDays || request.requestedDays);
+  request.reviewedBy = req.auth.sub;
+  request.reviewNote = "Auto-accepted on confirm";
+  const contract = await startApprovedLock(
+    user,
+    request,
+    days,
+    contractVersion
+  );
 
   const wallet = walletObj(user.wallet);
   try {
     emitWalletUpdate(user._id, wallet, {
-      reason: "ai_lock_request",
+      reason: "ai_lock_approved",
       requestId: String(request._id),
     });
-    emitAiBotLockRequest(request, user, { type: "requested" });
+    emitAiBotLockRequest(request, user, {
+      type: "approved",
+      approvedDays: days,
+    });
   } catch {
-    /* ignore socket failures */
+    /* ignore */
   }
 
   return res.status(201).json({
     success: true,
-    message: `Request sent for ${lockDays} days. Admin will approve or adjust the lock.`,
-    bot: serializeUserBot(user, request),
-    pendingRequest: serializeAiBotLockRequest(request),
+    message: `AI Futures started · ${days} day lock.`,
+    bot: serializeUserBot(user, null),
+    contract,
     wallet,
   });
 }
 
-router.post("/request", requireAuth, requireDatabase, asyncHandler(submitLockRequest));
-router.post("/activate", requireAuth, requireDatabase, asyncHandler(submitLockRequest));
+router.post("/request", requireAuth, requireDatabase, asyncHandler(activateNow));
+router.post("/activate", requireAuth, requireDatabase, asyncHandler(activateNow));
 
 router.post(
   "/request/cancel",
