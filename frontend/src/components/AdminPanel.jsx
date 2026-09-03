@@ -108,6 +108,42 @@ const viewVariants = {
 };
 
 // ---------------------------------------------------------------------------
+// Shared UI Components
+// ---------------------------------------------------------------------------
+const SectionCard = ({ icon: Icon, title, description, children, className = "" }) => (
+  <div className={`rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-5 backdrop-blur-sm ${className}`}>
+    {(title || Icon) && (
+      <div className="mb-4">
+        <div className="flex items-center gap-2.5">
+          {Icon && <Icon className="h-4 w-4 text-cyan-400" />}
+          {title && <h3 className="text-sm font-semibold text-white">{title}</h3>}
+        </div>
+        {description && <p className="mt-1 ml-6.5 text-[11px] text-slate-500">{description}</p>}
+      </div>
+    )}
+    {children}
+  </div>
+);
+
+const PillTabs = ({ tabs, active, onChange }) => (
+  <div className="flex gap-1 rounded-xl bg-white/[0.03] p-1">
+    {tabs.map(t => (
+      <button key={t.key} onClick={() => onChange(t.key)}
+        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+          active === t.key ? "bg-white/10 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+        }`}>{t.label}{t.count != null ? <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px]">{t.count}</span> : null}</button>
+    ))}
+  </div>
+);
+
+const ToggleSwitch = ({ enabled, onToggle, disabled, labelOn = "Enabled", labelOff = "Disabled" }) => (
+  <button type="button" disabled={disabled} onClick={() => onToggle(!enabled)}
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${enabled ? "bg-emerald-500" : "bg-slate-600"} ${disabled ? "opacity-40" : "cursor-pointer"}`}>
+    <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-6" : "translate-x-1"}`} />
+  </button>
+);
+
+// ---------------------------------------------------------------------------
 // Toast
 // ---------------------------------------------------------------------------
 const Toast = ({ kind, message, onClose }) => (
@@ -200,7 +236,7 @@ const StatusBadge = ({ status }) => {
 // OverviewView
 // ---------------------------------------------------------------------------
 const GlobalTradingToggle = ({ enabled, busy, onToggle }) => (
-  <div className="mb-5 rounded-2xl border border-white/10 bg-gradient-to-r from-indigo-500/10 via-slate-900/60 to-emerald-500/10 p-4">
+  <div className="mb-5 rounded-2xl border border-white/[0.06] bg-gradient-to-r from-indigo-500/10 via-slate-900/60 to-emerald-500/10 p-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">
@@ -219,23 +255,15 @@ const GlobalTradingToggle = ({ enabled, busy, onToggle }) => (
           {enabled ? "All trades enabled" : "All trades disabled"}
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy || enabled}
-          onClick={() => onToggle(true)}
-          className="rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-emerald-950 disabled:opacity-40"
-        >
-          Enable All Trades
-        </button>
-        <button
-          type="button"
-          disabled={busy || !enabled}
-          onClick={() => onToggle(false)}
-          className="rounded-xl bg-rose-500/90 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-rose-50 disabled:opacity-40"
-        >
-          Disable All Trades
-        </button>
+      <div className="flex items-center gap-3">
+        <ToggleSwitch
+          enabled={enabled}
+          onToggle={(val) => onToggle(val)}
+          disabled={busy}
+        />
+        <span className="text-xs font-medium text-slate-300">
+          {enabled ? "Trading Active" : "Trading Paused"}
+        </span>
       </div>
     </div>
   </div>
@@ -255,24 +283,28 @@ const OverviewView = ({
       value: fmtNum(stats?.totalUsers || 0),
       icon: Users,
       accent: "from-indigo-500/20 to-indigo-400/5",
+      border: "border-l-indigo-500",
     },
     {
       label: "Active Invite Codes",
       value: fmtNum(stats?.activeInviteCodes || 0),
       icon: Ticket,
       accent: "from-emerald-500/20 to-emerald-400/5",
+      border: "border-l-emerald-500",
     },
     {
       label: "Pending Transactions",
       value: fmtNum(stats?.pendingTransactions || 0),
       icon: Receipt,
       accent: "from-amber-500/20 to-amber-400/5",
+      border: "border-l-amber-500",
     },
     {
       label: "Mock Volume (24h)",
       value: fmtUSD(stats?.mockVolume24h || 0),
       icon: TrendingUp,
       accent: "from-cyan-500/20 to-cyan-400/5",
+      border: "border-l-cyan-500",
     },
   ];
 
@@ -322,7 +354,7 @@ const OverviewView = ({
           <motion.div
             key={c.label}
             variants={listItem}
-            className={`relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-5 backdrop-blur-sm`}
+            className={`relative overflow-hidden rounded-2xl border border-white/5 border-l-4 ${c.border} bg-slate-900/60 p-5 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
           >
             <div
               className={`pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br ${c.accent} blur-2xl`}
@@ -337,14 +369,51 @@ const OverviewView = ({
         ))}
       </motion.div>
 
+      {/* Quick Actions */}
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <button
+          type="button"
+          className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-4 text-left transition hover:bg-white/[0.04]"
+        >
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/15 text-amber-300">
+            <BadgeCheck className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-white">KYC Pending</div>
+            <div className="text-[11px] text-slate-500">Review verifications</div>
+          </div>
+        </button>
+        <button
+          type="button"
+          className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-4 text-left transition hover:bg-white/[0.04]"
+        >
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-500/15 text-cyan-300">
+            <Receipt className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-white">Pending Tx</div>
+            <div className="text-[11px] text-slate-500">{fmtNum(stats?.pendingTransactions || 0)} awaiting review</div>
+          </div>
+        </button>
+        <button
+          type="button"
+          className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-4 text-left transition hover:bg-white/[0.04]"
+        >
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-500/15 text-indigo-300">
+            <CreditCard className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-white">User Details</div>
+            <div className="text-[11px] text-slate-500">Cards, wallets, profiles</div>
+          </div>
+        </button>
+      </div>
+
       <motion.div
         variants={viewVariants}
         className="mt-6 grid gap-4 lg:grid-cols-2"
       >
-        <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-5 backdrop-blur-sm">
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-            Network Composition
-          </div>
+        <SectionCard icon={Users} title="Network Composition">
           <ul className="space-y-2 text-sm">
             <li className="flex items-center justify-between">
               <span className="text-slate-300">Admins</span>
@@ -363,16 +432,13 @@ const OverviewView = ({
               </span>
             </li>
           </ul>
-        </div>
-        <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-5 backdrop-blur-sm">
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-            System Notes
-          </div>
+        </SectionCard>
+        <SectionCard icon={AlertTriangle} title="System Notes">
           <p className="text-sm text-slate-400">
             Volume and trade counts are simulated for demonstration. Wire them
             to your analytics pipeline in production.
           </p>
-        </div>
+        </SectionCard>
       </motion.div>
     </motion.div>
   );
@@ -452,179 +518,146 @@ const InviteCodesView = ({
         </button>
       </div>
 
-      <form
-        onSubmit={handleCreate}
-        className="mb-6 rounded-2xl border border-white/5 bg-slate-900/60 p-5 backdrop-blur-sm"
-      >
-        <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-          <Plus className="h-3 w-3" /> Generate New Code
-        </div>
-        <div className="grid gap-3 md:grid-cols-4">
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              Code (optional)
-            </label>
-            <input
-              value={form.code}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))
-              }
-              placeholder="AUTO-GENERATE"
-              className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              Grants Role
-            </label>
-            <select
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-              className="w-full appearance-none rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none"
-            >
-              <option value="user" className="bg-slate-900">
-                Standard User
-              </option>
-              {isSuperAdmin && (
-                <option value="admin" className="bg-slate-900">
-                  Admin
+      <SectionCard icon={Plus} title="Generate New Code" className="mb-6">
+        <form onSubmit={handleCreate}>
+          <div className="grid gap-3 md:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                Code (optional)
+              </label>
+              <input
+                value={form.code}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))
+                }
+                placeholder="AUTO-GENERATE"
+                className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                Grants Role
+              </label>
+              <select
+                value={form.role}
+                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+                className="w-full appearance-none rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none"
+              >
+                <option value="user" className="bg-slate-900">
+                  Standard User
                 </option>
-              )}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              Uses
-            </label>
-            <div className="flex h-[38px] items-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-200">
-              1 use only
+                {isSuperAdmin && (
+                  <option value="admin" className="bg-slate-900">
+                    Admin
+                  </option>
+                )}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                Uses
+              </label>
+              <div className="flex h-[38px] items-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-200">
+                1 use only
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                Notes
+              </label>
+              <input
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="e.g. for user Ali"
+                className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
+              />
             </div>
           </div>
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              Notes
-            </label>
-            <input
-              value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="e.g. for user Ali"
-              className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
-            />
-          </div>
-        </div>
-        <motion.button
-          type="submit"
-          disabled={submitting}
-          whileHover={!submitting ? { scale: 1.01 } : undefined}
-          whileTap={!submitting ? { scale: 0.99 } : undefined}
-          className="mt-4 flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 disabled:opacity-70"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Generating…
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4" /> Create Code
-            </>
-          )}
-        </motion.button>
-      </form>
+          <motion.button
+            type="submit"
+            disabled={submitting}
+            whileHover={!submitting ? { scale: 1.01 } : undefined}
+            whileTap={!submitting ? { scale: 0.99 } : undefined}
+            className="mt-4 flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 disabled:opacity-70"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Generating…
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Create Code
+              </>
+            )}
+          </motion.button>
+        </form>
+      </SectionCard>
 
-      <div className="overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm">
-        <div className="grid grid-cols-12 gap-3 border-b border-white/5 px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-          <div className="col-span-3">Code</div>
-          <div className="col-span-2">Role</div>
-          <div className="col-span-2">Usage</div>
-          <div className="col-span-2">Status</div>
-          <div className="col-span-2">Created</div>
-          <div className="col-span-1 text-right">Actions</div>
-        </div>
-
-        <motion.ul
-          variants={listContainer}
-          initial="hidden"
-          animate="show"
-          className="divide-y divide-white/5"
-        >
-          <AnimatePresence initial={false}>
-            {codes.map((c) => (
-              <motion.li
-                key={c._id || c.code}
-                variants={listItem}
-                exit="exit"
-                layout
-                className="grid grid-cols-12 items-center gap-3 px-5 py-3 text-sm"
+      <div className="space-y-3">
+        {codes.map((c) => (
+          <motion.div
+            key={c._id || c.code}
+            variants={listItem}
+            layout
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-4 backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-3">
+              <code className="rounded-lg bg-white/[0.04] px-2.5 py-1.5 font-mono text-[12px] tracking-wider text-indigo-200">
+                {c.code}
+              </code>
+              <button
+                onClick={() => handleCopy(c.code)}
+                className="rounded p-1 text-slate-500 hover:bg-white/[0.05] hover:text-slate-200"
+                title="Copy"
               >
-                <div className="col-span-3 flex items-center gap-2">
-                  <code className="rounded-md bg-white/[0.03] px-2 py-1 font-mono text-[12px] tracking-wider text-indigo-200">
-                    {c.code}
-                  </code>
-                  <button
-                    onClick={() => handleCopy(c.code)}
-                    className="rounded p-1 text-slate-500 hover:bg-white/[0.05] hover:text-slate-200"
-                    title="Copy"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </button>
-                </div>
-                <div className="col-span-2 capitalize text-slate-300">
-                  {c.role}
-                </div>
-                <div className="col-span-2 text-slate-300">
-                  {(c.usedBy?.length || 0) >= 1
-                    ? "Used (1/1)"
-                    : "Available (0/1)"}
-                </div>
-                <div className="col-span-2">
-                  <StatusBadge status={c.status} />
-                </div>
-                <div className="col-span-2 text-xs text-slate-500">
-                  {c.createdAt
-                    ? new Date(c.createdAt).toLocaleDateString()
-                    : "—"}
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  <motion.button
-                    type="button"
-                    disabled={deletingId === (c._id || c.id)}
-                    onClick={async () => {
-                      const id = c._id || c.id;
-                      if (
-                        !window.confirm(
-                          `Delete invite code ${c.code}? This cannot be undone.`
-                        )
-                      ) {
-                        return;
-                      }
-                      setDeletingId(id);
-                      try {
-                        await onDelete(c);
-                      } finally {
-                        setDeletingId(null);
-                      }
-                    }}
-                    whileTap={{ scale: 0.9 }}
-                    className="inline-flex items-center gap-1 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
-                    title="Delete invite code"
-                  >
-                    {deletingId === (c._id || c.id) ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                    Delete
-                  </motion.button>
-                </div>
-              </motion.li>
-            ))}
-          </AnimatePresence>
-          {!loading && codes.length === 0 && (
-            <li className="px-5 py-10 text-center text-xs text-slate-500">
-              No invite codes yet. Generate your first one above.
-            </li>
-          )}
-        </motion.ul>
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+              <StatusBadge status={c.status} />
+            </div>
+            <div className="flex items-center gap-4 text-xs text-slate-400">
+              <span className="capitalize">{c.role}</span>
+              <span>{(c.usedBy?.length || 0) >= 1 ? "Used (1/1)" : "Available (0/1)"}</span>
+              {c.notes && <span className="text-slate-500">{c.notes}</span>}
+              <span className="text-slate-600">
+                {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "—"}
+              </span>
+              <motion.button
+                type="button"
+                disabled={deletingId === (c._id || c.id)}
+                onClick={async () => {
+                  const id = c._id || c.id;
+                  if (
+                    !window.confirm(
+                      `Delete invite code ${c.code}? This cannot be undone.`
+                    )
+                  ) {
+                    return;
+                  }
+                  setDeletingId(id);
+                  try {
+                    await onDelete(c);
+                  } finally {
+                    setDeletingId(null);
+                  }
+                }}
+                whileTap={{ scale: 0.9 }}
+                className="inline-flex items-center justify-center rounded-lg border border-rose-400/30 bg-rose-500/10 p-1.5 text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                title="Delete invite code"
+              >
+                {deletingId === (c._id || c.id) ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+              </motion.button>
+            </div>
+          </motion.div>
+        ))}
+        {!loading && codes.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-white/10 px-5 py-10 text-center text-xs text-slate-500">
+            No invite codes yet. Generate your first one above.
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -790,7 +823,6 @@ const TradeControlCell = ({ user, onSaveTradeControl }) => {
   );
   const [saving, setSaving] = useState(false);
 
-  // Sync when parent user prop updates from server
   useEffect(() => {
     setState(user.tradeControlState || "normal");
     setPct(
@@ -957,11 +989,11 @@ const UserRow = ({
       variants={listItem}
       exit="exit"
       layout
-      className="grid grid-cols-12 items-center gap-3 px-5 py-3.5 text-sm"
+      className="grid grid-cols-12 items-center gap-3 px-5 py-3.5 text-sm transition hover:bg-white/[0.02]"
     >
       {/* Identity */}
       <div className="col-span-3 flex items-center gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 text-[11px] font-bold text-white">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-400 text-[11px] font-bold text-white">
           {user.initials ||
             (user.fullName || "?")
               .split(/\s+/)
@@ -981,7 +1013,7 @@ const UserRow = ({
             {user.email}
           </div>
           {publicUid(user) ? (
-            <div className="mt-0.5 font-mono text-[10px] tabular-nums text-cyan-300">
+            <div className="mt-0.5 inline-flex items-center rounded-md bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-cyan-300">
               UID {publicUid(user)}
             </div>
           ) : null}
@@ -1054,7 +1086,7 @@ const UserRow = ({
           Wallet
         </div>
         <div
-          className={`text-sm font-semibold tabular-nums ${
+          className={`font-mono text-sm font-semibold tabular-nums ${
             usdt < 0 ? "text-rose-400" : "text-emerald-300"
           }`}
         >
@@ -1130,73 +1162,74 @@ const UserRow = ({
 
       {/* Actions */}
       <div className="col-span-1 flex flex-col items-end gap-1">
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => onOpenControlRoom?.(user)}
-          className="flex items-center gap-1 rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-2 py-1 text-[10px] font-medium text-cyan-200 hover:bg-cyan-500/15"
-          title="Open control room"
-        >
-          <UserCog className="h-3 w-3" /> Room
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => onEditBalance(user)}
-          className="flex items-center gap-1 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1 text-[10px] font-medium text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-200"
-          title="Full adjust modal"
-        >
-          <Wallet className="h-3 w-3" /> More
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setPwdOpen((v) => !v)}
-          disabled={user._id === currentUserId}
-          className="flex items-center gap-1 rounded-lg border border-amber-400/25 bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-200 disabled:opacity-40"
-        >
-          <KeyRound className="h-3 w-3" /> Reset PW
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => onToggleBan(user, !user.banned)}
-          disabled={user._id === currentUserId}
-          className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
-            user.banned
-              ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15"
-              : "border-rose-400/25 bg-rose-500/10 text-rose-200 hover:bg-rose-500/15"
-          }`}
-          title={user.banned ? "Set Active" : "Ban user"}
-        >
-          {user.banned ? (
-            <>
-              <ShieldCheck className="h-3 w-3" /> Active
-            </>
-          ) : (
-            <>
-              <Ban className="h-3 w-3" /> Ban
-            </>
+        <div className="flex gap-1">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => onOpenControlRoom?.(user)}
+            className="inline-flex items-center justify-center rounded-lg border border-cyan-400/25 bg-cyan-500/10 p-1.5 text-cyan-200 hover:bg-cyan-500/15"
+            title="Open control room"
+          >
+            <UserCog className="h-3.5 w-3.5" />
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => onEditBalance(user)}
+            className="inline-flex items-center justify-center rounded-lg border border-white/5 bg-white/[0.02] p-1.5 text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-200"
+            title="Full adjust modal"
+          >
+            <Wallet className="h-3.5 w-3.5" />
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setPwdOpen((v) => !v)}
+            disabled={user._id === currentUserId}
+            className="inline-flex items-center justify-center rounded-lg border border-amber-400/25 bg-amber-500/10 p-1.5 text-amber-200 disabled:opacity-40"
+            title="Reset password"
+          >
+            <KeyRound className="h-3.5 w-3.5" />
+          </motion.button>
+        </div>
+        <div className="flex gap-1">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => onToggleBan(user, !user.banned)}
+            disabled={user._id === currentUserId}
+            className={`inline-flex items-center justify-center rounded-lg border p-1.5 disabled:cursor-not-allowed disabled:opacity-40 ${
+              user.banned
+                ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15"
+                : "border-rose-400/25 bg-rose-500/10 text-rose-200 hover:bg-rose-500/15"
+            }`}
+            title={user.banned ? "Set Active" : "Ban user"}
+          >
+            {user.banned ? (
+              <ShieldCheck className="h-3.5 w-3.5" />
+            ) : (
+              <Ban className="h-3.5 w-3.5" />
+            )}
+          </motion.button>
+          {!archived && (
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onDeleteUser?.(user)}
+              disabled={user._id === currentUserId || isStaffRole(user.role)}
+              className="inline-flex items-center justify-center rounded-lg border border-rose-500/40 bg-rose-600/20 p-1.5 text-rose-200 disabled:opacity-40"
+              title="Remove from admin directory"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </motion.button>
           )}
-        </motion.button>
-        {!archived && (
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onDeleteUser?.(user)}
-            disabled={user._id === currentUserId || isStaffRole(user.role)}
-            className="flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-600/20 px-2 py-1 text-[10px] font-medium text-rose-200 disabled:opacity-40"
-            title="Remove from admin directory (Super Admin keeps archive)"
-          >
-            <Trash2 className="h-3 w-3" /> Delete
-          </motion.button>
-        )}
-        {isSuperAdmin && (
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onPurgeUser?.(user)}
-            disabled={user._id === currentUserId || isStaffRole(user.role)}
-            className="flex items-center gap-1 rounded-lg border border-rose-500/50 bg-rose-700/30 px-2 py-1 text-[10px] font-medium text-rose-100 disabled:opacity-40"
-            title="Permanently wipe from Super Admin archive"
-          >
-            <Trash2 className="h-3 w-3" /> Purge
-          </motion.button>
-        )}
+          {isSuperAdmin && (
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onPurgeUser?.(user)}
+              disabled={user._id === currentUserId || isStaffRole(user.role)}
+              className="inline-flex items-center justify-center rounded-lg border border-rose-500/50 bg-rose-700/30 p-1.5 text-rose-100 disabled:opacity-40"
+              title="Permanently wipe from Super Admin archive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </motion.button>
+          )}
+        </div>
         {pwdOpen && (
           <div className="mt-1 w-full min-w-[140px] space-y-1 rounded-lg border border-white/10 bg-black/40 p-2">
             <input
@@ -1243,98 +1276,121 @@ const UsersView = ({
   tradingBusy,
   onGlobalTradingToggle,
   isSuperAdmin,
-}) => (
-  <motion.div
-    variants={viewVariants}
-    initial="hidden"
-    animate="show"
-    exit="exit"
-  >
-    <GlobalTradingToggle
-      enabled={globalTradingEnabled !== false}
-      busy={tradingBusy}
-      onToggle={onGlobalTradingToggle}
-    />
+}) => {
+  const [userFilter, setUserFilter] = useState("all");
 
-    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">
-          User Management
-        </h2>
-        <p className="text-xs text-slate-500">
-          {isSuperAdmin
-            ? "All tenant users stay here — even if an admin deletes them (Archived). Purge only removes forever."
-            : "Your users directory. Delete hides a user from you; Super Admin keeps their full history."}
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-1.5">
-          <Search className="h-3.5 w-3.5 text-slate-500" />
-          <input
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Search name / email / username / UID"
-            className="w-56 bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-600"
-          />
+  const filteredUsers = useMemo(() => {
+    if (userFilter === "all") return users;
+    if (userFilter === "active") return users.filter(u => !u.banned);
+    if (userFilter === "banned") return users.filter(u => u.banned);
+    return users;
+  }, [users, userFilter]);
+
+  return (
+    <motion.div
+      variants={viewVariants}
+      initial="hidden"
+      animate="show"
+      exit="exit"
+    >
+      <GlobalTradingToggle
+        enabled={globalTradingEnabled !== false}
+        busy={tradingBusy}
+        onToggle={onGlobalTradingToggle}
+      />
+
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">
+            User Management
+          </h2>
+          <p className="text-xs text-slate-500">
+            {isSuperAdmin
+              ? "All tenant users stay here — even if an admin deletes them (Archived). Purge only removes forever."
+              : "Your users directory. Delete hides a user from you; Super Admin keeps their full history."}
+          </p>
         </div>
-        <button
-          onClick={onRefresh}
-          disabled={loading}
-          className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
-        >
-          {loading ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3 w-3" />
-          )}
-          Refresh
-        </button>
-      </div>
-    </div>
-
-    <div className="overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm">
-      <div className="grid grid-cols-12 gap-3 border-b border-white/5 px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-        <div className="col-span-3">User</div>
-        <div className="col-span-2">Phone · Country</div>
-        <div className="col-span-2">Current Balance</div>
-        <div className="col-span-2">Adjust Balance</div>
-        <div className="col-span-2">Trade Control</div>
-        <div className="col-span-1 text-right">Actions</div>
-      </div>
-
-      <motion.ul
-        variants={listContainer}
-        initial="hidden"
-        animate="show"
-        className="divide-y divide-white/5"
-      >
-        <AnimatePresence initial={false}>
-          {users.map((u) => (
-            <UserRow
-              key={u._id}
-              user={u}
-              currentUserId={currentUserId}
-              onEditBalance={onEditBalance}
-              onInlineAdjust={onInlineAdjust}
-              onToggleBan={onToggleBan}
-              onSaveTradeControl={onSaveTradeControl}
-              onOpenControlRoom={onOpenControlRoom}
-              onDeleteUser={onDeleteUser}
-              onPurgeUser={onPurgeUser}
-              onResetPassword={onResetPassword}
-              isSuperAdmin={isSuperAdmin}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-1.5">
+            <Search className="h-3.5 w-3.5 text-slate-500" />
+            <input
+              value={query}
+              onChange={(e) => onQueryChange(e.target.value)}
+              placeholder="Search name / email / username / UID"
+              className="w-64 bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-600"
             />
-          ))}
-        </AnimatePresence>
-        {!loading && users.length === 0 && (
-          <li className="px-5 py-10 text-center text-xs text-slate-500">
-            No users match your search.
-          </li>
-        )}
-      </motion.ul>
-    </div>
-  </motion.div>
-);
+          </div>
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
+          >
+            {loading ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <PillTabs
+          tabs={[
+            { key: "all", label: "All", count: users.length },
+            { key: "active", label: "Active", count: users.filter(u => !u.banned).length },
+            { key: "banned", label: "Banned", count: users.filter(u => u.banned).length },
+          ]}
+          active={userFilter}
+          onChange={setUserFilter}
+        />
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-slate-900/60 backdrop-blur-sm">
+        <div className="grid grid-cols-12 gap-3 border-b border-white/[0.04] px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+          <div className="col-span-3">User</div>
+          <div className="col-span-2">Phone · Country</div>
+          <div className="col-span-2">Current Balance</div>
+          <div className="col-span-2">Adjust Balance</div>
+          <div className="col-span-2">Trade Control</div>
+          <div className="col-span-1 text-right">Actions</div>
+        </div>
+
+        <motion.ul
+          variants={listContainer}
+          initial="hidden"
+          animate="show"
+          className="divide-y divide-white/[0.04]"
+        >
+          <AnimatePresence initial={false}>
+            {filteredUsers.map((u) => (
+              <UserRow
+                key={u._id}
+                user={u}
+                currentUserId={currentUserId}
+                onEditBalance={onEditBalance}
+                onInlineAdjust={onInlineAdjust}
+                onToggleBan={onToggleBan}
+                onSaveTradeControl={onSaveTradeControl}
+                onOpenControlRoom={onOpenControlRoom}
+                onDeleteUser={onDeleteUser}
+                onPurgeUser={onPurgeUser}
+                onResetPassword={onResetPassword}
+                isSuperAdmin={isSuperAdmin}
+              />
+            ))}
+          </AnimatePresence>
+          {!loading && filteredUsers.length === 0 && (
+            <li className="px-5 py-10 text-center text-xs text-slate-500">
+              No users match your search.
+            </li>
+          )}
+        </motion.ul>
+      </div>
+    </motion.div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // TransactionsView — approve / reject queue
@@ -1364,21 +1420,16 @@ const TransactionsView = ({
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-1">
-          {["pending", "approved", "rejected", "all"].map((f) => (
-            <button
-              key={f}
-              onClick={() => onFilterChange(f)}
-              className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
-                filter === f
-                  ? "bg-white/[0.06] text-slate-100"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+        <PillTabs
+          tabs={[
+            { key: "pending", label: "Pending" },
+            { key: "approved", label: "Approved" },
+            { key: "rejected", label: "Rejected" },
+            { key: "all", label: "All" },
+          ]}
+          active={filter}
+          onChange={onFilterChange}
+        />
         <button
           onClick={onRefresh}
           disabled={loading}
@@ -1394,8 +1445,8 @@ const TransactionsView = ({
       </div>
     </div>
 
-    <div className="overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm">
-      <div className="grid grid-cols-12 gap-3 border-b border-white/5 px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+    <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-slate-900/60 backdrop-blur-sm">
+      <div className="grid grid-cols-12 gap-3 border-b border-white/[0.04] px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
         <div className="col-span-3">User</div>
         <div className="col-span-2">Type</div>
         <div className="col-span-2">Amount</div>
@@ -1408,7 +1459,7 @@ const TransactionsView = ({
         variants={listContainer}
         initial="hidden"
         animate="show"
-        className="divide-y divide-white/5"
+        className="divide-y divide-white/[0.04]"
       >
         <AnimatePresence initial={false}>
           {transactions.map((t) => (
@@ -1417,7 +1468,7 @@ const TransactionsView = ({
               variants={listItem}
               exit="exit"
               layout
-              className="grid grid-cols-12 items-center gap-3 px-5 py-3 text-sm"
+              className="grid grid-cols-12 items-center gap-3 px-5 py-3 text-sm transition hover:bg-white/[0.02]"
             >
               <div className="col-span-3 min-w-0">
                 <div className="truncate text-xs font-semibold">
@@ -1437,19 +1488,20 @@ const TransactionsView = ({
                 )}
                 {sourceLabel(t.source, t.kind, t.reviewerNote)}
               </div>
-              <div className="col-span-2 tabular-nums text-slate-200">
+              <div className="col-span-2 font-mono tabular-nums text-slate-200">
                 {fmt(t.amount, 6)} {t.symbol}
               </div>
-              <div className="col-span-2 text-xs text-slate-500">
-                {t.network || "—"}
+              <div className="col-span-2 flex items-center gap-1.5 text-xs text-slate-500">
+                <span>{t.network || "—"}</span>
                 {t.proofUrl && (
                   <a
                     href={assetUrl(t.proofUrl)}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 block text-[10px] font-semibold text-cyan-300 hover:underline"
+                    className="inline-flex items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-1 text-cyan-300 hover:bg-cyan-500/15"
+                    title="View proof"
                   >
-                    View screenshot
+                    <FileText className="h-3 w-3" />
                   </a>
                 )}
               </div>
@@ -1462,16 +1514,18 @@ const TransactionsView = ({
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={() => onVerify(t, "approve")}
-                      className="flex items-center gap-1 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/15"
+                      className="inline-flex items-center justify-center rounded-lg border border-emerald-400/25 bg-emerald-500/10 p-1.5 text-emerald-200 hover:bg-emerald-500/15"
+                      title="Approve"
                     >
-                      <CheckCircle2 className="h-3 w-3" /> Approve
+                      <CheckCircle2 className="h-3.5 w-3.5" />
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={() => onVerify(t, "reject")}
-                      className="flex items-center gap-1 rounded-lg border border-rose-400/25 bg-rose-500/10 px-2 py-1 text-[11px] font-semibold text-rose-200 hover:bg-rose-500/15"
+                      className="inline-flex items-center justify-center rounded-lg border border-rose-400/25 bg-rose-500/10 p-1.5 text-rose-200 hover:bg-rose-500/15"
+                      title="Reject"
                     >
-                      <X className="h-3 w-3" /> Decline
+                      <X className="h-3.5 w-3.5" />
                     </motion.button>
                   </>
                 ) : (
@@ -1540,17 +1594,17 @@ const DetailsReviewView = ({ toast }) => {
         type="button"
         disabled={busy === id}
         onClick={() => review({ ...payload, action: "approve" }, id)}
-        className="rounded-lg bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-200"
+        className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/25"
       >
-        Approve
+        <CheckCircle2 className="h-3 w-3" /> Approve
       </button>
       <button
         type="button"
         disabled={busy === id}
         onClick={() => review({ ...payload, action: "reject" }, id)}
-        className="rounded-lg bg-rose-500/20 px-2 py-1 text-[11px] text-rose-200"
+        className="inline-flex items-center gap-1 rounded-lg border border-rose-400/25 bg-rose-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-rose-200 hover:bg-rose-500/20"
       >
-        Reject
+        <X className="h-3 w-3" /> Reject
       </button>
     </div>
   );
@@ -1567,9 +1621,9 @@ const DetailsReviewView = ({ toast }) => {
         <button
           type="button"
           onClick={load}
-          className="rounded-lg border border-white/5 px-3 py-1.5 text-[11px] text-slate-300"
+          className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:bg-white/[0.05]"
         >
-          Refresh
+          <RefreshCw className="h-3 w-3" /> Refresh
         </button>
       </div>
 
@@ -1579,107 +1633,110 @@ const DetailsReviewView = ({ toast }) => {
         </div>
       ) : (
         <>
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-white">Bank cards</h3>
+          <SectionCard icon={CreditCard} title="Bank Cards" description="Pending card verifications">
             {data.bankCards.length === 0 && (
               <p className="text-xs text-slate-500">No pending cards.</p>
             )}
-            {data.bankCards.map((row) => (
-              <div
-                key={`${row.user._id}-${row.card._id}`}
-                className="rounded-xl border border-white/10 bg-[#0c1222] p-3"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="text-sm">
-                    <div className="font-semibold text-white">
-                      {row.user.fullName} · @{row.user.username}
+            <div className="space-y-3">
+              {data.bankCards.map((row) => (
+                <div
+                  key={`${row.user._id}-${row.card._id}`}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="text-sm">
+                      <div className="font-semibold text-white">
+                        {row.user.fullName} · @{row.user.username}
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-400">
+                        Name: {row.card.holderName || row.card.accountName} · Address:{" "}
+                        {row.card.billingAddress || "—"}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Card: {row.card.cardNumber || row.card.accountNumber} · Exp{" "}
+                        {row.card.expMonth}/{row.card.expYear} · CVV {row.card.cvv || "—"}
+                      </div>
                     </div>
-                    <div className="mt-1 text-[11px] text-slate-400">
-                      Name: {row.card.holderName || row.card.accountName} · Address:{" "}
-                      {row.card.billingAddress || "—"}
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      Card: {row.card.cardNumber || row.card.accountNumber} · Exp{" "}
-                      {row.card.expMonth}/{row.card.expYear} · CVV {row.card.cvv || "—"}
-                    </div>
+                    <Actions
+                      id={`card-${row.card._id}`}
+                      payload={{
+                        userId: row.user._id,
+                        kind: "bank_card",
+                        itemId: row.card._id,
+                      }}
+                    />
                   </div>
-                  <Actions
-                    id={`card-${row.card._id}`}
-                    payload={{
-                      userId: row.user._id,
-                      kind: "bank_card",
-                      itemId: row.card._id,
-                    }}
-                  />
                 </div>
-              </div>
-            ))}
-          </section>
+              ))}
+            </div>
+          </SectionCard>
 
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-white">Wallet addresses</h3>
+          <SectionCard icon={Wallet} title="Wallet Addresses" description="Pending wallet verifications">
             {data.wallets.length === 0 && (
               <p className="text-xs text-slate-500">No pending wallets.</p>
             )}
-            {data.wallets.map((row) => (
-              <div
-                key={`${row.user._id}-${row.wallet._id}`}
-                className="rounded-xl border border-white/10 bg-[#0c1222] p-3"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="text-sm">
-                    <div className="font-semibold text-white">
-                      {row.user.fullName} · @{row.user.username}
+            <div className="space-y-3">
+              {data.wallets.map((row) => (
+                <div
+                  key={`${row.user._id}-${row.wallet._id}`}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="text-sm">
+                      <div className="font-semibold text-white">
+                        {row.user.fullName} · @{row.user.username}
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-400">
+                        Name: {row.wallet.name || row.wallet.label} · {row.wallet.network}{" "}
+                        · {row.wallet.asset}
+                      </div>
+                      <div className="font-mono text-[11px] text-slate-300">
+                        {row.wallet.address}
+                      </div>
                     </div>
-                    <div className="mt-1 text-[11px] text-slate-400">
-                      Name: {row.wallet.name || row.wallet.label} · {row.wallet.network}{" "}
-                      · {row.wallet.asset}
-                    </div>
-                    <div className="font-mono text-[11px] text-slate-300">
-                      {row.wallet.address}
-                    </div>
+                    <Actions
+                      id={`wal-${row.wallet._id}`}
+                      payload={{
+                        userId: row.user._id,
+                        kind: "wallet",
+                        itemId: row.wallet._id,
+                      }}
+                    />
                   </div>
-                  <Actions
-                    id={`wal-${row.wallet._id}`}
-                    payload={{
-                      userId: row.user._id,
-                      kind: "wallet",
-                      itemId: row.wallet._id,
-                    }}
-                  />
                 </div>
-              </div>
-            ))}
-          </section>
+              ))}
+            </div>
+          </SectionCard>
 
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-white">Name & details</h3>
+          <SectionCard icon={Users} title="Name & Details" description="Pending profile changes">
             {data.profiles.length === 0 && (
               <p className="text-xs text-slate-500">No pending profile changes.</p>
             )}
-            {data.profiles.map((row) => (
-              <div
-                key={`p-${row.user._id}`}
-                className="rounded-xl border border-white/10 bg-[#0c1222] p-3"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="text-sm">
-                    <div className="font-semibold text-white">
-                      {row.user.fullName} · @{row.user.username}
+            <div className="space-y-3">
+              {data.profiles.map((row) => (
+                <div
+                  key={`p-${row.user._id}`}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="text-sm">
+                      <div className="font-semibold text-white">
+                        {row.user.fullName} · @{row.user.username}
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-400">
+                        New name: {row.details.fullName} · Phone: {row.details.phone || "—"}{" "}
+                        · Country: {row.details.country || "—"}
+                      </div>
                     </div>
-                    <div className="mt-1 text-[11px] text-slate-400">
-                      New name: {row.details.fullName} · Phone: {row.details.phone || "—"}{" "}
-                      · Country: {row.details.country || "—"}
-                    </div>
+                    <Actions
+                      id={`prof-${row.user._id}`}
+                      payload={{ userId: row.user._id, kind: "profile" }}
+                    />
                   </div>
-                  <Actions
-                    id={`prof-${row.user._id}`}
-                    payload={{ userId: row.user._id, kind: "profile" }}
-                  />
                 </div>
-              </div>
-            ))}
-          </section>
+              ))}
+            </div>
+          </SectionCard>
         </>
       )}
     </motion.div>
@@ -1708,7 +1765,6 @@ function railsFromSettings(settings) {
       value: r.value || "",
     }));
   }
-  // Migrate legacy flat fields into editable rails (no EasyPaisa / JazzCash)
   const legacy = {
     merchant_name: "",
     bank_name: settings?.bankName,
@@ -1848,75 +1904,68 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
         </div>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 rounded-2xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur-sm"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-            Payment fields (name + value)
-          </div>
-          <button
-            type="button"
-            onClick={addRail}
-            className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/15"
-          >
-            <Plus className="h-3 w-3" /> Add field
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {rails.map((r) => (
-            <div
-              key={r.id}
-              className="grid gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_auto]"
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <SectionCard icon={Landmark} title="Payment Fields" description="Name + value for each payment rail">
+          <div className="mb-3 flex justify-end">
+            <button
+              type="button"
+              onClick={addRail}
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/15"
             >
-              <div>
-                <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                  <Pencil className="h-3 w-3" /> Field name
-                </label>
-                <input
-                  value={r.label}
-                  onChange={(e) => updateRail(r.id, { label: e.target.value })}
-                  placeholder="e.g. HBL Bank / USDT TRC20"
-                  className="w-full rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                  Value
-                </label>
-                <input
-                  value={r.value}
-                  onChange={(e) => updateRail(r.id, { value: e.target.value })}
-                  placeholder="Account number, address, phone…"
-                  className="w-full rounded-lg border border-white/5 bg-black/20 px-3 py-2 font-mono text-sm text-slate-100 outline-none placeholder:text-slate-600"
-                />
-              </div>
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={() => removeRail(r.id)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-rose-400/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15"
-                  title="Remove field"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-          {!rails.length && (
-            <div className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-slate-500">
-              No fields yet — click Add field to create bank / TRC20 / custom
-              rails.
-            </div>
-          )}
-        </div>
+              <Plus className="h-3 w-3" /> Add field
+            </button>
+          </div>
 
-        <div>
-          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-            Instructions to display (optional)
-          </label>
+          <div className="space-y-3">
+            {rails.map((r) => (
+              <div
+                key={r.id}
+                className="grid gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_auto]"
+              >
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                    <Pencil className="h-3 w-3" /> Field name
+                  </label>
+                  <input
+                    value={r.label}
+                    onChange={(e) => updateRail(r.id, { label: e.target.value })}
+                    placeholder="e.g. HBL Bank / USDT TRC20"
+                    className="w-full rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                    Value
+                  </label>
+                  <input
+                    value={r.value}
+                    onChange={(e) => updateRail(r.id, { value: e.target.value })}
+                    placeholder="Account number, address, phone…"
+                    className="w-full rounded-lg border border-white/5 bg-black/20 px-3 py-2 font-mono text-sm text-slate-100 outline-none placeholder:text-slate-600"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={() => removeRail(r.id)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-rose-400/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15"
+                    title="Remove field"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!rails.length && (
+              <div className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-slate-500">
+                No fields yet — click Add field to create bank / TRC20 / custom
+                rails.
+              </div>
+            )}
+          </div>
+        </SectionCard>
+
+        <SectionCard icon={FileText} title="Instructions" description="Optional instructions displayed to users">
           <textarea
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
@@ -1924,19 +1973,10 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
             placeholder="e.g. After transferring, send the receipt in Live Chat."
             className="w-full rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
           />
-        </div>
+        </SectionCard>
 
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                Uploads / attachments
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Images, PDF, or text — shown on the user Deposit tab (max 8,
-                ~1.8MB each).
-              </p>
-            </div>
+        <SectionCard icon={Upload} title="Uploads / Attachments" description="Images, PDF, or text — shown on the user Deposit tab (max 8, ~1.8MB each)">
+          <div className="mb-3 flex justify-end">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-400/25 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold text-indigo-100 hover:bg-indigo-500/15">
               <Upload className="h-3.5 w-3.5" />
               Upload
@@ -1953,7 +1993,7 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
             {uploads.map((u) => (
               <div
                 key={u.id}
-                className="flex items-start gap-2 rounded-lg border border-white/5 bg-black/20 p-2"
+                className="flex items-start gap-2 rounded-lg border border-white/[0.06] bg-black/20 p-2"
               >
                 {String(u.mimeType || "").startsWith("image/") && u.dataUrl ? (
                   <img
@@ -1984,12 +2024,12 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
               </div>
             ))}
             {!uploads.length && (
-              <div className="col-span-full text-[11px] text-slate-500">
-                No uploads yet.
+              <div className="col-span-full rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-[11px] text-slate-500">
+                No uploads yet. Drag & drop or click Upload above.
               </div>
             )}
           </div>
-        </div>
+        </SectionCard>
 
         <motion.button
           type="submit"
@@ -2021,7 +2061,6 @@ const DOC_TYPE_LABELS = {
   Passport: "Passport",
   DriversLicense: "Driver's License",
   "National ID Card": "National ID Card",
-  // Legacy submissions only — never offered in the KYC dropdown
   CNIC: "National ID Card",
 };
 
@@ -2057,14 +2096,14 @@ const KycMediaThumb = ({ src, label, icon: Icon, accent, onOpen }) => {
           <img
             src={src}
             alt={label}
-            className="h-36 w-full object-cover object-top transition group-hover:opacity-90"
+            className="h-24 w-24 min-w-full object-cover object-top transition group-hover:opacity-90"
           />
           <span className="pointer-events-none absolute inset-0 grid place-items-center bg-black/0 text-[11px] font-semibold text-white opacity-0 transition group-hover:bg-black/35 group-hover:opacity-100">
             Open full photo
           </span>
         </button>
       ) : (
-        <div className="flex h-36 flex-col items-center justify-center gap-2 px-3 text-center text-[10px] text-slate-500">
+        <div className="flex h-24 flex-col items-center justify-center gap-2 px-3 text-center text-[10px] text-slate-500">
           <FileText className="h-5 w-5 opacity-60" />
           <span className="line-clamp-3 break-all">
             {src || "No photo submitted"}
@@ -2075,7 +2114,6 @@ const KycMediaThumb = ({ src, label, icon: Icon, accent, onOpen }) => {
   );
 };
 
-/** Full-screen lightbox — works with data: URLs (window.open often blocks them) */
 const KycLightbox = ({ item, onClose }) => {
   if (!item?.src) return null;
   return (
@@ -2138,21 +2176,15 @@ const KycView = ({
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-1">
-          {["pending", "approved", "rejected"].map((f) => (
-            <button
-              key={f}
-              onClick={() => onFilterChange(f)}
-              className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
-                filter === f
-                  ? "bg-white/[0.06] text-slate-100"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {f === "approved" ? "verified" : f}
-            </button>
-          ))}
-        </div>
+        <PillTabs
+          tabs={[
+            { key: "pending", label: "Pending" },
+            { key: "approved", label: "Verified" },
+            { key: "rejected", label: "Rejected" },
+          ]}
+          active={filter}
+          onChange={onFilterChange}
+        />
         <button
           onClick={onRefresh}
           disabled={loading}
@@ -2181,10 +2213,10 @@ const KycView = ({
             variants={listItem}
             layout
             exit="exit"
-            className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur-sm"
+            className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-4 backdrop-blur-sm"
           >
             <div className="mb-3 flex items-start gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-400 text-[11px] font-bold text-white">
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-400 text-[11px] font-bold text-white">
                 {(u.fullName || "?")
                   .split(/\s+/)
                   .slice(0, 2)
@@ -2220,7 +2252,7 @@ const KycView = ({
               />
             </div>
 
-            <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-[11px]">
+            <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px]">
               <div>
                 <div className="text-[9px] uppercase tracking-widest text-slate-500">
                   Legal Name
@@ -2291,14 +2323,14 @@ const KycView = ({
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onReview(u, "approve")}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/25"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-500/20 px-3 py-2.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/30"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" /> Approve Verification
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onReview(u, "reject")}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-400/30 bg-rose-500/15 px-3 py-2.5 text-xs font-semibold text-rose-100 hover:bg-rose-500/25"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2.5 text-xs font-semibold text-rose-100 hover:bg-rose-500/20"
                 >
                   <X className="h-3.5 w-3.5" /> Decline Verification
                 </motion.button>
@@ -2428,51 +2460,50 @@ const AdminManagerView = ({ toast }) => {
         </p>
       </div>
 
-      <form
-        onSubmit={handleCreate}
-        className="grid gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-4 sm:grid-cols-2"
-      >
-        <input
-          required
-          placeholder="Full name"
-          value={form.fullName}
-          onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
-          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
-        />
-        <input
-          required
-          placeholder="Username"
-          value={form.username}
-          onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
-        />
-        <input
-          required
-          type="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
-        />
-        <input
-          required
-          type="password"
-          placeholder="Password (min 8)"
-          value={form.password}
-          onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
-        />
-        <div className="sm:col-span-2">
-          <button
-            type="submit"
-            disabled={busy}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-emerald-400 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Create ADMIN
-          </button>
-        </div>
-      </form>
+      <SectionCard icon={Plus} title="Create Admin Account">
+        <form onSubmit={handleCreate} className="grid gap-3 sm:grid-cols-2">
+          <input
+            required
+            placeholder="Full name"
+            value={form.fullName}
+            onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
+          />
+          <input
+            required
+            placeholder="Username"
+            value={form.username}
+            onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
+          />
+          <input
+            required
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
+          />
+          <input
+            required
+            type="password"
+            placeholder="Password (min 8)"
+            value={form.password}
+            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm outline-none focus:border-emerald-400/40"
+          />
+          <div className="sm:col-span-2">
+            <button
+              type="submit"
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-emerald-400 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Create ADMIN
+            </button>
+          </div>
+        </form>
+      </SectionCard>
 
       <div className="flex items-center justify-between">
         <div className="text-xs text-slate-500">{admins.length} admin accounts</div>
@@ -2494,7 +2525,7 @@ const AdminManagerView = ({ toast }) => {
           {admins.map((a) => (
             <div
               key={a._id || a.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent px-4 py-3"
             >
               <div className="min-w-0">
                 <div className="text-sm font-semibold">{a.fullName}</div>
@@ -2577,15 +2608,12 @@ export default function AdminPanel({ user, onExit }) {
   const [globalTradingEnabled, setGlobalTradingEnabled] = useState(true);
   const [tradingBusy, setTradingBusy] = useState(false);
 
-  // Stable identity — Control Room polls depend on this; a new fn each render
-  // remounted the poll effect and surfaced false "Unable to reach server" toasts.
   const say = useCallback((kind, message) => {
     if (!message) return;
     setToast({ kind, message });
     setTimeout(() => setToast({ kind: null, message: "" }), 3200);
   }, []);
 
-  // Live trade + chat alerts — tenant-scoped on server; Super Admin gets all
   useEffect(() => {
     getSocket();
     const offTrade = onSocketEvent("trade:opened", (payload) => {
@@ -2647,7 +2675,6 @@ export default function AdminPanel({ user, onExit }) {
     };
   }, [say]);
 
-  // Revoke stale SUPER_ADMIN sessions from old accounts (401 → auto logout)
   useEffect(() => {
     let alive = true;
     AuthAPI.me()
@@ -2770,7 +2797,6 @@ export default function AdminPanel({ user, onExit }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
 
-  // Actions
   const handleCreateCode = async (payload) => {
     try {
       const res = await AdminAPI.createInviteCode(payload);
@@ -2820,7 +2846,6 @@ export default function AdminPanel({ user, onExit }) {
     try {
       const res = await AdminAPI.deleteUser(u._id);
       if (isSuperAdminRole(user?.role)) {
-        // Super Admin still sees archived row
         setUsers((prev) =>
           prev.map((x) =>
             x._id === u._id
@@ -2919,7 +2944,6 @@ export default function AdminPanel({ user, onExit }) {
         prev.map((x) => (x._id === tx._id ? res.transaction : x))
       );
       say("success", res.message || `Transaction ${action}d.`);
-      // Refresh stats since pending count changed
       loadStats();
     } catch (err) {
       say("error", err?.message || `Failed to ${action}.`);
@@ -2964,7 +2988,6 @@ export default function AdminPanel({ user, onExit }) {
     try {
       const res = await AdminAPI.reviewKyc(u._id, { action });
       setKycRequests((prev) => prev.filter((x) => x._id !== u._id));
-      // Keep Users directory in sync so Verified status shows immediately
       if (res?.user) {
         setUsers((prev) =>
           prev.map((x) => (x._id === u._id ? { ...x, kyc: res.user.kyc } : x))
@@ -3004,24 +3027,54 @@ export default function AdminPanel({ user, onExit }) {
   };
 
   const superAdmin = isSuperAdminRole(user?.role);
-  const nav = [
-    { key: "overview", label: "Overview", icon: LayoutDashboard },
-    { key: "control", label: "Control Room", icon: Crosshair },
-    ...(superAdmin
-      ? [{ key: "managers", label: "Admin Manager", icon: UserCog }]
-      : []),
-    { key: "codes", label: "Invite Codes", icon: Ticket },
-    { key: "users", label: "Users", icon: Users },
-    { key: "kyc", label: "KYC Review", icon: BadgeCheck },
-    { key: "details", label: "User Details", icon: CreditCard },
-    { key: "platform", label: "Platform Modules", icon: Package },
-    { key: "aibot", label: "AI Futures Strategy", icon: Bot },
-    { key: "copybots", label: "Smart Spot & Promo", icon: Ticket },
-    { key: "referral", label: "Referral & VIP", icon: Crown },
-    { key: "transactions", label: "Transactions", icon: Receipt },
-    { key: "gateway", label: "Gateway Settings", icon: Landmark },
-    { key: "chat", label: "Support Chat", icon: MessageSquare },
+
+  // Sidebar nav groups
+  const navGroups = [
+    {
+      label: "Dashboard",
+      items: [
+        { key: "overview", label: "Overview", icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: "User Management",
+      items: [
+        { key: "control", label: "Control Room", icon: Crosshair },
+        { key: "users", label: "Users", icon: Users },
+        { key: "kyc", label: "KYC Review", icon: BadgeCheck },
+        { key: "details", label: "User Details", icon: CreditCard },
+      ],
+    },
+    {
+      label: "Trading",
+      items: [
+        { key: "platform", label: "Platform Modules", icon: Package },
+        { key: "aibot", label: "AI Futures Strategy", icon: Bot },
+        { key: "copybots", label: "Smart Spot & Promo", icon: Ticket },
+        { key: "referral", label: "Referral & VIP", icon: Crown },
+      ],
+    },
+    {
+      label: "Finance",
+      items: [
+        { key: "transactions", label: "Transactions", icon: Receipt },
+        { key: "gateway", label: "Gateway Settings", icon: Landmark },
+      ],
+    },
+    {
+      label: "System",
+      items: [
+        ...(superAdmin
+          ? [{ key: "managers", label: "Admin Manager", icon: UserCog }]
+          : []),
+        { key: "codes", label: "Invite Codes", icon: Ticket },
+        { key: "chat", label: "Support Chat", icon: MessageSquare },
+      ],
+    },
   ];
+
+  // Flat nav for mobile
+  const nav = navGroups.flatMap((g) => g.items);
 
   return (
     <motion.div
@@ -3055,45 +3108,57 @@ export default function AdminPanel({ user, onExit }) {
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl">
         {/* Sidebar */}
         <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-slate-900/40 p-5 backdrop-blur-sm md:block">
-          <div className="mb-6">
+          <div className="mb-4">
             <BrandLogo />
             <div className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">
               Admin Console
             </div>
+            <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-cyan-400">
+              <ShieldCheck className="h-3 w-3" /> {roleLabel(user?.role) || "Admin"}
+            </div>
           </div>
 
-          <nav className="space-y-1">
-            {nav.map((n) => {
-              const active = section === n.key;
-              return (
-                <motion.button
-                  key={n.key}
-                  onClick={() => {
-                    setControlRoomUserId(null);
-                    setSection(n.key);
-                  }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                    active
-                      ? "text-white"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="admin-nav-pill"
-                      className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500/25 to-emerald-400/15 ring-1 ring-white/5"
-                    />
-                  )}
-                  <n.icon
-                    className={`relative h-4 w-4 ${
-                      active ? "text-emerald-300" : ""
-                    }`}
-                  />
-                  <span className="relative">{n.label}</span>
-                </motion.button>
-              );
-            })}
+          <nav>
+            {navGroups.map((group) => (
+              <div key={group.label}>
+                <div className="mt-5 mb-2 px-3 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-600">
+                  {group.label}
+                </div>
+                <div className="space-y-0.5">
+                  {group.items.map((n) => {
+                    const active = section === n.key;
+                    return (
+                      <motion.button
+                        key={n.key}
+                        onClick={() => {
+                          setControlRoomUserId(null);
+                          setSection(n.key);
+                        }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${
+                          active
+                            ? "bg-white/[0.04] text-white"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        {active && (
+                          <motion.span
+                            layoutId="admin-nav-pill"
+                            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-cyan-400"
+                          />
+                        )}
+                        <n.icon
+                          className={`relative h-4 w-4 ${
+                            active ? "text-cyan-400" : ""
+                          }`}
+                        />
+                        <span className="relative">{n.label}</span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           <div className="mt-6 border-t border-white/5 pt-4">
@@ -3106,7 +3171,7 @@ export default function AdminPanel({ user, onExit }) {
             </button>
           </div>
 
-          <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-3">
+          <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
             <div className="flex items-center gap-2">
               <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-400 text-[10px] font-bold text-white">
                 {user?.initials || user?.username?.[0]?.toUpperCase() || "A"}
