@@ -241,9 +241,20 @@ function sparkLastPrice(entry) {
   return Number.isFinite(px) && px > 0 ? px : 0;
 }
 
-export async function fetchYahooQuoteMap() {
+export function peekYahooQuoteMap() {
+  return yahooQuoteCache.map;
+}
+
+/** Stale cache is fine for /markets — never block the request on Yahoo. */
+export async function fetchYahooQuoteMap({ allowStale = false } = {}) {
   const now = Date.now();
-  if (yahooQuoteCache.map && now - yahooQuoteCache.at < 20_000) {
+  if (yahooQuoteCache.map && now - yahooQuoteCache.at < 45_000) {
+    return yahooQuoteCache.map;
+  }
+  if (allowStale && yahooQuoteCache.map) {
+    if (!yahooQuoteCache.inflight) {
+      fetchYahooQuoteMap({ allowStale: false }).catch(() => {});
+    }
     return yahooQuoteCache.map;
   }
   if (yahooQuoteCache.inflight) return yahooQuoteCache.inflight;
@@ -266,7 +277,7 @@ export async function fetchYahooQuoteMap() {
           const symbols = chunk.map((c) => c.q).join(",");
           const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${encodeURIComponent(symbols)}&range=1d&interval=1d`;
           const res = await fetch(url, {
-            signal: AbortSignal.timeout(8000),
+            signal: AbortSignal.timeout(2500),
             headers: {
               "User-Agent":
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",

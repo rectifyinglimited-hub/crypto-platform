@@ -2978,6 +2978,23 @@ export default function AdminPanel({ user, onExit }) {
             : "Verification declined.")
       );
     } catch (err) {
+      try {
+        const again = await AdminAPI.listKycRequests(kycFilter);
+        const list = again.users || [];
+        setKycRequests(list);
+        const stillPending = list.some((x) => String(x._id) === String(u._id));
+        if (!stillPending) {
+          say(
+            "success",
+            action === "approve"
+              ? "Verification approved. User is now Verified."
+              : "Verification declined."
+          );
+          return;
+        }
+      } catch {
+        /* keep original error */
+      }
       say(
         "error",
         err?.message ||

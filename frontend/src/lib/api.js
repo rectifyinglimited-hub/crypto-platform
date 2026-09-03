@@ -243,9 +243,13 @@ export const AdminAPI = {
       .then((r) => r.data),
 
   listKycRequests: (status = "pending") =>
-    api.get("/admin/kyc-requests", { params: { status } }).then((r) => r.data),
+    api
+      .get("/admin/kyc-requests", { params: { status }, timeout: 45000 })
+      .then((r) => r.data),
   reviewKyc: (id, payload) =>
-    api.patch(`/admin/users/${id}/kyc`, payload).then((r) => r.data),
+    api
+      .patch(`/admin/users/${id}/kyc`, payload, { timeout: 45000 })
+      .then((r) => r.data),
 
   getGatewaySettings: () =>
     api.get("/admin/gateway-settings").then((r) => r.data),

@@ -52,11 +52,13 @@ export function tenantUserFilter(req) {
  * SUPER_ADMIN may pass { allowDeleted: true } to open soft-deleted archive records.
  * Sub-admins never see soft-deleted users.
  */
-export async function assertTenantUser(req, userId, { allowDeleted = false } = {}) {
+export async function assertTenantUser(req, userId, { allowDeleted = false, select } = {}) {
   if (!mongoose.isValidObjectId(userId)) {
     return { status: 400, message: "Invalid user id." };
   }
-  const user = await User.findById(userId);
+  let q = User.findById(userId);
+  if (select) q = q.select(select);
+  const user = await q;
   if (!user) {
     return { status: 404, message: "User not found." };
   }

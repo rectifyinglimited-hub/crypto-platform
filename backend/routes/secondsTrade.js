@@ -39,6 +39,7 @@ import {
   normalizeQuote,
   resolveAssetType,
   fetchYahooQuoteMap,
+  peekYahooQuoteMap,
 } from "../lib/tradeAssets.js";
 
 const router = Router();
@@ -52,7 +53,7 @@ let binanceTickerCache = { at: 0, map: null };
 
 async function fetchBinanceTickerMap() {
   const now = Date.now();
-  if (binanceTickerCache.map && now - binanceTickerCache.at < 900) {
+  if (binanceTickerCache.map && now - binanceTickerCache.at < 4000) {
     return binanceTickerCache.map;
   }
   try {
@@ -170,11 +171,10 @@ function priceDecimals(sym, price) {
 }
 
 async function loadQuoteFeeds() {
-  const [tickerMap, yahooMap] = await Promise.all([
-    fetchBinanceTickerMap(),
-    fetchYahooQuoteMap(),
-  ]);
-  return { tickerMap, yahooMap: yahooMap || {} };
+  const tickerMap = await fetchBinanceTickerMap();
+  const yahooMap = peekYahooQuoteMap() || {};
+  fetchYahooQuoteMap({ allowStale: false }).catch(() => {});
+  return { tickerMap, yahooMap };
 }
 
 async function fetchLivePrice(asset, tickerMap, quote = "USDT", yahooMap = null) {
@@ -187,11 +187,16 @@ async function fetchLivePrice(asset, tickerMap, quote = "USDT", yahooMap = null)
     const usdtPair = toExchangeSymbol(sym, "USDT");
     if (usdtPair && tickerMap?.[usdtPair] > 0) return tickerMap[usdtPair];
   }
-  if (yahooMap?.[sym] > 0 && (type === "stock" || type === "forex")) {
-    return yahooMap[sym];
-  }
-  const mapEmpty = !tickerMap || Object.keys(tickerMap).length === 0;
-  if (mapEmpty && pair && (CRYPTO_ASSETS.includes(sym) || FOREX_ASSETS.includes(sym))) {
+  if (yahooMap?.[sym] > 0) return yahooMap[sym];
+
+  // Batch /markets always passes maps — never fire per-symbol HTTP (that
+  // hung Railway for 14s+ and timed out KYC / admin).
+  const batch = tickerMap != null || yahooMap != null;
+  if (
+    !batch &&
+    pair &&
+    (CRYPTO_ASSETS.includes(sym) || FOREX_ASSETS.includes(sym))
+  ) {
     try {
       const ctrl = AbortSignal.timeout(4000);
       const res = await fetch(
@@ -206,29 +211,11 @@ async function fetchLivePrice(asset, tickerMap, quote = "USDT", yahooMap = null)
     } catch {
       /* fall through */
     }
-    if (q === "USDC") {
-      try {
-        const usdtPair = toExchangeSymbol(sym, "USDT");
-        const ctrl = AbortSignal.timeout(4000);
-        const res = await fetch(
-          `https://api.binance.com/api/v3/ticker/price?symbol=${usdtPair}`,
-          { signal: ctrl }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const price = Number(data.price);
-          if (Number.isFinite(price) && price > 0) return price;
-        }
-      } catch {
-        /* fall through */
-      }
-    }
   }
-  let ymap = yahooMap;
-  if ((!ymap || ymap[sym] == null) && (type === "stock" || type === "forex")) {
-    ymap = await fetchYahooQuoteMap();
+  if (!batch && (type === "stock" || type === "forex")) {
+    const ymap = await fetchYahooQuoteMap({ allowStale: true });
+    if (ymap?.[sym] > 0) return ymap[sym];
   }
-  if (ymap?.[sym] > 0) return ymap[sym];
   const base = fallbackPrice(sym);
   return Number(base.toFixed(priceDecimals(sym, base)));
 }

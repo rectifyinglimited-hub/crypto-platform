@@ -1223,7 +1223,13 @@ router.get(
     const status = (req.query.status || "pending").toString();
     const filter = { "kyc.status": status, deletedAt: null, ...tenantUserFilter(req) };
     if (!isUnscoped(req)) filter.role = "user";
-    const users = await User.find(filter).sort({ "kyc.submittedAt": -1 }).limit(200);
+    const users = await User.find(filter)
+      .select(
+        "username email fullName uid kyc.status kyc.fullName kyc.docType kyc.docNumber kyc.documentPreview kyc.selfiePreview kyc.submittedAt kyc.reviewedAt kyc.reviewerNote createdAt"
+      )
+      .sort({ "kyc.submittedAt": -1 })
+      .limit(80)
+      .lean();
     return res.json({ success: true, users });
   })
 );
@@ -1254,7 +1260,9 @@ router.patch(
       });
     }
 
-    const scoped = await assertTenantUser(req, id);
+    const scoped = await assertTenantUser(req, id, {
+      select: "adminId deletedAt kyc.status",
+    });
     if (scoped.status) {
       return res.status(scoped.status).json({
         success: false,
@@ -1273,19 +1281,36 @@ router.patch(
     }
 
     const approved = req.body.action === "approve";
-    user.kyc.status = approved ? "approved" : "rejected";
-    user.kyc.reviewedAt = new Date();
-    user.kyc.reviewedBy = req.auth.sub;
-    user.kyc.reviewerNote = req.body.note || null;
-    user.markModified("kyc");
-    await user.save();
+    const updated = await User.findOneAndUpdate(
+      { _id: user._id, "kyc.status": "pending" },
+      {
+        $set: {
+          "kyc.status": approved ? "approved" : "rejected",
+          "kyc.reviewedAt": new Date(),
+          "kyc.reviewedBy": req.auth.sub,
+          "kyc.reviewerNote": req.body.note || null,
+        },
+      },
+      {
+        new: true,
+        select:
+          "username email fullName uid kyc.status kyc.fullName kyc.docType kyc.docNumber kyc.submittedAt kyc.reviewedAt kyc.reviewerNote",
+      }
+    );
+    if (!updated) {
+      return res.status(409).json({
+        success: false,
+        error: "ConflictError",
+        message: "KYC was already reviewed. Refresh the list.",
+      });
+    }
 
     return res.json({
       success: true,
       message: approved
         ? "Verification approved. User is now Verified."
         : "Verification declined.",
-      user,
+      user: updated,
     });
   })
 );

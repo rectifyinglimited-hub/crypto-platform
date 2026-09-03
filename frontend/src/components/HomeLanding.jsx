@@ -321,7 +321,7 @@ function MarketOverviewGrid() {
 
   useEffect(() => {
     loadMarkets();
-    const poll = setInterval(loadMarkets, 1000);
+    const poll = setInterval(loadMarkets, 4000);
     return () => clearInterval(poll);
   }, [loadMarkets]);
 
