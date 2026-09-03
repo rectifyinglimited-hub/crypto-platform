@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import PublicLanding from "./components/PublicLanding.jsx";
-import { AuthAPI, getToken, clearToken } from "./lib/api.js";
+import { getToken, clearToken } from "./lib/token.js";
 import { isStaffRole, isSuperAdminRole } from "./lib/roles.js";
 
+const PublicLanding = lazy(() => import("./components/PublicLanding.jsx"));
 const AuthGate = lazy(() => import("./components/AuthGate.jsx"));
 const SplashScreen = lazy(() => import("./components/SplashScreen.jsx"));
 const Dashboard = lazy(() => import("./components/Dashboard.jsx"));
@@ -34,6 +34,15 @@ const SCREEN = {
 
 const SPLASH_MS = 1750;
 
+function BootShell({ label = "Opening exchange…" }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-black px-6 text-center text-white">
+      <div className="text-3xl font-extrabold tracking-tight">equiti</div>
+      <p className="mt-3 text-sm text-[#00C2B3]">{label}</p>
+    </div>
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState(SCREEN.LANDING);
   const [user, setUser] = useState(null);
@@ -41,22 +50,27 @@ export default function App() {
   const splashTimer = useRef(null);
 
   useEffect(() => {
+    window.__equitiReady?.();
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     const boot = async () => {
       const token = getToken();
       if (!token) return;
       try {
+        const { AuthAPI, clearToken: wipe } = await import("./lib/api.js");
         const res = await AuthAPI.me();
         if (cancelled) return;
         if (res?.user) {
           if (!isAuthorizedSuperAdmin(res.user)) {
-            clearToken();
+            wipe();
             return;
           }
           setUser(res.user);
           setScreen(isStaffRole(res.user.role) ? SCREEN.ADMIN : SCREEN.DASHBOARD);
         } else {
-          clearToken();
+          wipe();
         }
       } catch {
         clearToken();
@@ -114,6 +128,7 @@ export default function App() {
 
   const goAdmin = async () => {
     try {
+      const { AuthAPI } = await import("./lib/api.js");
       const res = await AuthAPI.me();
       const u = res?.user;
       if (u) setUser(u);
@@ -124,7 +139,7 @@ export default function App() {
   };
 
   return (
-    <Suspense fallback={<div className="bg-black p-8 text-white">Loading…</div>}>
+    <Suspense fallback={<BootShell />}>
       {screen === SCREEN.LANDING && (
         <PublicLanding
           onSignIn={() => openAuth("signin")}

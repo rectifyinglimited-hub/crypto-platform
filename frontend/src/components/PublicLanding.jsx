@@ -12,7 +12,6 @@ import {
   BarChart3,
   Radio,
 } from "lucide-react";
-import { SecondsTradeAPI } from "../lib/api.js";
 import { fetchLiveQuoteMap, tapePriceFromMap } from "../lib/liveQuotes.js";
 import BrandLogo from "./BrandLogo.jsx";
 import SiteFooter from "./SiteFooter.jsx";
@@ -65,23 +64,11 @@ function useLivePrices() {
     let cancelled = false;
     const load = async () => {
       try {
-        const [map, res] = await Promise.all([
-          fetchLiveQuoteMap().catch(() => null),
-          SecondsTradeAPI.publicMarkets().catch(() => ({ markets: [] })),
-        ]);
+        const map = await fetchLiveQuoteMap().catch(() => null);
         if (cancelled) return;
-        const seen = new Set();
         for (const p of PAIRS) {
           const live = tapePriceFromMap(map, p.symbol, "USDT", "crypto");
-          if (live > 0) {
-            ingest(p.symbol, live);
-            seen.add(p.symbol);
-          }
-        }
-        for (const m of res.markets || []) {
-          if (!PAIRS.some((p) => p.symbol === m.asset)) continue;
-          if (seen.has(m.asset)) continue;
-          ingest(m.asset, m.rawPrice || m.price);
+          if (live > 0) ingest(p.symbol, live);
         }
       } catch {
         /* ignore */

@@ -7,8 +7,14 @@
  */
 
 import axios from "axios";
+import {
+  TOKEN_STORAGE_KEY,
+  getToken,
+  setToken,
+  clearToken,
+} from "./token.js";
 
-export const TOKEN_STORAGE_KEY = "nexus_token";
+export { TOKEN_STORAGE_KEY, getToken, setToken, clearToken };
 
 // Production Railway API. Override only via VITE_API_BASE_URL when you
 // intentionally want a different backend (e.g. local: http://localhost:5001/api).
@@ -26,44 +32,6 @@ const BASE_URL =
     ? envApiUrl
     : PRODUCTION_BASE_URL;
 
-// ---------------------------------------------------------------------------
-// Token helpers
-// ---------------------------------------------------------------------------
-const safeStorage = () => {
-  try {
-    if (typeof window === "undefined" || !window.localStorage) return null;
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-};
-
-export const getToken = () => {
-  const s = safeStorage();
-  if (!s) return null;
-  try {
-    return s.getItem(TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-};
-
-export const setToken = (token) => {
-  const s = safeStorage();
-  if (!s) return;
-  try {
-    if (token) s.setItem(TOKEN_STORAGE_KEY, token);
-    else s.removeItem(TOKEN_STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
-};
-
-export const clearToken = () => setToken(null);
-
-// ---------------------------------------------------------------------------
-// Axios instance
-// ---------------------------------------------------------------------------
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 45000,
