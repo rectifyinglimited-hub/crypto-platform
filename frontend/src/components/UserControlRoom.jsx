@@ -408,6 +408,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     }))
   );
   const [scBusy, setScBusy] = useState(false);
+  const [scResetBusy, setScResetBusy] = useState(false);
   const [scCredit, setScCredit] = useState("");
   const [scCommission, setScCommission] = useState("0");
   const [scMode, setScMode] = useState("auto");
@@ -453,11 +454,18 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   }, [userId]);
 
   useEffect(() => {
-    const off = onSocketEvent("aibot:lock", (payload) => {
+    const offLock = onSocketEvent("aibot:lock", (payload) => {
       if (payload?.userId && String(payload.userId) !== String(userId)) return;
       load({ silent: true });
     });
-    return off;
+    const offCopy = onSocketEvent("smartcopy:submitted", (payload) => {
+      if (payload?.userId && String(payload.userId) !== String(userId)) return;
+      load({ silent: true });
+    });
+    return () => {
+      offLock?.();
+      offCopy?.();
+    };
   }, [userId, load]);
 
   const hydrateSmartCopy = (sc) => {
@@ -518,6 +526,50 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       }
     } finally {
       setScBusy(false);
+    }
+  };
+
+  const onResetSmartCopyTimer = async () => {
+    setScResetBusy(true);
+    try {
+      const res = await AdminAPI.resetSmartCopyCycle(userId);
+      if (res?.smartCopy) hydrateSmartCopy(res.smartCopy);
+      toastRef.current?.(
+        "success",
+        res.message || "Timer reset. User can submit again now."
+      );
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setScResetBusy(false);
+    }
+  };
+
+  const onVerifySmartCopy = async (action) => {
+    const pending = data?.user?.smartCopy?.pendingCommission;
+    if (!pending?.id) {
+      toastRef.current?.("error", "No pending Smart Spot credit to verify.");
+      return;
+    }
+    setTxBusy(pending.id);
+    try {
+      await AdminAPI.verifyTransaction(pending.id, { action });
+      toastRef.current?.(
+        "success",
+        action === "approve"
+          ? `Credit approved · $${fmt(pending.amount)} added to wallet.`
+          : "Credit rejected. Wallet not changed."
+      );
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setTxBusy(null);
     }
   };
 
@@ -1125,13 +1177,16 @@ export default function UserControlRoom({ userId, onBack, toast }) {
           {/* Smart Spot Trade */}
           <SectionCard icon={Copy} title="Smart Spot Trade" accent="cyan"
             description="Smart Spot opens only after this user buys AI Futures Strategy. Blocks: $500 → 1, $1000 → 2, $2000 → 3, $3000+ → 4.">
-            {/* Commission mode */}
+            {/* Commission mode + verify */}
             <div>
-              <span className="text-[10px] font-semibold uppercase text-slate-500">Commission</span>
+              <span className="text-[10px] font-semibold uppercase text-slate-500">1. Commission pricing</span>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Auto uses AI Futures lock size. Manual lets you type a % then Save Smart Spot.
+              </p>
               <div className="mt-1.5 flex gap-1 rounded-xl bg-white/[0.03] p-1">
                 {[
-                  { id: "manual", label: "Manual credit" },
                   { id: "auto", label: "Auto (admin approve)" },
+                  { id: "manual", label: "Manual %" },
                 ].map((m) => (
                   <button key={m.id} type="button" onClick={() => setScMode(m.id)}
                     className={`rounded-lg px-3.5 py-2 text-xs font-medium transition ${
@@ -1141,47 +1196,119 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                   </button>
                 ))}
               </div>
-              {scMode === "auto" ? (
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div className="rounded-xl bg-white/[0.03] p-3">
-                    <div className="text-[10px] uppercase text-slate-500">Rate</div>
-                    <div className="mt-0.5 text-sm font-semibold text-emerald-300">
-                      {Number(data?.user?.smartCopy?.autoRate || 0).toFixed(1)}%
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-white/[0.03] p-3">
-                    <div className="text-[10px] uppercase text-slate-500">Est. Credit</div>
-                    <div className="mt-0.5 text-sm font-semibold text-white">
-                      ${fmt(data?.user?.smartCopy?.estimatedCredit)}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-white/[0.03] p-3">
-                    <div className="text-[10px] uppercase text-slate-500">Next Submit</div>
-                    <div className="mt-0.5 text-[11px] font-semibold text-white">
-                      {data?.user?.smartCopy?.canClaim
-                        ? "Ready now"
-                        : data?.user?.smartCopy?.nextSubmitAt
-                          ? new Date(data.user.smartCopy.nextSubmitAt).toLocaleString()
-                          : "First submit"}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-white/[0.03] p-3">
-                    <div className="text-[10px] uppercase text-slate-500">Pending</div>
-                    <div className="mt-0.5 text-sm font-semibold text-amber-300">
-                      {data?.user?.smartCopy?.pendingCommission
-                        ? `$${fmt(data.user.smartCopy.pendingCommission.amount)}`
-                        : "—"}
-                    </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-xl bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase text-slate-500">Rate</div>
+                  <div className="mt-0.5 text-sm font-semibold text-emerald-300">
+                    {scMode === "manual"
+                      ? `${Number(scCommission || 0)}%`
+                      : `${Number(data?.user?.smartCopy?.autoRate || 0).toFixed(1)}%`}
                   </div>
                 </div>
-              ) : (
+                <div className="rounded-xl bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase text-slate-500">Est. Credit</div>
+                  <div className="mt-0.5 text-sm font-semibold text-white">
+                    ${fmt(data?.user?.smartCopy?.estimatedCredit)}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase text-slate-500">Next Submit</div>
+                  <div className="mt-0.5 text-[11px] font-semibold text-white">
+                    {data?.user?.smartCopy?.canClaim
+                      ? "Ready now"
+                      : data?.user?.smartCopy?.nextSubmitAt
+                        ? new Date(data.user.smartCopy.nextSubmitAt).toLocaleString()
+                        : "First submit"}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase text-slate-500">Pending</div>
+                  <div className="mt-0.5 text-sm font-semibold text-amber-300">
+                    {data?.user?.smartCopy?.pendingCommission
+                      ? `$${fmt(data.user.smartCopy.pendingCommission.amount)}`
+                      : "—"}
+                  </div>
+                </div>
+              </div>
+              {scMode === "manual" ? (
                 <label className="mt-3 block">
-                  <span className="text-[10px] font-semibold uppercase text-slate-500">Commission % (manual)</span>
+                  <span className="text-[10px] font-semibold uppercase text-slate-500">Manual commission %</span>
                   <input type="number" min={0} max={500} step="any" value={scCommission}
-                    onChange={(e) => setScCommission(e.target.value)} placeholder="0"
+                    onChange={(e) => setScCommission(e.target.value)} placeholder="e.g. 1.5"
                     className={`mt-1 w-full font-mono ${inputClass}`} />
+                  <p className="mt-1 text-[10px] text-slate-500">Click Save Smart Spot below to keep this %.</p>
                 </label>
-              )}
+              ) : null}
+
+              <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                  2. Verify credit
+                </div>
+                {data?.user?.smartCopy?.pendingCommission ? (
+                  <>
+                    <p className="mt-1 text-[12px] text-amber-50">
+                      User submitted. ${fmt(data.user.smartCopy.pendingCommission.amount)} is waiting.
+                      Approve adds it to the wallet. Reject cancels it.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={txBusy === data.user.smartCopy.pendingCommission.id}
+                        onClick={() => onVerifySmartCopy("approve")}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-2 text-xs font-bold text-slate-950 disabled:opacity-50"
+                      >
+                        {txBusy === data.user.smartCopy.pendingCommission.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        )}
+                        Approve credit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={txBusy === data.user.smartCopy.pendingCommission.id}
+                        onClick={() => onVerifySmartCopy("reject")}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/30 bg-rose-500/15 px-3.5 py-2 text-xs font-semibold text-rose-100 disabled:opacity-50"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Reject credit
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-1 text-[12px] text-slate-400">
+                    No credit waiting. After the user taps Action, the amount shows here to approve or reject.
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/10 p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-cyan-200">
+                  3. Reset 24h timer
+                </div>
+                <p className="mt-1 text-[12px] text-cyan-50/90">
+                  {data?.user?.smartCopy?.canClaim
+                    ? "User can submit now. Reset also clears Submitted cards so they can tap Action again."
+                    : `User is waiting until ${
+                        data?.user?.smartCopy?.nextSubmitAt
+                          ? new Date(data.user.smartCopy.nextSubmitAt).toLocaleString()
+                          : "next cycle"
+                      }. Reset lets them submit again immediately.`}
+                </p>
+                <button
+                  type="button"
+                  disabled={scResetBusy}
+                  onClick={onResetSmartCopyTimer}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-cyan-500 px-3.5 py-2 text-xs font-bold text-slate-950 disabled:opacity-50"
+                >
+                  {scResetBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Timer className="h-3.5 w-3.5" />
+                  )}
+                  Reset timer
+                </button>
+              </div>
             </div>
 
             {/* Block slots info */}
@@ -1307,12 +1434,17 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               {scBusy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Save Smart Spot"}
             </button>
 
-            {/* Credit USDT from Smart Spot */}
+            {/* One-time manual credit — works in auto or manual mode */}
             <div className="mt-4 border-t border-white/[0.06] pt-4">
-              <span className="text-[10px] font-semibold uppercase text-slate-500">Credit USDT from Smart Spot Trade</span>
+              <span className="text-[10px] font-semibold uppercase text-slate-500">
+                4. One-time credit (manual)
+              </span>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Type an amount once and save. It goes to the wallet now — no approve step.
+              </p>
               <div className="mt-1.5 flex gap-2">
                 <input type="number" step="any" value={scCredit}
-                  onChange={(e) => setScCredit(e.target.value)} placeholder="e.g. 50"
+                  onChange={(e) => setScCredit(e.target.value)} placeholder="e.g. 5 or 50"
                   className={`min-w-0 flex-1 font-mono ${inputClass}`} />
                 <button type="button" disabled={topUpBusy}
                   onClick={async () => {
@@ -1332,7 +1464,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                       });
                       toastRef.current?.(
                         "success",
-                        `Smart Spot Trade credit ${n} USDT`
+                        `Saved · ${n} USDT credited from Smart Spot`
                       );
                       setScCredit("");
                       await load({ silent: true });
@@ -1345,7 +1477,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                     }
                   }}
                   className={btnPrimary}>
-                  Credit
+                  {topUpBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save credit"}
                 </button>
               </div>
             </div>

@@ -21,6 +21,7 @@ export async function persistSmartCopy(user) {
         smartCopySlots: slots,
         smartCopyMaxSlots: user.smartCopyMaxSlots ?? 0,
         smartCopyCommissionMode: user.smartCopyCommissionMode || "manual",
+        smartCopyCommissionPct: Number(user.smartCopyCommissionPct || 0),
         smartCopyLastSubmitAt: user.smartCopyLastSubmitAt || null,
       },
     }

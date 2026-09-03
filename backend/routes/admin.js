@@ -67,8 +67,10 @@ import { ensureUserUid } from "../lib/userUid.js";
 import {
   normalizeSmartCopy,
   serializeSmartCopy,
+  persistSmartCopy,
   refreshSmartCopyCycle,
   SMART_COPY_SLOTS,
+  USER_SMART_COPY_SELECT,
 } from "../lib/smartCopy.js";
 import { recordLedger } from "../lib/ledger.js";
 import { resolveAiFuturesDailyYield } from "../lib/aiBotYield.js";
@@ -260,7 +262,9 @@ router.put(
         message: "Invalid user id.",
       });
     }
-    const scoped = await assertTenantUser(req, id);
+    const scoped = await assertTenantUser(req, id, {
+      select: USER_SMART_COPY_SELECT,
+    });
     if (scoped.status) {
       return res.status(scoped.status).json({
         success: false,
@@ -315,8 +319,9 @@ router.put(
     }
     user.markModified("smartCopySlots");
     normalizeSmartCopy(user);
-    await user.save();
+    await persistSmartCopy(user);
     await refreshSmartCopyCycle(user);
+    await persistSmartCopy(user);
     const copies = await SpotCopyLock.find({
       user: user._id,
       status: "active",
@@ -325,6 +330,56 @@ router.put(
       success: true,
       message: "Smart Spot Trade controls saved.",
       smartCopy: serializeSmartCopy(user, copies),
+    });
+  })
+);
+
+// POST /users/:id/smart-copy/reset-cycle — clear 24h Next submit wait
+router.post(
+  "/users/:id/smart-copy/reset-cycle",
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "BadRequestError",
+        message: "Invalid user id.",
+      });
+    }
+    const scoped = await assertTenantUser(req, id, {
+      select: USER_SMART_COPY_SELECT,
+    });
+    if (scoped.status) {
+      return res.status(scoped.status).json({
+        success: false,
+        error: scoped.status === 404 ? "NotFoundError" : "BadRequestError",
+        message: scoped.message,
+      });
+    }
+    const user = scoped.user;
+    await SpotCopyLock.updateMany(
+      { user: user._id, status: "active" },
+      { $set: { status: "completed" } }
+    );
+    user.smartCopyLastSubmitAt = null;
+    await persistSmartCopy(user);
+    const wallet =
+      user.wallet instanceof Map
+        ? Object.fromEntries(user.wallet)
+        : { ...(user.wallet || {}) };
+    try {
+      emitWalletUpdate(user._id, wallet, {
+        reason: "smart_copy_timer_reset",
+      });
+    } catch {
+      /* ignore */
+    }
+    return res.json({
+      success: true,
+      message: "Smart Spot timer reset. User can submit again now.",
+      smartCopy: serializeSmartCopy(user, []),
+      wallet,
     });
   })
 );
@@ -1086,13 +1141,11 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
       }
     } else if (tx.source === "smart_copy") {
       const symbol = tx.symbol || "USDT";
-      if (!(user.wallet instanceof Map)) {
-        user.wallet = new Map(Object.entries(user.wallet || {}));
-      }
-      const nowBal = Number(user.wallet.get(symbol) || 0);
-      user.wallet.set(symbol, Number((nowBal + Number(tx.amount)).toFixed(8)));
-      user.markModified("wallet");
-      await user.save();
+      const w = walletObject(user);
+      const nowBal = Number(w[symbol] || 0);
+      w[symbol] = Number((nowBal + Number(tx.amount)).toFixed(8));
+      await User.updateOne({ _id: user._id }, { $set: { wallet: w } });
+      user.wallet = w;
       affectedUser = user;
       tx.ledgerDelta = Number(tx.amount);
       tx.source = "smart_copy";
@@ -1126,10 +1179,6 @@ const verifyTransactionHandler = asyncHandler(async (req, res) => {
       }
     } else {
       affectedUser = await User.findById(tx.user);
-    }
-    if (tx.source === "smart_copy" && affectedUser) {
-      affectedUser.smartCopyLastSubmitAt = null;
-      await affectedUser.save();
     }
     tx.status = "rejected";
   }

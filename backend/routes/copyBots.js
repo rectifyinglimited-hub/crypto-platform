@@ -543,17 +543,14 @@ router.post(
         }
         requested = Number(pendingCommission.amount || credit);
         message = `Submitted. Commission $${requested.toFixed(2)} sent to admin for approval.`;
-        if (user.isModified()) await persistSmartCopy(user);
       } else if (mode === "manual") {
         message =
           credit > 0
             ? `Submitted. Manual commission ${rate}% ≈ $${credit.toFixed(2)} — admin will credit your wallet.`
             : "Submitted. Admin will add your Smart Spot commission manually.";
-        if (user.isModified()) await persistSmartCopy(user);
-      } else if (user.isModified()) {
-        await persistSmartCopy(user);
       }
-    } else if (user.isModified()) {
+      await persistSmartCopy(user);
+    } else if (user.isModified?.()) {
       await persistSmartCopy(user);
     }
 

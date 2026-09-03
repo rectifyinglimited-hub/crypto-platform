@@ -239,6 +239,8 @@ export const AdminAPI = {
     api.get(`/admin/users/${id}/control-room`).then((r) => r.data),
   saveSmartCopy: (id, payload) =>
     api.put(`/admin/users/${id}/smart-copy`, payload).then((r) => r.data),
+  resetSmartCopyCycle: (id) =>
+    api.post(`/admin/users/${id}/smart-copy/reset-cycle`).then((r) => r.data),
   // Stamp WIN/LOSS + Manual Balance Add — settles at timer = 0 only
   forceTradeOutcome: (id, outcome, amount) =>
     api

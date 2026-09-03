@@ -11,6 +11,7 @@ import {
   Search,
 } from "lucide-react";
 import { CopyBotAPI, SecondsTradeAPI, WalletAPI } from "../lib/api.js";
+import { onSocketEvent } from "../lib/socket.js";
 import SpotCopyChart from "./SpotCopyChart.jsx";
 import {
   CRYPTO_ASSETS,
@@ -461,7 +462,17 @@ export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
   useEffect(() => {
     load();
     const id = setInterval(load, 15000);
-    return () => clearInterval(id);
+    const offWallet = onSocketEvent("wallet:update", () => {
+      load();
+    });
+    const offDeposit = onSocketEvent("deposit:status", (payload) => {
+      if (payload?.source === "smart_copy") load();
+    });
+    return () => {
+      clearInterval(id);
+      offWallet?.();
+      offDeposit?.();
+    };
   }, [load]);
 
   useEffect(() => {
