@@ -481,16 +481,15 @@ router.get(
       Object.keys(scope).forEach((k) => delete filter[k]);
     }
     const users = await User.find(filter)
+      .select("username email fullName uid role banned wallet usdtBalance createdAt deletedAt adminId kyc.status")
       .populate("adminId", "fullName username email")
       .sort({ createdAt: -1 })
-      .limit(800);
+      .limit(200)
+      .maxTimeMS(12000)
+      .lean();
     for (const u of users) {
       if (!u.uid) {
-        try {
-          await ensureUserUid(u);
-        } catch {
-          /* ignore */
-        }
+        /* uid is auto-assigned on save; skip for lean docs */
       }
     }
     return res.json({
@@ -996,7 +995,9 @@ router.get(
     const transactions = await Transaction.find(filter)
       .populate("user", "username email fullName adminId")
       .sort({ createdAt: -1 })
-      .limit(500);
+      .limit(200)
+      .maxTimeMS(12000)
+      .lean();
     return res.json({ success: true, transactions });
   })
 );

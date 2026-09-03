@@ -1463,7 +1463,8 @@ router.get(
         "username email fullName phone country bankCards withdrawAddresses pendingDetails adminId"
       )
       .sort({ updatedAt: -1 })
-      .limit(200)
+      .limit(50)
+      .maxTimeMS(12000)
       .lean();
 
     const bankCards = [];

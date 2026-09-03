@@ -66,7 +66,7 @@ export const clearToken = () => setToken(null);
 // ---------------------------------------------------------------------------
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 25000,
+  timeout: 45000,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -401,9 +401,13 @@ export const PlatformAPI = {
   submitProfileDetails: (payload) =>
     api.post("/platform/profile-details", payload).then((r) => r.data),
   adminPendingDetails: () =>
-    api.get("/platform/admin/pending-details").then((r) => r.data),
+    api
+      .get("/platform/admin/pending-details", { timeout: 45000 })
+      .then((r) => r.data),
   adminReviewPendingDetails: (payload) =>
-    api.patch("/platform/admin/pending-details", payload).then((r) => r.data),
+    api
+      .patch("/platform/admin/pending-details", payload, { timeout: 45000 })
+      .then((r) => r.data),
   adminCatalog: (kind) =>
     api
       .get("/platform/admin/catalog", { params: kind ? { kind } : {} })
