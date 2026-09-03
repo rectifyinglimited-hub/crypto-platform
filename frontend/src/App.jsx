@@ -2,10 +2,10 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { getToken, clearToken } from "./lib/token.js";
 import { isStaffRole, isSuperAdminRole } from "./lib/roles.js";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import SplashScreen from "./components/SplashScreen.jsx";
 
 const PublicLanding = lazy(() => import("./components/PublicLanding.jsx"));
 const AuthGate = lazy(() => import("./components/AuthGate.jsx"));
-const SplashScreen = lazy(() => import("./components/SplashScreen.jsx"));
 const Dashboard = lazy(() => import("./components/Dashboard.jsx"));
 const AdminPanel = lazy(() => import("./components/AdminPanel.jsx"));
 
@@ -99,6 +99,7 @@ export default function App() {
   const openAuth = (mode = "signin") => {
     setAuthMode(mode);
     setScreen(SCREEN.AUTH);
+    void import("./components/Dashboard.jsx");
   };
 
   const handleAuthSuccess = (u) => {
@@ -108,6 +109,7 @@ export default function App() {
       setScreen(SCREEN.LANDING);
       return;
     }
+    void import("./components/Dashboard.jsx");
     setUser(u);
     setScreen(SCREEN.SPLASH);
     if (splashTimer.current) clearTimeout(splashTimer.current);
