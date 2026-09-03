@@ -1,0 +1,9 @@
+.git
+.cursor
+frontend
+**/node_modules
+**/.env
+**/.env.*
+*.zip
+*.md
+frontend/dist

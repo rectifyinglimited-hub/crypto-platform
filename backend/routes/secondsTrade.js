@@ -1125,13 +1125,15 @@ router.post(
 export default router;
 export { CRYPTO_ASSETS, STOCK_ASSETS, FALLBACK_PRICES, fetchLivePrice };
 
-const feedWarm = setInterval(() => {
-  fetchBinanceTickerMap().catch(() => {});
+export function startQuoteFeeds() {
+  rebuildRawPriceRows().catch(() => {});
   fetchYahooQuoteMap({ allowStale: false }).catch(() => {});
-  if (!rawPriceCache.rows || Date.now() - rawPriceCache.at > 3000) {
-    rebuildRawPriceRows().catch(() => {});
-  }
-}, 12_000);
-feedWarm.unref?.();
-rebuildRawPriceRows().catch(() => {});
-fetchYahooQuoteMap({ allowStale: false }).catch(() => {});
+  const feedWarm = setInterval(() => {
+    fetchBinanceTickerMap().catch(() => {});
+    fetchYahooQuoteMap({ allowStale: false }).catch(() => {});
+    if (!rawPriceCache.rows || Date.now() - rawPriceCache.at > 3000) {
+      rebuildRawPriceRows().catch(() => {});
+    }
+  }, 12_000);
+  feedWarm.unref?.();
+}

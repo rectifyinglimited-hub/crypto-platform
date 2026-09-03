@@ -27,6 +27,7 @@ import stakingRoutes from "./routes/staking.js";
 import gatewayRoutes from "./routes/gateway.js";
 import secondsTradeRoutes, {
   settleExpiredTrades,
+  startQuoteFeeds,
 } from "./routes/secondsTrade.js";
 import platformRoutes from "./routes/platform.js";
 import aiBotRoutes from "./routes/aiBot.js";
@@ -244,16 +245,6 @@ const ensureSeedSuperAdmin = async () => {
   }
 };
 
-mongoose.plugin((schema) => {
-  schema.pre(/^find/, function setDefaultMaxTime() {
-    try {
-      if (!this.getOptions()?.maxTimeMS) this.maxTimeMS(12000);
-    } catch {
-      /* ignore */
-    }
-  });
-});
-
 const connectDatabase = async () => {
   try {
     mongoose.set("strictQuery", true);
@@ -301,6 +292,11 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`\x1b[36m[api]\x1b[0m Environment: ${NODE_ENV}`);
   console.log(`\x1b[36m[api]\x1b[0m Socket.IO realtime channel online.`);
   connectDatabase();
+  try {
+    startQuoteFeeds();
+  } catch (err) {
+    console.warn(`[quotes] warmup skipped: ${err?.message || err}`);
+  }
 });
 
 // Settle expired seconds trades every 1s (timer must complete to 0, then settle)
