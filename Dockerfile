@@ -9,7 +9,8 @@ RUN npm ci --omit=dev
 COPY backend/ ./
 
 ENV NODE_ENV=production
+ENV PORT=10000
 
-EXPOSE 5001
+EXPOSE 10000
 
 CMD ["node", "server.js"]

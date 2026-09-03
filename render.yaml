@@ -1,14 +1,17 @@
 services:
   - type: web
     name: equiti-api
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix backend ci --omit=dev
+    startCommand: node backend/server.js
     healthCheckPath: /health
     autoDeployTrigger: commit
-    plan: free
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 20
       - key: JWT_TTL
         value: 7d
       - key: JWT_SECRET
