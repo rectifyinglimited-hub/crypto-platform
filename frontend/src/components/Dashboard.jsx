@@ -1184,6 +1184,13 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         }
         return { ...prev, wallet: payload.wallet };
       });
+      if (
+        payload.reason === "seconds_open" ||
+        payload.reason === "seconds_settle"
+      ) {
+        loadTx();
+        loadLiveEarnings();
+      }
       if (payload.reason === "deposit_approved") {
         say(
           "success",

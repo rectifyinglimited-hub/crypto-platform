@@ -187,6 +187,7 @@ export default function SecondsTrading({
   const [customDur, setCustomDur] = useState("");
   const [stake, setStake] = useState("50");
   const [busy, setBusy] = useState(false);
+  const [slotLocked, setSlotLocked] = useState(false);
   const [active, setActive] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [priceFlash, setPriceFlash] = useState(null); // "up" | "down" | null
@@ -317,7 +318,10 @@ export default function SecondsTrading({
   const loadActive = useCallback(async () => {
     try {
       const res = await SecondsTradeAPI.active();
-      setActive(res.trades || []);
+      const list = res.trades || [];
+      setActive(list);
+      if (list.length === 0) setSlotLocked(false);
+      else setSlotLocked(true);
     } catch {
       /* ignore */
     }
@@ -384,13 +388,35 @@ export default function SecondsTrading({
     return off;
   }, []);
 
+  useEffect(() => {
+    const offOpen = onSocketEvent("trade:opened", (payload) => {
+      const t = payload?.trade;
+      if (!t?._id) return;
+      setSlotLocked(true);
+      setActive((prev) => {
+        if (prev.some((x) => String(x._id) === String(t._id))) return prev;
+        return [t, ...prev];
+      });
+    });
+    return offOpen;
+  }, []);
+
   // Win/loss toast from server settle (covers background settler when client settle misses)
   useEffect(() => {
     const off = onSocketEvent("trade:settled", (payload) => {
       const trade = payload?.trade;
       if (!trade?._id) return;
       const id = String(trade._id);
-      if (toasted.current.has(id)) return;
+      setActive((prev) => {
+        const next = prev.filter((x) => String(x._id) !== id);
+        if (next.length === 0) setSlotLocked(false);
+        return next;
+      });
+      if (toasted.current.has(id)) {
+        loadActive();
+        loadLiveEarnings();
+        return;
+      }
       if (isTradeWon(trade)) {
         toasted.current.add(id);
         persistToasted(toasted.current);
@@ -543,7 +569,7 @@ export default function SecondsTrading({
       onToast?.("error", TRADING_SOON_MSG);
       return;
     }
-    if (active.length > 0) {
+    if (busy || slotLocked || active.length > 0) {
       onToast?.(
         "error",
         "A trade is already running. Wait until it closes to place another."
@@ -576,6 +602,7 @@ export default function SecondsTrading({
       return;
     }
     setBusy(true);
+    setSlotLocked(true);
     try {
       const res = await SecondsTradeAPI.open({
         asset,
@@ -586,12 +613,20 @@ export default function SecondsTrading({
         entryPrice: price,
       });
       if (res?.user && onWalletUpdate) onWalletUpdate(res.user);
+      if (res?.trade) {
+        setActive((prev) => {
+          if (prev.some((x) => String(x._id) === String(res.trade._id))) return prev;
+          return [res.trade, ...prev];
+        });
+      }
       onToast?.(
         "success",
         `${direction === "long" ? "Buy Long" : "Sell Short"} · ${pairLabel(asset, displayQuote, assetType)} · ${effectiveDuration}s`
       );
       await loadActive();
     } catch (err) {
+      setSlotLocked(false);
+      await loadActive();
       onToast?.("error", err?.message || "Trade failed.");
     } finally {
       setBusy(false);
@@ -908,7 +943,7 @@ export default function SecondsTrading({
             Deposit USDT
           </button>
         </div>
-      ) : active.length > 0 ? (
+      ) : slotLocked || active.length > 0 ? (
         <div className="space-y-2">
           <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/10 px-4 py-3 text-center text-xs text-cyan-100">
             One trade is running. You can place the next trade after it closes.

@@ -161,6 +161,7 @@ export function emitTradeOpened(trade, userSummary = {}) {
       adminId: tid,
     },
   };
+  if (uid) io.to(`user:${uid}`).emit("trade:opened", payload);
   if (tid) {
     io.to(`tenant:${tid}`).emit("trade:opened", payload);
     io.to(`user:${tid}`).emit("trade:opened", payload);

@@ -390,6 +390,12 @@ const UserSchema = new Schema(
       uppercase: true,
       default: null,
     },
+    /** Atomic slot: only one open seconds trade per user */
+    openSecondsTradeId: {
+      type: Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,

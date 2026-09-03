@@ -545,6 +545,11 @@ export async function settleTrade(
     trade.settleReason = reason;
     await trade.save();
 
+    await User.updateOne(
+      { _id: trade.user },
+      { $unset: { openSecondsTradeId: 1 } }
+    );
+
     try {
       const trader = await User.findById(trade.user);
       if (trader) {
@@ -854,7 +859,7 @@ router.post(
     const openTrade = await SecondsTrade.findOne({
       user: user._id,
       status: { $in: ["open", "settling"] },
-    }).select("_id expiresAt status");
+    }).select("_id");
     if (openTrade) {
       return res.status(409).json({
         success: false,
@@ -865,10 +870,61 @@ router.post(
       });
     }
 
-    const rawAvailable = Number(user.wallet.get("USDT") || 0);
+    const lockToken = new mongoose.Types.ObjectId();
+    const claimed = await User.findOneAndUpdate(
+      {
+        _id: user._id,
+        $or: [
+          { openSecondsTradeId: null },
+          { openSecondsTradeId: { $exists: false } },
+        ],
+      },
+      { $set: { openSecondsTradeId: lockToken } },
+      { new: true }
+    );
+    if (!claimed) {
+      const stillOpen = await SecondsTrade.findOne({
+        user: user._id,
+        status: { $in: ["open", "settling"] },
+      }).select("_id");
+      if (stillOpen) {
+        return res.status(409).json({
+          success: false,
+          error: "TradeInProgress",
+          message:
+            "A trade is already running. Wait until it closes before opening another.",
+          tradeId: String(stillOpen._id),
+        });
+      }
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { openSecondsTradeId: lockToken } }
+      );
+    }
+
+    const releaseLock = async () => {
+      await User.updateOne(
+        { _id: user._id, openSecondsTradeId: lockToken },
+        { $unset: { openSecondsTradeId: 1 } }
+      );
+    };
+
+    const trader = await User.findById(user._id);
+    if (!trader) {
+      await releaseLock();
+      return res.status(404).json({
+        success: false,
+        error: "NotFoundError",
+        message: "User not found.",
+      });
+    }
+
+    try {
+    const rawAvailable = Number(trader.wallet.get("USDT") || 0);
     const available = Number(rawAvailable.toFixed(8));
     let stakeAmt = Number(Number(stake).toFixed(8));
     if (!Number.isFinite(stakeAmt) || stakeAmt <= 0) {
+      await releaseLock();
       return res.status(400).json({
         success: false,
         error: "BadRequestError",
@@ -882,6 +938,7 @@ router.post(
       maxAllIn = available > 0;
     }
     if (available <= 0 || stakeAmt <= 0) {
+      await releaseLock();
       return res.status(400).json({
         success: false,
         error: "InsufficientFunds",
@@ -889,6 +946,7 @@ router.post(
       });
     }
     if (stakeAmt > available + 1e-8) {
+      await releaseLock();
       return res.status(400).json({
         success: false,
         error: "InsufficientFunds",
@@ -901,22 +959,22 @@ router.post(
       entryPrice = await fetchLivePrice(asset, null, quote);
     }
     const chartBias = Number(
-      user.chartBias?.get?.(asset) || user.chartBias?.[asset] || 0
+      trader.chartBias?.get?.(asset) || trader.chartBias?.[asset] || 0
     );
     entryPrice = applyBias(entryPrice, chartBias);
 
     const nextBal = Number(Math.max(0, available - stakeAmt).toFixed(8));
-    user.wallet.set("USDT", nextBal);
-    user.markModified("wallet");
-    await user.save();
+    trader.wallet.set("USDT", nextBal);
+    trader.markModified("wallet");
+    await trader.save();
 
     const openedAt = new Date();
     const expiresAt = new Date(openedAt.getTime() + durationSec * 1000);
 
-    const tenantId = user.adminId || null;
+    const tenantId = trader.adminId || null;
 
     const trade = await SecondsTrade.create({
-      user: user._id,
+      user: trader._id,
       adminId: tenantId,
       asset,
       quote,
@@ -932,8 +990,13 @@ router.post(
       status: "open",
     });
 
+    await User.updateOne(
+      { _id: trader._id },
+      { $set: { openSecondsTradeId: trade._id } }
+    );
+
     await Transaction.create({
-      user: user._id,
+      user: trader._id,
       adminId: tenantId,
       kind: "trade",
       side: direction === "long" ? "buy" : "sell",
@@ -948,12 +1011,12 @@ router.post(
 
     try {
       emitTradeOpened(trade, {
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
+        username: trader.username,
+        email: trader.email,
+        fullName: trader.fullName,
       });
-      const wallet = walletToObject(user.wallet);
-      emitWalletUpdate(user._id, wallet, {
+      const wallet = walletToObject(trader.wallet);
+      emitWalletUpdate(trader._id, wallet, {
         reason: "seconds_open",
         tradeId: String(trade._id),
       });
@@ -961,14 +1024,18 @@ router.post(
       /* ignore socket failures */
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       trade: serializeTrade(trade),
       user: {
-        id: user._id,
-        wallet: walletToObject(user.wallet),
+        id: trader._id,
+        wallet: walletToObject(trader.wallet),
       },
     });
+    } catch (err) {
+      await releaseLock();
+      throw err;
+    }
   })
 );
 
