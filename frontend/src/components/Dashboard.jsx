@@ -1388,6 +1388,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               user={me}
               onToast={say}
               onWalletUpdate={handleUserUpdate}
+              onGoDeposit={() => goPage("deposit")}
             />
           )}
           {page === "loan" && (

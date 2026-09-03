@@ -11,6 +11,7 @@ import {
   Search,
 } from "lucide-react";
 import { AiBotAPI } from "../lib/api.js";
+import { onSocketEvent } from "../lib/socket.js";
 
 export default function AdminAiBotAndMatrix({ toast }) {
   const say = toast || (() => {});
@@ -25,17 +26,21 @@ export default function AdminAiBotAndMatrix({ toast }) {
   const [dayEdits, setDayEdits] = useState({});
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
-  const [savingId, setSavingId] = useState(null);
+  const [requests, setRequests] = useState([]);
+  const [reviewDays, setReviewDays] = useState({});
+  const [reviewingId, setReviewingId] = useState(null);
 
   const loadBots = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, c] = await Promise.all([
+      const [u, c, r] = await Promise.all([
         AiBotAPI.adminActiveUsers(),
         AiBotAPI.adminContracts("active"),
+        AiBotAPI.adminRequests("pending"),
       ]);
       setUsers(u.users || []);
       setContracts(c.contracts || []);
+      setRequests(r.requests || []);
     } catch (err) {
       say("error", err?.message || "Failed to load AI bots.");
     } finally {
@@ -84,6 +89,14 @@ export default function AdminAiBotAndMatrix({ toast }) {
     if (tab === "matrix") loadMatrix();
   }, [tab, loadBots, loadMatrix, loadSearch]);
 
+  useEffect(() => {
+    if (tab !== "bots") return undefined;
+    const off = onSocketEvent("aibot:lock", () => {
+      loadBots();
+    });
+    return off;
+  }, [tab, loadBots]);
+
   const saveUserBot = async (u) => {
     const userId = u._id;
     const daysRaw = dayEdits[userId] ?? u.aiBotAssignedLockDays ?? "";
@@ -119,6 +132,30 @@ export default function AdminAiBotAndMatrix({ toast }) {
       say("error", err?.message || "Failed to update user AI Bot.");
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const reviewRequest = async (reqRow, action) => {
+    const days = Number(
+      reviewDays[reqRow.id] ?? reqRow.requestedDays ?? 0
+    );
+    if (action === "approve" && (!Number.isFinite(days) || days < 1)) {
+      say("error", "Set lock days before approving.");
+      return;
+    }
+    setReviewingId(reqRow.id);
+    try {
+      const res = await AiBotAPI.adminReviewRequest(reqRow.id, {
+        action,
+        lockDays: days,
+      });
+      say("success", res.message || `Request ${action}d.`);
+      loadBots();
+      loadSearch(query);
+    } catch (err) {
+      say("error", err?.message || "Review failed.");
+    } finally {
+      setReviewingId(null);
     }
   };
 
@@ -260,11 +297,64 @@ export default function AdminAiBotAndMatrix({ toast }) {
       {!loading && tab === "bots" && (
         <div className="space-y-4">
           <p className="text-xs text-slate-500">
-            Assign lock days and daily commission % (per day of locked principal).
-            Example: 2% daily × 40 days = 80% total target. You can raise or lower
-            daily commission later — even while Active. Save updates the user’s AI
-            Bot page immediately.
+            Users request lock days from their wallet. Approve, reject, or change
+            the days. On an active contract, saving days updates the end date
+            immediately — you can increase or decrease.
           </p>
+
+          <div className="space-y-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-300/80">
+              Pending lock requests ({requests.length})
+            </div>
+            {requests.map((row) => (
+              <div
+                key={row.id}
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/25 bg-amber-500/5 px-3 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-white">
+                    {row.user?.fullName || row.user?.username || "User"}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Asked {row.requestedDays} days · $
+                    {Number(row.principal || 0).toFixed(2)} held
+                    {row.user?.email ? ` · ${row.user.email}` : ""}
+                  </div>
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  className="w-20 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs"
+                  value={reviewDays[row.id] ?? row.requestedDays ?? ""}
+                  onChange={(e) =>
+                    setReviewDays((prev) => ({ ...prev, [row.id]: e.target.value }))
+                  }
+                />
+                <span className="text-[11px] text-slate-500">days</span>
+                <button
+                  type="button"
+                  disabled={reviewingId === row.id}
+                  onClick={() => reviewRequest(row, "approve")}
+                  className="rounded-lg bg-emerald-500 px-2.5 py-1.5 text-[11px] font-bold text-emerald-950 disabled:opacity-50"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  disabled={reviewingId === row.id}
+                  onClick={() => reviewRequest(row, "reject")}
+                  className="rounded-lg border border-rose-400/30 px-2.5 py-1.5 text-[11px] font-semibold text-rose-200 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </div>
+            ))}
+            {!requests.length && (
+              <div className="rounded-xl border border-white/5 px-3 py-3 text-center text-xs text-slate-500">
+                No pending lock requests.
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-2">
             <div className="relative flex-1">

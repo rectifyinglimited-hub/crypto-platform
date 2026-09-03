@@ -158,8 +158,13 @@ const UserSchema = new Schema(
       default: null,
     },
     aiBotContractAcceptedAt: { type: Date, default: null },
-    /** Admin-assigned lock duration (days). User cannot pick freely. */
+    /** Last approved / admin-set lock duration (days). */
     aiBotAssignedLockDays: { type: Number, min: 1, max: 3650, default: null },
+    aiBotPendingRequestId: {
+      type: Schema.Types.ObjectId,
+      ref: "AiBotLockRequest",
+      default: null,
+    },
     /** Cursor for algorithmic win/loss sequences (per stake-tier indexes) */
     tradeAlgoCursor: {
       type: Schema.Types.Mixed,

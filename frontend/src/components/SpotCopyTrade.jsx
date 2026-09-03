@@ -487,8 +487,6 @@ export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
     ? new Date(desk.nextSubmitAt).getTime() - nowTs
     : 0;
   const waiting = Boolean(desk?.nextSubmitAt) && nextSubmitMs > 0 && !desk?.canClaim;
-  const liveRate = Number(desk?.liveRate || 0);
-  const estimated = Number(desk?.estimatedCredit || 0);
 
   const pickFor = (slotMeta) => {
     const saved = picks[String(slotMeta.slot)];
@@ -572,15 +570,6 @@ export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
         <h1 className="text-xl font-semibold tracking-[0.04em] text-white sm:text-2xl">
           SMART SPOT TRADE
         </h1>
-        <p className="mt-1 text-xs text-white/45">
-          Opens after you buy AI Futures Strategy · $500 = 1 block · $1000 = 2 ·
-          $2000 = 3 · $3000+ = 4. Auto commission is % of that lock (1 / 1.7 /
-          2.2 / 2.5) and waits for admin approval. Manual commission is added by
-          admin.
-          {unlocked && liveRate > 0
-            ? ` · ${desk?.commissionMode === "manual" ? "manual" : "auto"} ${liveRate.toFixed(1)}% of $${Number(desk?.aiPrincipal || 0).toLocaleString()} ≈ $${estimated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            : ""}
-        </p>
         {!unlocked ? (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2.5">
             <p className="text-xs text-amber-100">

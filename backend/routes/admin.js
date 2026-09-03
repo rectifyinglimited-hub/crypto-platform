@@ -55,6 +55,9 @@ import {
 } from "../socket.js";
 import SystemSettings from "../models/SystemSettings.js";
 import SpotCopyLock from "../models/SpotCopyLock.js";
+import AiBotLockRequest, {
+  serializeAiBotLockRequest,
+} from "../models/AiBotLockRequest.js";
 import {
   volume30d,
   ensureReferralCode,
@@ -1542,6 +1545,10 @@ router.get(
       user: user._id,
       status: "active",
     });
+    const pendingAiLock = await AiBotLockRequest.findOne({
+      user: user._id,
+      status: "pending",
+    }).lean();
 
     res.json({
       success: true,
@@ -1574,6 +1581,7 @@ router.get(
         aiBotPrincipal: user.aiBotPrincipal ?? 0,
         aiBotStartDate: user.aiBotStartDate || null,
         aiBotEndDate: user.aiBotEndDate || null,
+        aiBotPendingRequest: serializeAiBotLockRequest(pendingAiLock),
         avatar: user.avatar || null,
         wallet,
         chartBias,

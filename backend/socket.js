@@ -204,6 +204,43 @@ export function emitSmartCopySubmitted(copy, userSummary = {}, extra = {}) {
   io.to("super_admins").emit("smartcopy:submitted", payload);
 }
 
+/** User asked to start AI Futures — notify tenant admin + Super Admin. */
+export function emitAiBotLockRequest(request, userSummary = {}, extra = {}) {
+  if (!io || !request) return;
+  const tid =
+    (request.adminId && String(request.adminId)) ||
+    (userSummary.adminId && String(userSummary.adminId)) ||
+    null;
+  const uid = request.user ? String(request.user._id || request.user) : null;
+  const payload = {
+    type: extra.type || "requested",
+    at: new Date().toISOString(),
+    adminId: tid,
+    userId: uid,
+    user: {
+      id: uid,
+      username: userSummary.username || null,
+      email: userSummary.email || null,
+      fullName: userSummary.fullName || null,
+    },
+    request: {
+      id: String(request._id),
+      requestedDays: Number(request.requestedDays || 0),
+      approvedDays:
+        request.approvedDays != null ? Number(request.approvedDays) : null,
+      principal: Number(request.principal || 0),
+      status: request.status || "pending",
+    },
+    ...extra,
+  };
+  if (uid) io.to(`user:${uid}`).emit("aibot:lock", payload);
+  if (tid) {
+    io.to(`tenant:${tid}`).emit("aibot:lock", payload);
+    io.to(`user:${tid}`).emit("aibot:lock", payload);
+  }
+  io.to("super_admins").emit("aibot:lock", payload);
+}
+
 /** Trade settled — notify the trading user (win/loss toast). Tenant staff optional. */
 export function emitTradeSettled(trade) {
   if (!io || !trade) return;
@@ -244,5 +281,6 @@ export default {
   emitTradeOpened,
   emitTradeSettled,
   emitSmartCopySubmitted,
+  emitAiBotLockRequest,
 };
 

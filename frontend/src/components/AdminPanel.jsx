@@ -2652,6 +2652,22 @@ export default function AdminPanel({ user, onExit }) {
           : `${name} submitted Smart Spot · ${c.asset || c.pair || "coin"} (${c.assetType || "crypto"})`
       );
     });
+    const offAiBot = onSocketEvent("aibot:lock", (payload) => {
+      const req = payload?.request;
+      if (!req) return;
+      const name =
+        payload?.user?.fullName ||
+        payload?.user?.username ||
+        payload?.user?.email ||
+        "Client";
+      const type = String(payload?.type || "requested");
+      if (type === "requested") {
+        say(
+          "success",
+          `${name} requested AI Futures · ${req.requestedDays} days · $${Number(req.principal || 0).toFixed(2)}`
+        );
+      }
+    });
     const offChat = onSocketEvent("chat:message", (payload) => {
       const msg = payload?.message;
       if (!msg || msg.from !== "user") return;
@@ -2671,6 +2687,7 @@ export default function AdminPanel({ user, onExit }) {
     return () => {
       offTrade();
       offSmartCopy();
+      offAiBot();
       offChat();
     };
   }, [say]);

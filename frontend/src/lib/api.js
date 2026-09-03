@@ -407,10 +407,20 @@ export const PlatformAPI = {
 /** AI Bot Trading + algorithm matrix */
 export const AiBotAPI = {
   config: () => api.get("/ai-bot/config").then((r) => r.data),
+  requestLock: (payload) =>
+    api.post("/ai-bot/request", payload).then((r) => r.data),
   activate: (payload) =>
-    api.post("/ai-bot/activate", payload).then((r) => r.data),
+    api.post("/ai-bot/request", payload).then((r) => r.data),
+  cancelRequest: () =>
+    api.post("/ai-bot/request/cancel").then((r) => r.data),
   claim: () => api.post("/ai-bot/claim").then((r) => r.data),
   cancel: () => api.post("/ai-bot/cancel").then((r) => r.data),
+  adminRequests: (status = "pending") =>
+    api
+      .get("/ai-bot/admin/requests", { params: status ? { status } : {} })
+      .then((r) => r.data),
+  adminReviewRequest: (id, payload) =>
+    api.post(`/ai-bot/admin/requests/${id}/review`, payload).then((r) => r.data),
   adminContracts: (status) =>
     api
       .get("/ai-bot/admin/contracts", {

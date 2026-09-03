@@ -419,9 +419,13 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       const u = res?.user;
       if (u) {
         setBotDays(
-          u.aiBotAssignedLockDays != null
-            ? String(u.aiBotAssignedLockDays)
-            : ""
+          u.aiBotPendingRequest?.requestedDays != null
+            ? String(u.aiBotPendingRequest.requestedDays)
+            : u.aiBotAssignedLockDays != null
+              ? String(u.aiBotAssignedLockDays)
+              : u.aiBotLockDays != null
+                ? String(u.aiBotLockDays)
+                : ""
         );
         setBotYield(
           u.aiBotCustomPercentage != null
@@ -444,6 +448,14 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       setLoading(false);
     }
   }, [userId]);
+
+  useEffect(() => {
+    const off = onSocketEvent("aibot:lock", (payload) => {
+      if (payload?.userId && String(payload.userId) !== String(userId)) return;
+      load({ silent: true });
+    });
+    return off;
+  }, [userId, load]);
 
   const hydrateSmartCopy = (sc) => {
     if (!sc) return;
@@ -671,8 +683,33 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       });
       toastRef.current?.(
         "success",
-        res.message || `AI Bot assigned: ${days} days · ${pct}% daily commission.`
+        res.message || `AI Bot updated: ${days} days · ${pct}% daily commission.`
       );
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setBotBusy(false);
+    }
+  };
+
+  const onReviewAiLock = async (action) => {
+    const pendingId = data?.user?.aiBotPendingRequest?.id;
+    if (!pendingId) return;
+    const days = Number(botDays);
+    if (action === "approve" && (!Number.isFinite(days) || days < 1)) {
+      toastRef.current?.("error", "Set lock days before approving.");
+      return;
+    }
+    setBotBusy(true);
+    try {
+      const res = await AiBotAPI.adminReviewRequest(pendingId, {
+        action,
+        lockDays: days,
+      });
+      toastRef.current?.("success", res.message || `Request ${action}d.`);
       await load({ silent: true });
     } catch (err) {
       if (!err?.canceled && err?.message) {
@@ -986,8 +1023,15 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       {activeTab === "finance" && (
         <div className="space-y-5">
           {/* AI Bot Assign */}
-          <SectionCard icon={Bot} title="AI Bot Assign" accent="teal"
-            description="Select days and daily commission %, then Assign. You can edit daily commission later even if the contract is already active.">
+          <SectionCard icon={Bot} title="AI Futures Strategy" accent="teal"
+            description="User requests lock days. You approve, reject, or change days up or down. Saving days on an active contract updates the end date immediately.">
+            {u?.aiBotPendingRequest ? (
+              <div className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2.5 text-[12px] text-amber-100">
+                Pending request · {u.aiBotPendingRequest.requestedDays} days · $
+                {Number(u.aiBotPendingRequest.principal || 0).toFixed(2)} held.
+                Set days below, then Approve or Reject.
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-1.5">
               {AI_BOT_DAY_PRESETS.map((d) => (
                 <button key={d} type="button" onClick={() => setBotDays(String(d))}
@@ -1013,26 +1057,46 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                   onChange={(e) => setBotYield(e.target.value)} placeholder="8"
                   className={`mt-1 w-full font-mono ${inputClass}`} />
               </label>
-              <div className="flex items-end">
-                <button type="button" disabled={botBusy} onClick={onAssignAiBot}
-                  className={`w-full sm:w-auto ${btnPrimary}`}>
-                  {botBusy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Assign & Activate"}
-                </button>
+              <div className="flex flex-wrap items-end gap-2">
+                {u?.aiBotPendingRequest ? (
+                  <>
+                    <button type="button" disabled={botBusy} onClick={() => onReviewAiLock("approve")}
+                      className={`flex-1 sm:flex-none ${btnPrimary}`}>
+                      {botBusy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Approve lock"}
+                    </button>
+                    <button type="button" disabled={botBusy} onClick={() => onReviewAiLock("reject")}
+                      className={btnSecondary}>
+                      Reject & refund
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" disabled={botBusy} onClick={onAssignAiBot}
+                    className={`w-full sm:w-auto ${btnPrimary}`}>
+                    {botBusy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : u?.aiBotActive ? "Update days" : "Save lock days"}
+                  </button>
+                )}
               </div>
             </div>
             {/* Status mini info card */}
             <div className="mt-3 rounded-xl bg-white/[0.03] p-3 text-[11px] text-slate-400">
               Status:{" "}
-              {u?.aiBotAssignedLockDays ? (
+              {u?.aiBotPendingRequest ? (
+                <span className="font-semibold text-amber-300">
+                  Waiting approval · requested {u.aiBotPendingRequest.requestedDays} days
+                </span>
+              ) : u?.aiBotActive ? (
                 <span className="font-semibold text-teal-300">
-                  Assigned {u.aiBotAssignedLockDays} days · daily commission{" "}
+                  Active {u.aiBotLockDays || u.aiBotAssignedLockDays} days · daily commission{" "}
+                  {u.aiBotCustomPercentage ?? 8}% until{" "}
+                  {u.aiBotEndDate ? new Date(u.aiBotEndDate).toLocaleDateString() : "—"}
+                </span>
+              ) : u?.aiBotAssignedLockDays ? (
+                <span className="font-semibold text-teal-300">
+                  Last lock {u.aiBotAssignedLockDays} days · daily commission{" "}
                   {u.aiBotCustomPercentage ?? 8}%
-                  {u.aiBotActive
-                    ? ` · contract active until ${u.aiBotEndDate ? new Date(u.aiBotEndDate).toLocaleDateString() : "—"}`
-                    : " · waiting for user to start"}
                 </span>
               ) : (
-                <span className="font-semibold text-amber-300">Not assigned yet</span>
+                <span className="font-semibold text-slate-400">No lock yet — user can request from their wallet</span>
               )}
             </div>
           </SectionCard>

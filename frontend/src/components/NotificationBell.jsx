@@ -229,6 +229,49 @@ export default function NotificationBell({
       });
     });
 
+    const offAiBot = onSocketEvent("aibot:lock", (payload) => {
+      const req = payload?.request;
+      if (!req) return;
+      const name =
+        payload?.user?.fullName ||
+        payload?.user?.username ||
+        payload?.user?.email ||
+        "Client";
+      const type = String(payload?.type || "requested");
+      if (mode === "staff" && type === "requested") {
+        add({
+          id: `aibot-${req.id}`,
+          type: "trade_open",
+          title: `${name} · AI Futures lock`,
+          body: `Requested ${req.requestedDays} days · $${Number(req.principal || 0).toFixed(2)} held`,
+          createdAt: payload.at || new Date().toISOString(),
+          meta: { kind: "aibot_lock", userId: payload.userId, requestId: req.id },
+        });
+      }
+      if (mode === "user") {
+        if (payload?.userId && String(payload.userId) !== uid) return;
+        if (type === "approved") {
+          add({
+            id: `aibot-${req.id}-ok`,
+            type: "trade_win",
+            title: "AI Futures approved",
+            body: `${payload.approvedDays || req.approvedDays || req.requestedDays} day lock is now active`,
+            createdAt: payload.at || new Date().toISOString(),
+            meta: { kind: "aibot_lock", requestId: req.id },
+          });
+        } else if (type === "rejected") {
+          add({
+            id: `aibot-${req.id}-no`,
+            type: "trade_loss",
+            title: "AI Futures request rejected",
+            body: "Principal returned to Trading Wallet",
+            createdAt: payload.at || new Date().toISOString(),
+            meta: { kind: "aibot_lock", requestId: req.id },
+          });
+        }
+      }
+    });
+
     const offDeposit = onSocketEvent("deposit:status", (payload) => {
       if (mode !== "user") return;
       if (payload?.userId && String(payload.userId) !== uid) return;
@@ -270,6 +313,7 @@ export default function NotificationBell({
       offTradeOpen();
       offTradeSettled();
       offSmartCopy();
+      offAiBot();
       offDeposit();
     };
   }, [uid, mode, add]);
