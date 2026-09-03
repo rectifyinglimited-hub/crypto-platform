@@ -37,6 +37,54 @@ function walletObj(w) {
   return { ...(w || {}) };
 }
 
+/** Never load KYC image blobs — full User.save() hangs Railway. */
+const USER_BOT_SELECT =
+  "username email fullName adminId banned wallet aiBotActive aiBotLockDays aiBotAssignedLockDays aiBotStartDate aiBotEndDate aiBotCustomPercentage aiBotPrincipal aiBotContractId aiBotContractAcceptedAt aiBotPendingRequestId smartCopySlots smartCopyMaxSlots smartCopyCommissionPct smartCopyCommissionMode";
+
+async function loadTrader(id) {
+  return User.findById(id).select(USER_BOT_SELECT);
+}
+
+function usdtOf(user) {
+  if (!user?.wallet) return 0;
+  if (user.wallet instanceof Map) return Number(user.wallet.get("USDT") || 0);
+  return Number(user.wallet.USDT || 0);
+}
+
+function setUsdt(user, amount) {
+  const n = Number(Number(amount || 0).toFixed(8));
+  if (user.wallet instanceof Map) {
+    user.wallet.set("USDT", n);
+  } else {
+    user.wallet = { ...(user.wallet || {}), USDT: n };
+  }
+}
+
+async function persistBotState(user) {
+  normalizeSmartCopy(user);
+  await User.updateOne(
+    { _id: user._id },
+    {
+      $set: {
+        wallet: walletObj(user.wallet),
+        aiBotActive: !!user.aiBotActive,
+        aiBotLockDays: user.aiBotLockDays ?? null,
+        aiBotAssignedLockDays: user.aiBotAssignedLockDays ?? null,
+        aiBotStartDate: user.aiBotStartDate ?? null,
+        aiBotEndDate: user.aiBotEndDate ?? null,
+        aiBotCustomPercentage: user.aiBotCustomPercentage ?? 8,
+        aiBotPrincipal: Number(user.aiBotPrincipal || 0),
+        aiBotContractId: user.aiBotContractId || null,
+        aiBotContractAcceptedAt: user.aiBotContractAcceptedAt || null,
+        aiBotPendingRequestId: user.aiBotPendingRequestId || null,
+        smartCopySlots: user.smartCopySlots,
+        smartCopyMaxSlots: user.smartCopyMaxSlots,
+        smartCopyCommissionMode: user.smartCopyCommissionMode || "manual",
+      },
+    }
+  );
+}
+
 function serializeUserBot(user, pendingRequest = null) {
   return {
     aiBotActive: !!user.aiBotActive,
@@ -67,10 +115,11 @@ async function findPendingLock(userId) {
 async function refundHeldPrincipal(user, amount, note) {
   const refund = Number(Number(amount || 0).toFixed(8));
   if (!(refund > 0)) return walletObj(user.wallet);
-  if (!(user.wallet instanceof Map)) user.wallet = new Map();
-  const usdt = Number(user.wallet.get("USDT") || 0);
-  user.wallet.set("USDT", Number((usdt + refund).toFixed(8)));
-  user.markModified("wallet");
+  setUsdt(user, usdtOf(user) + refund);
+  await User.updateOne(
+    { _id: user._id },
+    { $set: { wallet: walletObj(user.wallet) } }
+  );
   await Transaction.create({
     user: user._id,
     adminId: user.adminId || null,
@@ -120,8 +169,7 @@ async function startApprovedLock(user, request, lockDays, contractVersion) {
   });
 
   user.aiBotContractId = contract._id;
-  normalizeSmartCopy(user);
-  await user.save();
+  await persistBotState(user);
 
   request.status = "approved";
   request.approvedDays = days;
@@ -161,7 +209,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const platform = await PlatformConfig.getSingleton();
     const defaults = platform.aiBotDefaults || {};
-    const user = await User.findById(req.auth.sub);
+    const user = await loadTrader(req.auth.sub);
     const lockOptions = Array.isArray(defaults.lockOptions) && defaults.lockOptions.length
       ? defaults.lockOptions.map(Number).filter((n) => n > 0)
       : [7, 15, 30, 60, 90];
@@ -208,7 +256,7 @@ async function submitLockRequest(req, res) {
   const defaults = platform.aiBotDefaults || {};
   const minPrincipal = Number(defaults.minPrincipal ?? 50);
 
-  const user = await User.findById(req.auth.sub);
+  const user = await loadTrader(req.auth.sub);
   if (!user) {
     return res.status(404).json({ success: false, message: "User not found." });
   }
@@ -237,8 +285,7 @@ async function submitLockRequest(req, res) {
     });
   }
 
-  if (!(user.wallet instanceof Map)) user.wallet = new Map();
-  const usdt = Number(user.wallet.get("USDT") || 0);
+  const usdt = usdtOf(user);
   if (!(usdt > 0) || principal > usdt + 1e-8) {
     return res.status(422).json({
       success: false,
@@ -256,8 +303,7 @@ async function submitLockRequest(req, res) {
       ? Number(user.aiBotCustomPercentage)
       : Number(defaults.defaultYieldPct ?? 8);
 
-  user.wallet.set("USDT", Number(Math.max(0, usdt - principal).toFixed(8)));
-  user.markModified("wallet");
+  setUsdt(user, Math.max(0, usdt - principal));
 
   let request;
   try {
@@ -271,9 +317,7 @@ async function submitLockRequest(req, res) {
       contractVersion,
     });
   } catch (err) {
-    user.wallet.set("USDT", usdt);
-    user.markModified("wallet");
-    await user.save();
+    setUsdt(user, usdt);
     if (err?.code === 11000) {
       const again = await findPendingLock(user._id);
       return res.status(409).json({
@@ -288,7 +332,7 @@ async function submitLockRequest(req, res) {
   }
 
   user.aiBotPendingRequestId = request._id;
-  await user.save();
+  await persistBotState(user);
 
   await Transaction.create({
     user: user._id,
@@ -332,7 +376,7 @@ router.post(
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    const user = await User.findById(req.auth.sub);
+    const user = await loadTrader(req.auth.sub);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
@@ -355,7 +399,7 @@ router.post(
       `AI Futures request cancelled · refund $${Number(request.principal || 0).toFixed(2)}`
     );
     user.aiBotPendingRequestId = null;
-    await user.save();
+    await persistBotState(user);
 
     const wallet = walletObj(user.wallet);
     try {
@@ -385,7 +429,7 @@ router.post(
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    const user = await User.findById(req.auth.sub);
+    const user = await loadTrader(req.auth.sub);
     if (!user || !user.aiBotActive) {
       return res.status(400).json({
         success: false,
@@ -405,10 +449,7 @@ router.post(
     const profit = commissionProfit(principal, pct, days);
     const payout = Number((principal + profit).toFixed(8));
 
-    if (!(user.wallet instanceof Map)) user.wallet = new Map();
-    const usdt = Number(user.wallet.get("USDT") || 0);
-    user.wallet.set("USDT", Number((usdt + payout).toFixed(8)));
-    user.markModified("wallet");
+    setUsdt(user, usdtOf(user) + payout);
 
     const contractId = user.aiBotContractId;
     user.aiBotActive = false;
@@ -418,7 +459,7 @@ router.post(
     user.aiBotPrincipal = 0;
     user.aiBotContractId = null;
     normalizeSmartCopy(user);
-    await user.save();
+    await persistBotState(user);
 
     if (contractId) {
       await AiBotContract.findByIdAndUpdate(contractId, {
@@ -461,7 +502,7 @@ router.post(
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    const user = await User.findById(req.auth.sub);
+    const user = await loadTrader(req.auth.sub);
     if (!user || !user.aiBotActive) {
       return res.status(400).json({
         success: false,
@@ -473,10 +514,7 @@ router.post(
     const penalty = Number((principal * 0.15).toFixed(8));
     const refund = Number(Math.max(0, principal - penalty).toFixed(8));
 
-    if (!(user.wallet instanceof Map)) user.wallet = new Map();
-    const usdt = Number(user.wallet.get("USDT") || 0);
-    user.wallet.set("USDT", Number((usdt + refund).toFixed(8)));
-    user.markModified("wallet");
+    setUsdt(user, usdtOf(user) + refund);
 
     const contractId = user.aiBotContractId;
     user.aiBotActive = false;
@@ -487,7 +525,7 @@ router.post(
     user.aiBotContractId = null;
     user.aiBotContractAcceptedAt = null;
     normalizeSmartCopy(user);
-    await user.save();
+    await persistBotState(user);
 
     if (contractId) {
       await AiBotContract.findByIdAndUpdate(contractId, {
@@ -578,7 +616,7 @@ router.post(
     }
 
     const action = String(req.body.action || "").toLowerCase();
-    const user = await User.findById(request.user);
+    const user = await loadTrader(request.user);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
@@ -595,7 +633,7 @@ router.post(
         `AI Futures request rejected · refund $${Number(request.principal || 0).toFixed(2)}`
       );
       user.aiBotPendingRequestId = null;
-      await user.save();
+      await persistBotState(user);
       const wallet = walletObj(user.wallet);
       try {
         emitWalletUpdate(user._id, wallet, {
@@ -643,7 +681,7 @@ router.post(
       request.reviewedAt = new Date();
       await request.save();
       user.aiBotPendingRequestId = null;
-      await user.save();
+      await persistBotState(user);
       return res.status(400).json({
         success: false,
         message: "User already has an active AI Futures contract.",
@@ -783,7 +821,9 @@ router.patch(
   requireDatabase,
   asyncHandler(async (req, res) => {
     const scope = tenantUserFilter(req);
-    const user = await User.findOne({ _id: req.params.id, ...scope });
+    const user = await User.findOne({ _id: req.params.id, ...scope }).select(
+      USER_BOT_SELECT
+    );
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
@@ -842,7 +882,7 @@ router.patch(
       });
     }
 
-    await user.save();
+    await persistBotState(user);
     return res.json({
       success: true,
       message: `AI Bot updated for ${user.username}: ${messages.join(", ")}. Live daily commission applies immediately.`,

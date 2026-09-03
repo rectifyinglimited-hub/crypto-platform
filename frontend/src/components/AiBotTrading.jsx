@@ -184,6 +184,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
   const [agreed, setAgreed] = useState(false);
   const [scrolledEnd, setScrolledEnd] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState("");
   const [now, setNow] = useState(Date.now());
   const [walletUsdt, setWalletUsdt] = useState(
     Number(user?.wallet?.USDT || 0)
@@ -325,18 +326,26 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
     }
     setAgreed(false);
     setScrolledEnd(false);
+    setFormError("");
     setModalOpen(true);
   };
 
-  const canConfirm =
-    agreed && scrolledEnd && !busy && Number(lockDays) >= 1 && !pending;
-
   const activate = async () => {
-    if (!canConfirm) return;
+    if (busy) return;
+    if (!agreed || !scrolledEnd) {
+      toastRef.current?.("error", "Scroll to the end and accept the agreement.");
+      return;
+    }
+    const days = Number(lockDays);
+    if (!Number.isFinite(days) || days < 1) {
+      toastRef.current?.("error", "Choose lock days first.");
+      return;
+    }
     setBusy(true);
+    setFormError("");
     try {
       const res = await AiBotAPI.requestLock({
-        lockDays: Number(lockDays),
+        lockDays: days,
         principal: Number(principal),
         contractAccepted: true,
         contractVersion: config?.contractVersion || "v1.0",
@@ -344,7 +353,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
       setBot(res.bot);
       if (res.wallet) {
         onWalletUpdate?.({ wallet: res.wallet });
-        if (typeof res.wallet.USDT === "number") setWalletUsdt(Number(res.wallet.USDT));
+        setWalletUsdt(Number(res.wallet.USDT || 0));
       }
       toastRef.current?.(
         "success",
@@ -352,7 +361,9 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
       );
       setModalOpen(false);
     } catch (err) {
-      toastRef.current?.("error", err?.message || "Request failed.");
+      const msg = err?.message || "Request failed. Try again.";
+      setFormError(msg);
+      toastRef.current?.("error", msg);
     } finally {
       setBusy(false);
     }
@@ -689,14 +700,19 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                     cancel penalty{!scrolledEnd ? " (scroll to the end first)" : ""}.
                   </span>
                 </label>
-                <button
+                  {formError ? (
+                    <div className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
+                      {formError}
+                    </div>
+                  ) : null}
+                  <button
                   type="button"
-                  disabled={!canConfirm}
+                  disabled={busy || !agreed || !scrolledEnd}
                   onClick={activate}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3 text-sm font-bold text-slate-950 disabled:opacity-40"
                 >
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Confirm & send lock request
+                  {busy ? "Sending request…" : "Confirm & send lock request"}
                 </button>
               </div>
             </motion.div>

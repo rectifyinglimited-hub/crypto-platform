@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { getToken, clearToken } from "./lib/token.js";
 import { isStaffRole, isSuperAdminRole } from "./lib/roles.js";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 const PublicLanding = lazy(() => import("./components/PublicLanding.jsx"));
 const AuthGate = lazy(() => import("./components/AuthGate.jsx"));
@@ -155,9 +156,15 @@ export default function App() {
       )}
       {screen === SCREEN.SPLASH && <SplashScreen />}
       {screen === SCREEN.DASHBOARD && (
-        <Dashboard user={user} onLogout={handleLogout} onOpenAdmin={goAdmin} />
+        <ErrorBoundary>
+          <Dashboard user={user} onLogout={handleLogout} onOpenAdmin={goAdmin} />
+        </ErrorBoundary>
       )}
-      {screen === SCREEN.ADMIN && <AdminPanel user={user} onExit={handleLogout} />}
+      {screen === SCREEN.ADMIN && (
+        <ErrorBoundary>
+          <AdminPanel user={user} onExit={handleLogout} />
+        </ErrorBoundary>
+      )}
     </Suspense>
   );
 }

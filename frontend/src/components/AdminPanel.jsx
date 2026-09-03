@@ -63,6 +63,7 @@ import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import AdminPlatformModules from "./AdminPlatformModules.jsx";
 import AdminAiBotAndMatrix from "./AdminAiBotAndMatrix.jsx";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 import AdminCopyBotsPromo from "./AdminCopyBotsPromo.jsx";
 import AdminReferralVip from "./AdminReferralVip.jsx";
 import UserControlRoom, {
@@ -3382,7 +3383,9 @@ export default function AdminPanel({ user, onExit }) {
               <AdminPlatformModules key="platform" toast={say} />
             )}
             {section === "aibot" && (
-              <AdminAiBotAndMatrix key="aibot" toast={say} />
+              <ErrorBoundary>
+                <AdminAiBotAndMatrix key="aibot" toast={say} />
+              </ErrorBoundary>
             )}
             {section === "copybots" && (
               <AdminCopyBotsPromo key="copybots" toast={say} />

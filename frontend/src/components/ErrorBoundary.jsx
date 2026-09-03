@@ -16,10 +16,23 @@ export default class ErrorBoundary extends Component {
 
   render() {
     if (this.state.err) {
+      if (this.props.fallback) return this.props.fallback;
       return (
-        this.props.fallback ?? (
-          <div className="p-6 text-sm text-[#00C2B3]">Section failed to load.</div>
-        )
+        <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-6 text-center">
+          <p className="text-sm font-semibold text-rose-100">
+            This section failed to load.
+          </p>
+          <p className="mt-1 text-xs text-rose-200/70">
+            {this.state.err?.message || "Unexpected error"}
+          </p>
+          <button
+            type="button"
+            onClick={() => this.setState({ err: null })}
+            className="mt-4 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-950"
+          >
+            Try again
+          </button>
+        </div>
       );
     }
     return this.props.children;

@@ -26,6 +26,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
   const [dayEdits, setDayEdits] = useState({});
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingId, setSavingId] = useState(null);
   const [requests, setRequests] = useState([]);
   const [reviewDays, setReviewDays] = useState({});
   const [reviewingId, setReviewingId] = useState(null);
@@ -33,14 +34,21 @@ export default function AdminAiBotAndMatrix({ toast }) {
   const loadBots = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, c, r] = await Promise.all([
+      const settled = await Promise.allSettled([
         AiBotAPI.adminActiveUsers(),
         AiBotAPI.adminContracts("active"),
         AiBotAPI.adminRequests("pending"),
       ]);
-      setUsers(u.users || []);
-      setContracts(c.contracts || []);
-      setRequests(r.requests || []);
+      const usersRes = settled[0].status === "fulfilled" ? settled[0].value : null;
+      const contractsRes = settled[1].status === "fulfilled" ? settled[1].value : null;
+      const reqRes = settled[2].status === "fulfilled" ? settled[2].value : null;
+      setUsers(usersRes?.users || []);
+      setContracts(contractsRes?.contracts || []);
+      setRequests(reqRes?.requests || []);
+      const failed = settled.find((s) => s.status === "rejected");
+      if (failed) {
+        say("error", failed.reason?.message || "Some AI Futures data failed to load.");
+      }
     } catch (err) {
       say("error", err?.message || "Failed to load AI bots.");
     } finally {
