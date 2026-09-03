@@ -344,7 +344,7 @@ export default function SecondsTrading({
     loadMarkets();
     loadActive();
     loadLiveEarnings();
-    const mId = setInterval(loadMarkets, 4000);
+    const mId = setInterval(loadMarkets, 12000);
     const aId = setInterval(loadActive, 1500);
     const eId = setInterval(loadLiveEarnings, 4000);
     const tId = setInterval(() => setNow(Date.now()), 250);

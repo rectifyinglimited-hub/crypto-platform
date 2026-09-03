@@ -244,11 +244,25 @@ const ensureSeedSuperAdmin = async () => {
   }
 };
 
+mongoose.plugin((schema) => {
+  schema.pre(/^find/, function setDefaultMaxTime() {
+    try {
+      if (!this.getOptions()?.maxTimeMS) this.maxTimeMS(12000);
+    } catch {
+      /* ignore */
+    }
+  });
+});
+
 const connectDatabase = async () => {
   try {
     mongoose.set("strictQuery", true);
     await mongoose.connect(MONGO_URI, {
       serverSelectionTimeoutMS: 8000,
+      socketTimeoutMS: 20000,
+      maxPoolSize: 15,
+      minPoolSize: 1,
+      maxIdleTimeMS: 30000,
       autoIndex: NODE_ENV !== "production",
     });
     DB_READY = true;

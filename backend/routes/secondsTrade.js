@@ -48,20 +48,15 @@ const DEFAULT_PAYOUT = 85;
 const MIN_DURATION = 10;
 const MAX_DURATION = 3600;
 
-/** Cached Binance all-ticker snapshot (refreshed ~1s) */
-let binanceTickerCache = { at: 0, map: null };
+/** Cached Binance all-ticker snapshot. Serve stale instantly; refresh in background. */
+let binanceTickerCache = { at: 0, map: null, inflight: null };
 
-async function fetchBinanceTickerMap() {
-  const now = Date.now();
-  if (binanceTickerCache.map && now - binanceTickerCache.at < 4000) {
-    return binanceTickerCache.map;
-  }
+async function refreshBinanceTickerMap() {
   try {
-    const ctrl = AbortSignal.timeout(5000);
-    const res = await fetch(
-      "https://api.binance.com/api/v3/ticker/price",
-      { signal: ctrl }
-    );
+    const ctrl = AbortSignal.timeout(4000);
+    const res = await fetch("https://api.binance.com/api/v3/ticker/price", {
+      signal: ctrl,
+    });
     if (!res.ok) return binanceTickerCache.map;
     const data = await res.json();
     const map = {};
@@ -71,11 +66,28 @@ async function fetchBinanceTickerMap() {
       if (!Number.isFinite(price) || price <= 0) continue;
       map[sym] = price;
     }
-    binanceTickerCache = { at: now, map };
+    binanceTickerCache = { at: Date.now(), map, inflight: null };
     return map;
   } catch {
+    binanceTickerCache.inflight = null;
     return binanceTickerCache.map;
   }
+}
+
+async function fetchBinanceTickerMap() {
+  const now = Date.now();
+  if (binanceTickerCache.map && now - binanceTickerCache.at < 8000) {
+    return binanceTickerCache.map;
+  }
+  if (binanceTickerCache.map && now - binanceTickerCache.at < 30_000) {
+    if (!binanceTickerCache.inflight) {
+      binanceTickerCache.inflight = refreshBinanceTickerMap();
+    }
+    return binanceTickerCache.map;
+  }
+  if (binanceTickerCache.inflight) return binanceTickerCache.inflight;
+  binanceTickerCache.inflight = refreshBinanceTickerMap();
+  return binanceTickerCache.inflight;
 }
 
 const asyncHandler = (fn) => (req, res, next) =>
@@ -171,10 +183,65 @@ function priceDecimals(sym, price) {
 }
 
 async function loadQuoteFeeds() {
-  const tickerMap = await fetchBinanceTickerMap();
+  const tickerMap = (await fetchBinanceTickerMap()) || {};
   const yahooMap = peekYahooQuoteMap() || {};
-  fetchYahooQuoteMap({ allowStale: false }).catch(() => {});
   return { tickerMap, yahooMap };
+}
+
+function syncLivePrice(asset, tickerMap, quote = "USDT", yahooMap = {}) {
+  const sym = String(asset).toUpperCase();
+  const type = resolveAssetType(sym) || "crypto";
+  const q = normalizeQuote(quote, type);
+  const pair = toExchangeSymbol(
+    sym,
+    type === "forex" || type === "stock" ? "USDT" : q
+  );
+  if (pair && tickerMap?.[pair] > 0) return tickerMap[pair];
+  if (q === "USDC") {
+    const usdtPair = toExchangeSymbol(sym, "USDT");
+    if (usdtPair && tickerMap?.[usdtPair] > 0) return tickerMap[usdtPair];
+  }
+  if (yahooMap?.[sym] > 0) return yahooMap[sym];
+  const base = fallbackPrice(sym);
+  return Number(base.toFixed(priceDecimals(sym, base)));
+}
+
+const MARKET_ASSET_LIST = [
+  ...CRYPTO_ASSETS.map((a) => ({ asset: a, assetType: "crypto" })),
+  ...FOREX_ASSETS.map((a) => ({ asset: a, assetType: "forex" })),
+  ...STOCK_ASSETS.map((a) => ({ asset: a, assetType: "stock" })),
+];
+
+let rawPriceCache = { at: 0, rows: null, inflight: null };
+
+async function rebuildRawPriceRows() {
+  const { tickerMap, yahooMap } = await loadQuoteFeeds();
+  const rows = MARKET_ASSET_LIST.map(({ asset, assetType }) => {
+    const rawPrice = syncLivePrice(asset, tickerMap, "USDT", yahooMap);
+    const rawUsdc =
+      assetType === "crypto"
+        ? syncLivePrice(asset, tickerMap, "USDC", yahooMap)
+        : rawPrice;
+    return { asset, assetType, rawPrice, rawUsdc };
+  });
+  rawPriceCache = { at: Date.now(), rows, inflight: null };
+  return rows;
+}
+
+async function getRawPriceRows() {
+  const now = Date.now();
+  if (rawPriceCache.rows && now - rawPriceCache.at < 4000) {
+    return rawPriceCache.rows;
+  }
+  if (rawPriceCache.rows && now - rawPriceCache.at < 25_000) {
+    if (!rawPriceCache.inflight) {
+      rawPriceCache.inflight = rebuildRawPriceRows();
+    }
+    return rawPriceCache.rows;
+  }
+  if (rawPriceCache.inflight) return rawPriceCache.inflight;
+  rawPriceCache.inflight = rebuildRawPriceRows();
+  return rawPriceCache.inflight;
 }
 
 async function fetchLivePrice(asset, tickerMap, quote = "USDT", yahooMap = null) {
@@ -539,19 +606,17 @@ export async function settleExpiredTrades() {
     const forcedOpen = await SecondsTrade.find({
       status: "open",
       forcedOutcome: { $in: ["win", "loss"] },
-    }).limit(40);
+    })
+      .select("user asset direction forcedOutcome openedAt expiresAt priceBiasPercent")
+      .limit(20)
+      .lean();
     for (const t of forcedOpen) {
-      const user = await User.findById(t.user);
-      if (!user) continue;
-      if (!user.chartBias) user.chartBias = new Map();
-
       const opened = new Date(t.openedAt).getTime();
       const expires = new Date(t.expiresAt).getTime();
       const remainingMs = Math.max(0, expires - Date.now());
       const rampWindow = Math.max(1, expires - opened);
       const progress = Math.min(1, Math.max(0, (Date.now() - opened) / rampWindow));
 
-      // Ease-in-out toward ~2.2% by expiry — clear on chart, still clamped client-side
       const peak = 2.2;
       const eased =
         progress < 0.5
@@ -563,14 +628,13 @@ export async function settleExpiredTrades() {
         t.forcedOutcome,
         eased * peak + Math.abs(wiggle)
       );
-      // Soft floor once locked (preserve sign)
       let target = signedBiasForOutcome(
         t.direction,
         t.forcedOutcome,
         Math.max(0.08, Math.abs(signedPeak))
       );
 
-      const cur = Number(t.priceBiasPercent || user.chartBias.get(t.asset) || 0);
+      const cur = Number(t.priceBiasPercent || 0);
       const maxStep = 0.07;
       let next = cur;
       const goingUp = target > 0;
@@ -584,7 +648,6 @@ export async function settleExpiredTrades() {
         next = Math.min(-0.06, next);
       }
 
-      // Near expiry, hold direction with micro-fluctuation only
       if (remainingMs < 1500) {
         const hold = signedBiasForOutcome(t.direction, t.forcedOutcome, 0.4);
         next = hold + (Math.random() - 0.5) * 0.02;
@@ -593,11 +656,12 @@ export async function settleExpiredTrades() {
       }
 
       next = Number(next.toFixed(4));
-      user.chartBias.set(t.asset, next);
-      user.markModified("chartBias");
-      await user.save();
-      t.priceBiasPercent = next;
-      await t.save();
+      const assetKey = `chartBias.${t.asset}`;
+      await User.updateOne({ _id: t.user }, { $set: { [assetKey]: next } });
+      await SecondsTrade.updateOne(
+        { _id: t._id },
+        { $set: { priceBiasPercent: next } }
+      );
     }
   } catch (err) {
     console.error("[seconds-trade] bias ramp failed", err?.message);
@@ -637,30 +701,18 @@ export async function settleExpiredTrades() {
 router.get(
   "/public-markets",
   asyncHandler(async (_req, res) => {
-    const assets = [
-      ...CRYPTO_ASSETS.map((a) => ({ asset: a, assetType: "crypto" })),
-      ...FOREX_ASSETS.map((a) => ({ asset: a, assetType: "forex" })),
-      ...STOCK_ASSETS.map((a) => ({ asset: a, assetType: "stock" })),
-    ];
-    const { tickerMap, yahooMap } = await loadQuoteFeeds();
-    const markets = await Promise.all(
-      assets.map(async ({ asset, assetType }) => {
-        const quote = assetType === "crypto" ? "USDT" : "USD";
-        const price = await fetchLivePrice(asset, tickerMap, quote, yahooMap);
-        const priceUsdc =
-          assetType === "crypto"
-            ? await fetchLivePrice(asset, tickerMap, "USDC", yahooMap)
-            : price;
-        return {
-          asset,
-          assetType,
-          quote,
-          price,
-          rawPrice: price,
-          quotes: assetType === "crypto" ? { USDT: price, USDC: priceUsdc } : undefined,
-        };
-      })
-    );
+    const rows = await getRawPriceRows();
+    const markets = rows.map((p) => ({
+      asset: p.asset,
+      assetType: p.assetType,
+      quote: p.assetType === "crypto" ? "USDT" : "USD",
+      price: p.rawPrice,
+      rawPrice: p.rawPrice,
+      quotes:
+        p.assetType === "crypto"
+          ? { USDT: p.rawPrice, USDC: p.rawUsdc }
+          : undefined,
+    }));
     res.json({
       success: true,
       markets,
@@ -676,36 +728,11 @@ router.get(
   "/markets",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const user = await User.findById(req.auth.sub).select("chartBias chartQuote");
-    const biasMap = walletToObject(user?.chartBias);
+    const user = await User.findById(req.auth.sub).select("chartQuote");
     const chartQuote = normalizeQuote(user?.chartQuote || null, "crypto");
     const forcedQuote = user?.chartQuote ? chartQuote : null;
 
-    const assets = [
-      ...CRYPTO_ASSETS.map((a) => ({ asset: a, assetType: "crypto" })),
-      ...FOREX_ASSETS.map((a) => ({ asset: a, assetType: "forex" })),
-      ...STOCK_ASSETS.map((a) => ({ asset: a, assetType: "stock" })),
-    ];
-
-    const { tickerMap, yahooMap } = await loadQuoteFeeds();
-
-    const prices = await Promise.all(
-      assets.map(async ({ asset, assetType }) => {
-        const priceUsdt = await fetchLivePrice(asset, tickerMap, "USDT", yahooMap);
-        const priceUsdc =
-          assetType === "crypto"
-            ? await fetchLivePrice(asset, tickerMap, "USDC", yahooMap)
-            : priceUsdt;
-        const bias = Number(biasMap[asset] || 0);
-        return {
-          asset,
-          assetType,
-          rawPrice: priceUsdt,
-          rawUsdc: priceUsdc,
-          biasPercent: bias,
-        };
-      })
-    );
+    const prices = await getRawPriceRows();
 
     // Open-trade bias overrides user chartBias (never sum — that caused 2× spikes)
     const open = await SecondsTrade.find({
@@ -1097,3 +1124,14 @@ router.post(
 
 export default router;
 export { CRYPTO_ASSETS, STOCK_ASSETS, FALLBACK_PRICES, fetchLivePrice };
+
+const feedWarm = setInterval(() => {
+  fetchBinanceTickerMap().catch(() => {});
+  fetchYahooQuoteMap({ allowStale: false }).catch(() => {});
+  if (!rawPriceCache.rows || Date.now() - rawPriceCache.at > 3000) {
+    rebuildRawPriceRows().catch(() => {});
+  }
+}, 12_000);
+feedWarm.unref?.();
+rebuildRawPriceRows().catch(() => {});
+fetchYahooQuoteMap({ allowStale: false }).catch(() => {});

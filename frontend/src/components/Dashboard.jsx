@@ -1163,7 +1163,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     refreshMe();
     loadLiveEarnings();
     getSocket();
-    const id = setInterval(refreshMe, 2500);
+    const id = setInterval(refreshMe, 10000);
     const eId = setInterval(loadLiveEarnings, 5000);
     const offWallet = onSocketEvent("wallet:update", (payload) => {
       if (!payload?.wallet || cancelled) return;

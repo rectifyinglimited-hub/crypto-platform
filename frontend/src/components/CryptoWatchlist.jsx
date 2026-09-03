@@ -98,7 +98,7 @@ export default function CryptoWatchlist({ onSelectAsset }) {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 8000);
+    const id = setInterval(load, 20000);
     return () => {
       clearInterval(id);
       Object.values(flashTimers.current).forEach(clearTimeout);

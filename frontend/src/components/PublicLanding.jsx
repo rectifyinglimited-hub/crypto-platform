@@ -88,7 +88,7 @@ function useLivePrices() {
       }
     };
     load();
-    const poll = setInterval(load, 6000);
+    const poll = setInterval(load, 20000);
     return () => {
       cancelled = true;
       clearInterval(poll);

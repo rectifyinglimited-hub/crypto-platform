@@ -334,7 +334,9 @@ router.get(
   asyncHandler(async (req, res) => {
     const codes = await InviteCode.find(tenantDocFilter(req))
       .populate("createdBy", "username email fullName")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean();
     return res.json({ success: true, codes });
   })
 );

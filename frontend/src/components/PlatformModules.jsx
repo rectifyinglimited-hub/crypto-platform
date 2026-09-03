@@ -292,7 +292,7 @@ export function MarketPage({
         .catch(() => {});
     };
     load();
-    const id = setInterval(load, 8000);
+    const id = setInterval(load, 20000);
     return () => {
       on = false;
       clearInterval(id);

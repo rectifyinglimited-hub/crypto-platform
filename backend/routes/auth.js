@@ -120,6 +120,10 @@ const sanitizeUser = (user) => {
   if (obj.chartBias instanceof Map) {
     obj.chartBias = Object.fromEntries(obj.chartBias);
   }
+  if (obj.kyc && typeof obj.kyc === "object") {
+    delete obj.kyc.documentPreview;
+    delete obj.kyc.selfiePreview;
+  }
   obj.id = obj._id?.toString?.() || obj._id;
   const uid = Number(obj.uid);
   obj.uid =
@@ -411,7 +415,9 @@ router.get(
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    const user = await User.findById(req.auth.sub);
+    const user = await User.findById(req.auth.sub).select(
+      "-kyc.documentPreview -kyc.selfiePreview -password"
+    );
     if (!user || user.deletedAt) {
       return res.status(401).json({
         success: false,

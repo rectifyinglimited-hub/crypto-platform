@@ -309,7 +309,7 @@ export function ActiveTradesAlertBar({ onOpenUser }) {
       }
     };
     pull();
-    const poll = setInterval(pull, 1500);
+    const poll = setInterval(pull, 4000);
     const tick = setInterval(() => setNow(Date.now()), 250);
     const offOpen = onSocketEvent("trade:opened", () => {
       pull();
