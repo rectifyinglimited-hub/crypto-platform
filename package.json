@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "npm --prefix backend ci --omit=dev",
-    "start": "node scripts/start-api.mjs",
+    "start": "node backend/server.js",
     "install:backend": "npm --prefix backend ci --omit=dev"
   }
 }

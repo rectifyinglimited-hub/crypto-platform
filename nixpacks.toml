@@ -5,4 +5,4 @@ NIXPACKS_NODE_VERSION = "20"
 cmds = ["npm --prefix backend ci --omit=dev"]
 
 [start]
-cmd = "node scripts/start-api.mjs"
+cmd = "node backend/server.js"

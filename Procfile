@@ -1,1 +1,1 @@
-web: node scripts/start-api.mjs
+web: node backend/server.js

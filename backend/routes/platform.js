@@ -89,17 +89,6 @@ function unifyTradingWallet(user) {
   user.markModified("accountBalances");
   return total;
 }
-  ensureAccounts(user);
-  const total = ["funding", "spot", "contract", "delivery", "nft"].reduce(
-    (s, k) => s + Number(user.accountBalances.get(k) || 0),
-    0
-  );
-  if (!(user.wallet instanceof Map)) user.wallet = new Map();
-  user.wallet.set("USDT", Number(total.toFixed(8)));
-  user.markModified("wallet");
-  user.markModified("accountBalances");
-  return total;
-}
 
 const DEFAULT_SEED = [
   {
