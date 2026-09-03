@@ -15,6 +15,8 @@ import { emitWalletUpdate, emitSmartCopySubmitted } from "../socket.js";
 import {
   normalizeSmartCopy,
   serializeSmartCopy,
+  persistSmartCopy,
+  USER_SMART_COPY_SELECT,
   isSlotOpen,
   refreshSmartCopyCycle,
   smartCopyCycleOpen,
@@ -287,8 +289,10 @@ router.post(
     const endDate = new Date(startDate.getTime() + lockDays * 86400000);
 
     user.wallet.set("USDT", Number((usdt - principal).toFixed(8)));
-    user.markModified("wallet");
-    await user.save();
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { wallet: walletObj(user.wallet) } }
+    );
 
     bot.totalFollowers = Number(bot.totalFollowers || 0) + 1;
     await bot.save();
@@ -389,7 +393,7 @@ router.get(
   requireAuth,
   requireDatabase,
   asyncHandler(async (req, res) => {
-    const user = await User.findById(req.auth.sub);
+    const user = await User.findById(req.auth.sub).select(USER_SMART_COPY_SELECT);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
@@ -400,7 +404,7 @@ router.get(
       status: "active",
     }).populate("bot");
     const pending = await latestPendingCommission(user._id);
-    if (user.isModified()) await user.save();
+    if (user.isModified()) await persistSmartCopy(user);
     res.json({
       success: true,
       desk: serializeSmartCopy(user, copies, {
@@ -433,7 +437,7 @@ router.post(
       return res.status(400).json({ success: false, message: "Select a coin first." });
     }
 
-    const user = await User.findById(req.auth.sub);
+    const user = await User.findById(req.auth.sub).select(USER_SMART_COPY_SELECT);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
@@ -539,18 +543,18 @@ router.post(
         }
         requested = Number(pendingCommission.amount || credit);
         message = `Submitted. Commission $${requested.toFixed(2)} sent to admin for approval.`;
-        if (user.isModified()) await user.save();
+        if (user.isModified()) await persistSmartCopy(user);
       } else if (mode === "manual") {
         message =
           credit > 0
             ? `Submitted. Manual commission ${rate}% ≈ $${credit.toFixed(2)} — admin will credit your wallet.`
             : "Submitted. Admin will add your Smart Spot commission manually.";
-        if (user.isModified()) await user.save();
+        if (user.isModified()) await persistSmartCopy(user);
       } else if (user.isModified()) {
-        await user.save();
+        await persistSmartCopy(user);
       }
     } else if (user.isModified()) {
-      await user.save();
+      await persistSmartCopy(user);
     }
 
     try {

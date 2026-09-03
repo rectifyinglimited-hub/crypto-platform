@@ -1,4 +1,31 @@
 import SpotCopyLock from "../models/SpotCopyLock.js";
+import User from "../models/User.js";
+
+/** Never load KYC blobs on this path — full User.save() races the trade settler. */
+export const USER_SMART_COPY_SELECT =
+  "username email fullName adminId wallet aiBotActive aiBotPrincipal aiBotLockDays smartCopySlots smartCopyMaxSlots smartCopyCommissionPct smartCopyCommissionMode smartCopyLastSubmitAt";
+
+export async function persistSmartCopy(user) {
+  if (!user?._id) return;
+  normalizeSmartCopy(user);
+  const slots = (user.smartCopySlots || []).map((s) => ({
+    slot: Number(s.slot),
+    enabled: s.enabled !== false,
+    readyAt: s.readyAt || null,
+    accuracy: s.accuracy ?? null,
+  }));
+  await User.updateOne(
+    { _id: user._id },
+    {
+      $set: {
+        smartCopySlots: slots,
+        smartCopyMaxSlots: user.smartCopyMaxSlots ?? 0,
+        smartCopyCommissionMode: user.smartCopyCommissionMode || "manual",
+        smartCopyLastSubmitAt: user.smartCopyLastSubmitAt || null,
+      },
+    }
+  );
+}
 
 export const SMART_COPY_CYCLE_MS = 24 * 60 * 60 * 1000;
 
