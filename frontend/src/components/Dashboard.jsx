@@ -58,7 +58,6 @@ import MarketActivity from "./MarketActivity.jsx";
 import TradeHistory from "./TradeHistory.jsx";
 import ProfileSetup from "./ProfileSetup.jsx";
 import AccountSettings from "./AccountSettings.jsx";
-import DepositSection from "./DepositSection.jsx";
 import WithdrawSection from "./WithdrawSection.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 import { CertificatePage } from "./TradingCertificate.jsx";
@@ -1011,13 +1010,17 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const [marketIntent, setMarketIntent] = useState(null);
 
   const goPage = (p) => {
+    if (p === "deposit") {
+      setChatHint("deposit");
+      setChatOpenSignal((n) => n + 1);
+      return;
+    }
     const key = p === "delivery" || p === "spot" || p === "perpetual" ? "trade" : p;
     setPage(key);
     if (key === "assets") setAssetsView("overview");
-    if (key === "deposit") setAssetsView("deposit");
     if (key === "withdraw") setAssetsView("withdraw");
     if (key === "trade") setTab("trading");
-    else if (key === "assets" || key === "deposit" || key === "withdraw") setTab("wallet");
+    else if (key === "assets" || key === "withdraw") setTab("wallet");
     else if (key === "account" || key === "settings") setTab("settings");
     else if (key === "home") setTab("home");
     else if (key === "market") setTab("trading");
@@ -1069,9 +1072,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   }, []);
 
   const openDepositSection = useCallback(() => {
-    setAssetsView("deposit");
-    setPage("deposit");
-    setTab("wallet");
     openLiveChat("deposit");
   }, [openLiveChat]);
 
@@ -1318,8 +1318,8 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             />
           )}
           {page === "deposit" && (
-            <div key="deposit" className="mx-auto max-w-2xl">
-              <DepositSection toast={say} onOpenLiveChat={() => openLiveChat("deposit")} />
+            <div key="deposit" className="mx-auto max-w-2xl rounded-2xl border border-teal-400/20 bg-teal-500/10 p-5 text-sm text-teal-100">
+              Deposit opens in Live Chat — enter the amount and send your receipt screenshot there.
             </div>
           )}
           {page === "withdraw" && (
@@ -1350,7 +1350,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   initialAsset={tradeIntent?.asset || "BTC"}
                   initialAssetType={tradeIntent?.assetType || "crypto"}
                   initialQuote={tradeIntent?.quote || "USDT"}
-                  onGoDeposit={() => goPage("deposit")}
+                  onGoDeposit={() => openLiveChat("deposit")}
                 />
               </div>
               <div className="space-y-4">
@@ -1388,7 +1388,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               user={me}
               onToast={say}
               onWalletUpdate={handleUserUpdate}
-              onGoDeposit={() => goPage("deposit")}
+              onGoDeposit={() => openLiveChat("deposit")}
             />
           )}
           {page === "loan" && (

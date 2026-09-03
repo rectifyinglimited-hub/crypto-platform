@@ -36,7 +36,7 @@ const OPEN_KEY = "nexus_chat_open";
 
 const VERIFICATION_HEADER = "Secure Payment Verification Channel";
 const VERIFICATION_INSTRUCTIONS =
-  "Please review the official TRC-20 settlement address below. Once your external transfer is complete, attach a clear photographic transaction receipt or hash snapshot using the attachment utility below for management validation.";
+  "Copy the USDT address, send funds, then enter the amount and attach your receipt screenshot. Admin verifies and credits your Trading Wallet.";
 
 const timeAgo = (iso) => {
   const t = new Date(iso).getTime();
@@ -589,6 +589,11 @@ export default function LiveChatWidget({
   };
 
   const handleAttachImage = async (e) => {
+    if (menuStep === "deposit") {
+      onPickProof(e);
+      e.target.value = "";
+      return;
+    }
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f || sending) return;
@@ -800,8 +805,7 @@ export default function LiveChatWidget({
                       </>
                     ) : (
                       <>
-                        <ImageIcon className="h-3.5 w-3.5" /> Submit for
-                        validation
+                        <ImageIcon className="h-3.5 w-3.5" /> Send to admin
                       </>
                     )}
                   </button>
