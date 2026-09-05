@@ -483,7 +483,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           contextHint={chatHint}
           openSignal={chatOpenSignal}
           onNeedAuth={onSignIn}
-          dockClass="max-sm:bottom-4"
+          dockClass="bottom-4"
         />
       </Suspense>
     </div>

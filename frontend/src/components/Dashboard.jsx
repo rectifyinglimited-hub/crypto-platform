@@ -1492,7 +1492,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           user={me}
           contextHint={chatHint}
           openSignal={chatOpenSignal}
-          dockClass="bottom-24 lg:bottom-4"
+          dockClass="bottom-[6.75rem] lg:bottom-4"
           onToast={say}
           onWalletUpdate={(w) =>
             setMe((prev) => ({ ...prev, wallet: w || prev?.wallet }))

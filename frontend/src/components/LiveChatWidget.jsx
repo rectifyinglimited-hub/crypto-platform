@@ -221,7 +221,7 @@ export default function LiveChatWidget({
   onWalletUpdate,
   onToast,
   onNeedAuth,
-  dockClass = "max-sm:bottom-20",
+  dockClass = "bottom-4",
 }) {
   const userId = user?._id || user?.id;
 
@@ -637,7 +637,7 @@ export default function LiveChatWidget({
   const depositAddr = gateway?.usdtTrc20Address;
 
   return (
-    <div className={`pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 ${dockClass}`}>
+    <div className={`pointer-events-none fixed right-3 z-50 flex flex-col items-end gap-3 sm:right-4 ${dockClass}`}>
       <AnimatePresence>
         {open && (
           <motion.div

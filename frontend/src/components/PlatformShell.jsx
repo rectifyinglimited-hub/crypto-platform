@@ -511,7 +511,7 @@ export default function PlatformShell({
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
           aria-label="Mobile menu"
         >
-          <div className="flex snap-x snap-mandatory items-stretch gap-0.5 overflow-x-auto px-1.5 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="grid grid-cols-6 items-stretch gap-0.5 px-1 py-1.5">
             {BOTTOM_NAV.map((item) => {
               const Icon = item.icon;
               const active = page === item.key;
@@ -520,14 +520,14 @@ export default function PlatformShell({
                   key={item.key}
                   type="button"
                   onClick={() => handlePageChange(item.key)}
-                  className={`flex min-h-[3.4rem] min-w-[4.75rem] flex-1 snap-start flex-col items-center justify-center gap-0.5 rounded-2xl px-1.5 py-1.5 text-[10px] font-semibold leading-tight transition active:scale-95 sm:min-w-[5.5rem] sm:text-[11px] ${
+                  className={`flex min-h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[9px] font-semibold leading-tight transition active:scale-95 sm:rounded-2xl sm:text-[11px] ${
                     active
                       ? "bg-cyan-500/15 text-cyan-200"
                       : "text-slate-400 active:bg-white/5"
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${active ? "text-cyan-300" : ""}`} />
-                  <span className="max-w-[4.6rem] text-center sm:max-w-none">
+                  <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${active ? "text-cyan-300" : ""}`} />
+                  <span className="w-full truncate text-center">
                     {item.label}
                   </span>
                 </button>
