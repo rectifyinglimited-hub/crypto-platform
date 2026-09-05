@@ -55,6 +55,16 @@ const COMPANY_LINKS = [
   { key: "contact", label: "Contact support", icon: Headphones },
 ];
 
+/** Mobile + tablet quick bar — swipe sideways to see every item. */
+const BOTTOM_NAV = [
+  { key: "home", label: "Home", icon: Home },
+  { key: "trade", label: "Trade", icon: CandlestickChart },
+  { key: "spotcopy", label: "Smart Spot", icon: Copy },
+  { key: "aibot", label: "AI Futures", icon: Bot },
+  { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
+  { key: "withdraw", label: "Withdraw", icon: ArrowUpFromLine },
+];
+
 function NavLinks({ page, onPageChange }) {
   return (
     <nav className="scrollbar-none flex items-center gap-1 overflow-x-auto">
@@ -398,7 +408,7 @@ export default function PlatformShell({
             imgClassName="h-9 w-9"
           />
 
-          <div className="hidden min-w-0 flex-1 md:block">
+          <div className="hidden min-w-0 flex-1 lg:block">
             <NavLinks page={page} onPageChange={handlePageChange} />
           </div>
 
@@ -488,10 +498,44 @@ export default function PlatformShell({
         </button>
       )}
 
-      <main className="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
+      <main className="mx-auto w-full max-w-[1600px] px-3 py-4 pb-28 sm:px-6 sm:py-5 lg:px-8 lg:pb-5">
         {children}
       </main>
-      <SiteFooter onNavigate={handlePageChange} onOpenChat={onOpenChat} />
+      <div className="pb-24 lg:pb-0">
+        <SiteFooter onNavigate={handlePageChange} onOpenChat={onOpenChat} />
+      </div>
+
+      {!mobileNavOpen ? (
+        <nav
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#070b14]/95 backdrop-blur-xl lg:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          aria-label="Mobile menu"
+        >
+          <div className="flex snap-x snap-mandatory items-stretch gap-0.5 overflow-x-auto px-1.5 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {BOTTOM_NAV.map((item) => {
+              const Icon = item.icon;
+              const active = page === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => handlePageChange(item.key)}
+                  className={`flex min-h-[3.4rem] min-w-[4.75rem] flex-1 snap-start flex-col items-center justify-center gap-0.5 rounded-2xl px-1.5 py-1.5 text-[10px] font-semibold leading-tight transition active:scale-95 sm:min-w-[5.5rem] sm:text-[11px] ${
+                    active
+                      ? "bg-cyan-500/15 text-cyan-200"
+                      : "text-slate-400 active:bg-white/5"
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 ${active ? "text-cyan-300" : ""}`} />
+                  <span className="max-w-[4.6rem] text-center sm:max-w-none">
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      ) : null}
     </div>
   );
 }
