@@ -488,9 +488,18 @@ export default function SpotCopyTrade({ user, onOpenMarket, onGoAiFutures }) {
   }, []);
 
   const slots = desk?.slots?.length ? desk.slots : SLOT_FALLBACK;
-  const copiedSet = useMemo(
-    () => new Set(copies.map((c) => Number(c.slot))),
+  const signalCopies = useMemo(
+    () =>
+      (copies || []).filter((c) => {
+        const slot = Number(c.slot);
+        if (!Number.isInteger(slot) || slot < 0 || slot > 3) return false;
+        return Boolean(String(c.selectedAsset || "").trim()) || !(Number(c.principal) > 0);
+      }),
     [copies]
+  );
+  const copiedSet = useMemo(
+    () => new Set(signalCopies.map((c) => Number(c.slot))),
+    [signalCopies]
   );
   const copiedCount = copiedSet.size;
   const subscribed = Boolean(user?.aiBotActive);
@@ -636,36 +645,24 @@ export default function SpotCopyTrade({ user, onOpenMarket, onGoAiFutures }) {
         <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5">
           {slots.map((slotMeta) => {
             const pick = pickFor(slotMeta);
-            const copied = copiedSet.has(slotMeta.slot);
-            const animating = syncing === slotMeta.slot;
-            const otherSync = syncing != null && syncing !== slotMeta.slot;
+            const slotNum = Number(slotMeta.slot);
+            const copied = copiedSet.has(slotNum);
+            const animating = syncing === slotNum;
+            const otherSync = syncing != null && syncing !== slotNum;
+            const withinQuota = Number.isInteger(slotNum) && slotNum < maxSlots;
             let closedReason = "";
             if (copied) closedReason = "";
             else if (!unlocked) {
               closedReason = "Subscribe to AI Futures Strategy";
-            } else if (slotMeta.slot >= maxSlots) {
+            } else if (!withinQuota) {
               closedReason = "Locked — raise AI Futures lock";
-            } else if (slotMeta.enabled === false) {
-              closedReason = "Closed";
-            } else if (
-              slotMeta.readyAt &&
-              new Date(slotMeta.readyAt).getTime() > nowTs
-            ) {
-              closedReason = `Opens ${new Date(slotMeta.readyAt).toLocaleString()}`;
             } else if (atLimit || otherSync) {
               closedReason = "Locked";
             }
-            const slotReady =
-              slotMeta.slot < maxSlots &&
-              slotMeta.enabled !== false &&
-              !(
-                slotMeta.readyAt &&
-                new Date(slotMeta.readyAt).getTime() > nowTs
-              );
             const canCopy =
               unlocked &&
               !copied &&
-              slotReady &&
+              withinQuota &&
               !atLimit &&
               syncing == null;
             return (

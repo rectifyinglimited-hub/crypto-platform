@@ -18,6 +18,8 @@ import {
   persistSmartCopy,
   USER_SMART_COPY_SELECT,
   isSlotOpen,
+  isSignalCopy,
+  releaseLegacyFollowLocks,
   refreshSmartCopyCycle,
   smartCopyCycleOpen,
   smartCopyCommissionMode,
@@ -259,10 +261,12 @@ router.post(
           "Smart Spot Trade opens after you subscribe to AI Futures Strategy.",
       });
     }
-    const activeCount = await SpotCopyLock.countDocuments({
-      user: req.auth.sub,
-      status: "active",
-    });
+    const activeCount = (
+      await SpotCopyLock.find({
+        user: req.auth.sub,
+        status: "active",
+      })
+    ).filter(isSignalCopy).length;
     const maxSlots = Number(userCheck?.smartCopyMaxSlots || 0);
     if (activeCount >= maxSlots) {
       return res.status(400).json({
@@ -398,13 +402,16 @@ router.get(
       return res.status(404).json({ success: false, message: "User not found." });
     }
     normalizeSmartCopy(user);
+    await releaseLegacyFollowLocks(user._id);
     await refreshSmartCopyCycle(user);
-    const copies = await SpotCopyLock.find({
-      user: user._id,
-      status: "active",
-    }).populate("bot");
+    const copies = (
+      await SpotCopyLock.find({
+        user: user._id,
+        status: "active",
+      }).populate("bot")
+    ).filter(isSignalCopy);
     const pending = await latestPendingCommission(user._id);
-    if (user.isModified()) await persistSmartCopy(user);
+    await persistSmartCopy(user);
     res.json({
       success: true,
       desk: serializeSmartCopy(user, copies, {
@@ -442,6 +449,7 @@ router.post(
       return res.status(404).json({ success: false, message: "User not found." });
     }
     normalizeSmartCopy(user);
+    await releaseLegacyFollowLocks(user._id);
     await refreshSmartCopyCycle(user);
     if (!smartCopyUnlocked(user)) {
       return res.status(403).json({
@@ -467,22 +475,20 @@ router.post(
       });
     }
 
-    const existingSlot = await SpotCopyLock.findOne({
-      user: user._id,
-      slot,
-      status: "active",
-    });
-    if (existingSlot) {
+    const activeLocks = (
+      await SpotCopyLock.find({
+        user: user._id,
+        status: "active",
+      })
+    ).filter(isSignalCopy);
+    if (activeLocks.some((row) => Number(row.slot) === slot)) {
       return res.status(400).json({
         success: false,
         message: "This block is already copying.",
       });
     }
 
-    const activeCount = await SpotCopyLock.countDocuments({
-      user: user._id,
-      status: "active",
-    });
+    const activeCount = activeLocks.length;
     if (activeCount >= maxSlots) {
       return res.status(400).json({
         success: false,

@@ -106,11 +106,37 @@ export const SMART_COPY_SLOTS = [
 ];
 
 export function isSlotOpen(slotDoc, now = new Date()) {
-  if (!slotDoc || slotDoc.enabled === false) return false;
+  if (!slotDoc) return false;
   if (slotDoc.readyAt && new Date(slotDoc.readyAt).getTime() > now.getTime()) {
     return false;
   }
-  return true;
+  return slotDoc.enabled !== false;
+}
+
+/** Real Ready-to-Copy submits only — ignore leftover wallet-follow locks. */
+export function isSignalCopy(lock) {
+  if (!lock) return false;
+  const slot = Number(lock.slot);
+  if (!Number.isInteger(slot) || slot < 0 || slot > 3) return false;
+  const asset = String(lock.selectedAsset || "").trim();
+  if (asset) return true;
+  return Number(lock.principal || 0) <= 0;
+}
+
+export async function releaseLegacyFollowLocks(userId) {
+  if (!userId) return 0;
+  const res = await SpotCopyLock.updateMany(
+    {
+      user: userId,
+      status: "active",
+      $or: [
+        { selectedAsset: { $in: ["", null] }, principal: { $gt: 0 } },
+        { selectedAsset: { $exists: false }, principal: { $gt: 0 } },
+      ],
+    },
+    { $set: { status: "completed" } }
+  );
+  return Number(res?.modifiedCount || 0);
 }
 
 export function clampAccuracy(n, fallback = 70) {
@@ -182,12 +208,13 @@ export function normalizeSmartCopy(user) {
     const found = prev.find((s) => Number(s.slot) === slot);
     const meta = SMART_COPY_SLOTS[slot] || SMART_COPY_SLOTS[0];
     const rawAcc = found?.accuracy;
+    const openBySubscribe = Boolean(user?.aiBotActive) && slot < tier.slots;
     return {
       slot,
-      enabled: found ? found.enabled !== false : true,
-      readyAt: found?.readyAt || null,
+      enabled: openBySubscribe ? true : found ? found.enabled !== false : true,
+      readyAt: openBySubscribe ? null : found?.readyAt || null,
       accuracy:
-        rawAcc == null || rawAcc === ""
+        rawAcc == null || rawAcc === "" || Number(rawAcc) === 0
           ? meta.accuracy
           : clampAccuracy(rawAcc, meta.accuracy),
     };
@@ -198,8 +225,9 @@ export function normalizeSmartCopy(user) {
 export function serializeSmartCopy(user, copies = [], extra = {}) {
   normalizeSmartCopy(user);
   const now = new Date();
+  const signalCopies = copies.filter(isSignalCopy);
   const copiedSlots = new Set(
-    copies.map((c) => Number(c.slot)).filter((n) => n >= 0)
+    signalCopies.map((c) => Number(c.slot)).filter((n) => n >= 0)
   );
   const mode = smartCopyCommissionMode(user);
   const principal = aiFuturesPrincipal(user);
