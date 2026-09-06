@@ -28,6 +28,8 @@ export default function AccountSettings({
   onOpenKyc,
 }) {
   const [fullName, setFullName] = useState(user?.fullName || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [address, setAddress] = useState(user?.address || "");
   const [trc20, setTrc20] = useState(user?.trc20Address || "");
   const [trc20Confirm, setTrc20Confirm] = useState("");
   const [saving, setSaving] = useState(false);
@@ -36,16 +38,22 @@ export default function AccountSettings({
 
   useEffect(() => {
     setFullName(user?.fullName || "");
+    setPhone(user?.phone || "");
+    setAddress(user?.address || "");
     setTrc20("");
     setTrc20Confirm("");
-  }, [user?.fullName, user?.trc20Address]);
+  }, [user?.fullName, user?.phone, user?.address, user?.trc20Address]);
 
   const persistProfile = async ({
     nextName = fullName.trim(),
+    nextPhone = phone.trim(),
+    nextAddress = address.trim(),
     nextTrc20,
   }) => {
     const res = await AuthAPI.updateProfile({
       fullName: nextName,
+      phone: nextPhone,
+      address: nextAddress,
       trc20Address: nextTrc20,
       trc20AddressConfirm: nextTrc20,
       avatar: user?.avatar || null,
@@ -136,8 +144,8 @@ export default function AccountSettings({
           <div>
             <div className="text-sm font-semibold text-white">Account Setting</div>
             <p className="mt-0.5 text-xs text-slate-500">
-              Name, TRC-20 withdrawal wallet, and password. Confirm each change
-              before it saves.
+              Name, email, phone, address, TRC-20 wallet, and password. Confirm
+              each change before it saves.
             </p>
           </div>
         </div>
@@ -155,6 +163,47 @@ export default function AccountSettings({
             />
             {errors.fullName ? (
               <p className="mt-1 text-[11px] text-rose-400">{errors.fullName}</p>
+            ) : null}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              Email
+            </label>
+            <input
+              value={user?.email || ""}
+              readOnly
+              className={`${inputCls} cursor-default text-slate-300`}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              Phone number
+            </label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={inputCls}
+              placeholder="e.g. +92 300 1234567"
+            />
+            {errors.phone ? (
+              <p className="mt-1 text-[11px] text-rose-400">{errors.phone}</p>
+            ) : null}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              Address
+            </label>
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className={inputCls}
+              placeholder="Street, city, country"
+            />
+            {errors.address ? (
+              <p className="mt-1 text-[11px] text-rose-400">{errors.address}</p>
             ) : null}
           </div>
 

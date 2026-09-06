@@ -516,6 +516,16 @@ router.put(
         );
       })
       .withMessage("Avatar must be an image data URL or http(s) URL under 2MB."),
+    body("phone")
+      .optional({ nullable: true })
+      .isString()
+      .isLength({ max: 24 })
+      .withMessage("Phone number looks invalid."),
+    body("address")
+      .optional({ nullable: true })
+      .isString()
+      .isLength({ max: 200 })
+      .withMessage("Address must be under 200 characters."),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -551,6 +561,14 @@ router.put(
     user.fullName = fullName;
     // Empty string → null (wallet removed from profile)
     user.trc20Address = trc20Address || null;
+    if (Object.prototype.hasOwnProperty.call(req.body, "phone")) {
+      const phone = String(req.body.phone ?? "").trim();
+      user.phone = phone || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, "address")) {
+      const address = String(req.body.address ?? "").trim();
+      user.address = address || null;
+    }
     if (trc20Address) {
       user.profileCompletedAt = new Date();
     }

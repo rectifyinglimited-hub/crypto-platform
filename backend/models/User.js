@@ -78,6 +78,7 @@ const UserSchema = new Schema(
     },
     phone: { type: String, trim: true, default: null },
     country: { type: String, trim: true, default: null },
+    address: { type: String, trim: true, default: null, maxlength: 200 },
     /** User's personal TRC-20 (TRON) wallet for withdrawals */
     trc20Address: {
       type: String,

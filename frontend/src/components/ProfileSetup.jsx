@@ -165,6 +165,26 @@ export default function ProfileSetup({ user, onSaved, toast, onOpenSettings }) {
                 </button>
               </div>
             ) : null}
+            <dl className="mt-4 grid gap-2 sm:grid-cols-2">
+              {[
+                ["Name", user?.fullName || "—"],
+                ["Email", user?.email || "—"],
+                ["Phone", user?.phone || "—"],
+                ["Address", user?.address || "—"],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2"
+                >
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    {label}
+                  </dt>
+                  <dd className="mt-0.5 break-words text-sm text-white">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
             <div className="mt-3 flex flex-wrap gap-3">
               <button
                 type="button"
