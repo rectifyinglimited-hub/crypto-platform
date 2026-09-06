@@ -256,7 +256,7 @@ router.post(
       return res.status(403).json({
         success: false,
         message:
-          "Smart Spot Trade opens after you buy AI Futures Strategy ($500 unlocks 1 block).",
+          "Smart Spot Trade opens after you subscribe to AI Futures Strategy.",
       });
     }
     const activeCount = await SpotCopyLock.countDocuments({
@@ -447,7 +447,7 @@ router.post(
       return res.status(403).json({
         success: false,
         message:
-          "Smart Spot Trade opens after you buy AI Futures Strategy. $500 unlocks 1 block, $1000 → 2, $2000 → 3, $3000+ → 4.",
+          "Smart Spot Trade opens after you subscribe to AI Futures Strategy.",
       });
     }
     const maxSlots = Number(user.smartCopyMaxSlots || 0);

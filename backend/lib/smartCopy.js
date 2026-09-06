@@ -44,16 +44,26 @@ export function aiFuturesPrincipal(user) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+const LOCKED_TIER = { minPrincipal: 0, slots: 0, autoRate: 0 };
+const SUBSCRIBED_TIER = { minPrincipal: 0, slots: 1, autoRate: 1.0 };
+
 export function smartCopyTier(principal) {
   const p = Number(principal) || 0;
   for (const t of SMART_COPY_TIERS) {
     if (p >= t.minPrincipal) return t;
   }
-  return { minPrincipal: 0, slots: 0, autoRate: 0 };
+  return LOCKED_TIER;
+}
+
+/** Subscribe to AI Futures → at least 1 block. Larger locks open more. */
+export function smartCopyTierForUser(user) {
+  if (!user?.aiBotActive) return LOCKED_TIER;
+  const tier = smartCopyTier(aiFuturesPrincipal(user));
+  return tier.slots > 0 ? tier : SUBSCRIBED_TIER;
 }
 
 export function smartCopyUnlocked(user) {
-  return smartCopyTier(aiFuturesPrincipal(user)).slots > 0;
+  return Boolean(user?.aiBotActive);
 }
 
 export const SMART_COPY_SLOTS = [
@@ -114,7 +124,7 @@ export function smartCopyCommissionMode(user) {
 }
 
 export function smartCopyAutoRate(user) {
-  return smartCopyTier(aiFuturesPrincipal(user)).autoRate;
+  return smartCopyTierForUser(user).autoRate;
 }
 
 export function smartCopyLiveRate(user) {
@@ -162,7 +172,7 @@ function walletUsdt(user) {
 }
 
 export function normalizeSmartCopy(user) {
-  const tier = smartCopyTier(aiFuturesPrincipal(user));
+  const tier = smartCopyTierForUser(user);
   user.smartCopyMaxSlots = tier.slots;
   if (user.smartCopyCommissionMode !== "auto" && user.smartCopyCommissionMode !== "manual") {
     user.smartCopyCommissionMode = "manual";
@@ -193,19 +203,19 @@ export function serializeSmartCopy(user, copies = [], extra = {}) {
   );
   const mode = smartCopyCommissionMode(user);
   const principal = aiFuturesPrincipal(user);
-  const tier = smartCopyTier(principal);
+  const tier = smartCopyTierForUser(user);
   const autoRate = tier.autoRate;
   const liveRate = smartCopyLiveRate(user);
   const usdt = walletUsdt(user);
   const last = user.smartCopyLastSubmitAt || null;
   const nextAt = smartCopyNextSubmitAt(user);
   const canClaim = smartCopyCycleOpen(user, now);
-  const unlocked = tier.slots > 0;
+  const unlocked = Boolean(user?.aiBotActive);
   const maxSlots = tier.slots;
   const base = principal > 0 ? principal : 0;
   return {
     unlocked,
-    requiredPrincipal: 500,
+    requiredPrincipal: 0,
     aiPrincipal: principal,
     maxSlots,
     commissionMode: mode,

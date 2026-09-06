@@ -1362,6 +1362,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           {page === "spotcopy" && (
             <SpotCopyTrade
               key="spotcopy"
+              user={me}
               onToast={say}
               onWalletUpdate={handleUserUpdate}
               walletUsdt={walletUsdt}

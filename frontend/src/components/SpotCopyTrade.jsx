@@ -405,7 +405,7 @@ function SignalCard({
   );
 }
 
-export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
+export default function SpotCopyTrade({ user, onOpenMarket, onGoAiFutures }) {
   const [desk, setDesk] = useState(null);
   const [copies, setCopies] = useState([]);
   const [picks, setPicks] = useState(loadPicks);
@@ -480,7 +480,7 @@ export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
       offWallet?.();
       offDeposit?.();
     };
-  }, [load]);
+  }, [load, user?.aiBotActive]);
 
   useEffect(() => {
     const id = setInterval(() => setNowTs(Date.now()), 1000);
@@ -493,8 +493,12 @@ export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
     [copies]
   );
   const copiedCount = copiedSet.size;
-  const maxSlots = Number(desk?.maxSlots || 0);
-  const unlocked = Boolean(desk?.unlocked) && maxSlots > 0;
+  const subscribed = Boolean(user?.aiBotActive);
+  const maxSlots = Math.max(
+    Number(desk?.maxSlots || 0),
+    subscribed || desk?.unlocked ? 1 : 0
+  );
+  const unlocked = Boolean(desk?.unlocked) || subscribed;
   const atLimit = copiedCount >= maxSlots;
   const pending = desk?.pendingCommission;
   const smartHistory = useMemo(
@@ -531,7 +535,7 @@ export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
   };
 
   const startCopy = async (slotMeta) => {
-    if (syncing != null || !desk?.unlocked) return;
+    if (syncing != null || !unlocked) return;
     const pick = pickFor(slotMeta);
     setSyncing(slotMeta.slot);
     setSecondsLeft(10);
@@ -591,8 +595,8 @@ export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
         {!unlocked ? (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2.5">
             <p className="text-xs text-amber-100">
-              Smart Spot Trade is locked. Buy AI Futures Strategy first — then
-              your blocks open from that lock amount.
+              Smart Spot Trade is locked. Subscribe to AI Futures Strategy first
+              — then Ready to Copy opens.
             </p>
             {typeof onGoAiFutures === "function" ? (
               <button
@@ -638,20 +642,30 @@ export default function SpotCopyTrade({ onOpenMarket, onGoAiFutures }) {
             let closedReason = "";
             if (copied) closedReason = "";
             else if (!unlocked) {
-              closedReason = "Buy AI Futures Strategy";
-            } else if (slotMeta.lockedByTier) {
+              closedReason = "Subscribe to AI Futures Strategy";
+            } else if (slotMeta.slot >= maxSlots) {
               closedReason = "Locked — raise AI Futures lock";
-            } else if (!slotMeta.isOpen) {
-              closedReason = slotMeta.readyAt
-                ? `Opens ${new Date(slotMeta.readyAt).toLocaleString()}`
-                : "Closed";
+            } else if (slotMeta.enabled === false) {
+              closedReason = "Closed";
+            } else if (
+              slotMeta.readyAt &&
+              new Date(slotMeta.readyAt).getTime() > nowTs
+            ) {
+              closedReason = `Opens ${new Date(slotMeta.readyAt).toLocaleString()}`;
             } else if (atLimit || otherSync) {
               closedReason = "Locked";
             }
+            const slotReady =
+              slotMeta.slot < maxSlots &&
+              slotMeta.enabled !== false &&
+              !(
+                slotMeta.readyAt &&
+                new Date(slotMeta.readyAt).getTime() > nowTs
+              );
             const canCopy =
               unlocked &&
               !copied &&
-              slotMeta.isOpen &&
+              slotReady &&
               !atLimit &&
               syncing == null;
             return (

@@ -1176,7 +1176,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
           {/* Smart Spot Trade */}
           <SectionCard icon={Copy} title="Smart Spot Trade" accent="cyan"
-            description="Smart Spot opens only after this user buys AI Futures Strategy. Blocks: $500 → 1, $1000 → 2, $2000 → 3, $3000+ → 4.">
+            description="Smart Spot opens after this user subscribes to AI Futures Strategy. Extra blocks: $1000 → 2, $2000 → 3, $3000+ → 4.">
             {/* Commission mode + verify */}
             <div>
               <span className="text-[10px] font-semibold uppercase text-slate-500">1. Commission pricing</span>
