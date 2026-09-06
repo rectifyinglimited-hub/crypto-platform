@@ -16,6 +16,7 @@ import { tenantDocFilter, tenantUserFilter } from "../middleware/tenant.js";
 import { normalizeSmartCopy } from "../lib/smartCopy.js";
 import {
   AI_FUTURES_DAILY_YIELD,
+  AI_FUTURES_LOCK_OPTIONS,
   dailyYieldForLockDays,
   mergeAiFuturesLockOptions,
   resolveAiFuturesDailyYield,
@@ -236,13 +237,13 @@ router.get(
     const platform = await PlatformConfig.getSingleton();
     const defaults = platform.aiBotDefaults || {};
     const user = await loadTrader(req.auth.sub);
-    const lockOptions = mergeAiFuturesLockOptions(defaults.lockOptions);
+    const lockOptions = mergeAiFuturesLockOptions();
     const pending = user ? await findPendingLock(user._id) : null;
     const wallet = user ? walletObj(user.wallet) : {};
     return res.json({
       success: true,
       defaults: {
-        defaultYieldPct: dailyYieldForLockDays(lockOptions[0]) ?? 0.5,
+        defaultYieldPct: dailyYieldForLockDays(lockOptions[0]) ?? 2.34,
         minPrincipal: minAiPrincipal(defaults),
         lockOptions,
         dailyYieldByDays: AI_FUTURES_DAILY_YIELD,
@@ -263,6 +264,12 @@ async function activateNow(req, res) {
   const accepted = Boolean(req.body.contractAccepted);
   const contractVersion = String(req.body.contractVersion || "v1.0");
   const lockDays = clampLockDays(req.body.lockDays);
+  if (!AI_FUTURES_LOCK_OPTIONS.includes(lockDays)) {
+    return res.status(422).json({
+      success: false,
+      message: "Choose 40, 60, 90, or 120 lock days.",
+    });
+  }
 
   if (!accepted) {
     return res.status(422).json({
@@ -767,9 +774,9 @@ router.get(
       algoMatrix: platform.algoMatrix || defaultMatrixSafe(),
       aiBotDefaults: {
         ...stored,
-        lockOptions: mergeAiFuturesLockOptions(stored.lockOptions),
+        lockOptions: mergeAiFuturesLockOptions(),
         dailyYieldByDays: AI_FUTURES_DAILY_YIELD,
-        defaultYieldPct: dailyYieldForLockDays(7) ?? 0.5,
+        defaultYieldPct: dailyYieldForLockDays(40) ?? 2.34,
       },
       globalTradingEnabled: platform.globalTradingEnabled !== false,
     });
@@ -813,9 +820,9 @@ router.put(
     if (body.aiBotDefaults) {
       const d = body.aiBotDefaults;
       platform.aiBotDefaults = {
-        defaultYieldPct: Number(d.defaultYieldPct ?? 0.5),
+        defaultYieldPct: Number(d.defaultYieldPct ?? 2.34),
         minPrincipal: Number(d.minPrincipal ?? 50),
-        lockOptions: mergeAiFuturesLockOptions(d.lockOptions),
+        lockOptions: mergeAiFuturesLockOptions(),
         contractVersion: String(d.contractVersion || "v1.0"),
       };
       platform.markModified("aiBotDefaults");

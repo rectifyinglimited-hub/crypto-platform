@@ -8,6 +8,7 @@ import {
   ChevronDown,
   History,
   Loader2,
+  Lock,
   Search,
 } from "lucide-react";
 import { CopyBotAPI, SecondsTradeAPI, WalletAPI } from "../lib/api.js";
@@ -275,6 +276,9 @@ function SignalCard({
   } else if (animating) {
     actionLabel = "Submitting…";
     tone = "pending";
+  } else if (!canCopy) {
+    actionLabel = "Locked";
+    tone = "locked";
   }
 
   return (
@@ -373,13 +377,16 @@ function SignalCard({
                     ? "border-white/20 bg-white/10 text-white"
                     : tone === "pending"
                       ? "border-orange-400/30 bg-orange-500/15 text-orange-100"
-                      : "border-white/10 bg-black/40 text-white/55"
+                      : "border-amber-400/25 bg-black/40 text-amber-100/80"
               }`}
             >
               <span className="block text-[9px] uppercase tracking-wider text-white/45">
                 Action
               </span>
-              {actionLabel}
+              <span className="inline-flex items-center justify-center gap-1">
+                {tone === "locked" ? <Lock className="h-3 w-3" /> : null}
+                {actionLabel}
+              </span>
             </button>
           </div>
         </div>

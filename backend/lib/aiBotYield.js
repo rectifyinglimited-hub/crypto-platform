@@ -1,11 +1,9 @@
 /** Daily commission % of locked principal, by AI Futures lock days. */
 export const AI_FUTURES_DAILY_YIELD = [
-  { days: 7, pct: 0.5 },
-  { days: 15, pct: 0.8 },
-  { days: 30, pct: 1.16 },
   { days: 40, pct: 2.34 },
   { days: 60, pct: 4.64 },
   { days: 90, pct: 9 },
+  { days: 120, pct: 12 },
 ];
 
 export const AI_FUTURES_LOCK_OPTIONS = AI_FUTURES_DAILY_YIELD.map((r) => r.days);
@@ -41,9 +39,6 @@ export function resolveAiFuturesDailyYield(days, fallbackPct) {
   return dailyYieldForLockDays(days);
 }
 
-export function mergeAiFuturesLockOptions(stored) {
-  const extra = Array.isArray(stored)
-    ? stored.map(Number).filter((n) => Number.isFinite(n) && n > 0)
-    : [];
-  return [...new Set([...AI_FUTURES_LOCK_OPTIONS, ...extra])].sort((a, b) => a - b);
+export function mergeAiFuturesLockOptions() {
+  return [...AI_FUTURES_LOCK_OPTIONS];
 }

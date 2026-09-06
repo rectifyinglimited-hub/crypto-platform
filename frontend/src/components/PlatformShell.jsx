@@ -26,6 +26,7 @@ import {
   Copy,
   History,
   Settings,
+  Lock,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 import BrandLogo from "./BrandLogo.jsx";
@@ -35,9 +36,9 @@ import { publicUid } from "../lib/userUid.js";
 const MAIN_MENU = [
   { key: "home", label: "Home", icon: Home },
   { key: "market", label: "Market", icon: LineChart },
-  { key: "trade", label: "Trade", icon: CandlestickChart },
-  { key: "spotcopy", label: "Smart Spot Trade", icon: Copy },
   { key: "aibot", label: "AI Futures Strategy", icon: Bot },
+  { key: "spotcopy", label: "Smart Spot Trade", icon: Copy },
+  { key: "trade", label: "Trade", icon: CandlestickChart },
   { key: "assets", label: "History", icon: History },
 ];
 
@@ -58,14 +59,46 @@ const COMPANY_LINKS = [
 /** Mobile + tablet quick bar — swipe sideways to see every item. */
 const BOTTOM_NAV = [
   { key: "home", label: "Home", icon: Home },
-  { key: "trade", label: "Trade", icon: CandlestickChart },
-  { key: "spotcopy", label: "Smart Spot", icon: Copy },
   { key: "aibot", label: "AI Futures", icon: Bot },
+  { key: "spotcopy", label: "Smart Spot", icon: Copy },
+  { key: "trade", label: "Trade", icon: CandlestickChart },
   { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
   { key: "withdraw", label: "Withdraw", icon: ArrowUpFromLine },
 ];
 
-function NavLinks({ page, onPageChange }) {
+function aiFuturesSubscribed(user) {
+  return Boolean(user?.aiBotActive);
+}
+
+function SubscribeBlink({ compact = false }) {
+  return (
+    <span
+      className={`nx-subscribe-blink inline-flex items-center rounded-full border border-[#00C2B3]/60 bg-[#00C2B3] font-extrabold uppercase tracking-wide text-[#042422] ${
+        compact
+          ? "px-1 py-px text-[7px]"
+          : "px-1.5 py-0.5 text-[8px] sm:text-[9px]"
+      }`}
+    >
+      Subscribe
+    </span>
+  );
+}
+
+function MenuFlags({ itemKey, subscribed, compact = false }) {
+  if (itemKey === "aibot" && !subscribed) {
+    return <SubscribeBlink compact={compact} />;
+  }
+  if (itemKey === "spotcopy" && !subscribed) {
+    return (
+      <Lock
+        className={compact ? "h-3 w-3 text-amber-300" : "h-3.5 w-3.5 text-amber-300"}
+      />
+    );
+  }
+  return null;
+}
+
+function NavLinks({ page, onPageChange, subscribed }) {
   return (
     <nav className="scrollbar-none flex items-center gap-1 overflow-x-auto">
       {MAIN_MENU.map((item) => {
@@ -84,6 +117,7 @@ function NavLinks({ page, onPageChange }) {
           >
             <Icon className="h-4 w-4" />
             {item.label}
+            <MenuFlags itemKey={item.key} subscribed={subscribed} />
             {item.badge ? (
               <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
                 {item.badge}
@@ -96,7 +130,7 @@ function NavLinks({ page, onPageChange }) {
   );
 }
 
-function DrawerNavItem({ item, page, onGo }) {
+function DrawerNavItem({ item, page, onGo, subscribed }) {
   const Icon = item.icon;
   const active = page === item.key;
   const highlight = item.key === "vip" || item.key === "referral";
@@ -126,6 +160,7 @@ function DrawerNavItem({ item, page, onGo }) {
         <Icon className="h-4 w-4" />
       </span>
       <span className="flex-1">{item.label}</span>
+      <MenuFlags itemKey={item.key} subscribed={subscribed} />
       {item.badge ? (
         <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
           {item.badge}
@@ -151,6 +186,9 @@ function MobileDrawer({
   const displayName =
     user?.fullName || user?.username || user?.email?.split("@")[0] || "Trader";
   const uid = publicUid(user);
+  const subscribed = aiFuturesSubscribed(user);
+  const userId = user?._id || user?.id || "";
+  const [showAiPop, setShowAiPop] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -160,6 +198,33 @@ function MobileDrawer({
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open || subscribed || !userId) {
+      setShowAiPop(false);
+      return;
+    }
+    try {
+      if (localStorage.getItem(`equiti:ai-futures-menu-pop:${userId}`)) {
+        setShowAiPop(false);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    setShowAiPop(true);
+  }, [open, subscribed, userId]);
+
+  const dismissAiPop = () => {
+    try {
+      if (userId) {
+        localStorage.setItem(`equiti:ai-futures-menu-pop:${userId}`, "1");
+      }
+    } catch {
+      /* ignore */
+    }
+    setShowAiPop(false);
+  };
 
   const go = (key) => {
     onPageChange?.(key);
@@ -214,6 +279,37 @@ function MobileDrawer({
             </div>
 
             <div className="relative flex h-full flex-col">
+              {showAiPop ? (
+                <div className="absolute inset-0 z-[80] flex items-end bg-black/65 p-3 backdrop-blur-[2px] sm:items-center">
+                  <div className="w-full rounded-2xl border border-[#00C2B3]/35 bg-[#0b1220] p-4 shadow-2xl shadow-black/50">
+                    <div className="flex items-center gap-2 text-sm font-bold text-[#00C2B3]">
+                      <Bot className="h-5 w-5" />
+                      AI Futures Strategy
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                      Subscribe to unlock Smart Spot Trade. Until then you can
+                      look at Smart Spot, but Ready / Submitted stays locked.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        dismissAiPop();
+                        go("aibot");
+                      }}
+                      className="mt-4 w-full rounded-xl bg-[#00C2B3] py-2.5 text-sm font-bold text-[#042422]"
+                    >
+                      Subscribe now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={dismissAiPop}
+                      className="mt-2 w-full rounded-xl border border-white/10 py-2 text-xs font-semibold text-slate-400"
+                    >
+                      Later
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between gap-2 border-b border-white/8 px-4 py-3.5">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <BrandLogo />
@@ -268,7 +364,13 @@ function MobileDrawer({
                   Main Menu
                 </div>
                 {MAIN_MENU.map((item) => (
-                  <DrawerNavItem key={item.key} item={item} page={page} onGo={go} />
+                  <DrawerNavItem
+                    key={item.key}
+                    item={item}
+                    page={page}
+                    onGo={go}
+                    subscribed={subscribed}
+                  />
                 ))}
 
                 <div className="mb-1.5 mt-4 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -377,6 +479,7 @@ export default function PlatformShell({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const kycApproved = user?.kyc?.status === "approved";
   const uid = publicUid(user);
+  const subscribed = aiFuturesSubscribed(user);
 
   const handlePageChange = (key) => {
     onPageChange?.(key);
@@ -411,7 +514,11 @@ export default function PlatformShell({
           />
 
           <div className="hidden min-w-0 flex-1 lg:block">
-            <NavLinks page={page} onPageChange={handlePageChange} />
+            <NavLinks
+              page={page}
+              onPageChange={handlePageChange}
+              subscribed={subscribed}
+            />
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
@@ -528,9 +635,17 @@ export default function PlatformShell({
                       : "text-slate-400 active:bg-white/5"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${active ? "text-cyan-300" : ""}`} />
-                  <span className="w-full truncate text-center">
+                  <span className="relative">
+                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${active ? "text-cyan-300" : ""}`} />
+                    {item.key === "spotcopy" && !subscribed ? (
+                      <Lock className="absolute -right-2 -top-1 h-2.5 w-2.5 text-amber-300" />
+                    ) : null}
+                  </span>
+                  <span className="flex w-full flex-col items-center truncate text-center">
                     {item.label}
+                    {item.key === "aibot" && !subscribed ? (
+                      <SubscribeBlink compact />
+                    ) : null}
                   </span>
                 </button>
               );

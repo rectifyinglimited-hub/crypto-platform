@@ -42,7 +42,7 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "4. Yield & Daily Profit Display",
-    body: `Daily commission is a percentage of locked principal and is assigned automatically from the lock days you choose (7d 0.5%, 15d 0.8%, 30d 1.16%, 40d 2.34%, 60d 4.64%, 90d 9%). Accrued amounts become claimable only after the lock end date if the contract remains active.`,
+    body: `Daily commission is a percentage of locked principal and is assigned automatically from the lock days you choose (40d 2.34%, 60d 4.64%, 90d 9%, 120d 12%). Accrued amounts become claimable only after the lock end date if the contract remains active.`,
   },
   {
     title: "5. Early Cancellation Penalty",
@@ -184,7 +184,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [lockDays, setLockDays] = useState(7);
+  const [lockDays, setLockDays] = useState(40);
   const [principal, setPrincipal] = useState("300");
   const [agreed, setAgreed] = useState(false);
   const [scrolledEnd, setScrolledEnd] = useState(false);
@@ -212,13 +212,18 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
       if (res.wallet && typeof res.wallet.USDT === "number") {
         setWalletUsdt(Number(res.wallet.USDT));
       }
-      const suggested =
+      const suggested = Number(
         res.bot?.pendingRequest?.requestedDays ||
-        res.bot?.aiBotAssignedLockDays ||
-        res.defaults?.lockOptions?.[0] ||
-        AI_FUTURES_LOCK_OPTIONS[0] ||
-        7;
-      setLockDays(Number(suggested) || 30);
+          res.bot?.aiBotAssignedLockDays ||
+          res.defaults?.lockOptions?.[0] ||
+          AI_FUTURES_LOCK_OPTIONS[0] ||
+          40
+      );
+      setLockDays(
+        AI_FUTURES_LOCK_OPTIONS.includes(suggested)
+          ? suggested
+          : AI_FUTURES_LOCK_OPTIONS[0]
+      );
     } catch (err) {
       toastRef.current?.("error", err?.message || "Failed to load AI Bot config.");
     } finally {
@@ -374,8 +379,12 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
         contractVersion: config?.contractVersion || "v1.0",
       });
       setBot(res.bot);
+      onWalletUpdate?.({
+        wallet: res.wallet,
+        aiBotActive: !!res.bot?.aiBotActive,
+        aiBotPrincipal: res.bot?.aiBotPrincipal,
+      });
       if (res.wallet) {
-        onWalletUpdate?.({ wallet: res.wallet });
         setWalletUsdt(Number(res.wallet.USDT || 0));
       }
       toastRef.current?.("success", res.message || "AI Futures started.");
@@ -394,7 +403,11 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
     try {
       const res = await AiBotAPI.claim();
       setBot(res.bot);
-      if (res.wallet) onWalletUpdate?.({ wallet: res.wallet });
+      onWalletUpdate?.({
+        wallet: res.wallet,
+        aiBotActive: !!res.bot?.aiBotActive,
+        aiBotPrincipal: res.bot?.aiBotPrincipal,
+      });
       toastRef.current?.("success", res.message || "Claimed.");
     } catch (err) {
       toastRef.current?.("error", err?.message || "Claim failed.");
@@ -408,7 +421,11 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
     try {
       const res = await AiBotAPI.cancel();
       setBot(res.bot);
-      if (res.wallet) onWalletUpdate?.({ wallet: res.wallet });
+      onWalletUpdate?.({
+        wallet: res.wallet,
+        aiBotActive: !!res.bot?.aiBotActive,
+        aiBotPrincipal: res.bot?.aiBotPrincipal,
+      });
       toastRef.current?.("success", res.message || "Cancelled.");
       setCancelOpen(false);
     } catch (err) {
@@ -557,11 +574,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                 Lock duration (days)
               </span>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {(config?.lockOptions?.length
-                  ? config.lockOptions
-                  : AI_FUTURES_LOCK_OPTIONS
-                ).map(
-                  (d) => (
+                {AI_FUTURES_LOCK_OPTIONS.map((d) => (
                     <button
                       key={d}
                       type="button"
@@ -575,17 +588,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                     >
                       {d}d
                     </button>
-                  )
-                )}
+                ))}
               </div>
-              <input
-                type="number"
-                min={1}
-                max={3650}
-                value={lockDays}
-                onChange={(e) => setLockDays(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-[#070a12] px-3 py-2.5 text-sm text-white"
-              />
               <div className="mt-1 text-[11px] text-slate-500">
                 Wallet {fmtUsd(walletUsdt)} · starts instantly at confirm
               </div>

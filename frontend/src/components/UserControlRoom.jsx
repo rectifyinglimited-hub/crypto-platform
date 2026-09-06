@@ -1103,7 +1103,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               ))}
             </div>
             <p className="mt-2 text-[10px] text-slate-500">
-              Daily commission auto: 7d 0.5% · 15d 0.8% · 30d 1.16% · 40d 2.34% · 60d 4.64% · 90d 9%
+              Daily commission auto: 40d 2.34% · 60d 4.64% · 90d 9% · 120d 12%
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <label className="block">
