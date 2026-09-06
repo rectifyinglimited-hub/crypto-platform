@@ -6,6 +6,7 @@ import { Camera, Copy, UserRound } from "lucide-react";
 import { AuthAPI } from "../lib/api.js";
 import { publicUid } from "../lib/userUid.js";
 import BalanceTrendCard from "./BalanceTrendCard.jsx";
+import StrategyBalanceCards from "./StrategyBalanceCards.jsx";
 
 const AVATAR_MAX_BYTES = 900_000;
 
@@ -209,6 +210,7 @@ export default function ProfileSetup({ user, onSaved, toast, onOpenSettings }) {
       </div>
 
       <BalanceTrendCard user={user} />
+      <StrategyBalanceCards user={user} />
     </div>
   );
 }
