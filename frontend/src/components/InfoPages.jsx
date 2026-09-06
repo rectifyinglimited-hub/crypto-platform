@@ -381,25 +381,19 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
         </div>
       </section>
 
-      {/* Social */}
+      {/* Social — icons only, one landscape row on every screen */}
       <section>
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
-          Social channels
-        </p>
-        <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
-          Find us on social
-        </h2>
-        <div className="mt-8 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-6 gap-1.5 sm:gap-3">
           {SOCIAL_LINKS.map((s) => (
             <a
               key={s.id}
               href={s.href}
               target="_blank"
               rel="noreferrer"
-              className="flex min-h-[100px] flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] text-sm font-bold text-white transition hover:border-[#00C2B3]/40 hover:text-[#00C2B3]"
+              className="flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-1 py-3 text-[10px] font-bold text-white transition hover:border-[#00C2B3]/40 hover:text-[#00C2B3] sm:min-h-[100px] sm:rounded-2xl sm:gap-2 sm:text-sm"
             >
               <span className="text-[#00C2B3]">{s.label.slice(0, 1)}</span>
-              {s.label}
+              <span className="truncate">{s.label}</span>
             </a>
           ))}
         </div>

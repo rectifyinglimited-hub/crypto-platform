@@ -295,59 +295,61 @@ function MobileDrawer({
                 <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                   Account
                 </div>
-                <button
-                  type="button"
-                  onClick={() => go("account")}
-                  className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${
-                    page === "account"
-                      ? "bg-cyan-500/15 text-cyan-300"
-                      : "text-slate-300 active:bg-white/5"
-                  }`}
-                >
-                  <span
-                    className={`grid h-9 w-9 place-items-center rounded-xl ${
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => go("account")}
+                    className={`flex flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-3 text-center text-[10px] font-semibold leading-tight sm:text-xs ${
                       page === "account"
-                        ? "bg-cyan-400/20 text-cyan-300"
-                        : "bg-white/[0.04] text-slate-400"
+                        ? "bg-cyan-500/15 text-cyan-300"
+                        : "text-slate-300 active:bg-white/5"
                     }`}
                   >
-                    <UserRound className="h-4 w-4" />
-                  </span>
-                  Profile
-                </button>
-                <button
-                  type="button"
-                  onClick={() => go("settings")}
-                  className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${
-                    page === "settings"
-                      ? "bg-cyan-500/15 text-cyan-300"
-                      : "text-slate-300 active:bg-white/5"
-                  }`}
-                >
-                  <span
-                    className={`grid h-9 w-9 place-items-center rounded-xl ${
+                    <span
+                      className={`grid h-9 w-9 place-items-center rounded-xl ${
+                        page === "account"
+                          ? "bg-cyan-400/20 text-cyan-300"
+                          : "bg-white/[0.04] text-slate-400"
+                      }`}
+                    >
+                      <UserRound className="h-4 w-4" />
+                    </span>
+                    Profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => go("settings")}
+                    className={`flex flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-3 text-center text-[10px] font-semibold leading-tight sm:text-xs ${
                       page === "settings"
-                        ? "bg-cyan-400/20 text-cyan-300"
-                        : "bg-white/[0.04] text-slate-400"
+                        ? "bg-cyan-500/15 text-cyan-300"
+                        : "text-slate-300 active:bg-white/5"
                     }`}
                   >
-                    <Settings className="h-4 w-4" />
-                  </span>
-                  Account Setting
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onLogout?.();
-                    onClose?.();
-                  }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-300/90 active:bg-rose-500/10"
-                >
-                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/10 text-rose-300">
-                    <LogOut className="h-4 w-4" />
-                  </span>
-                  Sign out
-                </button>
+                    <span
+                      className={`grid h-9 w-9 place-items-center rounded-xl ${
+                        page === "settings"
+                          ? "bg-cyan-400/20 text-cyan-300"
+                          : "bg-white/[0.04] text-slate-400"
+                      }`}
+                    >
+                      <Settings className="h-4 w-4" />
+                    </span>
+                    Setting
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onLogout?.();
+                      onClose?.();
+                    }}
+                    className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-3 text-center text-[10px] font-semibold leading-tight text-rose-300/90 active:bg-rose-500/10 sm:text-xs"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/10 text-rose-300">
+                      <LogOut className="h-4 w-4" />
+                    </span>
+                    Sign out
+                  </button>
+                </div>
               </div>
             </div>
           </motion.aside>
