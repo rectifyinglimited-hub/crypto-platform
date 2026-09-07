@@ -1103,7 +1103,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               ))}
             </div>
             <p className="mt-2 text-[10px] text-slate-500">
-              Daily commission auto: 40d 2.34% · 60d 4.64% · 90d 9% · 120d 12%
+              Client daily % floats (1.20–1.30). Settles at 1.25% AI + 1.25% Smart
+              Spot. $2000+ lock gets extra 1.25% on Smart Spot. 40-day recover.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <label className="block">
@@ -1176,12 +1177,13 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
           {/* Smart Spot Trade */}
           <SectionCard icon={Copy} title="Smart Spot Trade" accent="cyan"
-            description="Smart Spot opens after this user subscribes to AI Futures Strategy. Extra blocks: $1000 → 2, $2000 → 3, $3000+ → 4.">
+            description="Smart Spot opens after AI Futures subscribe. Extra 1.25% Spot commission when lock is $2000+. Extra blocks: $1000 → 2, $2000 → 3, $3000+ → 4.">
             {/* Commission mode + verify */}
             <div>
               <span className="text-[10px] font-semibold uppercase text-slate-500">1. Commission pricing</span>
               <p className="mt-1 text-[11px] text-slate-500">
-                Auto uses AI Futures lock size. Manual lets you type a % then Save Smart Spot.
+                Auto uses the 1.25% Spot split (2.5% if AI lock is $2000+). Client
+                sees a floating daily %. Manual % is admin-only.
               </p>
               <div className="mt-1.5 flex gap-1 rounded-xl bg-white/[0.03] p-1">
                 {[

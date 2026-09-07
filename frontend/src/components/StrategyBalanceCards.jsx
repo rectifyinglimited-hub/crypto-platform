@@ -4,7 +4,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bot, Copy } from "lucide-react";
 import { AiBotAPI, CopyBotAPI, WalletAPI } from "../lib/api.js";
-import { dailyYieldForLockDays } from "../lib/aiBotYield.js";
+import {
+  AI_SPLIT_DAILY_PCT,
+  RECOVER_DAYS,
+  accruedFromSchedule,
+  smartSpotTargetPct,
+} from "../lib/aiBotYield.js";
 
 function fmtUsd(n) {
   const v = Number(n) || 0;
@@ -49,6 +54,7 @@ function StrategyCard({
   balance,
   commission,
   daily,
+  displayPct,
   remain,
   progress,
   emptyText,
@@ -87,7 +93,9 @@ function StrategyCard({
                 ${fmtUsd(commission)}
               </div>
               <div className="text-[10px] text-slate-500">
-                Daily ${fmtUsd(daily)}
+                {displayPct != null
+                  ? `${Number(displayPct).toFixed(2)}% today · $${fmtUsd(daily)}`
+                  : `Daily $${fmtUsd(daily)}`}
               </div>
             </div>
             <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2.5">
@@ -96,6 +104,9 @@ function StrategyCard({
               </div>
               <div className="mt-0.5 text-sm font-semibold tabular-nums text-white">
                 {remain}
+              </div>
+              <div className="text-[10px] text-cyan-200/70">
+                {RECOVER_DAYS}-day recover path
               </div>
             </div>
           </div>
@@ -172,74 +183,88 @@ export default function StrategyBalanceCards({ user }) {
     aiBotCustomPercentage: user?.aiBotCustomPercentage,
   };
 
+  const userSeed = String(user?._id || user?.id || "anon");
+
   const ai = useMemo(() => {
     const active = Boolean(liveBot?.aiBotActive);
     const principal = Number(liveBot?.aiBotPrincipal || 0);
     const lockDays = Number(
-      liveBot?.aiBotLockDays || liveBot?.aiBotAssignedLockDays || 0
+      liveBot?.aiBotLockDays || liveBot?.aiBotAssignedLockDays || RECOVER_DAYS
     );
-    const yieldPct = Number(
-      liveBot?.aiBotCustomPercentage ?? dailyYieldForLockDays(lockDays) ?? 0
-    );
-    const start = liveBot?.aiBotStartDate
-      ? new Date(liveBot.aiBotStartDate).getTime()
-      : 0;
     const end = liveBot?.aiBotEndDate
       ? new Date(liveBot.aiBotEndDate).getTime()
-      : start && lockDays
-        ? start + lockDays * 86400000
+      : liveBot?.aiBotStartDate && lockDays
+        ? new Date(liveBot.aiBotStartDate).getTime() + lockDays * 86400000
         : 0;
-    const daily = active ? principal * (yieldPct / 100) : 0;
-    const elapsedDays =
-      start && active
-        ? Math.max(0, Math.min(now, end || now) - start) / 86400000
-        : 0;
-    const commission = Math.min(
-      daily * Math.max(lockDays, 0),
-      daily * elapsedDays
-    );
-    const progress =
-      lockDays > 0 ? Math.min(1, elapsedDays / lockDays) : active ? 1 : 0;
+    if (!active || !liveBot?.aiBotStartDate) {
+      return {
+        active,
+        principal,
+        daily: 0,
+        commission: 0,
+        displayPct: null,
+        remain: remainLabel(end || null, now),
+        progress: 0,
+      };
+    }
+    const view = accruedFromSchedule({
+      seed: `ai:${userSeed}`,
+      startDate: liveBot.aiBotStartDate,
+      days: lockDays,
+      targetPct: AI_SPLIT_DAILY_PCT,
+      principal,
+      now,
+    });
     return {
       active,
       principal,
-      daily,
-      commission,
+      daily: view.daily,
+      commission: view.total,
+      displayPct: view.displayPct,
       remain: remainLabel(end || null, now),
-      progress,
+      progress: view.progress,
     };
-  }, [liveBot, now]);
+  }, [liveBot, now, userSeed]);
 
   const spot = useMemo(() => {
     const active = Boolean(liveBot?.aiBotActive || desk?.unlocked);
     const principal = Number(
       desk?.aiPrincipal || liveBot?.aiBotPrincipal || 0
     );
-    const daily = Number(desk?.estimatedCredit || 0);
-    const pending = Number(desk?.pendingCommission?.amount || 0);
-    const commission = smartEarned + pending;
-    const end = liveBot?.aiBotEndDate || null;
     const lockDays = Number(
-      liveBot?.aiBotLockDays || liveBot?.aiBotAssignedLockDays || 0
+      liveBot?.aiBotLockDays || liveBot?.aiBotAssignedLockDays || RECOVER_DAYS
     );
-    const start = liveBot?.aiBotStartDate
-      ? new Date(liveBot.aiBotStartDate).getTime()
-      : 0;
-    const elapsedDays = start
-      ? Math.max(0, Math.min(now, end ? new Date(end).getTime() : now) - start) /
-        86400000
-      : 0;
-    const progress =
-      lockDays > 0 ? Math.min(1, elapsedDays / lockDays) : active ? 1 : 0;
+    const end = liveBot?.aiBotEndDate || null;
+    const target = smartSpotTargetPct(principal);
+    if (!active || !liveBot?.aiBotStartDate) {
+      return {
+        active,
+        principal,
+        daily: Number(desk?.estimatedCredit || 0),
+        commission: smartEarned,
+        displayPct: desk?.liveRate != null ? Number(desk.liveRate) : null,
+        remain: remainLabel(end, now),
+        progress: 0,
+      };
+    }
+    const view = accruedFromSchedule({
+      seed: `spot:${userSeed}`,
+      startDate: liveBot.aiBotStartDate,
+      days: lockDays,
+      targetPct: target,
+      principal,
+      now,
+    });
     return {
       active,
       principal,
-      daily,
-      commission,
+      daily: view.daily,
+      commission: view.total,
+      displayPct: view.displayPct,
       remain: remainLabel(end, now),
-      progress,
+      progress: view.progress,
     };
-  }, [desk, liveBot, now, smartEarned]);
+  }, [desk, liveBot, now, smartEarned, userSeed]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -250,6 +275,7 @@ export default function StrategyBalanceCards({ user }) {
         balance={ai.principal}
         commission={ai.commission}
         daily={ai.daily}
+        displayPct={ai.displayPct}
         remain={ai.remain}
         progress={ai.progress}
         emptyText="Subscribe to AI Futures Strategy to lock a balance here. Remaining days and commission will show on this card."
@@ -261,6 +287,7 @@ export default function StrategyBalanceCards({ user }) {
         balance={spot.principal}
         commission={spot.commission}
         daily={spot.daily}
+        displayPct={spot.displayPct}
         remain={spot.remain}
         progress={spot.progress}
         emptyText="Subscribe to AI Futures Strategy to unlock Smart Spot Trade. Commission and remaining days will show here."

@@ -20,7 +20,10 @@ import { AiBotAPI } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
 import {
   AI_FUTURES_LOCK_OPTIONS,
-  dailyYieldForLockDays,
+  AI_SPLIT_DAILY_PCT,
+  RECOVER_DAYS,
+  accruedFromSchedule,
+  buildYieldSchedule,
 } from "../lib/aiBotYield.js";
 
 const CANCEL_PENALTY_PCT = 15;
@@ -42,7 +45,7 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "4. Yield & Daily Profit Display",
-    body: `Daily commission is a percentage of locked principal and is assigned automatically from the lock days you choose (40d 2.34%, 60d 4.64%, 90d 9%, 120d 12%). Accrued amounts become claimable only after the lock end date if the contract remains active.`,
+    body: `Daily commission on your locked principal moves day to day (for example 1.20%, 1.27%, 1.30%). Over a 40-day lock the two desks together are set so the principal can recover. Accrued amounts become claimable only after the lock end date if the contract remains active.`,
   },
   {
     title: "5. Early Cancellation Penalty",
@@ -270,56 +273,65 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
     return () => clearInterval(id);
   }, []);
 
-  const yieldPct = bot?.aiBotActive
-    ? Number(
-        bot.aiBotCustomPercentage ??
-          dailyYieldForLockDays(bot.aiBotLockDays) ??
-          0.5
-      )
-    : Number(
-        dailyYieldForLockDays(lockDays) ??
-          config?.defaultYieldPct ??
-          0.5
-      );
+  const userSeed = String(user?._id || user?.id || bot?.id || "anon");
+  const lockLen = Number(
+    bot?.aiBotLockDays || bot?.aiBotAssignedLockDays || lockDays || RECOVER_DAYS
+  );
 
   const accrued = useMemo(() => {
-    if (!bot?.aiBotActive || !bot.aiBotStartDate || !bot.aiBotLockDays) {
-      return { daily: 0, total: 0, elapsedDays: 0, progress: 0 };
+    if (!bot?.aiBotActive || !bot.aiBotStartDate) {
+      return {
+        displayPct: null,
+        daily: 0,
+        total: 0,
+        totalTarget: 0,
+        elapsedDays: 0,
+        progress: 0,
+        schedule: [],
+      };
     }
-    const start = new Date(bot.aiBotStartDate).getTime();
-    const end = bot.aiBotEndDate
-      ? new Date(bot.aiBotEndDate).getTime()
-      : start + bot.aiBotLockDays * 86400000;
-    const elapsedMs = Math.max(0, Math.min(now, end) - start);
-    const elapsedDays = elapsedMs / 86400000;
-    const principalN = Number(bot.aiBotPrincipal || 0);
-    const daily = principalN * (Number(yieldPct) / 100);
-    const totalTarget = daily * bot.aiBotLockDays;
-    const total = Math.min(totalTarget, daily * elapsedDays);
-    const progress = Math.min(1, elapsedDays / bot.aiBotLockDays);
-    return { daily, total, elapsedDays, progress, totalTarget };
-  }, [bot, yieldPct, now]);
+    return accruedFromSchedule({
+      seed: `ai:${userSeed}`,
+      startDate: bot.aiBotStartDate,
+      days: lockLen,
+      targetPct: AI_SPLIT_DAILY_PCT,
+      principal: Number(bot.aiBotPrincipal || 0),
+      now,
+    });
+  }, [bot, userSeed, lockLen, now]);
+
+  const yieldPct = accrued.displayPct;
 
   const equitySeries = useMemo(() => {
     const p = Number(bot?.aiBotPrincipal || principal || 100);
     const lock = Math.max(Number(bot?.aiBotLockDays || 14), 7);
-    // Always show a smooth professional curve (at least 28 points)
+    const sched =
+      accrued.schedule?.length === lock
+        ? accrued.schedule
+        : buildYieldSchedule({
+            seed: `ai:${userSeed}`,
+            days: lock,
+            targetPct: AI_SPLIT_DAILY_PCT,
+          });
     const points = 28;
     const elapsedFrac = bot?.aiBotActive
       ? Math.min(1, Math.max(0.02, accrued.progress || 0.02))
       : 0.35;
-    const daily = Number(accrued.daily || (p * (Number(yieldPct) / 100)) / lock);
     const out = [];
-    for (let i = 0; i < points; i++) {
+    for (let i = 0; i < points; i += 1) {
       const t = (i / (points - 1)) * elapsedFrac * lock;
-      const wave = Math.sin(i / 3) * daily * 0.15;
-      out.push(Number((p + daily * t + wave).toFixed(4)));
+      const full = Math.min(lock, Math.floor(t));
+      const frac = t - Math.floor(t);
+      let pctSum = 0;
+      for (let d = 0; d < full; d += 1) pctSum += Number(sched[d] || 0);
+      if (full < lock && frac > 0) pctSum += Number(sched[full] || 0) * frac;
+      out.push(Number((p + (p * pctSum) / 100).toFixed(4)));
     }
     if (bot?.aiBotActive) {
       out[out.length - 1] = Number((p + accrued.total).toFixed(4));
     }
     return out;
-  }, [bot, principal, accrued, yieldPct]);
+  }, [bot, principal, accrued, userSeed]);
 
   const onScrollContract = () => {
     const el = scrollRef.current;
@@ -465,8 +477,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
               Algorithmic lock contracts
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Lock from $300 · pick your days · starts when you confirm. Admin can
-              still change days later.
+              Lock from $300 · {RECOVER_DAYS}-day recover path on the combined
+              desks · starts when you confirm.
             </p>
           </div>
         </div>
@@ -489,12 +501,15 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Principal" value={fmtUsd(bot.aiBotPrincipal)} />
             <Stat label="Lock" value={`${bot.aiBotLockDays} days`} />
-            <Stat label="Daily commission" value={`${yieldPct}%`} />
+            <Stat
+              label="Today's commission"
+              value={yieldPct != null ? `${Number(yieldPct).toFixed(2)}%` : "—"}
+            />
             <Stat label="Ends" value={fmtDate(bot.aiBotEndDate)} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Stat label="Daily commission ($)" value={fmtUsd(accrued.daily)} accent />
+            <Stat label="Today's commission ($)" value={fmtUsd(accrued.daily)} accent />
             <Stat label="Accrued so far" value={fmtUsd(accrued.total)} accent />
             <Stat
               label="Target at maturity"
@@ -538,7 +553,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-amber-200/90">
                 <Clock className="h-4 w-4" />
-                Lock in progress — claim unlocks after end date.
+                Lock in progress — {RECOVER_DAYS}-day recover path · claim after
+                end date.
               </div>
               <button
                 type="button"
@@ -579,7 +595,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                       key={d}
                       type="button"
                       onClick={() => setLockDays(Number(d))}
-                      title={`${dailyYieldForLockDays(d)}% daily commission`}
+                      title={`${d}-day lock`}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold ${
                         Number(lockDays) === Number(d)
                           ? "bg-cyan-500/20 text-cyan-100 ring-1 ring-cyan-400/40"
@@ -606,7 +622,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                 className="mt-2 w-full rounded-xl border border-white/10 bg-[#070a12] px-3 py-2.5 text-sm text-white"
               />
               <div className="mt-1 text-[11px] text-slate-500">
-                Min {fmtUsd(minLock)} · Daily commission auto {yieldPct}% · Pair{" "}
+                Min {fmtUsd(minLock)} · {RECOVER_DAYS}-day recover path · Pair{" "}
                 {TRADE_PAIR}
               </div>
             </label>
@@ -672,8 +688,8 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                 ))}
                 <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-[12px] text-amber-100/90">
                   Lock: <strong>{lockDays} days</strong> · Principal:{" "}
-                  <strong>{fmtUsd(principal)}</strong> · Daily commission:{" "}
-                  <strong>{yieldPct}%</strong> · Pair: <strong>{TRADE_PAIR}</strong>
+                  <strong>{fmtUsd(principal)}</strong> · {RECOVER_DAYS}-day recover
+                  path · Pair: <strong>{TRADE_PAIR}</strong>
                   <br />
                   Starts when you confirm. Early cancel = no profit + {CANCEL_PENALTY_PCT}% principal deduction.
                 </div>

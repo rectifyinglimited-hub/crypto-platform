@@ -79,21 +79,14 @@ async function persistBotState(user) {
         aiBotAssignedLockDays: user.aiBotAssignedLockDays ?? null,
         aiBotStartDate: user.aiBotStartDate ?? null,
         aiBotEndDate: user.aiBotEndDate ?? null,
-        aiBotCustomPercentage:
-          user.aiBotCustomPercentage != null &&
-          Number.isFinite(Number(user.aiBotCustomPercentage))
-            ? Number(user.aiBotCustomPercentage)
-            : resolveAiFuturesDailyYield(
-                user.aiBotLockDays || user.aiBotAssignedLockDays,
-                0.5
-              ),
+        aiBotCustomPercentage: resolveAiFuturesDailyYield(),
         aiBotPrincipal: Number(user.aiBotPrincipal || 0),
         aiBotContractId: user.aiBotContractId || null,
         aiBotContractAcceptedAt: user.aiBotContractAcceptedAt || null,
         aiBotPendingRequestId: user.aiBotPendingRequestId || null,
         smartCopySlots: user.smartCopySlots,
         smartCopyMaxSlots: user.smartCopyMaxSlots,
-        smartCopyCommissionMode: user.smartCopyCommissionMode || "manual",
+        smartCopyCommissionMode: user.smartCopyCommissionMode || "auto",
       },
     }
   );
@@ -102,6 +95,7 @@ async function persistBotState(user) {
 function serializeUserBot(user, pendingRequest = null) {
   const lockDays = user.aiBotLockDays || user.aiBotAssignedLockDays;
   return {
+    id: String(user._id),
     aiBotActive: !!user.aiBotActive,
     aiBotLockDays: user.aiBotLockDays,
     aiBotAssignedLockDays: user.aiBotAssignedLockDays,
@@ -178,6 +172,7 @@ async function startApprovedLock(user, request, lockDays, contractVersion) {
   user.aiBotPrincipal = principal;
   user.aiBotContractAcceptedAt = new Date();
   user.aiBotPendingRequestId = null;
+  user.smartCopyCommissionMode = "auto";
 
   const contract = await AiBotContract.create({
     user: user._id,
@@ -204,15 +199,8 @@ async function startApprovedLock(user, request, lockDays, contractVersion) {
 }
 
 /** Daily commission % of principal. Total target = daily × lock days. */
-function dailyCommissionPct(userOrPct) {
-  if (typeof userOrPct === "number") {
-    return Number.isFinite(userOrPct) ? userOrPct : 0;
-  }
-  const mapped = resolveAiFuturesDailyYield(
-    userOrPct?.aiBotLockDays || userOrPct?.aiBotAssignedLockDays,
-    userOrPct?.aiBotCustomPercentage
-  );
-  return Number.isFinite(Number(mapped)) ? Number(mapped) : 0;
+function dailyCommissionPct() {
+  return resolveAiFuturesDailyYield();
 }
 
 function lockDayCount(user) {
@@ -243,7 +231,7 @@ router.get(
     return res.json({
       success: true,
       defaults: {
-        defaultYieldPct: dailyYieldForLockDays(lockOptions[0]) ?? 2.34,
+        defaultYieldPct: dailyYieldForLockDays() ?? 1.25,
         minPrincipal: minAiPrincipal(defaults),
         lockOptions,
         dailyYieldByDays: AI_FUTURES_DAILY_YIELD,
@@ -776,7 +764,7 @@ router.get(
         ...stored,
         lockOptions: mergeAiFuturesLockOptions(),
         dailyYieldByDays: AI_FUTURES_DAILY_YIELD,
-        defaultYieldPct: dailyYieldForLockDays(40) ?? 2.34,
+        defaultYieldPct: dailyYieldForLockDays() ?? 1.25,
       },
       globalTradingEnabled: platform.globalTradingEnabled !== false,
     });
@@ -820,7 +808,7 @@ router.put(
     if (body.aiBotDefaults) {
       const d = body.aiBotDefaults;
       platform.aiBotDefaults = {
-        defaultYieldPct: Number(d.defaultYieldPct ?? 2.34),
+        defaultYieldPct: Number(d.defaultYieldPct ?? 1.25),
         minPrincipal: Number(d.minPrincipal ?? 50),
         lockOptions: mergeAiFuturesLockOptions(),
         contractVersion: String(d.contractVersion || "v1.0"),

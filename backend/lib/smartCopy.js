@@ -1,9 +1,13 @@
 import SpotCopyLock from "../models/SpotCopyLock.js";
 import User from "../models/User.js";
+import {
+  displayDailyPct,
+  smartSpotTargetPct,
+} from "./aiBotYield.js";
 
 /** Never load KYC blobs on this path — full User.save() races the trade settler. */
 export const USER_SMART_COPY_SELECT =
-  "username email fullName adminId wallet aiBotActive aiBotPrincipal aiBotLockDays smartCopySlots smartCopyMaxSlots smartCopyCommissionPct smartCopyCommissionMode smartCopyLastSubmitAt";
+  "username email fullName adminId wallet aiBotActive aiBotPrincipal aiBotLockDays aiBotAssignedLockDays aiBotStartDate smartCopySlots smartCopyMaxSlots smartCopyCommissionPct smartCopyCommissionMode smartCopyLastSubmitAt";
 
 export async function persistSmartCopy(user) {
   if (!user?._id) return;
@@ -33,9 +37,9 @@ export const SMART_COPY_CYCLE_MS = 24 * 60 * 60 * 1000;
 /** AI Futures Strategy lock amount → Smart Spot blocks + auto daily %. */
 export const SMART_COPY_TIERS = [
   { minPrincipal: 3000, slots: 4, autoRate: 2.5 },
-  { minPrincipal: 2000, slots: 3, autoRate: 2.2 },
-  { minPrincipal: 1000, slots: 2, autoRate: 1.7 },
-  { minPrincipal: 500, slots: 1, autoRate: 1.0 },
+  { minPrincipal: 2000, slots: 3, autoRate: 2.5 },
+  { minPrincipal: 1000, slots: 2, autoRate: 1.25 },
+  { minPrincipal: 500, slots: 1, autoRate: 1.25 },
 ];
 
 export function aiFuturesPrincipal(user) {
@@ -45,7 +49,7 @@ export function aiFuturesPrincipal(user) {
 }
 
 const LOCKED_TIER = { minPrincipal: 0, slots: 0, autoRate: 0 };
-const SUBSCRIBED_TIER = { minPrincipal: 0, slots: 1, autoRate: 1.0 };
+const SUBSCRIBED_TIER = { minPrincipal: 0, slots: 1, autoRate: 1.25 };
 
 export function smartCopyTier(principal) {
   const p = Number(principal) || 0;
@@ -150,14 +154,20 @@ export function smartCopyCommissionMode(user) {
 }
 
 export function smartCopyAutoRate(user) {
-  return smartCopyTierForUser(user).autoRate;
+  return smartSpotTargetPct(aiFuturesPrincipal(user));
 }
 
-export function smartCopyLiveRate(user) {
-  if (smartCopyCommissionMode(user) === "manual") {
-    return Number(user.smartCopyCommissionPct || 0);
-  }
-  return smartCopyAutoRate(user);
+export function smartCopyLiveRate(user, now = new Date()) {
+  const target = smartCopyAutoRate(user);
+  const days = Number(user?.aiBotLockDays || user?.aiBotAssignedLockDays || 40);
+  if (!user?.aiBotActive || !user?.aiBotStartDate) return target;
+  return displayDailyPct({
+    seed: `spot:${user._id}`,
+    startDate: user.aiBotStartDate,
+    days,
+    targetPct: target,
+    now,
+  });
 }
 
 export function smartCopyNextSubmitAt(user) {
@@ -232,8 +242,8 @@ export function serializeSmartCopy(user, copies = [], extra = {}) {
   const mode = smartCopyCommissionMode(user);
   const principal = aiFuturesPrincipal(user);
   const tier = smartCopyTierForUser(user);
-  const autoRate = tier.autoRate;
-  const liveRate = smartCopyLiveRate(user);
+  const autoRate = smartCopyAutoRate(user);
+  const liveRate = smartCopyLiveRate(user, now);
   const usdt = walletUsdt(user);
   const last = user.smartCopyLastSubmitAt || null;
   const nextAt = smartCopyNextSubmitAt(user);
@@ -250,6 +260,7 @@ export function serializeSmartCopy(user, copies = [], extra = {}) {
     commissionPct: Number(user.smartCopyCommissionPct || 0),
     autoRate,
     liveRate,
+    recoverDays: 40,
     walletUsdt: usdt,
     estimatedCredit: Number(((base * liveRate) / 100).toFixed(8)),
     lastSubmitAt: last,

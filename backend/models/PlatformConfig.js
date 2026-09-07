@@ -44,7 +44,7 @@ const PlatformConfigSchema = new Schema(
         contractVersion: { type: String, default: "v1.0" },
       },
       default: () => ({
-        defaultYieldPct: 2.34,
+        defaultYieldPct: 1.25,
         minPrincipal: 300,
         lockOptions: [40, 60, 90, 120],
         contractVersion: "v1.0",

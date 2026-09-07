@@ -628,7 +628,11 @@ export default function SpotCopyTrade({ user, onOpenMarket, onGoAiFutures }) {
           </p>
         ) : (
           <p className="mt-2 text-xs text-emerald-200/80">
-            Ready to submit · you can copy {maxSlots} block{maxSlots > 1 ? "s" : ""}
+            Ready to submit · today{" "}
+            {desk?.liveRate != null
+              ? `${Number(desk.liveRate).toFixed(2)}%`
+              : "live rate"}{" "}
+            · you can copy {maxSlots} block{maxSlots > 1 ? "s" : ""}
           </p>
         )}
         {notice ? (
