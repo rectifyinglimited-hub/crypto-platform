@@ -4,6 +4,7 @@
  */
 import { useEffect, useId, useMemo, useState } from "react";
 import { WalletAPI } from "../lib/api.js";
+import { displayUsdt } from "../lib/walletDisplay.js";
 import {
   buildBalanceSeries,
   flatSeries,
@@ -46,7 +47,7 @@ function fmtX(t, spanMs) {
 
 export default function BalanceTrendCard({ user }) {
   const fillId = useId().replace(/:/g, "");
-  const live = Number(user?.wallet?.USDT || 0);
+  const live = displayUsdt(user);
   const [range, setRange] = useState("all");
   const [raw, setRaw] = useState(() => flatSeries(live));
 

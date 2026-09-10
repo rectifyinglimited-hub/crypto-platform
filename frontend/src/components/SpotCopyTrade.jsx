@@ -405,7 +405,12 @@ function SignalCard({
   );
 }
 
-export default function SpotCopyTrade({ user, onOpenMarket, onGoAiFutures }) {
+export default function SpotCopyTrade({
+  user,
+  onOpenMarket,
+  onGoAiFutures,
+  onWalletUpdate,
+}) {
   const [desk, setDesk] = useState(null);
   const [copies, setCopies] = useState([]);
   const [picks, setPicks] = useState(loadPicks);
@@ -509,7 +514,6 @@ export default function SpotCopyTrade({ user, onOpenMarket, onGoAiFutures }) {
   );
   const unlocked = Boolean(desk?.unlocked) || subscribed;
   const atLimit = copiedCount >= maxSlots;
-  const pending = desk?.pendingCommission;
   const smartHistory = useMemo(
     () => (history || []).filter(isSmartSpotTx),
     [history]
@@ -565,6 +569,7 @@ export default function SpotCopyTrade({ user, onOpenMarket, onGoAiFutures }) {
       setDesk(res.desk || desk);
       setNotice(res.message || "Submitted.");
       setError("");
+      if (res.wallet) onWalletUpdate?.({ wallet: res.wallet });
       await load();
     } catch (err) {
       setError(err?.message || "Copy failed.");
@@ -617,11 +622,6 @@ export default function SpotCopyTrade({ user, onOpenMarket, onGoAiFutures }) {
               </button>
             ) : null}
           </div>
-        ) : pending ? (
-          <p className="mt-2 text-xs font-semibold text-amber-200">
-            Commission ${Number(pending.amount || 0).toFixed(2)} is waiting for
-            admin approval.
-          </p>
         ) : waiting ? (
           <p className="mt-2 text-xs font-semibold text-cyan-200">
             Next submit in {fmtRemain(nextSubmitMs)}

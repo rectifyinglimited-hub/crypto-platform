@@ -6,27 +6,38 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Bot,
   Loader2,
+  Plus,
   RefreshCw,
   Save,
   Search,
+  Trash2,
 } from "lucide-react";
 import { AiBotAPI } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
 import {
   AI_FUTURES_LOCK_OPTIONS,
+  DEFAULT_COMMISSION_TIERS,
   dailyYieldForLockDays,
+  matchCommissionTier,
+  newCommissionTierId,
+  normalizeCommissionTiers,
   resolveAiFuturesDailyYield,
 } from "../lib/aiBotYield.js";
 
 export default function AdminAiBotAndMatrix({ toast }) {
   const say = toast || (() => {});
-  const [tab, setTab] = useState("bots");
+  const [tab, setTab] = useState("commission");
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [searchUsers, setSearchUsers] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [matrix, setMatrix] = useState(null);
   const [defaults, setDefaults] = useState(null);
+  const [tiers, setTiers] = useState(() =>
+    DEFAULT_COMMISSION_TIERS.map((t) => ({ ...t }))
+  );
+  const [previewBal, setPreviewBal] = useState("400");
+  const [previewDays, setPreviewDays] = useState("40");
   const [yieldEdits, setYieldEdits] = useState({});
   const [dayEdits, setDayEdits] = useState({});
   const [query, setQuery] = useState("");
@@ -92,6 +103,9 @@ export default function AdminAiBotAndMatrix({ toast }) {
         lockOptions: (res.aiBotDefaults?.lockOptions || AI_FUTURES_LOCK_OPTIONS).join(","),
         contractVersion: res.aiBotDefaults?.contractVersion || "v1.0",
       });
+      setTiers(
+        normalizeCommissionTiers(res.aiBotDefaults?.commissionTiers)
+      );
     } catch (err) {
       say("error", err?.message || "Failed to load matrix.");
     } finally {
@@ -104,7 +118,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
       loadBots();
       loadSearch("");
     }
-    if (tab === "matrix") loadMatrix();
+    if (tab === "matrix" || tab === "commission") loadMatrix();
   }, [tab, loadBots, loadMatrix, loadSearch]);
 
   useEffect(() => {
@@ -205,6 +219,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
           minPrincipal: Number(defaults.minPrincipal),
           lockOptions: lockOptions.length ? lockOptions : AI_FUTURES_LOCK_OPTIONS,
           contractVersion: defaults.contractVersion,
+          commissionTiers: normalizeCommissionTiers(tiers, { fallback: false }),
         },
       });
       say("success", res.message || "Saved.");
@@ -214,6 +229,71 @@ export default function AdminAiBotAndMatrix({ toast }) {
       setSaving(false);
     }
   };
+
+  const saveCommission = async () => {
+    setSaving(true);
+    try {
+      const cleaned = normalizeCommissionTiers(tiers, { fallback: false });
+      if (!cleaned.length) {
+        say("error", "Add at least one row (min balance, days, AI %, Smart Spot %).");
+        return;
+      }
+      const res = await AiBotAPI.adminSaveMatrix({
+        aiBotDefaults: {
+          defaultYieldPct: Number(defaults?.defaultYieldPct ?? 1.25),
+          minPrincipal: Number(defaults?.minPrincipal ?? 300),
+          lockOptions: [...new Set(cleaned.map((t) => t.days))],
+          contractVersion: defaults?.contractVersion || "v1.0",
+          commissionTiers: cleaned,
+        },
+      });
+      setTiers(normalizeCommissionTiers(res.aiBotDefaults?.commissionTiers || cleaned));
+      if (res.aiBotDefaults) {
+        setDefaults((prev) => ({
+          ...(prev || {}),
+          defaultYieldPct: res.aiBotDefaults.defaultYieldPct ?? prev?.defaultYieldPct,
+          minPrincipal: res.aiBotDefaults.minPrincipal ?? prev?.minPrincipal,
+          lockOptions: (res.aiBotDefaults.lockOptions || []).join(","),
+          contractVersion:
+            res.aiBotDefaults.contractVersion || prev?.contractVersion || "v1.0",
+        }));
+      }
+      say("success", res.message || "Commission saved. All users now see these rates.");
+    } catch (err) {
+      say("error", err?.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const patchTier = (id, key, value) => {
+    setTiers((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, [key]: value } : row))
+    );
+  };
+
+  const addTier = () => {
+    setTiers((prev) => [
+      ...prev,
+      {
+        id: newCommissionTierId(),
+        minBalance: 0,
+        days: 40,
+        aiDailyPct: 1.25,
+        spotDailyPct: 1.25,
+      },
+    ]);
+  };
+
+  const removeTier = (id) => {
+    setTiers((prev) => prev.filter((row) => row.id !== id));
+  };
+
+  const preview = matchCommissionTier({
+    principal: Number(previewBal) || 0,
+    days: Number(previewDays) || 0,
+    tiers,
+  });
 
   const renderUserRow = (u) => (
     <div
@@ -245,7 +325,10 @@ export default function AdminAiBotAndMatrix({ toast }) {
           onChange={(e) => {
             const v = e.target.value;
             setDayEdits((prev) => ({ ...prev, [u._id]: v }));
-            const mapped = dailyYieldForLockDays(v);
+            const mapped = dailyYieldForLockDays(v, null, {
+              principal: Number(u.aiBotPrincipal || 0),
+              tiers,
+            });
             if (mapped != null) {
               setYieldEdits((prev) => ({ ...prev, [u._id]: String(mapped) }));
             }
@@ -264,7 +347,8 @@ export default function AdminAiBotAndMatrix({ toast }) {
             yieldEdits[u._id] ??
             resolveAiFuturesDailyYield(
               dayEdits[u._id] ?? u.aiBotAssignedLockDays ?? u.aiBotLockDays,
-              u.aiBotCustomPercentage
+              u.aiBotCustomPercentage,
+              { principal: Number(u.aiBotPrincipal || 0), tiers }
             ) ??
             ""
           }
@@ -291,6 +375,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
 
       <div className="flex flex-wrap gap-2">
         {[
+          ["commission", "Commission"],
           ["bots", "AI Bot Management"],
           ["matrix", "Algorithmic Trade Matrix"],
         ].map(([k, label]) => (
@@ -309,7 +394,9 @@ export default function AdminAiBotAndMatrix({ toast }) {
         ))}
         <button
           type="button"
-          onClick={() => (tab === "bots" ? loadBots() : loadMatrix())}
+          onClick={() =>
+            tab === "bots" ? loadBots() : loadMatrix()
+          }
           className="ml-auto inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-slate-300"
         >
           <RefreshCw className="h-3 w-3" /> Refresh
@@ -319,6 +406,138 @@ export default function AdminAiBotAndMatrix({ toast }) {
       {loading && (
         <div className="flex justify-center py-10">
           <Loader2 className="h-6 w-6 animate-spin text-cyan-300" />
+        </div>
+      )}
+
+      {!loading && tab === "commission" && (
+        <div className="space-y-4 rounded-xl border border-white/10 bg-[#0c1222] p-4">
+          <p className="text-xs text-slate-400">
+            Set commission by min balance and lock days. AI Futures and Smart
+            Spot can have different daily %. One-click Save applies to every user
+            — they see the row that matches their lock amount and days.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead className="text-[10px] uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="pb-2 pr-2 font-semibold">Min balance $</th>
+                  <th className="pb-2 pr-2 font-semibold">Days</th>
+                  <th className="pb-2 pr-2 font-semibold">AI Futures % / day</th>
+                  <th className="pb-2 pr-2 font-semibold">Smart Spot % / day</th>
+                  <th className="pb-2 font-semibold"> </th>
+                </tr>
+              </thead>
+              <tbody>
+                {tiers.map((row) => (
+                  <tr key={row.id} className="border-t border-white/5">
+                    <td className="py-2 pr-2">
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-28 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                        value={row.minBalance}
+                        onChange={(e) =>
+                          patchTier(row.id, "minBalance", e.target.value)
+                        }
+                      />
+                    </td>
+                    <td className="py-2 pr-2">
+                      <input
+                        type="number"
+                        min={1}
+                        className="w-20 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                        value={row.days}
+                        onChange={(e) =>
+                          patchTier(row.id, "days", e.target.value)
+                        }
+                      />
+                    </td>
+                    <td className="py-2 pr-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={500}
+                        step="any"
+                        className="w-24 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                        value={row.aiDailyPct}
+                        onChange={(e) =>
+                          patchTier(row.id, "aiDailyPct", e.target.value)
+                        }
+                      />
+                    </td>
+                    <td className="py-2 pr-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={500}
+                        step="any"
+                        className="w-24 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                        value={row.spotDailyPct}
+                        onChange={(e) =>
+                          patchTier(row.id, "spotDailyPct", e.target.value)
+                        }
+                      />
+                    </td>
+                    <td className="py-2">
+                      <button
+                        type="button"
+                        onClick={() => removeTier(row.id)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-rose-400/30 px-2 py-1.5 text-[11px] font-semibold text-rose-200"
+                      >
+                        <Trash2 className="h-3 w-3" /> Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={addTier}
+              className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add row
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={saveCommission}
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save — apply to all users
+            </button>
+          </div>
+          <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/5 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-300/80">
+              Preview match
+            </div>
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              <label className="text-xs text-slate-400">
+                Balance $
+                <input
+                  className="ml-2 w-24 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm text-white"
+                  value={previewBal}
+                  onChange={(e) => setPreviewBal(e.target.value)}
+                />
+              </label>
+              <label className="text-xs text-slate-400">
+                Days
+                <input
+                  className="ml-2 w-20 rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm text-white"
+                  value={previewDays}
+                  onChange={(e) => setPreviewDays(e.target.value)}
+                />
+              </label>
+            </div>
+            <p className="mt-2 text-sm text-slate-200">
+              {preview
+                ? `User with $${Number(previewBal || 0).toFixed(0)} / ${Number(previewDays || 0)} days → AI ${preview.aiDailyPct}% · Smart Spot ${preview.spotDailyPct}% (min $${preview.minBalance} / ${preview.days}d row).`
+                : "No matching row yet."}
+            </p>
+          </div>
         </div>
       )}
 

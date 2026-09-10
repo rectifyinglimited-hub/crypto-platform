@@ -392,6 +392,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [botDays, setBotDays] = useState("");
   const [botYield, setBotYield] = useState("");
+  const [commTiers, setCommTiers] = useState([]);
   const [botBusy, setBotBusy] = useState(false);
   const [forceBusy, setForceBusy] = useState(false);
   const [forcePct, setForcePct] = useState("85");
@@ -433,7 +434,10 @@ export default function UserControlRoom({ userId, onBack, toast }) {
         setBotDays(nextDays != null ? String(nextDays) : "");
         setBotYield(
           String(
-            resolveAiFuturesDailyYield(nextDays, u.aiBotCustomPercentage) ?? 0.5
+            resolveAiFuturesDailyYield(nextDays, u.aiBotCustomPercentage, {
+              principal: Number(u.aiBotPrincipal || 0),
+              tiers: commTiers,
+            }) ?? 0.5
           )
         );
         setForcePct(
@@ -452,6 +456,14 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       setLoading(false);
     }
   }, [userId]);
+
+  useEffect(() => {
+    AiBotAPI.adminMatrix()
+      .then((res) =>
+        setCommTiers(res.aiBotDefaults?.commissionTiers || [])
+      )
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const offLock = onSocketEvent("aibot:lock", (payload) => {
@@ -721,7 +733,11 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
   const onAssignAiBot = async () => {
     const days = Number(botDays);
-    const pct = dailyYieldForLockDays(days) ?? Number(botYield);
+    const pct =
+      dailyYieldForLockDays(days, null, {
+        principal: Number(data?.user?.aiBotPrincipal || 0),
+        tiers: commTiers,
+      }) ?? Number(botYield);
     if (!Number.isFinite(days) || days < 1) {
       toastRef.current?.("error", "Select or enter lock days (e.g. 40).");
       return;
@@ -1091,7 +1107,14 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               {AI_BOT_DAY_PRESETS.map((d) => (
                 <button key={d} type="button" onClick={() => {
                   setBotDays(String(d));
-                  setBotYield(String(dailyYieldForLockDays(d)));
+                  setBotYield(
+                    String(
+                      dailyYieldForLockDays(d, null, {
+                        principal: Number(u?.aiBotPrincipal || 0),
+                        tiers: commTiers,
+                      })
+                    )
+                  );
                 }}
                   className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition ${
                     String(botDays) === String(d)
@@ -1103,8 +1126,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               ))}
             </div>
             <p className="mt-2 text-[10px] text-slate-500">
-              Client daily % floats (1.20–1.30). Settles at 1.25% AI + 1.25% Smart
-              Spot. $2000+ lock gets extra 1.25% on Smart Spot. 40-day recover.
+              Daily % comes from the global Commission table (min balance + days).
+              Save days here only to change this user’s lock length.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <label className="block">
@@ -1113,7 +1136,10 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                   onChange={(e) => {
                     const v = e.target.value;
                     setBotDays(v);
-                    const mapped = dailyYieldForLockDays(v);
+                    const mapped = dailyYieldForLockDays(v, null, {
+                      principal: Number(u?.aiBotPrincipal || 0),
+                      tiers: commTiers,
+                    });
                     if (mapped != null) setBotYield(String(mapped));
                   }} placeholder="e.g. 40"
                   className={`mt-1 w-full font-mono ${inputClass}`} />
@@ -1157,7 +1183,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                   Active {u.aiBotLockDays || u.aiBotAssignedLockDays} days · daily commission{" "}
                   {resolveAiFuturesDailyYield(
                     u.aiBotLockDays || u.aiBotAssignedLockDays,
-                    u.aiBotCustomPercentage
+                    u.aiBotCustomPercentage,
+                    { principal: Number(u.aiBotPrincipal || 0), tiers: commTiers }
                   )}% until{" "}
                   {u.aiBotEndDate ? new Date(u.aiBotEndDate).toLocaleDateString() : "—"}
                 </span>
@@ -1166,7 +1193,8 @@ export default function UserControlRoom({ userId, onBack, toast }) {
                   Last lock {u.aiBotAssignedLockDays} days · daily commission{" "}
                   {resolveAiFuturesDailyYield(
                     u.aiBotAssignedLockDays,
-                    u.aiBotCustomPercentage
+                    u.aiBotCustomPercentage,
+                    { principal: Number(u.aiBotPrincipal || 0), tiers: commTiers }
                   )}%
                 </span>
               ) : (

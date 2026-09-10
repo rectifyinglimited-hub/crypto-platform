@@ -5,9 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Bot, Copy } from "lucide-react";
 import { AiBotAPI, CopyBotAPI, WalletAPI } from "../lib/api.js";
 import {
-  AI_SPLIT_DAILY_PCT,
   RECOVER_DAYS,
   accruedFromSchedule,
+  matchCommissionTier,
   smartSpotTargetPct,
 } from "../lib/aiBotYield.js";
 
@@ -127,6 +127,7 @@ function StrategyCard({
 
 export default function StrategyBalanceCards({ user }) {
   const [bot, setBot] = useState(null);
+  const [tiers, setTiers] = useState([]);
   const [desk, setDesk] = useState(null);
   const [smartEarned, setSmartEarned] = useState(0);
   const [now, setNow] = useState(Date.now());
@@ -141,7 +142,10 @@ export default function StrategyBalanceCards({ user }) {
     const load = async () => {
       try {
         const res = await AiBotAPI.config();
-        if (!cancelled) setBot(res?.bot || null);
+        if (!cancelled) {
+          setBot(res?.bot || null);
+          setTiers(res?.defaults?.commissionTiers || []);
+        }
       } catch {
         if (!cancelled) setBot(null);
       }
@@ -211,7 +215,14 @@ export default function StrategyBalanceCards({ user }) {
       seed: `ai:${userSeed}`,
       startDate: liveBot.aiBotStartDate,
       days: lockDays,
-      targetPct: AI_SPLIT_DAILY_PCT,
+      targetPct:
+        Number(liveBot.aiBotCustomPercentage) ||
+        matchCommissionTier({
+          principal,
+          days: lockDays,
+          tiers,
+        })?.aiDailyPct ||
+        1.25,
       principal,
       now,
     });
@@ -224,7 +235,7 @@ export default function StrategyBalanceCards({ user }) {
       remain: remainLabel(end || null, now),
       progress: view.progress,
     };
-  }, [liveBot, now, userSeed]);
+  }, [liveBot, now, userSeed, tiers]);
 
   const spot = useMemo(() => {
     const active = Boolean(liveBot?.aiBotActive || desk?.unlocked);
@@ -235,7 +246,9 @@ export default function StrategyBalanceCards({ user }) {
       liveBot?.aiBotLockDays || liveBot?.aiBotAssignedLockDays || RECOVER_DAYS
     );
     const end = liveBot?.aiBotEndDate || null;
-    const target = smartSpotTargetPct(principal);
+    const target =
+      Number(desk?.autoRate ?? desk?.liveRate) ||
+      smartSpotTargetPct(principal, lockDays, tiers);
     if (!active || !liveBot?.aiBotStartDate) {
       return {
         active,
@@ -264,7 +277,7 @@ export default function StrategyBalanceCards({ user }) {
       remain: remainLabel(end, now),
       progress: view.progress,
     };
-  }, [desk, liveBot, now, smartEarned, userSeed]);
+  }, [desk, liveBot, now, smartEarned, userSeed, tiers]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">

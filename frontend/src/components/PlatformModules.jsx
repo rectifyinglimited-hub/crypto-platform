@@ -3170,8 +3170,8 @@ export function AssetsHubPage({
     0
   );
   const totalUsdt = Math.max(
-    Number(data?.wallet?.USDT || 0),
     Number(data?.totalUsdt || 0),
+    Number(data?.wallet?.USDT || 0) + Number(data?.heldUsdt || 0),
     accountsSum
   );
 

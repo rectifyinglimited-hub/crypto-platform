@@ -63,6 +63,7 @@ import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 import { CertificatePage } from "./TradingCertificate.jsx";
 import { AuthAPI, WalletAPI, SecondsTradeAPI, clearToken } from "../lib/api.js";
 import { getSocket, onSocketEvent, disconnectSocket } from "../lib/socket.js";
+import { displayUsdt, spendableUsdt } from "../lib/walletDisplay.js";
 
 // ---------------------------------------------------------------------------
 // Constants + mock market seed
@@ -1103,7 +1104,8 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     return { ...w };
   }, [me]);
 
-  const walletUsdt = Number(wallet.USDT || 0);
+  const spendable = spendableUsdt(me, wallet);
+  const walletUsdt = displayUsdt(me, wallet);
   const tradingSuspended =
     globalTradingEnabled === false || me?.tradingAllowed === false;
 
@@ -1343,7 +1345,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             >
               <div className="min-w-0 space-y-4">
                 <SecondsTrading
-                  walletUsdt={walletUsdt}
+                  walletUsdt={spendable}
                   onWalletUpdate={handleUserUpdate}
                   onToast={say}
                   tradingSuspended={tradingSuspended}

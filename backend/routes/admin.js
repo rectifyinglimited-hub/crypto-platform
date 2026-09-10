@@ -74,6 +74,7 @@ import {
 } from "../lib/smartCopy.js";
 import { recordLedger } from "../lib/ledger.js";
 import { resolveAiFuturesDailyYield } from "../lib/aiBotYield.js";
+import { loadCommissionTiers } from "../lib/commissionConfig.js";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -326,10 +327,11 @@ router.put(
       user: user._id,
       status: "active",
     });
+    const tiers = await loadCommissionTiers();
     return res.json({
       success: true,
       message: "Smart Spot Trade controls saved.",
-      smartCopy: serializeSmartCopy(user, copies),
+      smartCopy: serializeSmartCopy(user, copies, { tiers }),
     });
   })
 );
@@ -378,7 +380,9 @@ router.post(
     return res.json({
       success: true,
       message: "Smart Spot timer reset. User can submit again now.",
-      smartCopy: serializeSmartCopy(user, []),
+      smartCopy: serializeSmartCopy(user, [], {
+        tiers: await loadCommissionTiers(),
+      }),
       wallet,
     });
   })
@@ -1591,14 +1595,17 @@ router.get(
         ? Object.fromEntries(user.chartBias)
         : { ...(user.chartBias || {}) };
     await refreshSmartCopyCycle(user);
-    const copyLocks = await SpotCopyLock.find({
-      user: user._id,
-      status: "active",
-    });
-    const pendingAiLock = await AiBotLockRequest.findOne({
-      user: user._id,
-      status: "pending",
-    }).lean();
+    const [copyLocks, pendingAiLock, tiers] = await Promise.all([
+      SpotCopyLock.find({
+        user: user._id,
+        status: "active",
+      }),
+      AiBotLockRequest.findOne({
+        user: user._id,
+        status: "pending",
+      }).lean(),
+      loadCommissionTiers(),
+    ]);
 
     res.json({
       success: true,
@@ -1629,7 +1636,8 @@ router.get(
         aiBotLockDays: user.aiBotLockDays ?? null,
         aiBotCustomPercentage: resolveAiFuturesDailyYield(
           user.aiBotLockDays || user.aiBotAssignedLockDays,
-          user.aiBotCustomPercentage
+          user.aiBotCustomPercentage,
+          { principal: Number(user.aiBotPrincipal || 0), tiers }
         ),
         aiBotPrincipal: user.aiBotPrincipal ?? 0,
         aiBotStartDate: user.aiBotStartDate || null,
@@ -1643,6 +1651,7 @@ router.get(
         createdAt: user.createdAt,
         smartCopy: {
           ...serializeSmartCopy(normalizeSmartCopy(user), copyLocks, {
+            tiers,
             pendingCommission: (() => {
               const p = pendingTx.find((t) => t.source === "smart_copy");
               return p

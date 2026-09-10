@@ -20,10 +20,10 @@ import { AiBotAPI } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
 import {
   AI_FUTURES_LOCK_OPTIONS,
-  AI_SPLIT_DAILY_PCT,
   RECOVER_DAYS,
   accruedFromSchedule,
   buildYieldSchedule,
+  matchCommissionTier,
 } from "../lib/aiBotYield.js";
 
 const CANCEL_PENALTY_PCT = 15;
@@ -37,7 +37,7 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "2. Nature of the Service",
-    body: `Funds allocated are deducted from your Trading Wallet when you confirm. Target yield is set by administrators and is illustrative — not a bank deposit or guaranteed return.`,
+    body: `Funds allocated move to Hold when you confirm. They stay in your main account total, but cannot be withdrawn or traded until the lock ends (or you cancel). Target yield is the daily commission your admin saved for your balance and lock days.`,
   },
   {
     title: "3. Lock Periods",
@@ -45,7 +45,7 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "4. Yield & Daily Profit Display",
-    body: `Daily commission on your locked principal moves day to day (for example 1.20%, 1.27%, 1.30%). Over a 40-day lock the two desks together are set so the principal can recover. Accrued amounts become claimable only after the lock end date if the contract remains active.`,
+    body: `Daily commission is the exact % your admin saved for your lock amount and days. Accrued amounts become claimable only after the lock end date if the contract remains active.`,
   },
   {
     title: "5. Early Cancellation Penalty",
@@ -205,6 +205,18 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
     MIN_AI_LOCK_USDT,
     Number(config?.minPrincipal || MIN_AI_LOCK_USDT)
   );
+  const lockOptions = config?.lockOptions?.length
+    ? config.lockOptions
+    : AI_FUTURES_LOCK_OPTIONS;
+  const matchedTier = matchCommissionTier({
+    principal: Number(bot?.aiBotPrincipal || principal || 0),
+    days: Number(bot?.aiBotLockDays || bot?.aiBotAssignedLockDays || lockDays),
+    tiers: config?.commissionTiers,
+  });
+  const aiDailyPct = Number(
+    bot?.aiBotCustomPercentage || matchedTier?.aiDailyPct || 1.25
+  );
+  const spotDailyPct = Number(matchedTier?.spotDailyPct || 1.25);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -215,18 +227,16 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
       if (res.wallet && typeof res.wallet.USDT === "number") {
         setWalletUsdt(Number(res.wallet.USDT));
       }
+      const options = res.defaults?.lockOptions?.length
+        ? res.defaults.lockOptions
+        : AI_FUTURES_LOCK_OPTIONS;
       const suggested = Number(
         res.bot?.pendingRequest?.requestedDays ||
           res.bot?.aiBotAssignedLockDays ||
-          res.defaults?.lockOptions?.[0] ||
-          AI_FUTURES_LOCK_OPTIONS[0] ||
+          options[0] ||
           40
       );
-      setLockDays(
-        AI_FUTURES_LOCK_OPTIONS.includes(suggested)
-          ? suggested
-          : AI_FUTURES_LOCK_OPTIONS[0]
-      );
+      setLockDays(options.includes(suggested) ? suggested : options[0]);
     } catch (err) {
       toastRef.current?.("error", err?.message || "Failed to load AI Bot config.");
     } finally {
@@ -294,11 +304,11 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
       seed: `ai:${userSeed}`,
       startDate: bot.aiBotStartDate,
       days: lockLen,
-      targetPct: AI_SPLIT_DAILY_PCT,
+      targetPct: aiDailyPct,
       principal: Number(bot.aiBotPrincipal || 0),
       now,
     });
-  }, [bot, userSeed, lockLen, now]);
+  }, [bot, userSeed, lockLen, now, aiDailyPct]);
 
   const yieldPct = accrued.displayPct;
 
@@ -311,7 +321,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
         : buildYieldSchedule({
             seed: `ai:${userSeed}`,
             days: lock,
-            targetPct: AI_SPLIT_DAILY_PCT,
+            targetPct: aiDailyPct,
           });
     const points = 28;
     const elapsedFrac = bot?.aiBotActive
@@ -331,7 +341,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
       out[out.length - 1] = Number((p + accrued.total).toFixed(4));
     }
     return out;
-  }, [bot, principal, accrued, userSeed]);
+  }, [bot, principal, accrued, userSeed, aiDailyPct]);
 
   const onScrollContract = () => {
     const el = scrollRef.current;
@@ -590,7 +600,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                 Lock duration (days)
               </span>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {AI_FUTURES_LOCK_OPTIONS.map((d) => (
+                {lockOptions.map((d) => (
                     <button
                       key={d}
                       type="button"
@@ -624,6 +634,10 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
               <div className="mt-1 text-[11px] text-slate-500">
                 Min {fmtUsd(minLock)} · {RECOVER_DAYS}-day recover path · Pair{" "}
                 {TRADE_PAIR}
+              </div>
+              <div className="mt-2 rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-[11px] text-cyan-100">
+                Your commission: AI {Number(aiDailyPct).toFixed(2)}% / day ·
+                Smart Spot {Number(spotDailyPct).toFixed(2)}% / day
               </div>
             </label>
           </div>

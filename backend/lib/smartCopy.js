@@ -153,21 +153,18 @@ export function smartCopyCommissionMode(user) {
   return user?.smartCopyCommissionMode === "auto" ? "auto" : "manual";
 }
 
-export function smartCopyAutoRate(user) {
-  return smartSpotTargetPct(aiFuturesPrincipal(user));
+export function smartCopyAutoRate(user, tiers) {
+  return smartSpotTargetPct(
+    aiFuturesPrincipal(user),
+    user?.aiBotLockDays || user?.aiBotAssignedLockDays,
+    tiers
+  );
 }
 
-export function smartCopyLiveRate(user, now = new Date()) {
-  const target = smartCopyAutoRate(user);
-  const days = Number(user?.aiBotLockDays || user?.aiBotAssignedLockDays || 40);
+export function smartCopyLiveRate(user, now = new Date(), tiers) {
+  const target = smartCopyAutoRate(user, tiers);
   if (!user?.aiBotActive || !user?.aiBotStartDate) return target;
-  return displayDailyPct({
-    seed: `spot:${user._id}`,
-    startDate: user.aiBotStartDate,
-    days,
-    targetPct: target,
-    now,
-  });
+  return displayDailyPct({ targetPct: target });
 }
 
 export function smartCopyNextSubmitAt(user) {
@@ -242,8 +239,8 @@ export function serializeSmartCopy(user, copies = [], extra = {}) {
   const mode = smartCopyCommissionMode(user);
   const principal = aiFuturesPrincipal(user);
   const tier = smartCopyTierForUser(user);
-  const autoRate = smartCopyAutoRate(user);
-  const liveRate = smartCopyLiveRate(user, now);
+  const autoRate = smartCopyAutoRate(user, extra.tiers);
+  const liveRate = smartCopyLiveRate(user, now, extra.tiers);
   const usdt = walletUsdt(user);
   const last = user.smartCopyLastSubmitAt || null;
   const nextAt = smartCopyNextSubmitAt(user);

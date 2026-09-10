@@ -42,12 +42,15 @@ const PlatformConfigSchema = new Schema(
         minPrincipal: { type: Number, default: 300 },
         lockOptions: { type: [Number], default: [40, 60, 90, 120] },
         contractVersion: { type: String, default: "v1.0" },
+        /** Min-balance + lock-days commission rows (AI vs Smart Spot). */
+        commissionTiers: { type: [Schema.Types.Mixed], default: [] },
       },
       default: () => ({
         defaultYieldPct: 1.25,
         minPrincipal: 300,
         lockOptions: [40, 60, 90, 120],
         contractVersion: "v1.0",
+        commissionTiers: [],
       }),
     },
     updatedBy: {

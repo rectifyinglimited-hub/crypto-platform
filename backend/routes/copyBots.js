@@ -22,12 +22,12 @@ import {
   releaseLegacyFollowLocks,
   refreshSmartCopyCycle,
   smartCopyCycleOpen,
-  smartCopyCommissionMode,
   smartCopyLiveRate,
   smartCopyUnlocked,
   aiFuturesPrincipal,
   SMART_COPY_CYCLE_MS,
 } from "../lib/smartCopy.js";
+import { loadCommissionTiers } from "../lib/commissionConfig.js";
 import { walletObj } from "../lib/ledger.js";
 
 const router = Router();
@@ -353,6 +353,20 @@ router.post(
   })
 );
 
+function usdtOf(user) {
+  if (user?.wallet instanceof Map) return Number(user.wallet.get("USDT") || 0);
+  return Number(user?.wallet?.USDT || 0);
+}
+
+function setUsdt(user, amount) {
+  const n = Number(Number(amount || 0).toFixed(8));
+  if (user.wallet instanceof Map) {
+    user.wallet.set("USDT", n);
+  } else {
+    user.wallet = { ...(user.wallet || {}), USDT: n };
+  }
+}
+
 function serializePendingCommission(tx) {
   if (!tx) return null;
   return {
@@ -412,10 +426,12 @@ router.get(
     ).filter(isSignalCopy);
     const pending = await latestPendingCommission(user._id);
     await persistSmartCopy(user);
+    const tiers = await loadCommissionTiers();
     res.json({
       success: true,
       desk: serializeSmartCopy(user, copies, {
         pendingCommission: serializePendingCommission(pending),
+        tiers,
       }),
       copies: copies.map(serializeCopy),
     });
@@ -498,8 +514,8 @@ router.post(
 
     const startDate = new Date();
     const paying = smartCopyCycleOpen(user, startDate);
-    const mode = smartCopyCommissionMode(user);
-    const rate = smartCopyLiveRate(user);
+    const tiers = await loadCommissionTiers();
+    const rate = smartCopyLiveRate(user, startDate, tiers);
     const principal = aiFuturesPrincipal(user);
     const credit = paying
       ? Number(((principal * rate) / 100).toFixed(8))
@@ -531,29 +547,36 @@ router.post(
 
     if (paying) {
       user.smartCopyLastSubmitAt = startDate;
-      if (mode === "auto" && credit > 0) {
-        if (!pendingCommission) {
-          pendingCommission = await Transaction.create({
-            user: user._id,
-            adminId: user.adminId || null,
-            kind: "trade",
-            side: "buy",
-            symbol: "USDT",
+      if (credit > 0) {
+        setUsdt(user, usdtOf(user) + credit);
+        await User.updateOne(
+          { _id: user._id },
+          { $set: { wallet: walletObj(user.wallet) } }
+        );
+        await Transaction.create({
+          user: user._id,
+          adminId: user.adminId || null,
+          kind: "trade",
+          side: "buy",
+          symbol: "USDT",
+          amount: credit,
+          usdValue: credit,
+          ledgerDelta: credit,
+          status: "completed",
+          source: "smart_copy",
+          reviewerNote: `Smart Spot Trade · ${rate}% of AI Futures $${principal.toFixed(2)} = $${credit.toFixed(2)} · credited instantly · ${pair || asset}`,
+        });
+        credited = credit;
+        requested = credit;
+        message = `Commission $${credit.toFixed(2)} added to your account.`;
+        try {
+          emitWalletUpdate(user._id, walletObj(user.wallet), {
+            reason: "smart_copy_credit",
             amount: credit,
-            usdValue: credit,
-            ledgerDelta: 0,
-            status: "pending",
-            source: "smart_copy",
-            reviewerNote: `Smart Spot Trade · auto ${rate}% of AI Futures $${principal.toFixed(2)} = $${credit.toFixed(2)} · pending admin approval · ${pair || asset}`,
           });
+        } catch {
+          /* ignore */
         }
-        requested = Number(pendingCommission.amount || credit);
-        message = `Submitted. Commission $${requested.toFixed(2)} sent to admin for approval.`;
-      } else if (mode === "manual") {
-        message =
-          credit > 0
-            ? `Submitted. Manual commission ${rate}% ≈ $${credit.toFixed(2)} — admin will credit your wallet.`
-            : "Submitted. Admin will add your Smart Spot commission manually.";
       }
       await persistSmartCopy(user);
     } else if (user.isModified?.()) {
@@ -571,8 +594,8 @@ router.post(
         },
         {
           commission:
-            requested > 0
-              ? { amount: requested, rate, status: "pending" }
+            credited > 0
+              ? { amount: credited, rate, status: "completed" }
               : null,
         }
       );
@@ -591,8 +614,10 @@ router.post(
       requested,
       rate: paying ? rate : 0,
       copy: serializeCopy(lock),
+      wallet: walletObj(user.wallet),
       desk: serializeSmartCopy(user, copies, {
         pendingCommission: serializePendingCommission(pendingCommission),
+        tiers,
       }),
     });
   })

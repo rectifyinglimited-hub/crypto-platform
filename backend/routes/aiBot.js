@@ -15,12 +15,13 @@ import { requireAdmin } from "../middleware/admin.js";
 import { tenantDocFilter, tenantUserFilter } from "../middleware/tenant.js";
 import { normalizeSmartCopy } from "../lib/smartCopy.js";
 import {
-  AI_FUTURES_DAILY_YIELD,
-  AI_FUTURES_LOCK_OPTIONS,
   dailyYieldForLockDays,
+  dailyYieldTableFromTiers,
   mergeAiFuturesLockOptions,
+  normalizeCommissionTiers,
   resolveAiFuturesDailyYield,
 } from "../lib/aiBotYield.js";
+import { loadCommissionTiers, tiersFromPlatform } from "../lib/commissionConfig.js";
 import { emitWalletUpdate, emitAiBotLockRequest } from "../socket.js";
 
 const router = Router();
@@ -67,8 +68,23 @@ function setUsdt(user, amount) {
   }
 }
 
-async function persistBotState(user) {
+function yieldCtx(user, tiers, extraPrincipal) {
+  return {
+    principal: Number(extraPrincipal ?? user?.aiBotPrincipal ?? 0),
+    tiers,
+  };
+}
+
+async function persistBotState(user, tiers) {
+  const liveTiers = Array.isArray(tiers) ? tiers : await loadCommissionTiers();
   normalizeSmartCopy(user);
+  const lockDays = user.aiBotLockDays || user.aiBotAssignedLockDays;
+  const livePct = resolveAiFuturesDailyYield(
+    lockDays,
+    user.aiBotCustomPercentage,
+    yieldCtx(user, liveTiers)
+  );
+  user.aiBotCustomPercentage = livePct;
   await User.updateOne(
     { _id: user._id },
     {
@@ -79,7 +95,7 @@ async function persistBotState(user) {
         aiBotAssignedLockDays: user.aiBotAssignedLockDays ?? null,
         aiBotStartDate: user.aiBotStartDate ?? null,
         aiBotEndDate: user.aiBotEndDate ?? null,
-        aiBotCustomPercentage: resolveAiFuturesDailyYield(),
+        aiBotCustomPercentage: livePct,
         aiBotPrincipal: Number(user.aiBotPrincipal || 0),
         aiBotContractId: user.aiBotContractId || null,
         aiBotContractAcceptedAt: user.aiBotContractAcceptedAt || null,
@@ -92,8 +108,11 @@ async function persistBotState(user) {
   );
 }
 
-function serializeUserBot(user, pendingRequest = null) {
+function serializeUserBot(user, pendingRequest = null, tiers) {
   const lockDays = user.aiBotLockDays || user.aiBotAssignedLockDays;
+  const principal = Number(
+    user.aiBotPrincipal || pendingRequest?.principal || 0
+  );
   return {
     id: String(user._id),
     aiBotActive: !!user.aiBotActive,
@@ -103,7 +122,8 @@ function serializeUserBot(user, pendingRequest = null) {
     aiBotEndDate: user.aiBotEndDate,
     aiBotCustomPercentage: resolveAiFuturesDailyYield(
       lockDays,
-      user.aiBotCustomPercentage
+      user.aiBotCustomPercentage,
+      yieldCtx(user, tiers, principal)
     ),
     aiBotPrincipal: user.aiBotPrincipal,
     aiBotContractId: user.aiBotContractId,
@@ -156,10 +176,12 @@ async function refundHeldPrincipal(user, amount, note) {
   return walletObj(user.wallet);
 }
 
-async function startApprovedLock(user, request, lockDays, contractVersion) {
+async function startApprovedLock(user, request, lockDays, contractVersion, tiers) {
   const days = clampLockDays(lockDays);
   const principal = Number(request.principal || 0);
-  const yieldPct = dailyYieldForLockDays(days) ?? Number(request.yieldPct || 0.5);
+  const yieldPct =
+    dailyYieldForLockDays(days, null, yieldCtx(user, tiers, principal)) ??
+    Number(request.yieldPct || 0.5);
   const startDate = new Date();
   const endDate = new Date(startDate.getTime() + days * 86400000);
 
@@ -188,7 +210,7 @@ async function startApprovedLock(user, request, lockDays, contractVersion) {
   });
 
   user.aiBotContractId = contract._id;
-  await persistBotState(user);
+  await persistBotState(user, tiers);
 
   request.status = "approved";
   request.approvedDays = days;
@@ -199,8 +221,12 @@ async function startApprovedLock(user, request, lockDays, contractVersion) {
 }
 
 /** Daily commission % of principal. Total target = daily × lock days. */
-function dailyCommissionPct() {
-  return resolveAiFuturesDailyYield();
+function dailyCommissionPct(user, tiers) {
+  return resolveAiFuturesDailyYield(
+    lockDayCount(user),
+    user?.aiBotCustomPercentage,
+    yieldCtx(user, tiers)
+  );
 }
 
 function lockDayCount(user) {
@@ -224,21 +250,27 @@ router.get(
   asyncHandler(async (req, res) => {
     const platform = await PlatformConfig.getSingleton();
     const defaults = platform.aiBotDefaults || {};
+    const tiers = tiersFromPlatform(platform);
     const user = await loadTrader(req.auth.sub);
-    const lockOptions = mergeAiFuturesLockOptions();
+    const lockOptions = mergeAiFuturesLockOptions(tiers);
     const pending = user ? await findPendingLock(user._id) : null;
     const wallet = user ? walletObj(user.wallet) : {};
     return res.json({
       success: true,
       defaults: {
-        defaultYieldPct: dailyYieldForLockDays() ?? 1.25,
+        defaultYieldPct:
+          dailyYieldForLockDays(lockOptions[0], null, {
+            principal: 0,
+            tiers,
+          }) ?? 1.25,
         minPrincipal: minAiPrincipal(defaults),
         lockOptions,
-        dailyYieldByDays: AI_FUTURES_DAILY_YIELD,
+        dailyYieldByDays: dailyYieldTableFromTiers(tiers),
+        commissionTiers: tiers,
         contractVersion: defaults.contractVersion || "v1.0",
         adminAssignedOnly: false,
       },
-      bot: user ? serializeUserBot(user, pending) : null,
+      bot: user ? serializeUserBot(user, pending, tiers) : null,
       wallet,
     });
   })
@@ -251,11 +283,15 @@ async function activateNow(req, res) {
   const principal = Number(Number(req.body.principal).toFixed(8));
   const accepted = Boolean(req.body.contractAccepted);
   const contractVersion = String(req.body.contractVersion || "v1.0");
+  const platform = await PlatformConfig.getSingleton();
+  const defaults = platform.aiBotDefaults || {};
+  const tiers = tiersFromPlatform(platform);
+  const lockOptions = mergeAiFuturesLockOptions(tiers);
   const lockDays = clampLockDays(req.body.lockDays);
-  if (!AI_FUTURES_LOCK_OPTIONS.includes(lockDays)) {
+  if (!lockOptions.includes(lockDays)) {
     return res.status(422).json({
       success: false,
-      message: "Choose 40, 60, 90, or 120 lock days.",
+      message: `Choose a lock duration from the admin table: ${lockOptions.join(", ")} days.`,
     });
   }
 
@@ -272,8 +308,6 @@ async function activateNow(req, res) {
     });
   }
 
-  const platform = await PlatformConfig.getSingleton();
-  const defaults = platform.aiBotDefaults || {};
   const minPrincipal = minAiPrincipal(defaults);
 
   const user = await loadTrader(req.auth.sub);
@@ -309,7 +343,8 @@ async function activateNow(req, res) {
     });
   }
 
-  const yieldPct = dailyYieldForLockDays(lockDays) ?? 0.5;
+  const yieldPct =
+    dailyYieldForLockDays(lockDays, null, { principal, tiers }) ?? 0.5;
 
   const existing = await findPendingLock(user._id);
   let request = existing;
@@ -350,7 +385,8 @@ async function activateNow(req, res) {
     user,
     request,
     days,
-    contractVersion
+    contractVersion,
+    tiers
   );
 
   const wallet = walletObj(user.wallet);
@@ -370,7 +406,7 @@ async function activateNow(req, res) {
   return res.status(201).json({
     success: true,
     message: `AI Futures started · ${days} day lock.`,
-    bot: serializeUserBot(user, null),
+    bot: serializeUserBot(user, null, tiers),
     contract,
     wallet,
   });
@@ -452,7 +488,8 @@ router.post(
     }
 
     const principal = Number(user.aiBotPrincipal || 0);
-    const pct = dailyCommissionPct(user);
+    const tiers = await loadCommissionTiers();
+    const pct = dailyCommissionPct(user, tiers);
     const days = lockDayCount(user);
     const profit = commissionProfit(principal, pct, days);
     const payout = Number((principal + profit).toFixed(8));
@@ -497,7 +534,7 @@ router.post(
       payout,
       profit,
       wallet: walletObj(user.wallet),
-      bot: serializeUserBot(user),
+      bot: serializeUserBot(user, null, tiers),
     });
   })
 );
@@ -698,11 +735,13 @@ router.post(
 
     request.reviewedBy = req.auth.sub;
     request.reviewNote = String(req.body.note || "");
+    const tiers = await loadCommissionTiers();
     const contract = await startApprovedLock(
       user,
       request,
       days,
-      request.contractVersion
+      request.contractVersion,
+      tiers
     );
     const wallet = walletObj(user.wallet);
     try {
@@ -723,7 +762,7 @@ router.post(
       message: `Approved ${days} day lock for ${user.username || "user"}.`,
       request: serializeAiBotLockRequest(request),
       contract,
-      bot: serializeUserBot(user, null),
+      bot: serializeUserBot(user, null, tiers),
       wallet,
     });
   })
@@ -757,14 +796,20 @@ router.get(
   asyncHandler(async (_req, res) => {
     const platform = await PlatformConfig.getSingleton();
     const stored = platform.aiBotDefaults || {};
+    const tiers = tiersFromPlatform(platform);
     return res.json({
       success: true,
       algoMatrix: platform.algoMatrix || defaultMatrixSafe(),
       aiBotDefaults: {
         ...stored,
-        lockOptions: mergeAiFuturesLockOptions(),
-        dailyYieldByDays: AI_FUTURES_DAILY_YIELD,
-        defaultYieldPct: dailyYieldForLockDays() ?? 1.25,
+        commissionTiers: tiers,
+        lockOptions: mergeAiFuturesLockOptions(tiers),
+        dailyYieldByDays: dailyYieldTableFromTiers(tiers),
+        defaultYieldPct:
+          dailyYieldForLockDays(mergeAiFuturesLockOptions(tiers)[0], null, {
+            principal: 0,
+            tiers,
+          }) ?? 1.25,
       },
       globalTradingEnabled: platform.globalTradingEnabled !== false,
     });
@@ -807,21 +852,37 @@ router.put(
     }
     if (body.aiBotDefaults) {
       const d = body.aiBotDefaults;
+      const prev = platform.aiBotDefaults || {};
+      const tiers =
+        d.commissionTiers !== undefined
+          ? normalizeCommissionTiers(d.commissionTiers, { fallback: false })
+          : normalizeCommissionTiers(prev.commissionTiers, { fallback: false });
       platform.aiBotDefaults = {
-        defaultYieldPct: Number(d.defaultYieldPct ?? 1.25),
-        minPrincipal: Number(d.minPrincipal ?? 50),
-        lockOptions: mergeAiFuturesLockOptions(),
-        contractVersion: String(d.contractVersion || "v1.0"),
+        defaultYieldPct: Number(
+          d.defaultYieldPct ?? prev.defaultYieldPct ?? 1.25
+        ),
+        minPrincipal: Number(d.minPrincipal ?? prev.minPrincipal ?? 300),
+        lockOptions: mergeAiFuturesLockOptions(tiers),
+        contractVersion: String(
+          d.contractVersion || prev.contractVersion || "v1.0"
+        ),
+        commissionTiers: tiers,
       };
       platform.markModified("aiBotDefaults");
     }
     platform.updatedBy = req.auth.sub;
     await platform.save();
+    const savedTiers = tiersFromPlatform(platform);
     return res.json({
       success: true,
-      message: "Algorithm matrix & AI bot defaults saved.",
+      message: "Saved. All users now see these commissions.",
       algoMatrix: platform.algoMatrix,
-      aiBotDefaults: platform.aiBotDefaults,
+      aiBotDefaults: {
+        ...(platform.aiBotDefaults || {}),
+        commissionTiers: savedTiers,
+        lockOptions: mergeAiFuturesLockOptions(savedTiers),
+        dailyYieldByDays: dailyYieldTableFromTiers(savedTiers),
+      },
     });
   })
 );
@@ -864,8 +925,13 @@ router.patch(
     }
 
     const lockDaysForYield = user.aiBotLockDays || user.aiBotAssignedLockDays;
+    const tiers = await loadCommissionTiers();
     if (daysChanged) {
-      const pct = dailyYieldForLockDays(lockDaysForYield) ?? 0.5;
+      const pct =
+        dailyYieldForLockDays(lockDaysForYield, null, {
+          principal: Number(user.aiBotPrincipal || 0),
+          tiers,
+        }) ?? 0.5;
       user.aiBotCustomPercentage = pct;
       messages.push(`daily commission ${pct}% (auto from ${lockDaysForYield}d)`);
       if (user.aiBotActive) {
@@ -905,14 +971,14 @@ router.patch(
       });
     }
 
-    await persistBotState(user);
+    await persistBotState(user, tiers);
     return res.json({
       success: true,
       message: `AI Bot updated for ${user.username}: ${messages.join(", ")}. Live daily commission applies immediately.`,
       user: {
         id: user._id,
         username: user.username,
-        ...serializeUserBot(user),
+        ...serializeUserBot(user, null, tiers),
       },
     });
   })

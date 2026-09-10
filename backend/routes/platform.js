@@ -22,6 +22,7 @@ import {
   ensureReferralCode,
   progressToNextTier,
 } from "../lib/referralEngine.js";
+import { heldAiUsdt } from "../lib/aiBotYield.js";
 
 const router = Router();
 
@@ -454,12 +455,16 @@ router.get(
       return res.status(404).json({ success: false, message: "User not found." });
     }
     ensureAccounts(user);
-    const total = unifyTradingWallet(user);
+    const spendable = unifyTradingWallet(user);
     await user.save();
+    const held = heldAiUsdt(user);
+    const total = Number((spendable + held).toFixed(8));
     const accounts = accountsObj(user.accountBalances);
     return res.json({
       success: true,
       totalUsdt: total,
+      spendableUsdt: spendable,
+      heldUsdt: held,
       accounts,
       wallet: walletObj(user.wallet),
       bankCards: user.bankCards || [],
