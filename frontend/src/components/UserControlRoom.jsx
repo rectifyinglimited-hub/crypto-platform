@@ -21,7 +21,7 @@ import {
   Bot,
   Copy,
 } from "lucide-react";
-import { AdminAPI, AiBotAPI, assetUrl } from "../lib/api.js";
+import { AdminAPI, AiBotAPI, CopyBotAPI, assetUrl } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
 import { sourceLabel } from "../lib/marketAssets.js";
 import { publicUid } from "../lib/userUid.js";
@@ -409,6 +409,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
     }))
   );
   const [scBusy, setScBusy] = useState(false);
+  const [scAllBusy, setScAllBusy] = useState(false);
   const [scResetBusy, setScResetBusy] = useState(false);
   const [scCredit, setScCredit] = useState("");
   const [scCommission, setScCommission] = useState("0");
@@ -538,6 +539,33 @@ export default function UserControlRoom({ userId, onBack, toast }) {
       }
     } finally {
       setScBusy(false);
+    }
+  };
+
+  const onSaveSmartCopyAll = async () => {
+    setScAllBusy(true);
+    try {
+      const res = await CopyBotAPI.adminSaveSlotDefaults({
+        slots: scSlots.map((s) => ({
+          slot: s.slot,
+          accuracy: Math.min(
+            100,
+            Math.max(0, Math.round(Number(s.accuracy) || 0))
+          ),
+          readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
+        })),
+      });
+      toastRef.current?.(
+        "success",
+        res.message || "Accuracy and Opens at saved for all users."
+      );
+      await load({ silent: true });
+    } catch (err) {
+      if (!err?.canceled && err?.message) {
+        toastRef.current?.("error", err.message);
+      }
+    } finally {
+      setScAllBusy(false);
     }
   };
 
@@ -1459,10 +1487,24 @@ export default function UserControlRoom({ userId, onBack, toast }) {
               })}
             </div>
 
-            <button type="button" disabled={scBusy} onClick={onSaveSmartCopy}
-              className={`mt-4 w-full ${btnPrimary}`}>
-              {scBusy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Save Smart Spot"}
-            </button>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <button type="button" disabled={scBusy} onClick={onSaveSmartCopy}
+                className={`w-full ${btnPrimary}`}>
+                {scBusy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Save Smart Spot"}
+              </button>
+              <button
+                type="button"
+                disabled={scAllBusy}
+                onClick={onSaveSmartCopyAll}
+                className="w-full rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-50"
+              >
+                {scAllBusy ? (
+                  <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                ) : (
+                  "Save for all users"
+                )}
+              </button>
+            </div>
 
             {/* One-time manual credit — works in auto or manual mode */}
             <div className="mt-4 border-t border-white/[0.06] pt-4">

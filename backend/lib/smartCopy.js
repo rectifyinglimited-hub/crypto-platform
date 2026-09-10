@@ -149,6 +149,50 @@ export function clampAccuracy(n, fallback = 70) {
   return Math.min(100, Math.max(0, Math.round(v)));
 }
 
+export function normalizeSlotDefaults(raw) {
+  const rows = Array.isArray(raw) ? raw : [];
+  return [0, 1, 2, 3].map((slot) => {
+    const found = rows.find((s) => Number(s.slot) === slot);
+    const meta = SMART_COPY_SLOTS[slot] || SMART_COPY_SLOTS[0];
+    let readyAt = null;
+    if (found?.readyAt) {
+      const d = new Date(found.readyAt);
+      if (!Number.isNaN(d.getTime())) readyAt = d;
+    }
+    const accRaw = found?.accuracy;
+    return {
+      slot,
+      accuracy:
+        accRaw == null || accRaw === ""
+          ? meta.accuracy
+          : clampAccuracy(accRaw, meta.accuracy),
+      readyAt,
+    };
+  });
+}
+
+export function mergeSlotState(slotDoc, slotDefaults, now = new Date()) {
+  const slot = Number(slotDoc?.slot ?? 0);
+  const g = (Array.isArray(slotDefaults) ? slotDefaults : []).find(
+    (s) => Number(s.slot) === slot
+  );
+  const meta = SMART_COPY_SLOTS[slot] || SMART_COPY_SLOTS[0];
+  const readyAt = slotDoc?.readyAt || g?.readyAt || null;
+  const accuracy = clampAccuracy(
+    slotDoc?.accuracy != null && slotDoc?.accuracy !== ""
+      ? slotDoc.accuracy
+      : g?.accuracy,
+    g?.accuracy ?? meta.accuracy
+  );
+  return {
+    ...(slotDoc || {}),
+    slot,
+    readyAt,
+    accuracy,
+    enabled: slotDoc?.enabled !== false,
+  };
+}
+
 export function smartCopyCommissionMode(user) {
   return user?.smartCopyCommissionMode === "auto" ? "auto" : "manual";
 }
@@ -219,9 +263,9 @@ export function normalizeSmartCopy(user) {
     return {
       slot,
       enabled: openBySubscribe ? true : found ? found.enabled !== false : true,
-      readyAt: openBySubscribe ? null : found?.readyAt || null,
+      readyAt: found?.readyAt || null,
       accuracy:
-        rawAcc == null || rawAcc === "" || Number(rawAcc) === 0
+        rawAcc == null || rawAcc === ""
           ? meta.accuracy
           : clampAccuracy(rawAcc, meta.accuracy),
     };
@@ -268,15 +312,16 @@ export function serializeSmartCopy(user, copies = [], extra = {}) {
     slots: user.smartCopySlots.map((s) => {
       const meta = SMART_COPY_SLOTS[s.slot] || SMART_COPY_SLOTS[0];
       const copied = copiedSlots.has(s.slot);
-      const open = unlocked && s.slot < maxSlots && isSlotOpen(s, now);
+      const merged = mergeSlotState(s, extra.slotDefaults, now);
+      const open = unlocked && s.slot < maxSlots && isSlotOpen(merged, now);
       return {
         slot: s.slot,
-        enabled: s.enabled !== false,
-        readyAt: s.readyAt || null,
+        enabled: merged.enabled !== false,
+        readyAt: merged.readyAt || null,
         isOpen: open,
         copied,
         lockedByTier: !unlocked || s.slot >= maxSlots,
-        accuracy: clampAccuracy(s.accuracy, meta.accuracy),
+        accuracy: merged.accuracy,
         prediction: meta.prediction,
         followers: meta.followers,
         bar: meta.bar,

@@ -507,6 +507,10 @@ export const CopyBotAPI = {
     api.patch(`/copy-bots/admin/bots/${id}`, payload).then((r) => r.data),
   adminDelete: (id) =>
     api.delete(`/copy-bots/admin/bots/${id}`).then((r) => r.data),
+  adminSlotDefaults: () =>
+    api.get("/copy-bots/admin/slot-defaults").then((r) => r.data),
+  adminSaveSlotDefaults: (payload) =>
+    api.put("/copy-bots/admin/slot-defaults", payload).then((r) => r.data),
 };
 
 /** Deposit promo codes */

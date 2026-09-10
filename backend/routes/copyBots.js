@@ -10,7 +10,7 @@ import User from "../models/User.js";
 import Transaction from "../models/Transaction.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
-import { tenantDocFilter } from "../middleware/tenant.js";
+import { tenantDocFilter, tenantUserFilter } from "../middleware/tenant.js";
 import { emitWalletUpdate, emitSmartCopySubmitted } from "../socket.js";
 import {
   normalizeSmartCopy,
@@ -26,8 +26,11 @@ import {
   smartCopyUnlocked,
   aiFuturesPrincipal,
   SMART_COPY_CYCLE_MS,
+  mergeSlotState,
+  normalizeSlotDefaults,
 } from "../lib/smartCopy.js";
-import { loadCommissionTiers } from "../lib/commissionConfig.js";
+import { loadCommissionTiers, loadSlotDefaults } from "../lib/commissionConfig.js";
+import PlatformConfig from "../models/PlatformConfig.js";
 import { walletObj } from "../lib/ledger.js";
 
 const router = Router();
@@ -426,12 +429,16 @@ router.get(
     ).filter(isSignalCopy);
     const pending = await latestPendingCommission(user._id);
     await persistSmartCopy(user);
-    const tiers = await loadCommissionTiers();
+    const [tiers, slotDefaults] = await Promise.all([
+      loadCommissionTiers(),
+      loadSlotDefaults(),
+    ]);
     res.json({
       success: true,
       desk: serializeSmartCopy(user, copies, {
         pendingCommission: serializePendingCommission(pending),
         tiers,
+        slotDefaults,
       }),
       copies: copies.map(serializeCopy),
     });
@@ -475,7 +482,14 @@ router.post(
       });
     }
     const maxSlots = Number(user.smartCopyMaxSlots || 0);
-    const slotDoc = user.smartCopySlots.find((s) => Number(s.slot) === slot);
+    const [tiers, slotDefaults] = await Promise.all([
+      loadCommissionTiers(),
+      loadSlotDefaults(),
+    ]);
+    const slotDoc = mergeSlotState(
+      user.smartCopySlots.find((s) => Number(s.slot) === slot),
+      slotDefaults
+    );
     if (slot >= maxSlots) {
       return res.status(403).json({
         success: false,
@@ -514,7 +528,6 @@ router.post(
 
     const startDate = new Date();
     const paying = smartCopyCycleOpen(user, startDate);
-    const tiers = await loadCommissionTiers();
     const rate = smartCopyLiveRate(user, startDate, tiers);
     const principal = aiFuturesPrincipal(user);
     const credit = paying
@@ -618,6 +631,7 @@ router.post(
       desk: serializeSmartCopy(user, copies, {
         pendingCommission: serializePendingCommission(pendingCommission),
         tiers,
+        slotDefaults,
       }),
     });
   })
@@ -625,6 +639,59 @@ router.post(
 
 // ---- Admin ----
 router.use(requireAuth, requireAdmin, requireDatabase);
+
+router.get(
+  "/admin/slot-defaults",
+  asyncHandler(async (_req, res) => {
+    const slots = await loadSlotDefaults();
+    return res.json({
+      success: true,
+      slots: slots.map((s) => ({
+        slot: s.slot,
+        accuracy: s.accuracy,
+        readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
+      })),
+    });
+  })
+);
+
+router.put(
+  "/admin/slot-defaults",
+  asyncHandler(async (req, res) => {
+    const slots = normalizeSlotDefaults(req.body?.slots);
+    const platform = await PlatformConfig.getSingleton();
+    platform.smartCopyDefaults = {
+      slots: slots.map((s) => ({
+        slot: s.slot,
+        accuracy: s.accuracy,
+        readyAt: s.readyAt || null,
+      })),
+    };
+    platform.markModified("smartCopyDefaults");
+    platform.updatedBy = req.auth.sub;
+    await platform.save();
+
+    const nextSlots = slots.map((s) => ({
+      slot: s.slot,
+      enabled: true,
+      accuracy: s.accuracy,
+      readyAt: s.readyAt || null,
+    }));
+    const updated = await User.updateMany(tenantUserFilter(req), {
+      $set: { smartCopySlots: nextSlots },
+    });
+
+    return res.json({
+      success: true,
+      message: `Smart Spot blocks saved for all users (${Number(updated.modifiedCount || 0)} accounts).`,
+      slots: nextSlots.map((s) => ({
+        slot: s.slot,
+        accuracy: s.accuracy,
+        readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
+      })),
+    });
+  })
+);
 
 router.get(
   "/admin/bots",

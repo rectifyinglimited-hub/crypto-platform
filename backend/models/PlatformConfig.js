@@ -53,6 +53,13 @@ const PlatformConfigSchema = new Schema(
         commissionTiers: [],
       }),
     },
+    /** Global Smart Spot block accuracy + open-at (one-click apply to all). */
+    smartCopyDefaults: {
+      type: {
+        slots: { type: [Schema.Types.Mixed], default: [] },
+      },
+      default: () => ({ slots: [] }),
+    },
     updatedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

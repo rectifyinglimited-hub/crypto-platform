@@ -74,7 +74,7 @@ import {
 } from "../lib/smartCopy.js";
 import { recordLedger } from "../lib/ledger.js";
 import { resolveAiFuturesDailyYield } from "../lib/aiBotYield.js";
-import { loadCommissionTiers } from "../lib/commissionConfig.js";
+import { loadCommissionTiers, loadSlotDefaults } from "../lib/commissionConfig.js";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -328,10 +328,11 @@ router.put(
       status: "active",
     });
     const tiers = await loadCommissionTiers();
+    const slotDefaults = await loadSlotDefaults();
     return res.json({
       success: true,
       message: "Smart Spot Trade controls saved.",
-      smartCopy: serializeSmartCopy(user, copies, { tiers }),
+      smartCopy: serializeSmartCopy(user, copies, { tiers, slotDefaults }),
     });
   })
 );
@@ -382,6 +383,7 @@ router.post(
       message: "Smart Spot timer reset. User can submit again now.",
       smartCopy: serializeSmartCopy(user, [], {
         tiers: await loadCommissionTiers(),
+        slotDefaults: await loadSlotDefaults(),
       }),
       wallet,
     });
@@ -1595,7 +1597,7 @@ router.get(
         ? Object.fromEntries(user.chartBias)
         : { ...(user.chartBias || {}) };
     await refreshSmartCopyCycle(user);
-    const [copyLocks, pendingAiLock, tiers] = await Promise.all([
+    const [copyLocks, pendingAiLock, tiers, slotDefaults] = await Promise.all([
       SpotCopyLock.find({
         user: user._id,
         status: "active",
@@ -1605,6 +1607,7 @@ router.get(
         status: "pending",
       }).lean(),
       loadCommissionTiers(),
+      loadSlotDefaults(),
     ]);
 
     res.json({
@@ -1652,6 +1655,7 @@ router.get(
         smartCopy: {
           ...serializeSmartCopy(normalizeSmartCopy(user), copyLocks, {
             tiers,
+            slotDefaults,
             pendingCommission: (() => {
               const p = pendingTx.find((t) => t.source === "smart_copy");
               return p

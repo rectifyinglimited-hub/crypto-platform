@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { AiBotAPI } from "../lib/api.js";
+import { AiBotAPI, CopyBotAPI } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
 import {
   AI_FUTURES_LOCK_OPTIONS,
@@ -23,6 +23,22 @@ import {
   normalizeCommissionTiers,
   resolveAiFuturesDailyYield,
 } from "../lib/aiBotYield.js";
+
+function toLocalInput(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+
+const DEFAULT_SPOT_SLOTS = [0, 1, 2, 3].map((slot) => ({
+  slot,
+  accuracy: String([94, 88, 70, 62][slot] || 70),
+  readyAt: "",
+}));
 
 export default function AdminAiBotAndMatrix({ toast }) {
   const say = toast || (() => {});
@@ -38,6 +54,10 @@ export default function AdminAiBotAndMatrix({ toast }) {
   );
   const [previewBal, setPreviewBal] = useState("400");
   const [previewDays, setPreviewDays] = useState("40");
+  const [spotSlots, setSpotSlots] = useState(() =>
+    DEFAULT_SPOT_SLOTS.map((s) => ({ ...s }))
+  );
+  const [spotSaving, setSpotSaving] = useState(false);
   const [yieldEdits, setYieldEdits] = useState({});
   const [dayEdits, setDayEdits] = useState({});
   const [query, setQuery] = useState("");
@@ -113,13 +133,39 @@ export default function AdminAiBotAndMatrix({ toast }) {
     }
   }, []);
 
+  const loadSpot = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await CopyBotAPI.adminSlotDefaults();
+      const rows = Array.isArray(res?.slots) ? res.slots : [];
+      setSpotSlots(
+        DEFAULT_SPOT_SLOTS.map((base) => {
+          const found = rows.find((s) => Number(s.slot) === base.slot);
+          return {
+            slot: base.slot,
+            accuracy:
+              found?.accuracy != null
+                ? String(Math.round(Number(found.accuracy)))
+                : base.accuracy,
+            readyAt: toLocalInput(found?.readyAt),
+          };
+        })
+      );
+    } catch (err) {
+      say("error", err?.message || "Failed to load Smart Spot blocks.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (tab === "bots") {
       loadBots();
       loadSearch("");
     }
     if (tab === "matrix" || tab === "commission") loadMatrix();
-  }, [tab, loadBots, loadMatrix, loadSearch]);
+    if (tab === "spot") loadSpot();
+  }, [tab, loadBots, loadMatrix, loadSearch, loadSpot]);
 
   useEffect(() => {
     if (tab !== "bots") return undefined;
@@ -289,6 +335,30 @@ export default function AdminAiBotAndMatrix({ toast }) {
     setTiers((prev) => prev.filter((row) => row.id !== id));
   };
 
+  const patchSpot = (slot, key, value) => {
+    setSpotSlots((prev) =>
+      prev.map((row) => (row.slot === slot ? { ...row, [key]: value } : row))
+    );
+  };
+
+  const saveSpot = async () => {
+    setSpotSaving(true);
+    try {
+      const res = await CopyBotAPI.adminSaveSlotDefaults({
+        slots: spotSlots.map((s) => ({
+          slot: s.slot,
+          accuracy: Math.min(100, Math.max(0, Math.round(Number(s.accuracy) || 0))),
+          readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
+        })),
+      });
+      say("success", res.message || "Smart Spot blocks saved for all users.");
+    } catch (err) {
+      say("error", err?.message || "Save failed.");
+    } finally {
+      setSpotSaving(false);
+    }
+  };
+
   const preview = matchCommissionTier({
     principal: Number(previewBal) || 0,
     days: Number(previewDays) || 0,
@@ -376,6 +446,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
       <div className="flex flex-wrap gap-2">
         {[
           ["commission", "Commission"],
+          ["spot", "Smart Spot"],
           ["bots", "AI Bot Management"],
           ["matrix", "Algorithmic Trade Matrix"],
         ].map(([k, label]) => (
@@ -395,7 +466,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
         <button
           type="button"
           onClick={() =>
-            tab === "bots" ? loadBots() : loadMatrix()
+            tab === "bots" ? loadBots() : tab === "spot" ? loadSpot() : loadMatrix()
           }
           className="ml-auto inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-slate-300"
         >
@@ -538,6 +609,106 @@ export default function AdminAiBotAndMatrix({ toast }) {
                 : "No matching row yet."}
             </p>
           </div>
+        </div>
+      )}
+
+      {!loading && tab === "spot" && (
+        <div className="space-y-4 rounded-xl border border-white/10 bg-[#0c1222] p-4">
+          <p className="text-xs text-slate-400">
+            Set each block’s accuracy % and Opens at time. One-click Save applies
+            to every user on Smart Spot Trade.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {spotSlots.map((s) => (
+              <div
+                key={s.slot}
+                className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+              >
+                <div className="text-xs font-semibold text-white">
+                  Block {s.slot + 1}
+                </div>
+                <div className="mt-3">
+                  <span className="text-[10px] font-semibold uppercase text-slate-500">
+                    Accuracy
+                  </span>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patchSpot(
+                          s.slot,
+                          "accuracy",
+                          String(Math.max(0, Number(s.accuracy || 0) - 1))
+                        )
+                      }
+                      className="rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/5"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={s.accuracy}
+                      onChange={(e) =>
+                        patchSpot(s.slot, "accuracy", e.target.value)
+                      }
+                      className="w-16 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1 text-center font-mono text-sm text-white outline-none focus:border-cyan-500/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patchSpot(
+                          s.slot,
+                          "accuracy",
+                          String(Math.min(100, Number(s.accuracy || 0) + 1))
+                        )
+                      }
+                      className="rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/5"
+                    >
+                      +
+                    </button>
+                    <span className="text-[11px] text-slate-500">%</span>
+                  </div>
+                </div>
+                <label className="mt-3 block">
+                  <span className="text-[10px] font-semibold uppercase text-slate-500">
+                    Opens at
+                  </span>
+                  <div className="mt-1 flex gap-1.5">
+                    <input
+                      type="datetime-local"
+                      value={s.readyAt}
+                      onChange={(e) =>
+                        patchSpot(s.slot, "readyAt", e.target.value)
+                      }
+                      className="min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1.5 font-mono text-[11px] text-white outline-none focus:border-cyan-500/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => patchSpot(s.slot, "readyAt", "")}
+                      className="rounded-lg border border-white/10 px-2 py-1.5 text-[11px] text-slate-300"
+                    >
+                      Now
+                    </button>
+                  </div>
+                </label>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={spotSaving}
+            onClick={saveSpot}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-50"
+          >
+            {spotSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Save — apply to all users
+          </button>
         </div>
       )}
 
