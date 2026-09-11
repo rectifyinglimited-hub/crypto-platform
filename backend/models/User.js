@@ -198,6 +198,12 @@ const UserSchema = new Schema(
       type: Date,
       default: null,
     },
+    /** Ready to Copy yield held until the AI Futures lock ends. */
+    smartCopyHeldUsdt: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     smartCopyMaxSlots: {
       type: Number,
       min: 0,

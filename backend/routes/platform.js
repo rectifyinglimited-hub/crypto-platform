@@ -22,7 +22,7 @@ import {
   ensureReferralCode,
   progressToNextTier,
 } from "../lib/referralEngine.js";
-import { heldAiUsdt } from "../lib/aiBotYield.js";
+import { heldAiUsdt, heldSmartSpotUsdt } from "../lib/aiBotYield.js";
 
 const router = Router();
 
@@ -457,7 +457,9 @@ router.get(
     ensureAccounts(user);
     const spendable = unifyTradingWallet(user);
     await user.save();
-    const held = heldAiUsdt(user);
+    const held = Number(
+      (heldAiUsdt(user) + heldSmartSpotUsdt(user)).toFixed(8)
+    );
     const total = Number((spendable + held).toFixed(8));
     const accounts = accountsObj(user.accountBalances);
     return res.json({

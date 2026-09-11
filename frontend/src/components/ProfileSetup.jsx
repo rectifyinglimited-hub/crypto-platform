@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { AuthAPI } from "../lib/api.js";
 import { publicUid } from "../lib/userUid.js";
-import { displayUsdt, heldAiUsdt, spendableUsdt } from "../lib/walletDisplay.js";
+import { displayUsdt, heldAiUsdt, heldSmartSpotUsdt, spendableUsdt } from "../lib/walletDisplay.js";
 import BalanceTrendCard from "./BalanceTrendCard.jsx";
 import StrategyBalanceCards from "./StrategyBalanceCards.jsx";
 
@@ -139,7 +139,7 @@ export default function ProfileSetup({
       .map((s) => s[0]?.toUpperCase())
       .join("");
 
-  const holding = heldAiUsdt(user);
+  const holding = heldAiUsdt(user) + heldSmartSpotUsdt(user);
   const withdrawable = spendableUsdt(user);
   const grand = displayUsdt(user);
   const totalGrand = grand;
@@ -276,7 +276,7 @@ export default function ProfileSetup({
         <MoneyTile
           label="Holding balance"
           value={holding}
-          hint="AI Futures locked principal"
+          hint="AI Futures + Smart Spot locked"
         />
         <MoneyTile
           label="Withdrawable balance"

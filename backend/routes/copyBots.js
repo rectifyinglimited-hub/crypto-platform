@@ -25,6 +25,7 @@ import {
   smartCopyLiveRate,
   smartCopyUnlocked,
   aiFuturesPrincipal,
+  smartCopyHeldOf,
   SMART_COPY_CYCLE_MS,
   mergeSlotState,
   normalizeSlotDefaults,
@@ -561,10 +562,23 @@ router.post(
     if (paying) {
       user.smartCopyLastSubmitAt = startDate;
       if (credit > 0) {
-        setUsdt(user, usdtOf(user) + credit);
+        const lockActive = Boolean(user.aiBotActive);
+        if (lockActive) {
+          user.smartCopyHeldUsdt = Number(
+            (smartCopyHeldOf(user) + credit).toFixed(8)
+          );
+        } else {
+          setUsdt(user, usdtOf(user) + credit);
+        }
         await User.updateOne(
           { _id: user._id },
-          { $set: { wallet: walletObj(user.wallet) } }
+          {
+            $set: {
+              ...(lockActive
+                ? { smartCopyHeldUsdt: user.smartCopyHeldUsdt }
+                : { wallet: walletObj(user.wallet) }),
+            },
+          }
         );
         await Transaction.create({
           user: user._id,
@@ -577,15 +591,21 @@ router.post(
           ledgerDelta: credit,
           status: "completed",
           source: "smart_copy",
-          reviewerNote: `Smart Spot Trade · ${rate}% of AI Futures $${principal.toFixed(2)} = $${credit.toFixed(2)} · credited instantly · ${pair || asset}`,
+          reviewerNote: lockActive
+            ? `Smart Spot Trade · ${rate}% of AI Futures $${principal.toFixed(2)} = $${credit.toFixed(2)} · locked on Smart Spot until AI Futures ends · ${pair || asset}`
+            : `Smart Spot Trade · ${rate}% of AI Futures $${principal.toFixed(2)} = $${credit.toFixed(2)} · credited instantly · ${pair || asset}`,
         });
         credited = credit;
         requested = credit;
-        message = `Commission $${credit.toFixed(2)} added to your account.`;
+        message = lockActive
+          ? `Commission $${credit.toFixed(2)} added to Smart Spot locked balance.`
+          : `Commission $${credit.toFixed(2)} added to your account.`;
         try {
           emitWalletUpdate(user._id, walletObj(user.wallet), {
             reason: "smart_copy_credit",
             amount: credit,
+            locked: lockActive,
+            smartCopyHeldUsdt: Number(user.smartCopyHeldUsdt || 0),
           });
         } catch {
           /* ignore */
@@ -628,6 +648,7 @@ router.post(
       rate: paying ? rate : 0,
       copy: serializeCopy(lock),
       wallet: walletObj(user.wallet),
+      smartCopyHeldUsdt: Number(user.smartCopyHeldUsdt || 0),
       desk: serializeSmartCopy(user, copies, {
         pendingCommission: serializePendingCommission(pendingCommission),
         tiers,

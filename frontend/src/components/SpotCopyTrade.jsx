@@ -572,7 +572,11 @@ export default function SpotCopyTrade({
       setDesk(res.desk || desk);
       setNotice(res.message || "Submitted.");
       setError("");
-      if (res.wallet) onWalletUpdate?.({ wallet: res.wallet });
+      if (res.wallet)
+        onWalletUpdate?.({
+          wallet: res.wallet,
+          smartCopyHeldUsdt: res.smartCopyHeldUsdt ?? res.desk?.heldCommission,
+        });
       await load();
     } catch (err) {
       setError(err?.message || "Copy failed.");

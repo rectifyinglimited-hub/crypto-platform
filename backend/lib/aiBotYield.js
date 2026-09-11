@@ -149,6 +149,12 @@ export function heldAiUsdt(user) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+export function heldSmartSpotUsdt(user) {
+  if (!user?.aiBotActive) return 0;
+  const n = Number(user.smartCopyHeldUsdt || 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 /** Daily % list — admin-saved target, same every day. */
 export function buildYieldSchedule({ days, targetPct }) {
   const n = Math.max(1, Math.floor(Number(days) || RECOVER_DAYS));

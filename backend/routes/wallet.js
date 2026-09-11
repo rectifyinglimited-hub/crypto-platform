@@ -188,6 +188,7 @@ router.post(
 
     const symbol = (req.body.symbol || "USDT").toString().toUpperCase();
     const network = (req.body.network || "TRC20").toString().toUpperCase();
+    const txHash = String(req.body.txHash || "").trim() || null;
     const proofUrl = proofPublicUrl(req.file.filename);
     const owner = await User.findById(req.auth.sub).select("adminId");
     const tenantId = owner?.adminId || null;
@@ -200,9 +201,11 @@ router.post(
       amount,
       usdValue: amount,
       network,
+      txHash,
       proofUrl,
       status: "pending",
-      reviewerNote: null,
+      source: "deposit",
+      reviewerNote: txHash ? `Tx ${txHash}` : null,
     });
 
     const msg = await Message.create({

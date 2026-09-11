@@ -13,7 +13,7 @@ import Transaction from "../models/Transaction.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 import { tenantDocFilter, tenantUserFilter } from "../middleware/tenant.js";
-import { normalizeSmartCopy } from "../lib/smartCopy.js";
+import { normalizeSmartCopy, takeSmartCopyHeld } from "../lib/smartCopy.js";
 import {
   dailyYieldForLockDays,
   dailyYieldTableFromTiers,
@@ -47,7 +47,7 @@ function walletObj(w) {
 
 /** Never load KYC image blobs — full User.save() hangs Railway. */
 const USER_BOT_SELECT =
-  "username email fullName adminId banned wallet aiBotActive aiBotLockDays aiBotAssignedLockDays aiBotStartDate aiBotEndDate aiBotCustomPercentage aiBotPrincipal aiBotContractId aiBotContractAcceptedAt aiBotPendingRequestId smartCopySlots smartCopyMaxSlots smartCopyCommissionPct smartCopyCommissionMode";
+  "username email fullName adminId banned wallet aiBotActive aiBotLockDays aiBotAssignedLockDays aiBotStartDate aiBotEndDate aiBotCustomPercentage aiBotPrincipal aiBotContractId aiBotContractAcceptedAt aiBotPendingRequestId smartCopySlots smartCopyMaxSlots smartCopyCommissionPct smartCopyCommissionMode smartCopyHeldUsdt";
 
 async function loadTrader(id) {
   return User.findById(id).select(USER_BOT_SELECT);
@@ -103,6 +103,7 @@ async function persistBotState(user, tiers) {
         smartCopySlots: user.smartCopySlots,
         smartCopyMaxSlots: user.smartCopyMaxSlots,
         smartCopyCommissionMode: user.smartCopyCommissionMode || "auto",
+        smartCopyHeldUsdt: Number(user.smartCopyHeldUsdt || 0),
       },
     }
   );
@@ -126,6 +127,7 @@ function serializeUserBot(user, pendingRequest = null, tiers) {
       yieldCtx(user, tiers, principal)
     ),
     aiBotPrincipal: user.aiBotPrincipal,
+    smartCopyHeldUsdt: Number(user.smartCopyHeldUsdt || 0),
     aiBotContractId: user.aiBotContractId,
     aiBotContractAcceptedAt: user.aiBotContractAcceptedAt,
     pendingRequest: pendingRequest
@@ -184,6 +186,11 @@ async function startApprovedLock(user, request, lockDays, contractVersion, tiers
     Number(request.yieldPct || 0.5);
   const startDate = new Date();
   const endDate = new Date(startDate.getTime() + days * 86400000);
+
+  const leftoverHeld = takeSmartCopyHeld(user);
+  if (leftoverHeld > 0) {
+    setUsdt(user, usdtOf(user) + leftoverHeld);
+  }
 
   user.aiBotActive = true;
   user.aiBotLockDays = days;
@@ -493,8 +500,10 @@ router.post(
     const days = lockDayCount(user);
     const profit = commissionProfit(principal, pct, days);
     const payout = Number((principal + profit).toFixed(8));
+    const heldSpot = takeSmartCopyHeld(user);
+    const walletCredit = Number((payout + heldSpot).toFixed(8));
 
-    setUsdt(user, usdtOf(user) + payout);
+    setUsdt(user, usdtOf(user) + walletCredit);
 
     const contractId = user.aiBotContractId;
     user.aiBotActive = false;
@@ -520,18 +529,24 @@ router.post(
       kind: "trade",
       side: "buy",
       symbol: "AI-BOT",
-      amount: payout,
-      usdValue: payout,
+      amount: walletCredit,
+      usdValue: walletCredit,
       status: "completed",
-      reviewerNote: `AI Bot claim · principal $${principal} + ${pct}% daily × ${days}d = $${payout}`,
+      reviewerNote:
+        heldSpot > 0
+          ? `AI Bot claim · principal $${principal} + ${pct}% daily × ${days}d = $${payout} · Smart Spot held $${heldSpot.toFixed(2)} released`
+          : `AI Bot claim · principal $${principal} + ${pct}% daily × ${days}d = $${payout}`,
       source: "ai_future",
-      ledgerDelta: payout,
+      ledgerDelta: walletCredit,
     });
 
     return res.json({
       success: true,
-      message: `Claimed $${payout.toFixed(2)} (principal + yield).`,
-      payout,
+      message:
+        heldSpot > 0
+          ? `Claimed $${walletCredit.toFixed(2)} (principal + yield + Smart Spot).`
+          : `Claimed $${payout.toFixed(2)} (principal + yield).`,
+      payout: walletCredit,
       profit,
       wallet: walletObj(user.wallet),
       bot: serializeUserBot(user, null, tiers),
@@ -558,8 +573,10 @@ router.post(
     const principal = Number(user.aiBotPrincipal || 0);
     const penalty = Number((principal * 0.15).toFixed(8));
     const refund = Number(Math.max(0, principal - penalty).toFixed(8));
+    const heldSpot = takeSmartCopyHeld(user);
+    const walletCredit = Number((refund + heldSpot).toFixed(8));
 
-    setUsdt(user, usdtOf(user) + refund);
+    setUsdt(user, usdtOf(user) + walletCredit);
 
     const contractId = user.aiBotContractId;
     user.aiBotActive = false;
@@ -586,21 +603,24 @@ router.post(
       kind: "trade",
       side: "sell",
       symbol: "AI-BOT",
-      amount: refund,
-      usdValue: refund,
+      amount: walletCredit,
+      usdValue: walletCredit,
       status: "completed",
-      reviewerNote: `AI Bot cancel · forfeit yield · 15% penalty $${penalty} · refund $${refund}`,
+      reviewerNote:
+        heldSpot > 0
+          ? `AI Bot cancel · forfeit yield · 15% penalty $${penalty} · refund $${refund} · Smart Spot held $${heldSpot.toFixed(2)} released`
+          : `AI Bot cancel · forfeit yield · 15% penalty $${penalty} · refund $${refund}`,
       source: "ai_future",
-      ledgerDelta: refund,
+      ledgerDelta: walletCredit,
     });
 
     return res.json({
       success: true,
       message: `Cancelled. Yield forfeited. 15% penalty ($${penalty.toFixed(
         2
-      )}) deducted. Refunded $${refund.toFixed(2)}.`,
+      )}) deducted. Refunded $${walletCredit.toFixed(2)}.`,
       penalty,
-      refund,
+      refund: walletCredit,
       wallet: walletObj(user.wallet),
       bot: serializeUserBot(user),
     });

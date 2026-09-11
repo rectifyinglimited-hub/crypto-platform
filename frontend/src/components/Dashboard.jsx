@@ -59,6 +59,7 @@ import TradeHistory from "./TradeHistory.jsx";
 import ProfileSetup from "./ProfileSetup.jsx";
 import AccountSettings from "./AccountSettings.jsx";
 import WithdrawSection from "./WithdrawSection.jsx";
+import DepositSection from "./DepositSection.jsx";
 import { AboutPage, ContactPage, VipPage } from "./InfoPages.jsx";
 import { CertificatePage } from "./TradingCertificate.jsx";
 import { AuthAPI, WalletAPI, SecondsTradeAPI, clearToken } from "../lib/api.js";
@@ -1011,17 +1012,12 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   const [marketIntent, setMarketIntent] = useState(null);
 
   const goPage = (p) => {
-    if (p === "deposit") {
-      setChatHint("deposit");
-      setChatOpenSignal((n) => n + 1);
-      return;
-    }
     const key = p === "delivery" || p === "spot" || p === "perpetual" ? "trade" : p;
     setPage(key);
     if (key === "assets") setAssetsView("overview");
     if (key === "withdraw") setAssetsView("withdraw");
     if (key === "trade") setTab("trading");
-    else if (key === "assets" || key === "withdraw") setTab("wallet");
+    else if (key === "assets" || key === "withdraw" || key === "deposit") setTab("wallet");
     else if (key === "account" || key === "settings") setTab("settings");
     else if (key === "home") setTab("home");
     else if (key === "market") setTab("trading");
@@ -1073,20 +1069,20 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
   }, []);
 
   const openDepositSection = useCallback(() => {
-    openLiveChat("deposit");
-  }, [openLiveChat]);
+    setPage("deposit");
+    setTab("wallet");
+  }, []);
 
   const openWithdrawSection = useCallback(() => {
     setAssetsView("withdraw");
     setPage("withdraw");
     setTab("wallet");
-    openLiveChat("withdraw");
-  }, [openLiveChat]);
+  }, []);
 
   const openAssetsHub = useCallback(
     (view = "overview") => {
       if (view === "deposit") {
-        openLiveChat("deposit");
+        openDepositSection();
         return;
       }
       if (view === "verification") {
@@ -1105,7 +1101,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
       setPage("assets");
       setTab("wallet");
     },
-    [openLiveChat, openWithdrawSection]
+    [openDepositSection, openWithdrawSection]
   );
 
   useEffect(() => {
@@ -1209,7 +1205,13 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         ) {
           return prev;
         }
-        return { ...prev, wallet: payload.wallet };
+        return {
+          ...prev,
+          wallet: payload.wallet,
+          ...(payload.smartCopyHeldUsdt != null
+            ? { smartCopyHeldUsdt: payload.smartCopyHeldUsdt }
+            : {}),
+        };
       });
       if (
         payload.reason === "seconds_open" ||
@@ -1345,8 +1347,12 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             />
           )}
           {page === "deposit" && (
-            <div key="deposit" className="mx-auto max-w-2xl rounded-2xl border border-teal-400/20 bg-teal-500/10 p-5 text-sm text-teal-100">
-              Deposit opens in Live Chat — enter the amount and send your receipt screenshot there.
+            <div key="deposit" className="mx-auto max-w-2xl">
+              <DepositSection
+                toast={say}
+                onOpenLiveChat={() => openLiveChat("deposit")}
+                onSubmitted={() => loadTx()}
+              />
             </div>
           )}
           {page === "withdraw" && (
@@ -1377,7 +1383,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                   initialAsset={tradeIntent?.asset || "BTC"}
                   initialAssetType={tradeIntent?.assetType || "crypto"}
                   initialQuote={tradeIntent?.quote || "USDT"}
-                  onGoDeposit={() => openLiveChat("deposit")}
+                  onGoDeposit={openDepositSection}
                 />
               </div>
               <div className="space-y-4">
@@ -1416,7 +1422,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               user={me}
               onToast={say}
               onWalletUpdate={handleUserUpdate}
-              onGoDeposit={() => openLiveChat("deposit")}
+              onGoDeposit={openDepositSection}
             />
           )}
           {page === "loan" && (

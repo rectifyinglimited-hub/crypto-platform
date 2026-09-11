@@ -7,7 +7,7 @@ import {
 
 /** Never load KYC blobs on this path — full User.save() races the trade settler. */
 export const USER_SMART_COPY_SELECT =
-  "username email fullName adminId wallet aiBotActive aiBotPrincipal aiBotLockDays aiBotAssignedLockDays aiBotStartDate smartCopySlots smartCopyMaxSlots smartCopyCommissionPct smartCopyCommissionMode smartCopyLastSubmitAt";
+  "username email fullName adminId wallet aiBotActive aiBotPrincipal aiBotLockDays aiBotAssignedLockDays aiBotStartDate aiBotEndDate smartCopySlots smartCopyMaxSlots smartCopyCommissionPct smartCopyCommissionMode smartCopyLastSubmitAt smartCopyHeldUsdt";
 
 export async function persistSmartCopy(user) {
   if (!user?._id) return;
@@ -22,9 +22,29 @@ export async function persistSmartCopy(user) {
         smartCopyCommissionMode: user.smartCopyCommissionMode || "manual",
         smartCopyCommissionPct: Number(user.smartCopyCommissionPct || 0),
         smartCopyLastSubmitAt: user.smartCopyLastSubmitAt || null,
+        smartCopyHeldUsdt: Number(user.smartCopyHeldUsdt || 0),
       },
     }
   );
+}
+
+export function smartCopyHeldOf(user) {
+  const n = Number(user?.smartCopyHeldUsdt || 0);
+  return Number.isFinite(n) && n > 0 ? Number(n.toFixed(8)) : 0;
+}
+
+/** One AI lock, shown 50/50 on the two strategy cards. */
+export function splitAiLockShares(principal) {
+  const p = Number(principal || 0);
+  if (!(p > 0)) return { ai: 0, spot: 0 };
+  const ai = Number((p / 2).toFixed(8));
+  return { ai, spot: Number((p - ai).toFixed(8)) };
+}
+
+export function takeSmartCopyHeld(user) {
+  const held = smartCopyHeldOf(user);
+  if (user) user.smartCopyHeldUsdt = 0;
+  return held;
 }
 
 export const SMART_COPY_CYCLE_MS = 24 * 60 * 60 * 1000;
@@ -394,16 +414,23 @@ export function serializeSmartCopy(user, copies = [], extra = {}) {
   const unlocked = Boolean(user?.aiBotActive);
   const maxSlots = tier.slots;
   const base = principal > 0 ? principal : 0;
+  const shares = splitAiLockShares(principal);
+  const heldCommission = smartCopyHeldOf(user);
+  const lockDays = Number(user.aiBotLockDays || user.aiBotAssignedLockDays || 0);
   return {
     unlocked,
     requiredPrincipal: 0,
     aiPrincipal: principal,
+    aiLockedShare: shares.ai,
+    spotLockedShare: Number((shares.spot + heldCommission).toFixed(8)),
+    heldCommission,
     maxSlots,
     commissionMode: mode,
     commissionPct: Number(user.smartCopyCommissionPct || 0),
     autoRate,
     liveRate,
-    recoverDays: 40,
+    recoverDays: lockDays > 0 ? lockDays : 40,
+    lockDays,
     walletUsdt: usdt,
     estimatedCredit: Number(((base * liveRate) / 100).toFixed(8)),
     lastSubmitAt: last,

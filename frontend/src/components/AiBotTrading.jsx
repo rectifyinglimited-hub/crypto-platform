@@ -405,6 +405,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
         wallet: res.wallet,
         aiBotActive: !!res.bot?.aiBotActive,
         aiBotPrincipal: res.bot?.aiBotPrincipal,
+        smartCopyHeldUsdt: Number(res.bot?.smartCopyHeldUsdt || 0),
       });
       if (res.wallet) {
         setWalletUsdt(Number(res.wallet.USDT || 0));
@@ -429,6 +430,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
         wallet: res.wallet,
         aiBotActive: !!res.bot?.aiBotActive,
         aiBotPrincipal: res.bot?.aiBotPrincipal,
+        smartCopyHeldUsdt: Number(res.bot?.smartCopyHeldUsdt || 0),
       });
       toastRef.current?.("success", res.message || "Claimed.");
     } catch (err) {
@@ -447,6 +449,7 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
         wallet: res.wallet,
         aiBotActive: !!res.bot?.aiBotActive,
         aiBotPrincipal: res.bot?.aiBotPrincipal,
+        smartCopyHeldUsdt: Number(res.bot?.smartCopyHeldUsdt || 0),
       });
       toastRef.current?.("success", res.message || "Cancelled.");
       setCancelOpen(false);

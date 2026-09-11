@@ -2,7 +2,7 @@
  * Profile strategy wallets — AI Futures lock + Smart Spot commission.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Bot, Copy } from "lucide-react";
+import { Bot, Copy, Lock } from "lucide-react";
 import { AiBotAPI, CopyBotAPI, WalletAPI } from "../lib/api.js";
 import {
   RECOVER_DAYS,
@@ -10,6 +10,7 @@ import {
   matchCommissionTier,
   smartSpotTargetPct,
 } from "../lib/aiBotYield.js";
+import { splitAiLockShares } from "../lib/walletDisplay.js";
 
 function fmtUsd(n) {
   const v = Number(n) || 0;
@@ -56,9 +57,11 @@ function StrategyCard({
   daily,
   displayPct,
   remain,
+  lockDays,
   progress,
   emptyText,
 }) {
+  const days = Number(lockDays) > 0 ? Number(lockDays) : RECOVER_DAYS;
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-5">
       <div className="flex items-start justify-between gap-3">
@@ -79,10 +82,18 @@ function StrategyCard({
 
       {active ? (
         <>
-          <div className="mt-2 text-3xl font-bold tabular-nums text-white">
-            ${fmtUsd(balance)}
+          <div className="mt-2 flex items-center gap-2.5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-amber-400/25 bg-amber-400/10">
+              <Lock className="h-4 w-4 text-amber-300" strokeWidth={2.4} />
+            </span>
+            <div className="text-3xl font-bold tabular-nums text-white">
+              ${fmtUsd(balance)}
+            </div>
           </div>
-          <div className="mt-0.5 text-sm text-slate-400">Locked balance</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-400">
+            <Lock className="h-3.5 w-3.5 text-amber-300/80" />
+            Locked balance
+          </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5">
@@ -106,7 +117,7 @@ function StrategyCard({
                 {remain}
               </div>
               <div className="text-[10px] text-cyan-200/70">
-                {RECOVER_DAYS}-day recover path
+                {days}-day lock
               </div>
             </div>
           </div>
@@ -176,7 +187,13 @@ export default function StrategyBalanceCards({ user }) {
       cancelled = true;
       clearInterval(tick);
     };
-  }, [user?.id, user?._id, user?.aiBotActive, user?.aiBotPrincipal]);
+  }, [
+    user?.id,
+    user?._id,
+    user?.aiBotActive,
+    user?.aiBotPrincipal,
+    user?.smartCopyHeldUsdt,
+  ]);
 
   const liveBot = bot || {
     aiBotActive: user?.aiBotActive,
@@ -185,13 +202,21 @@ export default function StrategyBalanceCards({ user }) {
     aiBotStartDate: user?.aiBotStartDate,
     aiBotEndDate: user?.aiBotEndDate,
     aiBotCustomPercentage: user?.aiBotCustomPercentage,
+    smartCopyHeldUsdt: user?.smartCopyHeldUsdt,
   };
 
   const userSeed = String(user?._id || user?.id || "anon");
+  const heldSpot = Number(
+    liveBot?.smartCopyHeldUsdt ??
+      user?.smartCopyHeldUsdt ??
+      desk?.heldCommission ??
+      0
+  );
 
   const ai = useMemo(() => {
     const active = Boolean(liveBot?.aiBotActive);
     const principal = Number(liveBot?.aiBotPrincipal || 0);
+    const share = splitAiLockShares(principal).ai;
     const lockDays = Number(
       liveBot?.aiBotLockDays || liveBot?.aiBotAssignedLockDays || RECOVER_DAYS
     );
@@ -203,11 +228,12 @@ export default function StrategyBalanceCards({ user }) {
     if (!active || !liveBot?.aiBotStartDate) {
       return {
         active,
-        principal,
+        balance: share,
         daily: 0,
         commission: 0,
         displayPct: null,
         remain: remainLabel(end || null, now),
+        lockDays,
         progress: 0,
       };
     }
@@ -223,16 +249,17 @@ export default function StrategyBalanceCards({ user }) {
           tiers,
         })?.aiDailyPct ||
         1.25,
-      principal,
+      principal: share,
       now,
     });
     return {
       active,
-      principal,
+      balance: share,
       daily: view.daily,
       commission: view.total,
       displayPct: view.displayPct,
       remain: remainLabel(end || null, now),
+      lockDays,
       progress: view.progress,
     };
   }, [liveBot, now, userSeed, tiers]);
@@ -242,8 +269,13 @@ export default function StrategyBalanceCards({ user }) {
     const principal = Number(
       desk?.aiPrincipal || liveBot?.aiBotPrincipal || 0
     );
+    const share = splitAiLockShares(principal).spot;
+    const locked = Number((share + Math.max(0, heldSpot)).toFixed(8));
     const lockDays = Number(
-      liveBot?.aiBotLockDays || liveBot?.aiBotAssignedLockDays || RECOVER_DAYS
+      liveBot?.aiBotLockDays ||
+        liveBot?.aiBotAssignedLockDays ||
+        desk?.lockDays ||
+        RECOVER_DAYS
     );
     const end = liveBot?.aiBotEndDate || null;
     const target =
@@ -252,11 +284,12 @@ export default function StrategyBalanceCards({ user }) {
     if (!active || !liveBot?.aiBotStartDate) {
       return {
         active,
-        principal,
+        balance: locked,
         daily: Number(desk?.estimatedCredit || 0),
-        commission: smartEarned,
+        commission: Math.max(0, heldSpot) || smartEarned,
         displayPct: desk?.liveRate != null ? Number(desk.liveRate) : null,
         remain: remainLabel(end, now),
+        lockDays,
         progress: 0,
       };
     }
@@ -265,19 +298,20 @@ export default function StrategyBalanceCards({ user }) {
       startDate: liveBot.aiBotStartDate,
       days: lockDays,
       targetPct: target,
-      principal,
+      principal: share,
       now,
     });
     return {
       active,
-      principal,
+      balance: locked,
       daily: view.daily,
-      commission: view.total,
+      commission: Math.max(0, heldSpot) || view.total,
       displayPct: view.displayPct,
       remain: remainLabel(end, now),
+      lockDays,
       progress: view.progress,
     };
-  }, [desk, liveBot, now, smartEarned, userSeed, tiers]);
+  }, [desk, liveBot, now, smartEarned, userSeed, tiers, heldSpot]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -285,11 +319,12 @@ export default function StrategyBalanceCards({ user }) {
         icon={Bot}
         title="AI Futures Strategy"
         active={ai.active}
-        balance={ai.principal}
+        balance={ai.balance}
         commission={ai.commission}
         daily={ai.daily}
         displayPct={ai.displayPct}
         remain={ai.remain}
+        lockDays={ai.lockDays}
         progress={ai.progress}
         emptyText="Subscribe to AI Futures Strategy to lock a balance here. Remaining days and commission will show on this card."
       />
@@ -297,11 +332,12 @@ export default function StrategyBalanceCards({ user }) {
         icon={Copy}
         title="Smart Spot Trade"
         active={spot.active}
-        balance={spot.principal}
+        balance={spot.balance}
         commission={spot.commission}
         daily={spot.daily}
         displayPct={spot.displayPct}
         remain={spot.remain}
+        lockDays={spot.lockDays}
         progress={spot.progress}
         emptyText="Subscribe to AI Futures Strategy to unlock Smart Spot Trade. Commission and remaining days will show here."
       />

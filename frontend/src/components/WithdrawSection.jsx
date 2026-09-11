@@ -57,11 +57,6 @@ export default function WithdrawSection({
       })
       .catch(() => {});
   }, [savedAddresses, bankCards, wallet]);
-
-  useEffect(() => {
-    onOpenLiveChat?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const [method, setMethod] = useState("crypto");
   const [symbol, setSymbol] = useState("USDT");
   const [network, setNetwork] = useState("TRC20");

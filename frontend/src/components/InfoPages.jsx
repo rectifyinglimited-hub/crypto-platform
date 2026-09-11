@@ -22,21 +22,72 @@ import VideoBackdrop from "./VideoBackdrop.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import { SOCIAL_LINKS, CRYPTO_VIDEO, CRYPTO_POSTER, COMPANY } from "../lib/brand.js";
-import { CertificateGallery, openCertificate } from "./TradingCertificate.jsx";
+import { openCertificate } from "./TradingCertificate.jsx";
 import { PlatformAPI } from "../lib/api.js";
 
 const LIME_BTN =
   "inline-flex items-center justify-center gap-2 rounded-md bg-[#00C2B3] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_0_28px_rgba(0,194,179,0.45)] transition hover:bg-[#5EEAD4]";
 
-function AboutHeroVideo() {
+const ABOUT_IMGS = {
+  desk: "/bg/trader-desk.png",
+  charts: "/bg/charts-desk.jpg",
+  exchange: "/bg/hero-exchange.jpg",
+  city: "/bg/auth-city.jpg",
+  network: "/bg/data-network.jpg",
+  glow: "/bg/crypto-glow.jpg",
+  servers: "/bg/servers-neon.png",
+  circuit: "/bg/circuit-neon.png",
+  geometry: "/bg/hero-geometry.png",
+  heroPortrait: "/bg/about-hero-portrait.jpg",
+};
+
+function AboutHeroPortrait() {
+  return (
+    <div className="mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] p-1.5 sm:max-w-none sm:rounded-3xl sm:p-2 lg:justify-self-end">
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-black sm:rounded-2xl lg:aspect-[5/6]">
+        <img
+          src={ABOUT_IMGS.heroPortrait}
+          alt="equiti trading desk"
+          className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/10" />
+      </div>
+    </div>
+  );
+}
+
+const ABOUT_STORY_VIDEO_ID = "aQNq8ybAx0E";
+const ABOUT_STORY_PREVIEW_MS = 10_000;
+
+function AboutStoryVideo() {
   const hostRef = useRef(null);
   const playerRef = useRef(null);
+  const hoveredRef = useRef(false);
+  const previewTimer = useRef(null);
+  const [watching, setWatching] = useState(false);
 
   useEffect(() => {
-    const videoId = "aQNq8ybAx0E";
     let cancelled = false;
     let poll = null;
-    let pauseTimer = null;
+
+    const clearPreview = () => {
+      if (previewTimer.current) {
+        window.clearTimeout(previewTimer.current);
+        previewTimer.current = null;
+      }
+    };
+
+    const startPreviewCap = (player) => {
+      clearPreview();
+      previewTimer.current = window.setTimeout(() => {
+        if (hoveredRef.current) return;
+        try {
+          player.pauseVideo();
+        } catch {
+          /* ignore */
+        }
+      }, ABOUT_STORY_PREVIEW_MS);
+    };
 
     const mount = () => {
       if (cancelled || !hostRef.current || !window.YT?.Player) return;
@@ -46,7 +97,7 @@ function AboutHeroVideo() {
         /* ignore */
       }
       playerRef.current = new window.YT.Player(hostRef.current, {
-        videoId,
+        videoId: ABOUT_STORY_VIDEO_ID,
         width: "100%",
         height: "100%",
         playerVars: {
@@ -66,13 +117,7 @@ function AboutHeroVideo() {
             } catch {
               /* ignore */
             }
-            pauseTimer = window.setTimeout(() => {
-              try {
-                event.target.pauseVideo();
-              } catch {
-                /* ignore */
-              }
-            }, 10000);
+            startPreviewCap(event.target);
           },
         },
       });
@@ -99,8 +144,8 @@ function AboutHeroVideo() {
 
     return () => {
       cancelled = true;
+      clearPreview();
       if (poll) window.clearInterval(poll);
-      if (pauseTimer) window.clearTimeout(pauseTimer);
       try {
         playerRef.current?.destroy?.();
       } catch {
@@ -109,27 +154,59 @@ function AboutHeroVideo() {
     };
   }, []);
 
+  const onEnter = () => {
+    hoveredRef.current = true;
+    setWatching(true);
+    if (previewTimer.current) {
+      window.clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
+    const player = playerRef.current;
+    if (!player?.playVideo) return;
+    try {
+      player.playVideo();
+      player.unMute?.();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const onLeave = () => {
+    hoveredRef.current = false;
+    setWatching(false);
+    const player = playerRef.current;
+    if (!player?.pauseVideo) return;
+    try {
+      player.mute?.();
+      player.pauseVideo();
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
-    <div className="mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] p-1.5 sm:max-w-none sm:rounded-3xl sm:p-2 lg:justify-self-end">
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-black sm:rounded-2xl lg:aspect-[5/6]">
+    <div
+      className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] p-1.5 sm:rounded-3xl sm:p-2"
+      onMouseLeave={onLeave}
+    >
+      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black sm:rounded-2xl">
         <div ref={hostRef} className="absolute inset-0 h-full w-full" />
+        {!watching ? (
+          <button
+            type="button"
+            aria-label="Play full video"
+            className="absolute inset-0 z-10 cursor-pointer bg-transparent"
+            onMouseEnter={onEnter}
+            onClick={onEnter}
+          />
+        ) : null}
       </div>
+      <p className="px-3 py-2 text-center text-[11px] text-white/40">
+        First 10 seconds play automatically. Keep your pointer on the video to watch it in full.
+      </p>
     </div>
   );
 }
-
-const ABOUT_IMGS = {
-  desk: "/bg/trader-desk.png",
-  charts: "/bg/charts-desk.jpg",
-  exchange: "/bg/hero-exchange.jpg",
-  city: "/bg/auth-city.jpg",
-  network: "/bg/data-network.jpg",
-  glow: "/bg/crypto-glow.jpg",
-  servers: "/bg/servers-neon.png",
-  circuit: "/bg/circuit-neon.png",
-  geometry: "/bg/hero-geometry.png",
-  heroPortrait: "/bg/about-hero-portrait.jpg",
-};
 
 const TEAM = [
   {
@@ -254,7 +331,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
             )}
           </div>
         </div>
-        <AboutHeroVideo />
+        <AboutHeroPortrait />
       </section>
 
       {/* Why choose */}
@@ -324,9 +401,25 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
         </div>
       </section>
 
-      {/* Legal documents — Equiti-style hub, Dolphin Corp LLC office unchanged */}
-      <section>
-        <CertificateGallery onOpen={openCertificate} />
+      <section className="mx-auto max-w-4xl">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
+          The Equiti story
+        </p>
+        <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
+          Built as a professional global desk
+        </h2>
+        <p className="mx-auto mt-4 max-w-2xl text-center text-sm leading-relaxed text-white/60 sm:text-base">
+          equiti is built for traders who want live markets, invite-only access,
+          and a desk that reviews every deposit and payout. Watch how the brand
+          presents itself — a focused terminal, not a noisy marketplace.
+        </p>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-white/50">
+          Hover the player to hear the full film. If you leave it, the preview
+          pauses so the page stays quiet.
+        </p>
+        <div className="mt-8">
+          <AboutStoryVideo />
+        </div>
       </section>
 
       {/* Mission */}

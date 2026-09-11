@@ -51,6 +51,7 @@ import {
   pairLabel,
 } from "../lib/marketAssets.js";
 import WithdrawSection, { NetworkLogo } from "./WithdrawSection.jsx";
+import DepositSection from "./DepositSection.jsx";
 import CopyTradeModule from "./CopyTradeModule.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import { resolveMarketPrice, useLiveQuoteMap } from "../lib/liveQuotes.js";
@@ -3156,12 +3157,11 @@ export function AssetsHubPage({
 
   const goView = (key) => {
     if (key === "deposit") {
-      onOpenLiveChat?.("deposit");
       onOpenDeposit?.();
+      setView("deposit");
       return;
     }
     setView(key);
-    if (key === "withdraw") onOpenLiveChat?.("withdraw");
   };
 
   const load = useCallback(() => {
@@ -3206,9 +3206,10 @@ export function AssetsHubPage({
   ) : (
     <>
       {view === "deposit" && (
-        <div className="rounded-2xl border border-teal-400/20 bg-teal-500/10 p-5 text-sm text-teal-100">
-          Deposit is in Live Chat. Enter the amount you sent and attach the receipt screenshot. Admin verifies, then your wallet is credited.
-        </div>
+        <DepositSection
+          toast={onToast}
+          onOpenLiveChat={() => onOpenLiveChat?.("deposit")}
+        />
       )}
       {view === "withdraw" && (
         <WithdrawSection

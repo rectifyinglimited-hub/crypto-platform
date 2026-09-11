@@ -1,12 +1,12 @@
 /**
  * Official equiti / Dolphin Corp LLC business authorization certificate.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, X } from "lucide-react";
 import { BRAND, COMPANY, AUTHORIZATION as AUTH } from "../lib/brand.js";
 import { LEGAL_DOCS, legalDocById } from "../lib/legalDocs.js";
-import BrandLogo from "./BrandLogo.jsx";
+import BrandLogo, { EquitiWordmark } from "./BrandLogo.jsx";
 
 export function openCertificate() {
   window.dispatchEvent(new CustomEvent("nexus:open-certificate"));
@@ -199,14 +199,81 @@ export function CertificatePreview({ onOpen, title, paragraphs, docId = "auth" }
   );
 }
 
+function MiniSeal() {
+  return (
+    <div className="grid h-7 w-7 place-items-center rounded-full border-[1.5px] border-[#111] sm:h-8 sm:w-8">
+      <div className="grid h-5 w-5 place-items-center rounded-full border border-[#00C2B3] text-[7px] font-black text-[#00C2B3] sm:h-6 sm:w-6 sm:text-[8px]">
+        e
+      </div>
+    </div>
+  );
+}
+
+function CertificateThumb({ doc, active, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="group w-full text-left">
+      <div
+        className={`relative overflow-hidden rounded-xl bg-white shadow-[0_10px_28px_rgba(0,0,0,0.35)] transition duration-200 ${
+          active
+            ? "ring-2 ring-[#00C2B3] ring-offset-2 ring-offset-black"
+            : "ring-1 ring-white/10 group-hover:-translate-y-1 group-hover:ring-[#00C2B3]/50"
+        }`}
+      >
+        <div className="relative aspect-[3/4] p-2.5 sm:p-3">
+          <div className="pointer-events-none absolute inset-[7px] border-[2px] border-[#111]" />
+          <div className="pointer-events-none absolute inset-[11px] border border-[#111]/50" />
+          <div className="relative flex h-full flex-col items-center px-1 pt-2">
+            <EquitiWordmark className="h-3.5 sm:h-4" />
+            <div className="mt-1.5 line-clamp-3 px-0.5 text-center text-[7px] font-extrabold uppercase leading-tight tracking-[0.12em] text-[#111] sm:text-[8px]">
+              {doc.title}
+            </div>
+            <div className="mt-2 w-full space-y-[3px] px-1.5 opacity-30">
+              <div className="h-[2px] w-full rounded bg-[#111]" />
+              <div className="h-[2px] w-[94%] rounded bg-[#111]" />
+              <div className="h-[2px] w-[78%] rounded bg-[#111]" />
+              <div className="h-[2px] w-[88%] rounded bg-[#111]" />
+              <div className="h-[2px] w-[70%] rounded bg-[#111]" />
+            </div>
+            <div className="mt-auto flex w-full justify-around pb-0.5 opacity-80">
+              <MiniSeal />
+              <MiniSeal />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        className={`mt-2 line-clamp-2 text-[11px] font-semibold leading-snug sm:text-xs ${
+          active ? "text-[#00C2B3]" : "text-white/70 group-hover:text-white"
+        }`}
+      >
+        {doc.label}
+      </div>
+    </button>
+  );
+}
+
 export function CertificateGallery({
   onOpen,
   showIntro = true,
   initialId = "auth",
 }) {
   const [tab, setTab] = useState(initialId);
+  const [zoom, setZoom] = useState(false);
+  const previewRef = useRef(null);
   const current = legalDocById(tab);
   const office = COMPANY.addressLines.join(", ");
+
+  const selectDoc = (id) => {
+    setTab(id);
+    window.setTimeout(() => {
+      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 40);
+  };
+
+  const openPreview = () => {
+    if (onOpen) onOpen(current);
+    else setZoom(true);
+  };
 
   return (
     <div>
@@ -233,34 +300,83 @@ export function CertificateGallery({
         </div>
       ) : null}
 
-      <p className={`${showIntro ? "mt-8" : ""} mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40`}>
-        Legal documents
+      <p
+        className={`${showIntro ? "mt-8" : ""} mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40`}
+      >
+        Official records
       </p>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {LEGAL_DOCS.map((c) => {
-          const active = c.id === tab;
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setTab(c.id)}
-              className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                active
-                  ? "border-[#00C2B3] bg-[#00C2B3]/15 text-[#00C2B3]"
-                  : "border-white/10 bg-black/40 text-white/80 hover:border-white/25 hover:text-white"
-              }`}
-            >
-              {c.label}
-            </button>
-          );
-        })}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+        {LEGAL_DOCS.map((c) => (
+          <CertificateThumb
+            key={c.id}
+            doc={c}
+            active={c.id === tab}
+            onClick={() => selectDoc(c.id)}
+          />
+        ))}
       </div>
-      <div className="mt-8">
+
+      <div ref={previewRef} className="mt-10 scroll-mt-24">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/40">
+              Now viewing
+            </p>
+            <h3 className="mt-1 text-base font-semibold text-white sm:text-lg">
+              {current.label}
+            </h3>
+          </div>
+          <p className="hidden text-[11px] text-white/40 sm:block">
+            Click the certificate to enlarge
+          </p>
+        </div>
         <CertificatePreview
-          onOpen={onOpen}
+          onOpen={openPreview}
           docId={current.id}
           title={current.title}
           paragraphs={current.paragraphs}
+        />
+      </div>
+
+      {zoom &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <CertificateZoom
+            doc={current}
+            onClose={() => setZoom(false)}
+          />,
+          document.body
+        )}
+    </div>
+  );
+}
+
+function CertificateZoom({ doc, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-[80] overflow-y-auto bg-black/85 p-3 backdrop-blur-sm sm:p-8"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="mx-auto flex max-w-3xl justify-end pb-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div
+        className="mx-auto max-w-3xl overflow-hidden rounded-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <OfficialCertificateDocument
+          docId={`${doc.id}-zoom`}
+          title={doc.title}
+          paragraphs={doc.paragraphs}
         />
       </div>
     </div>
@@ -268,9 +384,6 @@ export function CertificateGallery({
 }
 
 export function CertificatePage({ onBack, onContact }) {
-  const [zoom, setZoom] = useState(false);
-  const [activeId, setActiveId] = useState("auth");
-  const current = legalDocById(activeId);
   const address = COMPANY.addressLines.join(", ");
 
   return (
@@ -304,46 +417,7 @@ export function CertificatePage({ onBack, onContact }) {
         <p className="text-sm text-white/60">{COMPANY.jurisdiction}</p>
       </div>
 
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40">
-        Legal documents
-      </p>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {LEGAL_DOCS.map((c) => {
-          const active = c.id === activeId;
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setActiveId(c.id)}
-              className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                active
-                  ? "border-[#00C2B3] bg-[#00C2B3]/15 text-[#00C2B3]"
-                  : "border-white/10 bg-black/40 text-white/80 hover:border-white/25 hover:text-white"
-              }`}
-            >
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-8 overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-        <button
-          type="button"
-          onClick={() => setZoom(true)}
-          className="block w-full text-left"
-          title="Click to inspect official certificate"
-        >
-          <OfficialCertificateDocument
-            docId={current.id}
-            title={current.title}
-            paragraphs={current.paragraphs}
-          />
-        </button>
-        <div className="bg-white pb-4 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-400">
-          Official record — click to verify
-        </div>
-      </div>
+      <CertificateGallery showIntro={false} />
 
       <div className="mt-6 rounded-2xl bg-white p-6 text-[#111] shadow-[0_16px_50px_rgba(0,0,0,0.3)] sm:p-8">
         <h2 className="text-lg font-extrabold tracking-tight sm:text-xl">
@@ -399,39 +473,6 @@ export function CertificatePage({ onBack, onContact }) {
           Contact support
         </button>
       </div>
-
-      {zoom &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[80] overflow-y-auto bg-black/85 p-3 backdrop-blur-sm sm:p-8"
-            onClick={() => setZoom(false)}
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="mx-auto flex max-w-3xl justify-end pb-3">
-              <button
-                type="button"
-                onClick={() => setZoom(false)}
-                className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div
-              className="mx-auto max-w-3xl overflow-hidden rounded-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <OfficialCertificateDocument
-                docId={`${current.id}-zoom`}
-                title={current.title}
-                paragraphs={current.paragraphs}
-              />
-            </div>
-          </div>,
-          document.body
-        )}
     </div>
   );
 }
