@@ -180,8 +180,10 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
               <div className="text-[8px] font-bold uppercase tracking-wider text-neutral-600">
                 Business Authorization Certificate
               </div>
-              <div className="mt-1 text-[8px] text-neutral-500">
-                {COMPANY.legalName} · {COMPANY.companyNo}
+              <div className="mt-1 text-[8px] leading-snug text-neutral-500">
+                {COMPANY.legalName}
+                <br />
+                FSA {COMPANY.companyNo} · LEI {COMPANY.lei}
               </div>
             </div>
             <div className="bg-[#0b0e11] px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-[#00C2B3]">

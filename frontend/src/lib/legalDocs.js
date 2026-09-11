@@ -7,7 +7,7 @@ function p(...parts) {
   return parts.join(" ");
 }
 
-/** Equiti-style legal document list. Company name + SVG office stay Dolphin Corp LLC. */
+/** Equiti Brokerage (Seychelles) Limited legal archive — FSA + LEI record. */
 export const LEGAL_DOCS = [
   {
     id: "auth",
@@ -15,12 +15,31 @@ export const LEGAL_DOCS = [
     title: AUTH.documentTitle,
   },
   {
+    id: "entity",
+    label: "Legal Entity Record (LEI)",
+    title: "LEGAL ENTITY IDENTIFIER RECORD",
+    paragraphs: [
+      p(
+        `${COMPANY.legalName} is the legal operator of this ${BRAND.name} terminal. Legal name language: English. Entity status: ${COMPANY.entityStatus}. Entity created ${COMPANY.entityCreated}.`
+      ),
+      p(
+        `LEI: ${COMPANY.lei}. Legal form: ${COMPANY.legalForm}. Legal jurisdiction country: ${COMPANY.jurisdiction} (${COMPANY.jurisdictionCode}).`
+      ),
+      p(
+        `Registration authority: ${COMPANY.regulator} (${COMPANY.regulatorId}). Registration authority entity ID: ${COMPANY.companyNo}.`
+      ),
+      p(
+        `Legal address and headquarters: ${office}. This record is presented for desk transparency and matches the company’s published legal-entity identifiers.`
+      ),
+    ],
+  },
+  {
     id: "client-agreement",
     label: "Client Agreement",
     title: "CLIENT AGREEMENT",
     paragraphs: [
       p(
-        `This Client Agreement is issued by ${COMPANY.legalName}, a limited liability company registered under the laws of ${COMPANY.jurisdiction} (company number ${COMPANY.companyNo}), with its registered office at ${office}.`
+        `This Client Agreement is issued by ${COMPANY.legalName}, a ${COMPANY.legalForm} registered under the laws of ${COMPANY.jurisdiction} (FSA entity ID ${COMPANY.companyNo}, LEI ${COMPANY.lei}), with its registered office at ${office}.`
       ),
       p(
         `By opening an invite-only account on the ${BRAND.name} terminal you agree to trade with ${COMPANY.legalName} as the authorized operator of the brand, including live charts, seconds trading, Smart Spot Trade, AI Futures Strategy, deposits, and withdrawals.`
@@ -48,7 +67,7 @@ export const LEGAL_DOCS = [
         "The desk may pause trading, refuse an order, or request extra documents where funds or identity cannot be verified. Published product rules on AI Futures Strategy and Smart Spot Trade form part of these terms."
       ),
       p(
-        `Questions go to ${COMPANY.email} or 24/7 Live Chat. The operator of record is ${COMPANY.legalName}, company number ${COMPANY.companyNo}.`
+        `Questions go to ${COMPANY.email} or 24/7 Live Chat. The operator of record is ${COMPANY.legalName}, FSA entity ID ${COMPANY.companyNo}, LEI ${COMPANY.lei}.`
       ),
     ],
   },
@@ -191,7 +210,7 @@ export const LEGAL_DOCS = [
       p(
         "Always copy the settlement address from Live Chat on this site. Do not send funds to addresses posted on social media or in unsolicited messages."
       ),
-      p(`Company number ${COMPANY.companyNo}. Support: ${COMPANY.email}.`),
+      p(`FSA entity ID ${COMPANY.companyNo}. LEI ${COMPANY.lei}. Support: ${COMPANY.email}.`),
     ],
   },
   {
@@ -264,7 +283,7 @@ export const LEGAL_DOCS = [
         "The legal entity, company number, and registered office do not change when the brand is displayed on the website."
       ),
       p(
-        `Operator: ${COMPANY.legalName}. Registration ${COMPANY.companyNo}. Office: ${office}, ${COMPANY.jurisdiction}.`
+        `Operator: ${COMPANY.legalName}. FSA entity ID ${COMPANY.companyNo}. LEI ${COMPANY.lei}. Office: ${office}, ${COMPANY.jurisdiction}.`
       ),
     ],
   },

@@ -233,7 +233,7 @@ const ABOUT_FAQ = [
   },
   {
     q: "Where is equiti based?",
-    a: `${COMPANY.legalName} operates from ${COMPANY.jurisdiction}. See the Certificate page for the official business authorization.`,
+    a: `${COMPANY.legalName} is registered in ${COMPANY.jurisdiction} with ${COMPANY.regulator} (entity ID ${COMPANY.companyNo}, LEI ${COMPANY.lei}). See the Certificate page for the official record.`,
   },
 ];
 
@@ -513,7 +513,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
         </h2>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[
-            { img: ABOUT_IMGS.city, title: "Kingstown", sub: COMPANY.jurisdiction },
+            { img: ABOUT_IMGS.city, title: "Victoria", sub: COMPANY.jurisdiction },
             { img: ABOUT_IMGS.network, title: "Live markets", sub: "Global crypto pairs" },
             { img: ABOUT_IMGS.servers, title: "Secure rails", sub: "Deposit & withdraw" },
             { img: ABOUT_IMGS.circuit, title: "Copy AI Bot", sub: "Automated locks" },

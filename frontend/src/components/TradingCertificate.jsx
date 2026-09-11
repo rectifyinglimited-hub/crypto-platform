@@ -1,5 +1,5 @@
 /**
- * Official equiti / Dolphin Corp LLC business authorization certificate.
+ * Official Equiti Brokerage (Seychelles) Limited desk certificates.
  */
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -89,9 +89,10 @@ export function OfficialCertificateDocument({
   paragraphs,
   docId = "auth",
 }) {
-  const address = [COMPANY.legalName, ...COMPANY.addressLines, COMPANY.jurisdiction];
+  const address = [COMPANY.legalName, ...COMPANY.addressLines];
   const body = paragraphs || [
-    `This Business Authorization Certificate is issued by ${COMPANY.legalName}, a limited liability company registered under the laws of ${COMPANY.jurisdiction} (registration number ${COMPANY.companyNo}), with its registered office at ${COMPANY.addressLines.join(", ")}.`,
+    `This Business Authorization Certificate is issued by ${COMPANY.legalName}, a ${COMPANY.legalForm} registered in ${COMPANY.jurisdiction}. Registration authority: ${COMPANY.regulator} (${COMPANY.regulatorId}). Registration authority entity ID: ${COMPANY.companyNo}. LEI: ${COMPANY.lei}. Entity status: ${COMPANY.entityStatus}. Entity created ${COMPANY.entityCreated}.`,
+    `Registered office and headquarters: ${COMPANY.addressLines.join(", ")}.`,
     `${COMPANY.legalName} hereby authorizes the exclusive operation of the ${BRAND.name} digital trading brand, including live market charts, seconds trading, crypto / FX / stocks / commodities contracts, client deposits and withdrawals, and 24/7 support, in accordance with the company’s published terms and risk disclosures.`,
     "The authorized desk is responsible for maintaining platform integrity, fair presentation of trading conditions, and orderly handling of client funds and identity checks.",
     `This certificate is valid from ${AUTH.validFrom} to ${AUTH.validTo}. Renewal is subject to the continued good standing of ${COMPANY.legalName}.`,
@@ -121,12 +122,17 @@ export function OfficialCertificateDocument({
             {address.map((line) => (
               <div key={line}>{line}</div>
             ))}
-            <div className="pt-1">Company number: {COMPANY.companyNo}</div>
-            <div>Registration Number: {AUTH.registrationNo}</div>
+            <div className="pt-1">FSA entity ID: {COMPANY.companyNo}</div>
+            <div>LEI: {COMPANY.lei}</div>
+            <div>
+              {COMPANY.regulator} ({COMPANY.regulatorId})
+            </div>
           </div>
           <div className="sm:text-right">
             <div>Issue Date: {AUTH.issueDate}</div>
-            <div>Jurisdiction: {COMPANY.jurisdiction}</div>
+            <div>Jurisdiction: {COMPANY.jurisdiction} ({COMPANY.jurisdictionCode})</div>
+            <div>Legal form: {COMPANY.legalForm}</div>
+            <div>Status: {COMPANY.entityStatus}</div>
           </div>
         </div>
 
@@ -139,16 +145,16 @@ export function OfficialCertificateDocument({
         <div className="mt-8 grid grid-cols-2 gap-4 sm:gap-10">
           <SignBlock
             stampId={`${docId}-left`}
-            stampRing="AUTHORIZED BY EQUITI · ST. VINCENT · "
-            stampCenter="EQUITI"
-            stampSub="EST. 2014"
+            stampRing="EQUITI BROKERAGE · SEYCHELLES FSA · "
+            stampCenter="FSA"
+            stampSub="SC"
             sign={AUTH.signLeft}
           />
           <SignBlock
             stampId={`${docId}-right`}
-            stampRing="DOLPHIN CORP LLC · OFFICIAL SEAL · "
-            stampCenter="LLC"
-            stampSub={COMPANY.companyNo}
+            stampRing="LEI RECORD · RA000520 · ACTIVE · "
+            stampCenter="LEI"
+            stampSub={COMPANY.jurisdictionCode}
             sign={AUTH.signRight}
           />
         </div>
@@ -202,7 +208,7 @@ export function CertificatePreview({ onOpen, title, paragraphs, docId = "auth" }
 const DOC_GROUPS = [
   {
     title: "Corporate",
-    ids: ["auth", "client-agreement", "terms", "privacy", "cookies", "website", "domain"],
+    ids: ["auth", "entity", "client-agreement", "terms", "privacy", "cookies", "website", "domain"],
   },
   {
     title: "Risk & trading",
@@ -264,9 +270,9 @@ export function CertificateGallery({
             the operator of this terminal is {COMPANY.legalName}.
           </p>
           <p className="mt-3 text-xs leading-relaxed text-white/40">
-            {COMPANY.legalName} · {COMPANY.companyNo}
+            {COMPANY.legalName} · FSA {COMPANY.companyNo} · LEI {COMPANY.lei}
             <br />
-            {office} · {COMPANY.jurisdiction}
+            {office}
           </p>
         </div>
       ) : null}
@@ -402,25 +408,41 @@ export function CertificatePage({ onBack, onContact }) {
           copies.
         </p>
         <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:col-span-2">
             <dt className="text-[10px] font-bold uppercase tracking-wider text-white/35">
-              Operator
+              Legal name
             </dt>
             <dd className="mt-1 font-semibold text-white">{COMPANY.legalName}</dd>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
             <dt className="text-[10px] font-bold uppercase tracking-wider text-white/35">
-              Company number
+              FSA entity ID
             </dt>
             <dd className="mt-1 font-semibold text-white">{COMPANY.companyNo}</dd>
           </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-white/35">
+              LEI
+            </dt>
+            <dd className="mt-1 break-all font-semibold text-white">{COMPANY.lei}</dd>
+          </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:col-span-2">
             <dt className="text-[10px] font-bold uppercase tracking-wider text-white/35">
-              Registered office
+              Registration authority
+            </dt>
+            <dd className="mt-1 text-white/80">
+              {COMPANY.regulator} ({COMPANY.regulatorId})
+              <span className="text-white/45"> · {COMPANY.legalForm}</span>
+              <span className="text-white/45"> · {COMPANY.entityStatus}</span>
+            </dd>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:col-span-2">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-white/35">
+              Registered office / headquarters
             </dt>
             <dd className="mt-1 text-white/80">
               {address}
-              <span className="text-white/45"> · {COMPANY.jurisdiction}</span>
+              <span className="text-white/45"> · {COMPANY.jurisdiction} ({COMPANY.jurisdictionCode})</span>
             </dd>
           </div>
         </dl>
@@ -440,8 +462,9 @@ export function CertificatePage({ onBack, onContact }) {
         <div className="mt-4 space-y-3 text-sm leading-relaxed text-neutral-700">
           <p>
             {COMPANY.legalName} ({BRAND.name}) is the authorized operator of this
-            trading terminal. Registration {COMPANY.companyNo}. Registered office:{" "}
-            {address}.
+            trading terminal. FSA entity ID {COMPANY.companyNo}. LEI {COMPANY.lei}.
+            Registered with {COMPANY.regulator} ({COMPANY.regulatorId}). Registered
+            office: {address}.
           </p>
           <p>
             This record confirms exclusive authorization to offer equiti seconds
@@ -464,7 +487,8 @@ export function CertificatePage({ onBack, onContact }) {
           </div>
         </div>
         <p className="mt-6 text-[11px] text-neutral-400">
-          Official record of {COMPANY.legalName}. Certificate {AUTH.registrationNo}.
+          Official record of {COMPANY.legalName}. FSA entity ID {COMPANY.companyNo}.
+          LEI {COMPANY.lei}.
         </p>
       </div>
 

@@ -154,6 +154,7 @@ const TOPIC_GUIDES = {
     intro: "Office details are in the thread. Type your question below.",
     steps: [
       `${COMPANY.legalName} — ${COMPANY.addressLines.join(", ")}`,
+      `FSA ${COMPANY.companyNo} · LEI ${COMPANY.lei}`,
       `Email: ${COMPANY.email}`,
       "Ask about accounts, deposits, VIP, loans, withdrawals, or trading.",
     ],

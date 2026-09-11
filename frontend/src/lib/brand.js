@@ -13,36 +13,45 @@ export const COLORS = {
 };
 
 export const COMPANY = {
-  legalName: "Dolphin Corp LLC",
-  companyNo: "915 LLC 2021",
+  legalName: "EQUITI BROKERAGE (SEYCHELLES) LIMITED",
+  companyNo: "8424558-1",
+  lei: "213800FG22D4O8D9GZ33",
+  legalForm: "Company Limited by Shares (6MS4)",
+  entityStatus: "ACTIVE",
+  entityCreated: "6 July 2020",
+  regulator: "Seychelles Financial Services Authority",
+  regulatorId: "RA000520",
   email: "support@equiti.com",
-  jurisdiction: "Saint Vincent and the Grenadines",
+  jurisdiction: "Seychelles",
+  jurisdictionCode: "SC",
   addressLines: [
-    "Euro House, Richmond Hill Road",
-    "Kingstown, St. Vincent and Grenadines",
+    "First Floor, Marina House",
+    "Eden Island, Roche Caiman",
+    "Victoria, Plaisance (SC-19)",
+    "Seychelles",
   ],
-  copyrightFrom: 2014,
+  copyrightFrom: 2020,
   copyrightTo: 2026,
 };
 
 /** Official business authorization certificate shown on the public Certificate page. */
 export const AUTHORIZATION = {
-  heading: "BUSINESS PARTNERSHIP CERTIFICATE",
+  heading: "BUSINESS AUTHORIZATION CERTIFICATE",
   documentTitle: "BUSINESS AUTHORIZATION CERTIFICATE",
-  registrationNo: "EQT-AUTH-2014-001",
-  issueDate: "1 January 2014",
-  validFrom: "1 January 2014",
+  registrationNo: "8424558-1",
+  issueDate: "6 July 2020",
+  validFrom: "6 July 2020",
   validTo: "31 December 2026",
   rightsTitle: "AUTHORIZED TRADING OPERATIONS",
   signLeft: {
     script: "A. Moreau",
     name: "Authorized Director",
-    role: "Dolphin Corp LLC",
+    role: "Equiti Brokerage (Seychelles) Limited",
   },
   signRight: {
     script: "R. Ellison",
     name: "Chief Financial Officer",
-    role: "Dolphin Corp LLC",
+    role: "Seychelles FSA record",
   },
 };
 
