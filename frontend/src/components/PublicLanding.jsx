@@ -181,13 +181,17 @@ export default function PublicLanding({ onSignIn, onRegister }) {
   const { markets, connected } = useLivePrices();
   const [navOpen, setNavOpen] = useState(false);
   const [view, setView] = useState("home");
-  const [chatHint, setChatHint] = useState("info");
+  const [chatHint, setChatHint] = useState("service");
   const [chatOpenSignal, setChatOpenSignal] = useState(0);
   const [openFaq, setOpenFaq] = useState(0);
   const heroRef = useRef(null);
 
-  const openChat = (hint = "info") => {
-    setChatHint(hint);
+  const openChat = (hint = "service") => {
+    if (hint === "deposit" || hint === "withdraw" || hint === "loan") {
+      onSignIn?.();
+      return;
+    }
+    setChatHint("service");
     setChatOpenSignal((n) => n + 1);
   };
 
@@ -287,18 +291,18 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             {view === "about" && (
               <AboutPage
                 onCta={onRegister}
-                onSupport={() => openChat("info")}
+                onSupport={() => openChat("service")}
                 ctaLabel="Sign up"
               />
             )}
             {view === "contact" && (
               <div className="mx-auto max-w-3xl">
-              <ContactPage onSupport={() => openChat("info")} ctaLabel="Open Live Chat" />
+              <ContactPage onSupport={() => openChat("service")} ctaLabel="Open Live Chat" />
               </div>
             )}
             {view === "vip" && (
               <div className="mx-auto max-w-5xl">
-              <VipPage onCta={onRegister} onSupport={() => openChat("vip")} />
+              <VipPage onCta={onRegister} onSupport={() => openChat("service")} />
               </div>
             )}
             {view === "certificate" && (
@@ -485,6 +489,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           onNeedAuth={onSignIn}
           onOpenDeposit={onSignIn}
           onOpenWithdraw={onSignIn}
+          onOpenLoan={onSignIn}
           dockClass="bottom-4"
         />
       </Suspense>

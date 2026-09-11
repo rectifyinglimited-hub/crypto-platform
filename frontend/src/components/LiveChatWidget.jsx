@@ -1,7 +1,6 @@
 /**
  * Live support chat.
- * Deposit / Withdrawal menu items open those pages. Messaging stays on
- * Customer Service (and VIP / Loan / Information threads).
+ * Deposit / Withdrawal / Loan open those pages. Customer Service is chat only.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -14,20 +13,20 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Headphones,
-  Info,
   Upload,
-  Crown,
   Landmark,
 } from "lucide-react";
 
 import { ChatAPI, assetUrl } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
 import BrandLogo from "./BrandLogo.jsx";
-import { COMPANY } from "../lib/brand.js";
 
 const POLL_MS = 8000;
 const OPEN_KEY = "nexus_chat_open";
-const CHAT_STEPS = ["service", "info", "vip", "loan"];
+const CHAT_STEPS = ["service"];
+
+const AGENT_WAIT_NOTE =
+  "Thank you for contacting Equiti Customer Service. An agent will attend to this chat within 5 to 10 minutes. Please keep this window open and type your request below.";
 
 function isDepositDetailsMessage(m) {
   if (m?.meta?.kind === "deposit_details") return true;
@@ -39,6 +38,23 @@ function isDepositDetailsMessage(m) {
   return (
     body.includes("Secure Payment Verification Channel") &&
     body.includes("photographic transaction receipt")
+  );
+}
+
+function isInjectedDeskCopy(m) {
+  if (isDepositDetailsMessage(m)) return true;
+  const body = String(m?.body || "");
+  if (!body) return false;
+  return (
+    body.includes("VIP lounge request") ||
+    body.includes("Information desk") ||
+    body.includes("Loan desk") ||
+    body.includes("Withdrawal desk") ||
+    body.includes("You are in the live support thread") ||
+    body.includes("equiti support — office") ||
+    body.includes("equiti support desk") ||
+    body.includes("Sign in so a manager can reply") ||
+    body.includes("Then type your message below")
   );
 }
 
@@ -65,12 +81,6 @@ const MENU_OPTIONS = [
     tone: "from-rose-500/20 to-rose-400/5 text-rose-200 ring-rose-400/30",
   },
   {
-    key: "vip",
-    label: "Request VIP",
-    icon: Crown,
-    tone: "from-amber-500/20 to-[#00C2B3]/10 text-[#00C2B3] ring-[#00C2B3]/35",
-  },
-  {
     key: "loan",
     label: "Loan",
     icon: Landmark,
@@ -82,86 +92,7 @@ const MENU_OPTIONS = [
     icon: Headphones,
     tone: "from-indigo-500/20 to-indigo-400/5 text-indigo-200 ring-indigo-400/30",
   },
-  {
-    key: "info",
-    label: "Information",
-    icon: Info,
-    tone: "from-slate-500/20 to-slate-400/5 text-slate-200 ring-slate-400/30",
-  },
 ];
-
-const TOPIC_GUIDES = {
-  vip: {
-    title: "VIP lounge request",
-    header: "VIP desk",
-    placeholder: "I would like lounge VIP because…",
-    intro:
-      "Read this first, then type your request below. A manager will reply in this thread.",
-    steps: [
-      "Lounge VIP is granted by an administrator (priority chat, personal manager, faster payout review).",
-      "Trading VIP / referral % upgrades automatically from 30-day volume — you do not request that here.",
-      "Send your username, approximate volume or deposit, and why you want VIP.",
-      "Optional: attach a recent deposit receipt. Never share passwords.",
-    ],
-    card: "border-[#00C2B3]/30 bg-[#00C2B3]/5",
-    titleClass: "text-[#00C2B3]",
-  },
-  loan: {
-    title: "Loan desk",
-    header: "Loan desk",
-    placeholder: "Loan amount, days, and purpose…",
-    intro: "Follow these steps, then message us below.",
-    steps: [
-      "Complete Borrower Verification on the Loan page (ID front/back, selfie, address proof).",
-      "Wait until status is Approved.",
-      "Then send amount in USDT, term in days, and purpose.",
-      "Interest is shown on the Loan calculator. Admin reviews every request.",
-    ],
-    card: "border-cyan-400/30 bg-cyan-500/5",
-    titleClass: "text-cyan-200",
-  },
-  withdraw: {
-    title: "Withdrawal desk",
-    header: "Withdrawal desk",
-    placeholder: "Amount, network, and destination…",
-    intro: "Read this first, then send your payout details below.",
-    steps: [
-      "Add a crypto wallet or bank card in Assets and wait for admin approval.",
-      "Submit the withdrawal form with the exact amount.",
-      "Message us with amount, network (TRC20 / ERC20 / bank), and destination (wallet or last 4 of the card).",
-      "KYC should be approved for faster release. Only trust wallets shown in this official chat.",
-    ],
-    card: "border-rose-400/30 bg-rose-500/5",
-    titleClass: "text-rose-200",
-  },
-  service: {
-    title: "Customer Service",
-    header: "Customer Service",
-    placeholder: "How can we help?",
-    intro: "You are in the live support thread. A manager will reply here.",
-    steps: [
-      "Tell us what you need: account, deposit, withdrawal, trade, KYC, or a problem.",
-      "Include your username and a short description.",
-      "Do not share passwords or PIN codes.",
-    ],
-    card: "border-indigo-400/30 bg-indigo-500/5",
-    titleClass: "text-indigo-200",
-  },
-  info: {
-    title: "Information desk",
-    header: "Information",
-    placeholder: "Ask about the platform…",
-    intro: "Office details are in the thread. Type your question below.",
-    steps: [
-      `${COMPANY.legalName} — ${COMPANY.addressLines.join(", ")}`,
-      `FSA ${COMPANY.companyNo} · LEI ${COMPANY.lei}`,
-      `Email: ${COMPANY.email}`,
-      "Ask about accounts, deposits, VIP, loans, withdrawals, or trading.",
-    ],
-    card: "border-white/10 bg-white/[0.03]",
-    titleClass: "text-slate-100",
-  },
-};
 
 function localMsg(from, body) {
   return {
@@ -192,7 +123,7 @@ const mergeMessages = (prev, incoming) => {
     });
   }
   return Array.from(map.values())
-    .filter((m) => !isDepositDetailsMessage(m))
+    .filter((m) => !isDepositDetailsMessage(m) && !isInjectedDeskCopy(m))
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 };
 
@@ -214,6 +145,7 @@ export default function LiveChatWidget({
   onNeedAuth,
   onOpenDeposit,
   onOpenWithdraw,
+  onOpenLoan,
   dockClass = "bottom-4",
 }) {
   const userId = user?._id || user?.id;
@@ -248,11 +180,16 @@ export default function LiveChatWidget({
       else onNeedAuth?.();
       return;
     }
+    if (contextHint === "loan") {
+      if (onOpenLoan) onOpenLoan();
+      else onNeedAuth?.();
+      return;
+    }
     setOpen(true);
     setDraft("");
     setStatusBanner(null);
-    setMenuStep(CHAT_STEPS.includes(contextHint) ? contextHint : "menu");
-  }, [openSignal, contextHint, onOpenDeposit, onOpenWithdraw, onNeedAuth]);
+    setMenuStep(contextHint === "service" ? "service" : "menu");
+  }, [openSignal, contextHint, onOpenDeposit, onOpenWithdraw, onOpenLoan, onNeedAuth]);
 
   useEffect(() => {
     if (!userId) return;
@@ -267,7 +204,9 @@ export default function LiveChatWidget({
     if (!userId) return;
     try {
       const res = await ChatAPI.history(userId);
-      const list = (res.messages || []).filter((m) => !isPlaceholderMedia(m));
+      const list = (res.messages || []).filter(
+        (m) => !isPlaceholderMedia(m) && !isInjectedDeskCopy(m)
+      );
       setMessages(list);
     } catch {
       /* silent */
@@ -291,7 +230,7 @@ export default function LiveChatWidget({
     const offMsg = onSocketEvent("chat:message", (payload) => {
       if (!payload?.message) return;
       if (payload.userId && String(payload.userId) !== String(userId)) return;
-      if (isPlaceholderMedia(payload.message)) return;
+      if (isPlaceholderMedia(payload.message) || isInjectedDeskCopy(payload.message)) return;
       setMessages((prev) => mergeMessages(prev, payload.message));
       if (open) ChatAPI.markRead().catch(() => {});
       // Popup when admin / support replies
@@ -375,6 +314,13 @@ export default function LiveChatWidget({
       setMenuStep("menu");
       return;
     }
+    if (key === "loan") {
+      if (onOpenLoan) onOpenLoan();
+      else onNeedAuth?.();
+      setOpen(false);
+      setMenuStep("menu");
+      return;
+    }
     setMenuStep(key);
   };
 
@@ -384,15 +330,7 @@ export default function LiveChatWidget({
     if (!body || sending || !canChat) return;
     setSending(true);
     if (!userId) {
-      setMessages((prev) =>
-        mergeMessages(prev, [
-          localMsg("user", body),
-          localMsg(
-            "admin",
-            "Sign in so a manager can reply in this thread."
-          ),
-        ])
-      );
+      setMessages((prev) => mergeMessages(prev, localMsg("user", body)));
       setDraft("");
       setSending(false);
       return;
@@ -465,7 +403,7 @@ export default function LiveChatWidget({
                 <BrandLogo variant="wordmark" />
                 <div>
                   <div className="text-sm font-semibold leading-tight">
-                    {TOPIC_GUIDES[menuStep]?.header || "Live Chat"}
+                    {menuStep === "service" ? "Customer Service" : "Live Chat"}
                   </div>
                   <div className="text-[10px] uppercase tracking-widest text-slate-400">
                     Online · Encrypted channel
@@ -501,8 +439,8 @@ export default function LiveChatWidget({
                     How can we help?
                   </div>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Deposit and Withdrawal open those pages. Customer Service
-                    is for questions, including deposit help.
+                    Deposit, Withdrawal, and Loan open those pages. Customer
+                    Service is live chat only.
                   </p>
                   <div className="mt-3 grid gap-2">
                     {MENU_OPTIONS.map(({ key, label, icon: Icon, tone }) => (
@@ -520,12 +458,9 @@ export default function LiveChatWidget({
                 </div>
               )}
 
-              {TOPIC_GUIDES[menuStep] && (
-                <div className={`space-y-2 rounded-2xl border p-3 ${TOPIC_GUIDES[menuStep].card}`}>
-                  <div className="flex items-center justify-between">
-                    <div className={`text-xs font-semibold ${TOPIC_GUIDES[menuStep].titleClass}`}>
-                      {TOPIC_GUIDES[menuStep].title}
-                    </div>
+              {menuStep === "service" && (
+                <div className="space-y-2">
+                  <div className="flex justify-end">
                     <button
                       type="button"
                       onClick={() => setMenuStep("menu")}
@@ -534,22 +469,9 @@ export default function LiveChatWidget({
                       Menu
                     </button>
                   </div>
-                  <p className="text-[11px] leading-relaxed text-slate-400">
-                    {TOPIC_GUIDES[menuStep].intro}
-                  </p>
-                  <ol className="space-y-1.5 pl-1 text-[11px] leading-relaxed text-slate-300">
-                    {TOPIC_GUIDES[menuStep].steps.map((step, i) => (
-                      <li key={step} className="flex gap-2">
-                        <span className={`mt-0.5 font-bold ${TOPIC_GUIDES[menuStep].titleClass}`}>
-                          {i + 1}.
-                        </span>
-                        <span>{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                  <p className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-1.5 text-[10px] text-slate-500">
-                    Then type your message below — we will reply in this chat.
-                  </p>
+                  <div className="max-w-[92%] rounded-2xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm text-slate-200">
+                    <p className="leading-relaxed">{AGENT_WAIT_NOTE}</p>
+                  </div>
                 </div>
               )}
 
@@ -635,9 +557,7 @@ export default function LiveChatWidget({
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder={
-                  TOPIC_GUIDES[menuStep]?.placeholder || "Type a message…"
-                }
+                placeholder="Type a message…"
                 className="flex-1 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600"
               />
               <motion.button

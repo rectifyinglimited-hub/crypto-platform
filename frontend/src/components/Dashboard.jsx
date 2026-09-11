@@ -1074,6 +1074,10 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     setTab("wallet");
   }, []);
 
+  const openLoanSection = useCallback(() => {
+    setPage("loan");
+  }, []);
+
   const openLiveChat = useCallback(
     (hint = "service") => {
       if (hint === "deposit") {
@@ -1084,10 +1088,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         openWithdrawSection();
         return;
       }
-      setChatHint(hint || "service");
+      if (hint === "loan") {
+        openLoanSection();
+        return;
+      }
+      setChatHint("service");
       setChatOpenSignal((n) => n + 1);
     },
-    [openDepositSection, openWithdrawSection]
+    [openDepositSection, openWithdrawSection, openLoanSection]
   );
 
   const openAssetsHub = useCallback(
@@ -1300,7 +1308,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onOpenKyc={() => setKycOpen(true)}
         onOpenDeposit={openDepositSection}
         onOpenChat={(hint) => {
-          const h = typeof hint === "string" ? hint : "info";
+          const h = typeof hint === "string" ? hint : "service";
           openLiveChat(h === "deposit" ? "deposit" : h);
         }}
         onNotificationSelect={(n) => {
@@ -1441,7 +1449,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               key="loan"
               onToast={say}
               user={me}
-              onOpenLiveChat={() => openLiveChat("loan")}
+              onOpenLiveChat={() => openLiveChat("service")}
             />
           )}
           {page === "referral" && (
@@ -1495,14 +1503,14 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             <motion.div key="about" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-[1180px]">
               <AboutPage
                 onCta={() => goPage("trade")}
-                onSupport={() => openLiveChat("info")}
+                onSupport={() => openLiveChat("service")}
                 ctaLabel="Open Trade desk"
               />
             </motion.div>
           )}
           {page === "contact" && (
             <motion.div key="contact" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl">
-              <ContactPage onSupport={() => openLiveChat("info")} ctaLabel="Open Live Chat" />
+              <ContactPage onSupport={() => openLiveChat("service")} ctaLabel="Open Live Chat" />
             </motion.div>
           )}
           {page === "certificate" && (
@@ -1518,7 +1526,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               <VipPage
                 user={me}
                 onCta={() => goPage("trade")}
-                onSupport={() => openLiveChat("vip")}
+                onSupport={() => openLiveChat("service")}
                 onReferral={() => goPage("referral")}
               />
             </motion.div>
@@ -1542,6 +1550,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
           dockClass="bottom-[6.75rem] lg:bottom-4"
           onOpenDeposit={openDepositSection}
           onOpenWithdraw={openWithdrawSection}
+          onOpenLoan={openLoanSection}
           onToast={say}
           onWalletUpdate={(w) =>
             setMe((prev) => ({ ...prev, wallet: w || prev?.wallet }))
