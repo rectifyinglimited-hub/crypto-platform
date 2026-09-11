@@ -83,10 +83,10 @@ const SectionCard = ({ icon: Icon, title, description, accent = "cyan", children
 );
 
 const PillTabs = ({ tabs, active, onChange }) => (
-  <div className="flex gap-1 rounded-xl bg-white/[0.03] p-1">
+  <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-white/[0.03] p-1">
     {tabs.map(t => (
       <button key={t.key} onClick={() => onChange(t.key)}
-        className={`rounded-lg px-3.5 py-2 text-xs font-medium transition ${
+        className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-medium transition ${
           active === t.key ? "bg-white/10 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
         }`}>{t.label}{t.badge ? <span className="ml-1.5 rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] text-rose-300">{t.badge}</span> : null}</button>
     ))}
@@ -948,7 +948,7 @@ export default function UserControlRoom({ userId, onBack, toast, onOpenGlobalSpo
             <h1 className="truncate text-base font-semibold text-white">{u?.fullName || u?.email || "User"}</h1>
             <p className="truncate text-[12px] text-slate-500">{u?.email}{publicUid(u) ? ` · UID ${publicUid(u)}` : ""}</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-4">
             <div className="rounded-lg bg-white/[0.03] px-3 py-2">
               <div className="text-[10px] uppercase text-slate-500">USDT</div>
               <div className={`font-mono text-sm font-semibold ${Number(u?.wallet?.USDT || 0) < 0 ? "text-rose-400" : "text-white"}`}>

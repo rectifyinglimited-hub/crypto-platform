@@ -13,6 +13,7 @@ import {
   Paperclip,
   Image as ImageIcon,
   CheckCircle2,
+  ArrowLeft,
   XCircle,
 } from "lucide-react";
 
@@ -398,8 +399,8 @@ export default function AdminChatManager() {
   };
 
   return (
-    <div className="grid h-[calc(100vh-14rem)] min-h-[540px] grid-cols-1 gap-4 md:grid-cols-3">
-      <aside className="flex flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm md:col-span-1">
+    <div className="grid h-[calc(100dvh-9rem)] min-h-[420px] grid-cols-1 gap-4 md:h-[calc(100vh-14rem)] md:min-h-[540px] md:grid-cols-3">
+      <aside className={`flex flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm md:col-span-1 ${selected ? "hidden md:flex" : "flex"}`}>
         <div className="border-b border-white/5 p-4">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-sm font-semibold tracking-tight">Inboxes</div>
@@ -498,12 +499,19 @@ export default function AdminChatManager() {
         </ul>
       </aside>
 
-      <section className="flex flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm md:col-span-2">
+      <section className={`flex flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm md:col-span-2 ${selected ? "flex" : "hidden md:flex"}`}>
         {selected ? (
           <>
-            <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 text-[11px] font-bold text-white">
+            <div className="flex items-center justify-between gap-2 border-b border-white/5 px-3 py-3 sm:px-4">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  className="rounded-lg border border-white/10 p-2 text-slate-300 md:hidden"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 text-[11px] font-bold text-white">
                   {selected.fullName
                     ?.split(/\s+/)
                     .slice(0, 2)
@@ -525,9 +533,10 @@ export default function AdminChatManager() {
                 type="button"
                 onClick={sendDepositDetails}
                 disabled={sending}
-                className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-200 disabled:opacity-50"
+                className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-semibold text-emerald-200 disabled:opacity-50"
               >
-                Send deposit details
+                <span className="sm:hidden">Deposit</span>
+                <span className="hidden sm:inline">Send deposit details</span>
               </button>
             </div>
 

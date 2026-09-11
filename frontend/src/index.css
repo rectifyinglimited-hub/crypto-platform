@@ -393,6 +393,7 @@ select option {
 .admin-console {
   background: #0b0f14;
   color: #e5e7eb;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 .admin-console .admin-sidebar {
   background: #080c11;
@@ -402,4 +403,15 @@ select option {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: #12171f;
   border-radius: 0.75rem;
+}
+@media (max-width: 767px) {
+  .admin-console input,
+  .admin-console select,
+  .admin-console textarea {
+    font-size: 16px !important;
+  }
+  .admin-console input[type="datetime-local"] {
+    min-width: 0;
+    max-width: 100%;
+  }
 }

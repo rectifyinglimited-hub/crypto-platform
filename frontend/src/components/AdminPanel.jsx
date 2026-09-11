@@ -128,10 +128,10 @@ const SectionCard = ({ icon: Icon, title, description, children, className = "" 
 );
 
 const PillTabs = ({ tabs, active, onChange }) => (
-  <div className="flex gap-1 rounded-xl bg-white/[0.03] p-1">
+  <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-white/[0.03] p-1">
     {tabs.map(t => (
       <button key={t.key} onClick={() => onChange(t.key)}
-        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+        className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
           active === t.key ? "bg-white/10 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
         }`}>{t.label}{t.count != null ? <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px]">{t.count}</span> : null}</button>
     ))}
@@ -156,7 +156,7 @@ const Toast = ({ kind, message, onClose }) => (
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -14, scale: 0.96 }}
         transition={{ type: "spring", stiffness: 320, damping: 24 }}
-        className={`fixed left-1/2 top-6 z-50 -translate-x-1/2 rounded-xl border px-4 py-2.5 shadow-2xl backdrop-blur-xl ${
+        className={`fixed left-4 right-4 top-4 z-50 sm:left-1/2 sm:right-auto sm:w-max sm:max-w-md sm:-translate-x-1/2 rounded-xl border px-4 py-2.5 shadow-2xl backdrop-blur-xl ${
           kind === "success"
             ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
             : "border-rose-400/25 bg-rose-500/10 text-rose-200"
@@ -636,7 +636,7 @@ const BalanceModal = ({ user, onClose, onSubmit }) => {
             exit={{ opacity: 0, y: 20, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 260, damping: 22 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md rounded-2xl border border-white/5 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-2xl"
+            className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/5 bg-slate-900/90 p-5 shadow-2xl backdrop-blur-2xl sm:p-6"
           >
             <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-transparent to-emerald-400/10 opacity-60 blur-xl" />
             <div className="relative">
@@ -920,10 +920,17 @@ const UserRow = ({
       variants={listItem}
       exit="exit"
       layout
-      className="grid grid-cols-12 items-center gap-3 px-5 py-3.5 text-sm transition hover:bg-white/[0.02]"
+      className="flex flex-col gap-3 px-4 py-4 text-sm transition hover:bg-white/[0.02] md:grid md:grid-cols-12 md:items-start md:gap-3 md:px-5 md:py-3.5"
     >
+      <button
+        type="button"
+        onClick={() => onOpenControlRoom?.(user)}
+        className="w-full rounded-lg bg-[#00C2B3] py-2.5 text-sm font-semibold text-slate-950 md:hidden"
+      >
+        Open Control Room
+      </button>
       {/* Identity */}
-      <div className="col-span-3 flex items-center gap-3">
+      <div className="flex min-w-0 items-start gap-3 md:col-span-3">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-400 text-[11px] font-bold text-white">
           {user.initials ||
             (user.fullName || "?")
@@ -999,7 +1006,7 @@ const UserRow = ({
       </div>
 
       {/* Phone */}
-      <div className="col-span-2">
+      <div className="md:col-span-2">
         <div className="text-[10px] uppercase tracking-widest text-slate-500">
           Phone
         </div>
@@ -1012,7 +1019,7 @@ const UserRow = ({
       </div>
 
       {/* Current balance */}
-      <div className="col-span-2">
+      <div className="md:col-span-2">
         <div className="text-[10px] uppercase tracking-widest text-slate-500">
           Wallet
         </div>
@@ -1034,7 +1041,7 @@ const UserRow = ({
       </div>
 
       {/* Inline adjust */}
-      <div className="col-span-2">
+      <div className="md:col-span-2">
         <div className="text-[10px] uppercase tracking-widest text-slate-500">
           Set USDT
         </div>
@@ -1084,7 +1091,7 @@ const UserRow = ({
       </div>
 
       {/* Trade Control */}
-      <div className="col-span-2">
+      <div className="md:col-span-2">
         <TradeControlCell
           user={user}
           onSaveTradeControl={onSaveTradeControl}
@@ -1092,8 +1099,8 @@ const UserRow = ({
       </div>
 
       {/* Actions */}
-      <div className="col-span-1 flex flex-col items-end gap-1">
-        <div className="flex gap-1">
+      <div className="flex flex-col gap-1 md:col-span-1 md:items-end">
+        <div className="hidden gap-1 md:flex">
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => onOpenControlRoom?.(user)}
@@ -1232,14 +1239,14 @@ const UsersView = ({
               : "Your users directory. Delete hides a user from you; Super Admin keeps their full history."}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-1.5">
-            <Search className="h-3.5 w-3.5 text-slate-500" />
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-1.5">
+            <Search className="h-3.5 w-3.5 shrink-0 text-slate-500" />
             <input
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
               placeholder="Search name / email / username / UID"
-              className="w-64 bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-600"
+              className="min-w-0 flex-1 bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-600 sm:w-64 sm:flex-none"
             />
           </div>
           <button
@@ -1270,7 +1277,7 @@ const UsersView = ({
       </div>
 
       <div className="overflow-hidden admin-card">
-        <div className="grid grid-cols-12 gap-3 border-b border-white/[0.04] px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+        <div className="hidden grid-cols-12 gap-3 border-b border-white/[0.04] px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500 md:grid">
           <div className="col-span-3">User</div>
           <div className="col-span-2">Phone · Country</div>
           <div className="col-span-2">Current Balance</div>
@@ -1368,7 +1375,7 @@ const TransactionsView = ({
     </div>
 
     <div className="overflow-hidden admin-card">
-      <div className="grid grid-cols-12 gap-3 border-b border-white/[0.04] px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+      <div className="hidden grid-cols-12 gap-3 border-b border-white/[0.04] px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500 md:grid">
         <div className="col-span-3">User</div>
         <div className="col-span-2">Type</div>
         <div className="col-span-2">Amount</div>
@@ -1390,9 +1397,9 @@ const TransactionsView = ({
               variants={listItem}
               exit="exit"
               layout
-              className="grid grid-cols-12 items-center gap-3 px-5 py-3 text-sm transition hover:bg-white/[0.02]"
+              className="flex flex-col gap-2 px-4 py-3 text-sm transition hover:bg-white/[0.02] md:grid md:grid-cols-12 md:items-center md:gap-3 md:px-5"
             >
-              <div className="col-span-3 min-w-0">
+              <div className="min-w-0 md:col-span-3">
                 <div className="truncate text-xs font-semibold">
                   {t.user?.fullName || "Unknown"}
                 </div>
@@ -1400,7 +1407,7 @@ const TransactionsView = ({
                   @{t.user?.username}
                 </div>
               </div>
-              <div className="col-span-2 flex items-center gap-2 text-xs capitalize text-slate-300">
+              <div className="flex items-center gap-2 text-xs capitalize text-slate-300 md:col-span-2">
                 {t.kind === "deposit" ? (
                   <ArrowDownToLine className="h-3.5 w-3.5 text-emerald-300" />
                 ) : t.kind === "withdrawal" ? (
@@ -1410,33 +1417,33 @@ const TransactionsView = ({
                 )}
                 {sourceLabel(t.source, t.kind, t.reviewerNote)}
               </div>
-              <div className="col-span-2 font-mono tabular-nums text-slate-200">
+              <div className="font-mono tabular-nums text-slate-200 md:col-span-2">
                 {fmt(t.amount, 6)} {t.symbol}
               </div>
-              <div className="col-span-2 flex items-center gap-1.5 text-xs text-slate-500">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 md:col-span-2">
                 <span>{t.network || "—"}</span>
                 {t.proofUrl && (
                   <a
                     href={assetUrl(t.proofUrl)}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-1 text-cyan-300 hover:bg-cyan-500/15"
+                    className="inline-flex items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-2 text-cyan-300 hover:bg-cyan-500/15 md:p-1"
                     title="View proof"
                   >
                     <FileText className="h-3 w-3" />
                   </a>
                 )}
               </div>
-              <div className="col-span-1">
+              <div className="md:col-span-1">
                 <StatusBadge status={t.status} />
               </div>
-              <div className="col-span-2 flex justify-end gap-1.5">
+              <div className="flex gap-2 md:col-span-2 md:justify-end md:gap-1.5">
                 {t.status === "pending" ? (
                   <>
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={() => onVerify(t, "approve")}
-                      className="inline-flex items-center justify-center rounded-lg border border-emerald-400/25 bg-emerald-500/10 p-1.5 text-emerald-200 hover:bg-emerald-500/15"
+                      className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg border border-emerald-400/25 bg-emerald-500/10 p-1.5 text-emerald-200 hover:bg-emerald-500/15 md:min-h-0 md:flex-none"
                       title="Approve"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
@@ -1444,7 +1451,7 @@ const TransactionsView = ({
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={() => onVerify(t, "reject")}
-                      className="inline-flex items-center justify-center rounded-lg border border-rose-400/25 bg-rose-500/10 p-1.5 text-rose-200 hover:bg-rose-500/15"
+                      className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg border border-rose-400/25 bg-rose-500/10 p-1.5 text-rose-200 hover:bg-rose-500/15 md:min-h-0 md:flex-none"
                       title="Reject"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -3140,8 +3147,8 @@ export default function AdminPanel({ user, onExit }) {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 py-4 sm:px-6">
-          <div className="mb-4 flex items-center gap-2">
+        <main className="min-w-0 flex-1 overflow-x-hidden px-3 py-4 sm:px-6">
+          <div className="sticky top-0 z-20 mb-4 flex items-center gap-2 bg-[#0b0f14]/95 py-1 backdrop-blur md:static md:bg-transparent md:py-0">
             <NotificationBell
               userId={user?._id || user?.id}
               mode="staff"
@@ -3157,7 +3164,7 @@ export default function AdminPanel({ user, onExit }) {
             <select
               value={section}
               onChange={(e) => goSection(e.target.value)}
-              className="flex-1 rounded-lg border border-white/10 bg-[#12171f] px-3 py-2 text-sm text-white md:hidden"
+              className="min-h-11 min-w-0 flex-1 rounded-lg border border-white/10 bg-[#12171f] px-3 py-2 text-sm text-white md:hidden"
             >
               {nav.map((n) => (
                 <option key={n.key} value={n.key}>
