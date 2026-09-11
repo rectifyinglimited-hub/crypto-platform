@@ -1,6 +1,7 @@
 /**
- * Live support chat — Secure Payment Verification Channel.
- * Deposit flow shows official TRC-20 address + receipt attachment upload.
+ * Live support chat.
+ * Deposit / Withdrawal menu items open those pages. Messaging stays on
+ * Customer Service (and VIP / Loan / Information threads).
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -14,29 +15,19 @@ import {
   ArrowUpFromLine,
   Headphones,
   Info,
-  Copy,
   Upload,
-  Image as ImageIcon,
   Crown,
   Landmark,
 } from "lucide-react";
 
-import {
-  ChatAPI,
-  GatewayAPI,
-  WalletAPI,
-  assetUrl,
-} from "../lib/api.js";
+import { ChatAPI, assetUrl } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
 import BrandLogo from "./BrandLogo.jsx";
 import { COMPANY } from "../lib/brand.js";
 
 const POLL_MS = 8000;
 const OPEN_KEY = "nexus_chat_open";
-
-const VERIFICATION_HEADER = "Secure Payment Verification Channel";
-const VERIFICATION_INSTRUCTIONS =
-  "Copy the official USDT TRC-20 address, send the funds from your wallet, then enter the amount and attach your receipt screenshot. Admin reviews the proof and credits your Trading Wallet.";
+const CHAT_STEPS = ["service", "info", "vip", "loan"];
 
 function isDepositDetailsMessage(m) {
   if (m?.meta?.kind === "deposit_details") return true;
@@ -149,7 +140,7 @@ const TOPIC_GUIDES = {
     placeholder: "How can we help?",
     intro: "You are in the live support thread. A manager will reply here.",
     steps: [
-      "Tell us what you need: account, trade, KYC, or a problem.",
+      "Tell us what you need: account, deposit, withdrawal, trade, KYC, or a problem.",
       "Include your username and a short description.",
       "Do not share passwords or PIN codes.",
     ],
@@ -171,8 +162,6 @@ const TOPIC_GUIDES = {
   },
 };
 
-const BRIEFING_TOPICS = ["vip", "loan", "withdraw", "service", "info"];
-
 function localMsg(from, body) {
   return {
     _id: `local-${from}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -180,18 +169,6 @@ function localMsg(from, body) {
     body,
     createdAt: new Date().toISOString(),
   };
-}
-
-function infoDeskReply() {
-  return [
-    "equiti support desk — here's our office and how to reach us:",
-    "",
-    COMPANY.legalName,
-    ...COMPANY.addressLines,
-    `Email: ${COMPANY.email}`,
-    "",
-    "Ask anything about accounts, deposits, VIP, or trading. Sign in if you want a manager to reply in this thread.",
-  ].join("\n");
 }
 
 const isPlaceholderMedia = (m) => {
@@ -230,10 +207,12 @@ export default function LiveChatWidget({
   user,
   contextHint,
   openSignal = 0,
-  onDepositSubmitted,
+  onDepositSubmitted: _onDepositSubmitted,
   onWalletUpdate,
   onToast,
   onNeedAuth,
+  onOpenDeposit,
+  onOpenWithdraw,
   dockClass = "bottom-4",
 }) {
   const userId = user?._id || user?.id;
@@ -249,89 +228,30 @@ export default function LiveChatWidget({
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [menuStep, setMenuStep] = useState("menu"); // menu | service | deposit | info | vip | loan | withdraw
-  const [gateway, setGateway] = useState(null);
-  const [depositAmount, setDepositAmount] = useState("");
-  const [proofFile, setProofFile] = useState(null);
-  const [proofPreview, setProofPreview] = useState(null);
-  const [submittingProof, setSubmittingProof] = useState(false);
+  const [menuStep, setMenuStep] = useState("menu"); // menu | service | info | vip | loan
   const [statusBanner, setStatusBanner] = useState(null);
   const listRef = useRef(null);
   const lastOpenSignal = useRef(0);
-  const fileRef = useRef(null);
   const attachRef = useRef(null);
 
   useEffect(() => {
     if (!openSignal || openSignal === lastOpenSignal.current) return;
     lastOpenSignal.current = openSignal;
+    if (contextHint === "deposit") {
+      if (onOpenDeposit) onOpenDeposit();
+      else onNeedAuth?.();
+      return;
+    }
+    if (contextHint === "withdraw") {
+      if (onOpenWithdraw) onOpenWithdraw();
+      else onNeedAuth?.();
+      return;
+    }
     setOpen(true);
     setDraft("");
     setStatusBanner(null);
-    if (contextHint === "deposit") {
-      setMenuStep("deposit");
-      if (!userId) {
-        setMessages((prev) =>
-          mergeMessages(prev, localMsg("admin", "Sign in to view deposit rails and send a receipt."))
-        );
-        return;
-      }
-      (async () => {
-        try {
-          const res = await GatewayAPI.current();
-          setGateway(res.settings || null);
-        } catch {
-          setGateway(null);
-        }
-        try {
-          const res = await ChatAPI.depositDetails();
-          if (res.settings) setGateway(res.settings);
-        } catch {
-          /* local gateway panel still works */
-        }
-      })();
-    } else if (BRIEFING_TOPICS.includes(contextHint)) {
-      setMenuStep(contextHint);
-      if (!userId) {
-        const guide = TOPIC_GUIDES[contextHint];
-        const guestText = [
-          guide?.title,
-          "",
-          guide?.intro,
-          "",
-          ...(guide?.steps || []).map((s, i) => `${i + 1}. ${s}`),
-          "",
-          "Sign in so a manager can reply in this thread.",
-        ]
-          .filter(Boolean)
-          .join("\n");
-        setMessages((prev) => mergeMessages(prev, localMsg("admin", guestText)));
-        return;
-      }
-      (async () => {
-        try {
-          const res = await ChatAPI.topicBriefing({ topic: contextHint });
-          if (res.message) {
-            setMessages((prev) => mergeMessages(prev, res.message));
-          }
-        } catch {
-          const guide = TOPIC_GUIDES[contextHint];
-          if (guide) {
-            setMessages((prev) =>
-              mergeMessages(
-                prev,
-                localMsg(
-                  "admin",
-                  [guide.title, "", guide.intro, "", ...guide.steps.map((s, i) => `${i + 1}. ${s}`)].join("\n")
-                )
-              )
-            );
-          }
-        }
-      })();
-    } else {
-      setMenuStep("menu");
-    }
-  }, [openSignal, contextHint, userId]);
+    setMenuStep(CHAT_STEPS.includes(contextHint) ? contextHint : "menu");
+  }, [openSignal, contextHint, onOpenDeposit, onOpenWithdraw, onNeedAuth]);
 
   useEffect(() => {
     if (!userId) return;
@@ -436,136 +356,31 @@ export default function LiveChatWidget({
     return () => clearInterval(id);
   }, [open, userId]);
 
-  const loadGateway = async () => {
-    try {
-      const res = await GatewayAPI.current();
-      setGateway(res.settings || null);
-    } catch {
-      setGateway(null);
-    }
-  };
+  const canChat = CHAT_STEPS.includes(menuStep);
 
-  const selectMenu = async (key) => {
-    setMenuStep(key);
+  const selectMenu = (key) => {
     setStatusBanner(null);
-    if (!userId) {
-      if (key === "deposit") {
-        setMessages((prev) =>
-          mergeMessages(
-            prev,
-            localMsg("admin", "Sign in to view the official deposit address and attach a receipt.")
-          )
-        );
-        return;
-      }
-      const guide = TOPIC_GUIDES[key];
-      if (guide) {
-        const guestText = [
-          guide.title,
-          "",
-          guide.intro,
-          "",
-          ...guide.steps.map((s, i) => `${i + 1}. ${s}`),
-          "",
-          "Sign in so a manager can reply in this thread.",
-        ].join("\n");
-        setMessages((prev) => mergeMessages(prev, localMsg("admin", guestText)));
-      }
-      return;
-    }
     if (key === "deposit") {
-      await loadGateway();
-      try {
-        const res = await ChatAPI.depositDetails();
-        if (res.settings) setGateway(res.settings);
-      } catch {
-        /* gateway panel still works locally */
-      }
+      if (onOpenDeposit) onOpenDeposit();
+      else onNeedAuth?.();
+      setOpen(false);
+      setMenuStep("menu");
       return;
     }
-    if (BRIEFING_TOPICS.includes(key)) {
-      try {
-        const res = await ChatAPI.topicBriefing({ topic: key });
-        if (res.message) {
-          setMessages((prev) => mergeMessages(prev, res.message));
-        }
-      } catch {
-        const guide = TOPIC_GUIDES[key];
-        if (guide) {
-          setMessages((prev) =>
-            mergeMessages(
-              prev,
-              localMsg(
-                "admin",
-                [guide.title, "", guide.intro, "", ...guide.steps.map((s, i) => `${i + 1}. ${s}`)].join("\n")
-              )
-            )
-          );
-        }
-      }
-    }
-  };
-
-  const copyDepositAddress = async () => {
-    const addr = gateway?.usdtTrc20Address;
-    if (!addr) return;
-    try {
-      await navigator.clipboard.writeText(addr);
-      setStatusBanner("Settlement address copied.");
-    } catch {
-      setStatusBanner("Could not copy — select the address manually.");
-    }
-  };
-
-  const onPickProof = (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setProofFile(f);
-    const url = URL.createObjectURL(f);
-    setProofPreview(url);
-  };
-
-  const submitDepositProof = async () => {
-    const amount = Number(depositAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setStatusBanner("Enter a valid deposit amount.");
+    if (key === "withdraw") {
+      if (onOpenWithdraw) onOpenWithdraw();
+      else onNeedAuth?.();
+      setOpen(false);
+      setMenuStep("menu");
       return;
     }
-    if (!proofFile) {
-      setStatusBanner("Attach a clear photographic transaction receipt.");
-      return;
-    }
-    setSubmittingProof(true);
-    setStatusBanner(null);
-    try {
-      const fd = new FormData();
-      fd.append("amount", String(amount));
-      fd.append("symbol", "USDT");
-      fd.append("network", "TRC20");
-      fd.append("proof", proofFile);
-      const res = await WalletAPI.depositProof(fd);
-      if (res.chatMessage) {
-        setMessages((prev) => mergeMessages(prev, res.chatMessage));
-      }
-      setDepositAmount("");
-      setProofFile(null);
-      setProofPreview(null);
-      setStatusBanner(
-        "Pending Verification / Awaiting Admin Approval — wallet tops up after admin approve."
-      );
-      onDepositSubmitted?.(res.transaction);
-      await load();
-    } catch (err) {
-      setStatusBanner(err?.message || "Upload failed. Try again.");
-    } finally {
-      setSubmittingProof(false);
-    }
+    setMenuStep(key);
   };
 
   const handleSend = async (e) => {
     e.preventDefault();
     const body = draft.trim();
-    if (!body || sending) return;
+    if (!body || sending || !canChat) return;
     setSending(true);
     if (!userId) {
       setMessages((prev) =>
@@ -573,9 +388,7 @@ export default function LiveChatWidget({
           localMsg("user", body),
           localMsg(
             "admin",
-            menuStep === "info"
-              ? `${infoDeskReply()}\n\nWe received: “${body}”\nSign in so a manager can continue this conversation.`
-              : "Got it. Sign in to send this to a live manager — they reply in this same chat."
+            "Sign in so a manager can reply in this thread."
           ),
         ])
       );
@@ -595,14 +408,9 @@ export default function LiveChatWidget({
   };
 
   const handleAttachImage = async (e) => {
-    if (menuStep === "deposit") {
-      onPickProof(e);
-      e.target.value = "";
-      return;
-    }
     const f = e.target.files?.[0];
     e.target.value = "";
-    if (!f || sending) return;
+    if (!f || sending || !canChat) return;
     if (!userId) {
       onNeedAuth?.();
       setStatusBanner("Sign in to attach a receipt.");
@@ -622,7 +430,6 @@ export default function LiveChatWidget({
       try {
         res = await ChatAPI.uploadImage(fd);
       } catch {
-        // Fallback: base64 payload if multipart parsing fails upstream
         const dataUrl = await fileToDataUrl(f);
         res = await ChatAPI.uploadImageBase64({
           image: dataUrl,
@@ -639,8 +446,6 @@ export default function LiveChatWidget({
       setSending(false);
     }
   };
-
-  const depositAddr = gateway?.usdtTrc20Address;
 
   return (
     <div className={`pointer-events-none fixed right-3 z-50 flex flex-col items-end gap-3 sm:right-4 ${dockClass}`}>
@@ -659,7 +464,7 @@ export default function LiveChatWidget({
                 <BrandLogo variant="wordmark" />
                 <div>
                   <div className="text-sm font-semibold leading-tight">
-                    {TOPIC_GUIDES[menuStep]?.header || VERIFICATION_HEADER}
+                    {TOPIC_GUIDES[menuStep]?.header || "Live Chat"}
                   </div>
                   <div className="text-[10px] uppercase tracking-widest text-slate-400">
                     Online · Encrypted channel
@@ -695,7 +500,8 @@ export default function LiveChatWidget({
                     How can we help?
                   </div>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Choose an option to continue.
+                    Deposit and Withdrawal open those pages. Customer Service
+                    is for questions, including deposit help.
                   </p>
                   <div className="mt-3 grid gap-2">
                     {MENU_OPTIONS.map(({ key, label, icon: Icon, tone }) => (
@@ -710,111 +516,6 @@ export default function LiveChatWidget({
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {menuStep === "deposit" && (
-                <div className="space-y-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/5 p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-emerald-200">
-                      {VERIFICATION_HEADER}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setMenuStep("menu")}
-                      className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-slate-300"
-                    >
-                      Menu
-                    </button>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-slate-400">
-                    {VERIFICATION_INSTRUCTIONS}
-                  </p>
-                  <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                    <div className="text-[10px] uppercase tracking-wider text-slate-500">
-                      Official TRC-20 settlement address
-                    </div>
-                    {depositAddr ? (
-                      <div className="mt-1 flex items-start gap-2">
-                        <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-emerald-200">
-                          {depositAddr}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={copyDepositAddress}
-                          className="rounded-lg border border-white/10 p-1.5 text-slate-400 hover:text-white"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="mt-1 text-[11px] text-amber-300">
-                        Address not configured yet — wait for support or try
-                        again shortly.
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider text-slate-500">
-                      Amount (USDT)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="e.g. 100"
-                      className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-emerald-400/40"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider text-slate-500">
-                      Transaction receipt
-                    </label>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={onPickProof}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileRef.current?.click()}
-                      className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.03] py-3 text-xs text-slate-300 hover:border-emerald-400/40"
-                    >
-                      <Upload className="h-3.5 w-3.5" />
-                      {proofFile ? proofFile.name : "Attach receipt / hash snapshot"}
-                    </button>
-                    {proofPreview && (
-                      <img
-                        src={proofPreview}
-                        alt="Proof preview"
-                        className="mt-2 max-h-32 w-full rounded-xl object-cover ring-1 ring-white/10"
-                      />
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={submittingProof}
-                    onClick={submitDepositProof}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-emerald-950 disabled:opacity-60"
-                  >
-                    {submittingProof ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
-                        Submitting…
-                      </>
-                    ) : (
-                      <>
-                        <ImageIcon className="h-3.5 w-3.5" /> Send to admin
-                      </>
-                    )}
-                  </button>
                 </div>
               )}
 
@@ -857,6 +558,7 @@ export default function LiveChatWidget({
                 </div>
               )}
 
+              {canChat && (
               <AnimatePresence initial={false}>
                 {messages.map((m) => (
                   <motion.div
@@ -905,8 +607,10 @@ export default function LiveChatWidget({
                   </motion.div>
                 ))}
               </AnimatePresence>
+              )}
             </div>
 
+            {canChat ? (
             <form
               onSubmit={handleSend}
               className="flex items-center gap-2 border-t border-white/5 bg-black/20 px-3 py-2.5"
@@ -948,6 +652,7 @@ export default function LiveChatWidget({
                 )}
               </motion.button>
             </form>
+            ) : null}
           </motion.div>
         )}
       </AnimatePresence>

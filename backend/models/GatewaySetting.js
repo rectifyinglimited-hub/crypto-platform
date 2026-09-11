@@ -94,6 +94,8 @@ const GatewaySettingSchema = new Schema(
     jazzCashNumber: { type: String, trim: true, default: null },
     usdtTrc20Address: { type: String, trim: true, default: null },
     usdtErc20Address: { type: String, trim: true, default: null },
+    /** Optional admin-uploaded QR shown on the deposit page (data URL). */
+    depositQrImage: { type: String, default: "" },
 
     updatedBy: {
       type: Schema.Types.ObjectId,

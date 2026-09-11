@@ -1063,11 +1063,6 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     [say]
   );
 
-  const openLiveChat = useCallback((hint = "deposit") => {
-    setChatHint(hint || "deposit");
-    setChatOpenSignal((n) => n + 1);
-  }, []);
-
   const openDepositSection = useCallback(() => {
     setPage("deposit");
     setTab("wallet");
@@ -1078,6 +1073,22 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     setPage("withdraw");
     setTab("wallet");
   }, []);
+
+  const openLiveChat = useCallback(
+    (hint = "service") => {
+      if (hint === "deposit") {
+        openDepositSection();
+        return;
+      }
+      if (hint === "withdraw") {
+        openWithdrawSection();
+        return;
+      }
+      setChatHint(hint || "service");
+      setChatOpenSignal((n) => n + 1);
+    },
+    [openDepositSection, openWithdrawSection]
+  );
 
   const openAssetsHub = useCallback(
     (view = "overview") => {
@@ -1106,7 +1117,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
 
   useEffect(() => {
     const onOpenChat = (e) => {
-      openLiveChat(e?.detail?.hint || "deposit");
+      openLiveChat(e?.detail?.hint || "service");
     };
     window.addEventListener("nexus:open-chat", onOpenChat);
     return () => window.removeEventListener("nexus:open-chat", onOpenChat);
@@ -1350,7 +1361,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             <div key="deposit" className="mx-auto max-w-2xl">
               <DepositSection
                 toast={say}
-                onOpenLiveChat={() => openLiveChat("deposit")}
+                onOpenLiveChat={() => openLiveChat("service")}
                 onSubmitted={() => loadTx()}
               />
             </div>
@@ -1362,7 +1373,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
                 user={me}
                 toast={say}
                 onWalletUpdate={handleUserUpdate}
-                onOpenLiveChat={() => openLiveChat("withdraw")}
+                onOpenLiveChat={() => openLiveChat("service")}
               />
             </div>
           )}
@@ -1451,7 +1462,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               onToast={say}
               onOpenKyc={() => setKycOpen(true)}
               onOpenDeposit={openDepositSection}
-              onOpenLiveChat={(hint) => openLiveChat(hint || "deposit")}
+              onOpenLiveChat={(hint) => openLiveChat(hint || "service")}
               onOpenWithdraw={openWithdrawSection}
               onWalletUpdate={handleUserUpdate}
               onOpenAccount={() => goPage("account")}
@@ -1522,13 +1533,15 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
         onUpdated={(u) => setMe(u)}
       />
 
-      {/* Single floating Live Chat — Deposit CTA opens it */}
+      {/* Single floating Live Chat */}
       {!isStaffRole(me?.role) && (
         <LiveChatWidget
           user={me}
           contextHint={chatHint}
           openSignal={chatOpenSignal}
           dockClass="bottom-[6.75rem] lg:bottom-4"
+          onOpenDeposit={openDepositSection}
+          onOpenWithdraw={openWithdrawSection}
           onToast={say}
           onWalletUpdate={(w) =>
             setMe((prev) => ({ ...prev, wallet: w || prev?.wallet }))

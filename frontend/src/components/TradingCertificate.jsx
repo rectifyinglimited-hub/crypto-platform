@@ -3,10 +3,10 @@
  */
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, FileText, X } from "lucide-react";
 import { BRAND, COMPANY, AUTHORIZATION as AUTH } from "../lib/brand.js";
 import { LEGAL_DOCS, legalDocById } from "../lib/legalDocs.js";
-import BrandLogo, { EquitiWordmark } from "./BrandLogo.jsx";
+import BrandLogo from "./BrandLogo.jsx";
 
 export function openCertificate() {
   window.dispatchEvent(new CustomEvent("nexus:open-certificate"));
@@ -193,63 +193,31 @@ export function CertificatePreview({ onOpen, title, paragraphs, docId = "auth" }
         />
       </div>
       <div className="bg-[#0b0e11] px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-[#00C2B3]">
-        Click to verify official certificate
+        Open full document
       </div>
     </button>
   );
 }
 
-function MiniSeal() {
-  return (
-    <div className="grid h-7 w-7 place-items-center rounded-full border-[1.5px] border-[#111] sm:h-8 sm:w-8">
-      <div className="grid h-5 w-5 place-items-center rounded-full border border-[#00C2B3] text-[7px] font-black text-[#00C2B3] sm:h-6 sm:w-6 sm:text-[8px]">
-        e
-      </div>
-    </div>
-  );
-}
+const DOC_GROUPS = [
+  {
+    title: "Corporate",
+    ids: ["auth", "client-agreement", "terms", "privacy", "cookies", "website", "domain"],
+  },
+  {
+    title: "Risk & trading",
+    ids: ["risk", "execution", "conflicts", "feeds"],
+  },
+  {
+    title: "Client operations",
+    ids: ["kyc", "complaints", "notice", "fraud", "invite", "chat"],
+  },
+];
 
-function CertificateThumb({ doc, active, onClick }) {
-  return (
-    <button type="button" onClick={onClick} className="group w-full text-left">
-      <div
-        className={`relative overflow-hidden rounded-xl bg-white shadow-[0_10px_28px_rgba(0,0,0,0.35)] transition duration-200 ${
-          active
-            ? "ring-2 ring-[#00C2B3] ring-offset-2 ring-offset-black"
-            : "ring-1 ring-white/10 group-hover:-translate-y-1 group-hover:ring-[#00C2B3]/50"
-        }`}
-      >
-        <div className="relative aspect-[3/4] p-2.5 sm:p-3">
-          <div className="pointer-events-none absolute inset-[7px] border-[2px] border-[#111]" />
-          <div className="pointer-events-none absolute inset-[11px] border border-[#111]/50" />
-          <div className="relative flex h-full flex-col items-center px-1 pt-2">
-            <EquitiWordmark className="h-3.5 sm:h-4" />
-            <div className="mt-1.5 line-clamp-3 px-0.5 text-center text-[7px] font-extrabold uppercase leading-tight tracking-[0.12em] text-[#111] sm:text-[8px]">
-              {doc.title}
-            </div>
-            <div className="mt-2 w-full space-y-[3px] px-1.5 opacity-30">
-              <div className="h-[2px] w-full rounded bg-[#111]" />
-              <div className="h-[2px] w-[94%] rounded bg-[#111]" />
-              <div className="h-[2px] w-[78%] rounded bg-[#111]" />
-              <div className="h-[2px] w-[88%] rounded bg-[#111]" />
-              <div className="h-[2px] w-[70%] rounded bg-[#111]" />
-            </div>
-            <div className="mt-auto flex w-full justify-around pb-0.5 opacity-80">
-              <MiniSeal />
-              <MiniSeal />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div
-        className={`mt-2 line-clamp-2 text-[11px] font-semibold leading-snug sm:text-xs ${
-          active ? "text-[#00C2B3]" : "text-white/70 group-hover:text-white"
-        }`}
-      >
-        {doc.label}
-      </div>
-    </button>
-  );
+function docsInGroup(ids) {
+  return ids
+    .map((id) => LEGAL_DOCS.find((d) => d.id === id))
+    .filter(Boolean);
 }
 
 export function CertificateGallery({
@@ -262,12 +230,18 @@ export function CertificateGallery({
   const previewRef = useRef(null);
   const current = legalDocById(tab);
   const office = COMPANY.addressLines.join(", ");
+  const index = Math.max(
+    0,
+    LEGAL_DOCS.findIndex((d) => d.id === current.id)
+  );
 
   const selectDoc = (id) => {
     setTab(id);
-    window.setTimeout(() => {
-      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 40);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      window.setTimeout(() => {
+        previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 40);
+    }
   };
 
   const openPreview = () => {
@@ -278,64 +252,91 @@ export function CertificateGallery({
   return (
     <div>
       {showIntro ? (
-        <div className="text-center">
+        <div className="max-w-2xl">
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
-            Legal
+            Legal archive
           </p>
-          <h2 className="mt-2 font-display text-2xl font-extrabold sm:text-4xl">
-            Transparency in everything we do
+          <h2 className="mt-2 font-display text-2xl font-extrabold sm:text-3xl">
+            Desk records
           </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-white/55">
-            Sound corporate governance and operational controls are embedded into
-            every process on this desk — identity checks, deposits, withdrawals,
-            and Live Chat.
+          <p className="mt-3 text-sm leading-relaxed text-white/55">
+            Select a document from the index. One record is shown at a time —
+            the operator of this terminal is {COMPANY.legalName}.
           </p>
-          <p className="mx-auto mt-4 max-w-xl text-xs leading-relaxed text-white/45">
-            {COMPANY.legalName} · Company number {COMPANY.companyNo}
+          <p className="mt-3 text-xs leading-relaxed text-white/40">
+            {COMPANY.legalName} · {COMPANY.companyNo}
             <br />
-            {office}
-            <br />
-            {COMPANY.jurisdiction}
+            {office} · {COMPANY.jurisdiction}
           </p>
         </div>
       ) : null}
 
-      <p
-        className={`${showIntro ? "mt-8" : ""} mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40`}
+      <div
+        className={`${showIntro ? "mt-8" : ""} grid gap-6 lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)] lg:items-start`}
       >
-        Official records
-      </p>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-        {LEGAL_DOCS.map((c) => (
-          <CertificateThumb
-            key={c.id}
-            doc={c}
-            active={c.id === tab}
-            onClick={() => selectDoc(c.id)}
-          />
-        ))}
-      </div>
-
-      <div ref={previewRef} className="mt-10 scroll-mt-24">
-        <div className="mb-3 flex items-end justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/40">
-              Now viewing
+        <aside className="rounded-2xl border border-white/10 bg-white/[0.03] lg:sticky lg:top-24">
+          <div className="border-b border-white/8 px-4 py-3">
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/40">
+              Document index
+            </div>
+            <p className="mt-1 text-[11px] text-white/45">
+              {LEGAL_DOCS.length} records · {index + 1} of {LEGAL_DOCS.length}
             </p>
-            <h3 className="mt-1 text-base font-semibold text-white sm:text-lg">
-              {current.label}
-            </h3>
           </div>
-          <p className="hidden text-[11px] text-white/40 sm:block">
-            Click the certificate to enlarge
-          </p>
+          <nav className="max-h-[min(52vh,420px)] overflow-y-auto p-2 lg:max-h-[min(70vh,640px)]">
+            {DOC_GROUPS.map((group) => (
+              <div key={group.title} className="mb-3 last:mb-0">
+                <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#00C2B3]/80">
+                  {group.title}
+                </div>
+                <div className="space-y-0.5">
+                  {docsInGroup(group.ids).map((doc) => {
+                    const active = doc.id === tab;
+                    return (
+                      <button
+                        key={doc.id}
+                        type="button"
+                        onClick={() => selectDoc(doc.id)}
+                        className={`flex w-full items-start gap-2 rounded-xl px-2.5 py-2 text-left text-[13px] leading-snug transition ${
+                          active
+                            ? "bg-[#00C2B3]/15 text-white"
+                            : "text-white/70 hover:bg-white/[0.04] hover:text-white"
+                        }`}
+                      >
+                        <FileText
+                          className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+                            active ? "text-[#00C2B3]" : "text-white/30"
+                          }`}
+                        />
+                        <span className="font-medium">{doc.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        <div ref={previewRef} className="min-w-0 scroll-mt-24">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/40">
+                Now viewing
+              </p>
+              <h3 className="mt-1 text-base font-semibold text-white sm:text-lg">
+                {current.label}
+              </h3>
+            </div>
+            <p className="text-[11px] text-white/40">Tap the paper to enlarge</p>
+          </div>
+          <CertificatePreview
+            onOpen={openPreview}
+            docId={current.id}
+            title={current.title}
+            paragraphs={current.paragraphs}
+          />
         </div>
-        <CertificatePreview
-          onOpen={openPreview}
-          docId={current.id}
-          title={current.title}
-          paragraphs={current.paragraphs}
-        />
       </div>
 
       {zoom &&
@@ -387,39 +388,49 @@ export function CertificatePage({ onBack, onContact }) {
   const address = COMPANY.addressLines.join(", ");
 
   return (
-    <div className="mx-auto max-w-[1180px] pb-8">
-      <div className="px-4 py-10 text-center sm:py-14">
-        <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full border border-white/20">
-          <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#00C2B3]" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M8 12.5l2.2 2.2L16.5 9" />
-          </svg>
-        </div>
-        <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/50">
-          Legal
-        </div>
-        <h1 className="mt-2 text-4xl font-extrabold tracking-tight sm:text-5xl">
-          Transparency in everything we do
+    <div className="mx-auto max-w-[1180px] px-4 pb-10 pt-6 sm:pt-10">
+      <div className="max-w-2xl">
+        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
+          Legal archive
+        </p>
+        <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+          Certificates &amp; desk records
         </h1>
-        <p className="mx-auto mt-3 max-w-2xl text-sm text-white/60">
-          Sound corporate governance and operational controls are embedded into
-          all our processes and functions.
+        <p className="mt-3 text-sm leading-relaxed text-white/55">
+          Official documents of {COMPANY.legalName}. Pick one title from the
+          index — the paper on the right is the live record, not a wall of
+          copies.
         </p>
-        <p className="mt-4 text-sm font-semibold text-white/80">
-          {COMPANY.legalName}
-        </p>
-        <p className="text-sm text-white/60">
-          Company number: {COMPANY.companyNo}
-        </p>
-        <p className="text-sm text-white/60">
-          {address}
-        </p>
-        <p className="text-sm text-white/60">{COMPANY.jurisdiction}</p>
+        <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-white/35">
+              Operator
+            </dt>
+            <dd className="mt-1 font-semibold text-white">{COMPANY.legalName}</dd>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-white/35">
+              Company number
+            </dt>
+            <dd className="mt-1 font-semibold text-white">{COMPANY.companyNo}</dd>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:col-span-2">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-white/35">
+              Registered office
+            </dt>
+            <dd className="mt-1 text-white/80">
+              {address}
+              <span className="text-white/45"> · {COMPANY.jurisdiction}</span>
+            </dd>
+          </div>
+        </dl>
       </div>
 
-      <CertificateGallery showIntro={false} />
+      <div className="mt-8">
+        <CertificateGallery showIntro={false} />
+      </div>
 
-      <div className="mt-6 rounded-2xl bg-white p-6 text-[#111] shadow-[0_16px_50px_rgba(0,0,0,0.3)] sm:p-8">
+      <div className="mt-8 rounded-2xl border border-white/10 bg-white p-6 text-[#111] shadow-[0_16px_50px_rgba(0,0,0,0.3)] sm:p-8">
         <h2 className="text-lg font-extrabold tracking-tight sm:text-xl">
           {AUTH.rightsTitle}
         </h2>

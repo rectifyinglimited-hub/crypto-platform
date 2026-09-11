@@ -63,6 +63,7 @@ router.get(
         jazzCashNumber: doc.jazzCashNumber,
         usdtTrc20Address: doc.usdtTrc20Address,
         usdtErc20Address: doc.usdtErc20Address,
+        depositQrImage: doc.depositQrImage || "",
       },
     });
   })

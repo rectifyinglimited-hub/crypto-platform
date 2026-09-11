@@ -483,6 +483,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           contextHint={chatHint}
           openSignal={chatOpenSignal}
           onNeedAuth={onSignIn}
+          onOpenDeposit={onSignIn}
+          onOpenWithdraw={onSignIn}
           dockClass="bottom-4"
         />
       </Suspense>

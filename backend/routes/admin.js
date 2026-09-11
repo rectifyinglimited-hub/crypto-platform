@@ -1442,6 +1442,7 @@ router.post(
     body("jazzCashNumber").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 30 }),
     body("usdtTrc20Address").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 80 }),
     body("usdtErc20Address").optional({ nullable: true, checkFalsy: true }).isString().isLength({ max: 80 }),
+    body("depositQrImage").optional({ nullable: true }).isString().isLength({ max: 2_800_000 }),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
@@ -1495,6 +1496,15 @@ router.post(
     if (Object.prototype.hasOwnProperty.call(req.body, "instructions")) {
       const v = req.body.instructions;
       doc.instructions = v === "" || v == null ? null : String(v).slice(0, 2000);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "depositQrImage")) {
+      const v = String(req.body.depositQrImage || "").trim();
+      if (!v) {
+        doc.depositQrImage = "";
+      } else if (v.startsWith("data:image")) {
+        doc.depositQrImage = v.slice(0, 2_800_000);
+      }
     }
 
     doc.updatedBy = req.auth.sub;

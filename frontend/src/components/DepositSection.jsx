@@ -164,7 +164,10 @@ export default function DepositSection({ toast, onOpenLiveChat, onSubmitted }) {
   };
 
   const uploads = Array.isArray(gateway?.uploads) ? gateway.uploads : [];
-  const qr = selected?.kind === "crypto" ? qrImageUrl(selected.address) : "";
+  const qr =
+    selected?.kind === "crypto"
+      ? gateway?.depositQrImage || qrImageUrl(selected.address)
+      : "";
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">

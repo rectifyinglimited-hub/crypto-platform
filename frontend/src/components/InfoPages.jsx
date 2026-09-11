@@ -57,37 +57,15 @@ function AboutHeroPortrait() {
 }
 
 const ABOUT_STORY_VIDEO_ID = "aQNq8ybAx0E";
-const ABOUT_STORY_PREVIEW_MS = 10_000;
 
 function AboutStoryVideo() {
   const hostRef = useRef(null);
   const playerRef = useRef(null);
-  const hoveredRef = useRef(false);
-  const previewTimer = useRef(null);
   const [watching, setWatching] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     let poll = null;
-
-    const clearPreview = () => {
-      if (previewTimer.current) {
-        window.clearTimeout(previewTimer.current);
-        previewTimer.current = null;
-      }
-    };
-
-    const startPreviewCap = (player) => {
-      clearPreview();
-      previewTimer.current = window.setTimeout(() => {
-        if (hoveredRef.current) return;
-        try {
-          player.pauseVideo();
-        } catch {
-          /* ignore */
-        }
-      }, ABOUT_STORY_PREVIEW_MS);
-    };
 
     const mount = () => {
       if (cancelled || !hostRef.current || !window.YT?.Player) return;
@@ -101,7 +79,7 @@ function AboutStoryVideo() {
         width: "100%",
         height: "100%",
         playerVars: {
-          autoplay: 1,
+          autoplay: 0,
           mute: 1,
           rel: 0,
           modestbranding: 1,
@@ -113,11 +91,10 @@ function AboutStoryVideo() {
           onReady: (event) => {
             try {
               event.target.mute();
-              event.target.playVideo();
+              event.target.pauseVideo();
             } catch {
               /* ignore */
             }
-            startPreviewCap(event.target);
           },
         },
       });
@@ -144,7 +121,6 @@ function AboutStoryVideo() {
 
     return () => {
       cancelled = true;
-      clearPreview();
       if (poll) window.clearInterval(poll);
       try {
         playerRef.current?.destroy?.();
@@ -154,13 +130,8 @@ function AboutStoryVideo() {
     };
   }, []);
 
-  const onEnter = () => {
-    hoveredRef.current = true;
+  const playFull = () => {
     setWatching(true);
-    if (previewTimer.current) {
-      window.clearTimeout(previewTimer.current);
-      previewTimer.current = null;
-    }
     const player = playerRef.current;
     if (!player?.playVideo) return;
     try {
@@ -171,38 +142,28 @@ function AboutStoryVideo() {
     }
   };
 
-  const onLeave = () => {
-    hoveredRef.current = false;
-    setWatching(false);
-    const player = playerRef.current;
-    if (!player?.pauseVideo) return;
-    try {
-      player.mute?.();
-      player.pauseVideo();
-    } catch {
-      /* ignore */
-    }
-  };
-
   return (
-    <div
-      className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] p-1.5 sm:rounded-3xl sm:p-2"
-      onMouseLeave={onLeave}
-    >
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] p-1.5 sm:rounded-3xl sm:p-2">
       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black sm:rounded-2xl">
         <div ref={hostRef} className="absolute inset-0 h-full w-full" />
         {!watching ? (
           <button
             type="button"
-            aria-label="Play full video"
-            className="absolute inset-0 z-10 cursor-pointer bg-transparent"
-            onMouseEnter={onEnter}
-            onClick={onEnter}
-          />
+            aria-label="Play video"
+            className="absolute inset-0 z-10 grid place-items-center bg-black/25"
+            onMouseEnter={playFull}
+            onClick={playFull}
+          >
+            <span className="grid h-14 w-14 place-items-center rounded-full bg-[#00C2B3] text-black shadow-[0_0_28px_rgba(0,194,179,0.45)]">
+              <svg viewBox="0 0 24 24" className="ml-0.5 h-6 w-6 fill-current">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          </button>
         ) : null}
       </div>
       <p className="px-3 py-2 text-center text-[11px] text-white/40">
-        First 10 seconds play automatically. Keep your pointer on the video to watch it in full.
+        Hover or tap to play the full video.
       </p>
     </div>
   );
@@ -526,24 +487,6 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
               />
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Social — icons only, one landscape row on every screen */}
-      <section>
-        <div className="grid grid-cols-6 gap-1.5 sm:gap-3">
-          {SOCIAL_LINKS.map((s) => (
-            <a
-              key={s.id}
-              href={s.href}
-              target="_blank"
-              rel="noreferrer"
-              className="flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-1 py-3 text-[10px] font-bold text-white transition hover:border-[#00C2B3]/40 hover:text-[#00C2B3] sm:min-h-[100px] sm:rounded-2xl sm:gap-2 sm:text-sm"
-            >
-              <span className="text-[#00C2B3]">{s.label.slice(0, 1)}</span>
-              <span className="truncate">{s.label}</span>
-            </a>
-          ))}
         </div>
       </section>
 

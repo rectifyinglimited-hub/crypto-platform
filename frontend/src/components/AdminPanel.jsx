@@ -1718,12 +1718,16 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
   const [instructions, setInstructions] = useState(
     settings?.instructions || ""
   );
+  const [depositQrImage, setDepositQrImage] = useState(
+    settings?.depositQrImage || ""
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setRails(railsFromSettings(settings));
     setUploads(Array.isArray(settings?.uploads) ? settings.uploads : []);
     setInstructions(settings?.instructions || "");
+    setDepositQrImage(settings?.depositQrImage || "");
   }, [settings]);
 
   const updateRail = (id, patch) => {
@@ -1778,6 +1782,21 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
     setUploads((list) => list.filter((u) => u.id !== id));
   };
 
+  const onPickDepositQr = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!/^image\/(png|jpeg|jpg|webp|gif)$/i.test(file.type)) return;
+    if (file.size > 1_800_000) return;
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    setDepositQrImage(dataUrl);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (saving) return;
@@ -1787,6 +1806,7 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
         rails,
         uploads,
         instructions,
+        depositQrImage,
       });
     } finally {
       setSaving(false);
@@ -1807,8 +1827,8 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
           </h2>
           <p className="text-xs text-slate-500">
             Rename any field, add bank accounts or extra rails, and upload
-            images/PDFs. TRC20 + all filled fields are shown to users and sent
-            in Live Chat → Deposit.
+            images/PDFs, and the deposit QR. TRC20 + filled fields show on the
+            Deposit page. Live Chat Deposit/Withdrawal buttons open those pages.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1891,6 +1911,52 @@ const GatewayView = ({ settings, loading, onRefresh, onSave, updatedAt }) => {
                 rails.
               </div>
             )}
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          icon={ImageIcon}
+          title="Deposit QR code"
+          description="Shown next to the wallet address on the user Deposit page. Leave empty to auto-generate from the address."
+        >
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="rounded-xl bg-white p-2">
+              {depositQrImage ? (
+                <img
+                  src={depositQrImage}
+                  alt="Deposit QR"
+                  className="h-36 w-36 object-contain"
+                />
+              ) : (
+                <div className="grid h-36 w-36 place-items-center text-[11px] text-slate-500">
+                  Auto QR
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/15">
+                <Upload className="h-3.5 w-3.5" />
+                Upload QR image
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={onPickDepositQr}
+                />
+              </label>
+              {depositQrImage ? (
+                <button
+                  type="button"
+                  onClick={() => setDepositQrImage("")}
+                  className="block rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-[11px] font-semibold text-rose-200 hover:bg-rose-500/15"
+                >
+                  Use auto-generated QR
+                </button>
+              ) : null}
+              <p className="max-w-sm text-[11px] leading-relaxed text-slate-500">
+                PNG or JPG, under 1.8MB. Users scan this on Deposit.
+              </p>
+            </div>
           </div>
         </SectionCard>
 
