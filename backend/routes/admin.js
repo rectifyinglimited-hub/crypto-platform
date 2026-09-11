@@ -125,8 +125,23 @@ router.get(
     const userScope = tenantUserFilter(req);
     const docScope = tenantDocFilter(req);
 
-    const [totalUsers, admins, banned, codes, pendingTx, platform] =
-      await Promise.all([
+    const kycScope = {
+      ...userScope,
+      deletedAt: null,
+      "kyc.status": "pending",
+      ...(isUnscoped(req) ? {} : { role: "user" }),
+    };
+    const [
+      totalUsers,
+      admins,
+      banned,
+      codes,
+      pendingTx,
+      pendingKyc,
+      pendingAiLocks,
+      liveTrades,
+      platform,
+    ] = await Promise.all([
         User.countDocuments({ ...userScope, deletedAt: null, role: "user" }),
         isUnscoped(req)
           ? User.countDocuments({
@@ -137,6 +152,9 @@ router.get(
         User.countDocuments({ ...userScope, banned: true, deletedAt: null }),
         InviteCode.find(docScope).lean(),
         Transaction.countDocuments({ ...docScope, status: "pending" }),
+        User.countDocuments(kycScope),
+        AiBotLockRequest.countDocuments({ status: "pending", ...docScope }),
+        SecondsTrade.countDocuments({ status: "open", ...docScope }),
         PlatformConfig.getSingleton(),
       ]);
 
@@ -157,6 +175,9 @@ router.get(
         totalInviteCodes: codes.length,
         activeInviteCodes: activeCodes,
         pendingTransactions: pendingTx,
+        pendingKyc,
+        pendingAiLocks,
+        liveTrades,
         mockVolume24h: 4_286_712.55,
         mockTrades24h: 18_294,
         globalTradingEnabled: platform.globalTradingEnabled !== false,

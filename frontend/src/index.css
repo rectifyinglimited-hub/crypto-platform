@@ -388,3 +388,18 @@ select option {
 .nx-subscribe-blink {
   animation: nx-subscribe-blink 1.05s ease-in-out infinite;
 }
+
+/* Admin console — ops desk, not storefront */
+.admin-console {
+  background: #0b0f14;
+  color: #e5e7eb;
+}
+.admin-console .admin-sidebar {
+  background: #080c11;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+.admin-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #12171f;
+  border-radius: 0.75rem;
+}

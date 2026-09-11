@@ -140,11 +140,17 @@ export default function AdminCopyBotsPromo({ toast }) {
     "mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40";
 
   return (
-    <div className="space-y-8">
-      <section className="rounded-2xl border border-white/10 bg-[#0d1424] p-5">
-        <div className="mb-4 flex items-center gap-2 text-sm font-bold text-white">
-          <Bot className="h-4 w-4 text-cyan-400" />
-          Spot / Future Copy Bots
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Promo & Catalog</h2>
+        <p className="mt-1 text-[12px] text-slate-500">
+          Display cards for Smart Spot / Future AI pages, plus deposit promo codes. Accuracy and Opens at for live blocks are in AI Futures Strategy → Smart Spot.
+        </p>
+      </div>
+      <section className="admin-card p-5">
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
+          <Bot className="h-4 w-4 text-[#00C2B3]" />
+          Signal catalog
         </div>
         <form onSubmit={saveBot} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
@@ -248,7 +254,7 @@ export default function AdminCopyBotsPromo({ toast }) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-[#0d1424] p-5">
+      <section className="admin-card p-5">
         <div className="mb-4 flex items-center gap-2 text-sm font-bold text-white">
           <Ticket className="h-4 w-4 text-amber-300" />
           Promo codes

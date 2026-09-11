@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { AiBotAPI, CopyBotAPI } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
+import AdminConfirm from "./AdminConfirm.jsx";
 import {
   AI_FUTURES_LOCK_OPTIONS,
   DEFAULT_COMMISSION_TIERS,
@@ -40,9 +41,9 @@ const DEFAULT_SPOT_SLOTS = [0, 1, 2, 3].map((slot) => ({
   readyAt: "",
 }));
 
-export default function AdminAiBotAndMatrix({ toast }) {
+export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }) {
   const say = toast || (() => {});
-  const [tab, setTab] = useState("commission");
+  const [tab, setTab] = useState(initialTab);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [searchUsers, setSearchUsers] = useState([]);
@@ -67,6 +68,11 @@ export default function AdminAiBotAndMatrix({ toast }) {
   const [reviewDays, setReviewDays] = useState({});
   const [reviewingId, setReviewingId] = useState(null);
   const [lockInboxReady, setLockInboxReady] = useState(true);
+  const [confirmKind, setConfirmKind] = useState(null);
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   const loadBots = useCallback(async () => {
     setLoading(true);
@@ -438,9 +444,38 @@ export default function AdminAiBotAndMatrix({ toast }) {
 
   return (
     <div className="space-y-4">
+      <AdminConfirm
+        open={confirmKind === "commission"}
+        title="Save commission for all users?"
+        body="Every account will use the matching min-balance and days row you saved here."
+        confirmLabel="Save for all users"
+        danger
+        busy={saving}
+        onCancel={() => setConfirmKind(null)}
+        onConfirm={async () => {
+          await saveCommission();
+          setConfirmKind(null);
+        }}
+      />
+      <AdminConfirm
+        open={confirmKind === "spot"}
+        title="Apply Smart Spot blocks to all users?"
+        body="Accuracy and Opens at on these 4 blocks will overwrite every account."
+        confirmLabel="Save for all users"
+        danger
+        busy={spotSaving}
+        onCancel={() => setConfirmKind(null)}
+        onConfirm={async () => {
+          await saveSpot();
+          setConfirmKind(null);
+        }}
+      />
       <div className="flex flex-wrap items-center gap-2">
-        <Bot className="h-4 w-4 text-cyan-300" />
-        <h2 className="text-lg font-semibold">AI Bot & Trade Algorithm</h2>
+        <Bot className="h-4 w-4 text-[#00C2B3]" />
+        <h2 className="text-lg font-semibold">AI Futures Strategy</h2>
+        <span className="text-[12px] text-slate-500">
+          Commission, Smart Spot blocks, lock requests
+        </span>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -481,7 +516,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
       )}
 
       {!loading && tab === "commission" && (
-        <div className="space-y-4 rounded-xl border border-white/10 bg-[#0c1222] p-4">
+        <div className="space-y-4 admin-card p-4">
           <p className="text-xs text-slate-400">
             Set commission by min balance and lock days. AI Futures and Smart
             Spot can have different daily %. One-click Save applies to every user
@@ -574,7 +609,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
             <button
               type="button"
               disabled={saving}
-              onClick={saveCommission}
+              onClick={() => setConfirmKind("commission")}
               className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -613,7 +648,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
       )}
 
       {!loading && tab === "spot" && (
-        <div className="space-y-4 rounded-xl border border-white/10 bg-[#0c1222] p-4">
+        <div className="space-y-4 admin-card p-4">
           <p className="text-xs text-slate-400">
             Set each block’s accuracy % and Opens at time. One-click Save applies
             to every user on Smart Spot Trade.
@@ -699,7 +734,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
           <button
             type="button"
             disabled={spotSaving}
-            onClick={saveSpot}
+            onClick={() => setConfirmKind("spot")}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-50"
           >
             {spotSaving ? (
@@ -830,7 +865,7 @@ export default function AdminAiBotAndMatrix({ toast }) {
       )}
 
       {!loading && tab === "matrix" && matrix && defaults && (
-        <div className="space-y-4 rounded-xl border border-white/10 bg-[#0c1222] p-4">
+        <div className="space-y-4 admin-card p-4">
           <p className="text-xs text-slate-500">
             Stake-tier sequences are fixed on the server (≤$10 / ≤$50 / ≤$150 / $500+).
             Max/all-in stake always settles LOSS. Admin Force WIN/LOSS still overrides.

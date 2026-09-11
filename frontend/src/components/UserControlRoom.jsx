@@ -25,6 +25,7 @@ import { AdminAPI, AiBotAPI, CopyBotAPI, assetUrl } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
 import { sourceLabel } from "../lib/marketAssets.js";
 import { publicUid } from "../lib/userUid.js";
+import AdminConfirm from "./AdminConfirm.jsx";
 import {
   AI_FUTURES_LOCK_OPTIONS,
   dailyYieldForLockDays,
@@ -67,14 +68,14 @@ const TABS = [
 /* ── Shared UI Helpers ─────────────────────────────────────────── */
 
 const SectionCard = ({ icon: Icon, title, description, accent = "cyan", children, className = "" }) => (
-  <div className={`rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-5 ${className}`}>
+  <div className={`admin-card p-4 ${className}`}>
     {(title || Icon) && (
-      <div className="mb-4">
-        <div className="flex items-center gap-2.5">
+      <div className="mb-3">
+        <div className="flex items-center gap-2">
           {Icon && <Icon className={`h-4 w-4 text-${accent}-400`} />}
           {title && <h3 className="text-sm font-semibold text-white">{title}</h3>}
         </div>
-        {description && <p className="mt-1 ml-[26px] text-[11px] text-slate-500">{description}</p>}
+        {description && <p className="mt-1 text-[12px] text-slate-500">{description}</p>}
       </div>
     )}
     {children}
@@ -332,7 +333,7 @@ export function ActiveTradesAlertBar({ onOpenUser }) {
   return (
     <div className="mb-4 space-y-2">
       <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-300/80">
-        Live Trade Alerts
+        Live trades
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {trades.map((t) => {
@@ -348,7 +349,7 @@ export function ActiveTradesAlertBar({ onOpenUser }) {
               key={t._id}
               type="button"
               onClick={() => uid && onOpenUser?.(String(uid))}
-              className="min-w-[200px] shrink-0 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-left"
+              className="admin-card min-w-[200px] shrink-0 px-3 py-2 text-left"
             >
               <div className="flex items-center justify-between gap-2 text-xs font-bold text-white">
                 <span>
@@ -380,7 +381,7 @@ export function ActiveTradesAlertBar({ onOpenUser }) {
 
 /* ── Main Component ────────────────────────────────────────────── */
 
-export default function UserControlRoom({ userId, onBack, toast }) {
+export default function UserControlRoom({ userId, onBack, toast, onOpenGlobalSpot }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -411,6 +412,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
   const [scBusy, setScBusy] = useState(false);
   const [scAllBusy, setScAllBusy] = useState(false);
   const [scResetBusy, setScResetBusy] = useState(false);
+  const [confirmAll, setConfirmAll] = useState(false);
   const [scCredit, setScCredit] = useState("");
   const [scCommission, setScCommission] = useState("0");
   const [scMode, setScMode] = useState("auto");
@@ -559,6 +561,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
         "success",
         res.message || "Accuracy and Opens at saved for all users."
       );
+      setConfirmAll(false);
       await load({ silent: true });
     } catch (err) {
       if (!err?.canceled && err?.message) {
@@ -913,12 +916,22 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
   /* ── Render ──────────────────────────────────────────────────── */
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
+      <AdminConfirm
+        open={confirmAll}
+        title="Apply Smart Spot to all users?"
+        body="Accuracy and Opens at on these 4 blocks will overwrite every account."
+        confirmLabel="Save for all users"
+        danger
+        busy={scAllBusy}
+        onCancel={() => setConfirmAll(false)}
+        onConfirm={onSaveSmartCopyAll}
+      />
       {/* Back + Refresh row */}
       <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={onBack}
           className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Users
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
         <button type="button" onClick={() => load({ silent: false })}
           className={btnSecondary + " flex items-center gap-1.5"}>
@@ -926,54 +939,39 @@ export default function UserControlRoom({ userId, onBack, toast }) {
         </button>
       </div>
 
-      {/* ── Hero Card ──────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent p-6">
-        <div className="flex items-center gap-4">
-          <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${avatarColor(u?.fullName || u?.email)} text-lg font-bold text-white shadow-lg`}>
+      <div className="admin-card p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${avatarColor(u?.fullName || u?.email)} text-sm font-bold text-white`}>
             {initials}
           </div>
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold text-white">{u?.fullName || u?.email || "User"}</h1>
-            <p className="text-xs text-slate-400">{u?.email}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              {publicUid(u) ? (
-                <span className="rounded-lg bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-cyan-300">
-                  UID {publicUid(u)}
-                </span>
-              ) : null}
-              {u?.trc20Address && (
-                <span className="max-w-[200px] truncate rounded-lg bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] text-slate-500">
-                  TRC-20 · {u.trc20Address}
-                </span>
-              )}
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-semibold text-white">{u?.fullName || u?.email || "User"}</h1>
+            <p className="truncate text-[12px] text-slate-500">{u?.email}{publicUid(u) ? ` · UID ${publicUid(u)}` : ""}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+              <div className="text-[10px] uppercase text-slate-500">USDT</div>
+              <div className={`font-mono text-sm font-semibold ${Number(u?.wallet?.USDT || 0) < 0 ? "text-rose-400" : "text-white"}`}>
+                {Number(u?.wallet?.USDT || 0) < 0 ? "-" : ""}${fmt(Math.abs(Number(u?.wallet?.USDT || 0)))}
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Stat mini-cards */}
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border-l-2 border-emerald-500 bg-white/[0.03] p-3">
-            <div className="text-[10px] uppercase text-slate-500">USDT Balance</div>
-            <div className={`mt-0.5 text-lg font-bold ${Number(u?.wallet?.USDT || 0) < 0 ? "text-rose-400" : "text-white"}`}>
-              {Number(u?.wallet?.USDT || 0) < 0 ? "-" : ""}${fmt(Math.abs(Number(u?.wallet?.USDT || 0)))}
+            <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+              <div className="text-[10px] uppercase text-slate-500">Control</div>
+              <div className="text-sm font-semibold text-slate-200">
+                {u?.tradeControlState === "force_win" ? "Force Win"
+                  : u?.tradeControlState === "force_loss" ? "Force Loss"
+                  : "Normal"}
+              </div>
             </div>
-          </div>
-          <div className="rounded-xl border-l-2 border-amber-500 bg-white/[0.03] p-3">
-            <div className="text-[10px] uppercase text-slate-500">Trade Control</div>
-            <div className="mt-0.5 text-sm font-semibold text-slate-200">
-              {u?.tradeControlState === "force_win" ? "Force Win"
-                : u?.tradeControlState === "force_loss" ? "Force Loss"
-                : "Normal"}
+            <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+              <div className="text-[10px] uppercase text-slate-500">Live</div>
+              <div className="text-sm font-semibold">{openTrades?.length || 0}</div>
             </div>
-          </div>
-          <div className="rounded-xl border-l-2 border-cyan-500 bg-white/[0.03] p-3">
-            <div className="text-[10px] uppercase text-slate-500">Open Trades</div>
-            <div className="mt-0.5 text-lg font-bold text-white">{openTrades?.length || 0}</div>
-          </div>
-          <div className={`rounded-xl border-l-2 bg-white/[0.03] p-3 ${u?.banned ? "border-rose-500" : "border-emerald-500"}`}>
-            <div className="text-[10px] uppercase text-slate-500">Status</div>
-            <div className={`mt-0.5 text-sm font-semibold ${u?.banned ? "text-rose-400" : "text-emerald-400"}`}>
-              {u?.banned ? "Banned" : "Active"}
+            <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+              <div className="text-[10px] uppercase text-slate-500">Status</div>
+              <div className={`text-sm font-semibold ${u?.banned ? "text-rose-400" : "text-emerald-400"}`}>
+                {u?.banned ? "Banned" : "Active"}
+              </div>
             </div>
           </div>
         </div>
@@ -984,7 +982,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
       {/* ══════════════════ TRADING TAB ══════════════════════════ */}
       {activeTab === "trading" && (
-        <div className="space-y-5">
+        <div className="grid gap-4 xl:grid-cols-2">
           {/* User Trading Access */}
           <SectionCard icon={Bell} title="User Trading Access" accent="amber"
             description="Block or allow this user independently of the global trading switch.">
@@ -1120,7 +1118,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
 
       {/* ══════════════════ FINANCE TAB ═════════════════════════ */}
       {activeTab === "finance" && (
-        <div className="space-y-5">
+        <div className="grid gap-4 xl:grid-cols-2">
           {/* AI Bot Assign */}
           <SectionCard icon={Bot} title="AI Futures Strategy" accent="teal"
             description="User requests lock days. You approve, reject, or change days up or down. Saving days on an active contract updates the end date immediately.">
@@ -1238,8 +1236,7 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             <div>
               <span className="text-[10px] font-semibold uppercase text-slate-500">1. Commission pricing</span>
               <p className="mt-1 text-[11px] text-slate-500">
-                Auto uses the 1.25% Spot split (2.5% if AI lock is $2000+). Client
-                sees a floating daily %. Manual % is admin-only.
+                Auto uses the Commission table (min balance + days). Manual % is this user only.
               </p>
               <div className="mt-1.5 flex gap-1 rounded-xl bg-white/[0.03] p-1">
                 {[
@@ -1490,21 +1487,26 @@ export default function UserControlRoom({ userId, onBack, toast }) {
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <button type="button" disabled={scBusy} onClick={onSaveSmartCopy}
                 className={`w-full ${btnPrimary}`}>
-                {scBusy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Save Smart Spot"}
+                {scBusy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Save this user"}
               </button>
               <button
                 type="button"
                 disabled={scAllBusy}
-                onClick={onSaveSmartCopyAll}
+                onClick={() => setConfirmAll(true)}
                 className="w-full rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-50"
               >
-                {scAllBusy ? (
-                  <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                ) : (
-                  "Save for all users"
-                )}
+                Save for all users
               </button>
             </div>
+            {onOpenGlobalSpot ? (
+              <button
+                type="button"
+                onClick={onOpenGlobalSpot}
+                className="mt-2 text-[12px] text-slate-500 underline-offset-2 hover:text-[#00C2B3] hover:underline"
+              >
+                Or edit global blocks in AI Futures Strategy → Smart Spot
+              </button>
+            ) : null}
 
             {/* One-time manual credit — works in auto or manual mode */}
             <div className="mt-4 border-t border-white/[0.06] pt-4">

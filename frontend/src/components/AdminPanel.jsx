@@ -72,6 +72,7 @@ import UserControlRoom, {
 import { isStaffRole, isSuperAdminRole, roleLabel } from "../lib/roles.js";
 import { sourceLabel } from "../lib/marketAssets.js";
 import { publicUid } from "../lib/userUid.js";
+import AdminConfirm from "./AdminConfirm.jsx";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -112,14 +113,14 @@ const viewVariants = {
 // Shared UI Components
 // ---------------------------------------------------------------------------
 const SectionCard = ({ icon: Icon, title, description, children, className = "" }) => (
-  <div className={`rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-5 backdrop-blur-sm ${className}`}>
+  <div className={`admin-card p-4 ${className}`}>
     {(title || Icon) && (
-      <div className="mb-4">
-        <div className="flex items-center gap-2.5">
-          {Icon && <Icon className="h-4 w-4 text-cyan-400" />}
+      <div className="mb-3">
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="h-4 w-4 text-[#00C2B3]" />}
           {title && <h3 className="text-sm font-semibold text-white">{title}</h3>}
         </div>
-        {description && <p className="mt-1 ml-6.5 text-[11px] text-slate-500">{description}</p>}
+        {description && <p className="mt-1 text-[12px] text-slate-500">{description}</p>}
       </div>
     )}
     {children}
@@ -237,35 +238,26 @@ const StatusBadge = ({ status }) => {
 // OverviewView
 // ---------------------------------------------------------------------------
 const GlobalTradingToggle = ({ enabled, busy, onToggle }) => (
-  <div className="mb-5 rounded-2xl border border-white/[0.06] bg-gradient-to-r from-indigo-500/10 via-slate-900/60 to-emerald-500/10 p-5">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">
-          Global Trading Access
-        </div>
-        <p className="mt-1 text-xs text-slate-400">
-          Master switch for all Buy Long / Sell Short actions across the exchange.
-        </p>
-        <div
-          className={`mt-2 inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-            enabled
-              ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-300"
-              : "border-rose-400/30 bg-rose-500/15 text-rose-300"
-          }`}
-        >
-          {enabled ? "All trades enabled" : "All trades disabled"}
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <ToggleSwitch
-          enabled={enabled}
-          onToggle={(val) => onToggle(val)}
-          disabled={busy}
-        />
-        <span className="text-xs font-medium text-slate-300">
-          {enabled ? "Trading Active" : "Trading Paused"}
-        </span>
-      </div>
+  <div className="admin-card mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div className="text-sm font-semibold text-white">Global trading</div>
+      <p className="mt-0.5 text-[12px] text-slate-500">
+        Master switch for Buy Long / Sell Short on every account.
+      </p>
+    </div>
+    <div className="flex items-center gap-3">
+      <span
+        className={`text-xs font-semibold ${
+          enabled ? "text-emerald-400" : "text-rose-400"
+        }`}
+      >
+        {enabled ? "Active" : "Paused"}
+      </span>
+      <ToggleSwitch
+        enabled={enabled}
+        onToggle={(val) => onToggle(val)}
+        disabled={busy}
+      />
     </div>
   </div>
 );
@@ -277,36 +269,44 @@ const OverviewView = ({
   globalTradingEnabled,
   tradingBusy,
   onGlobalTradingToggle,
+  onNavigate,
 }) => {
-  const cards = [
+  const inbox = [
     {
-      label: "Total Users",
-      value: fmtNum(stats?.totalUsers || 0),
-      icon: Users,
-      accent: "from-indigo-500/20 to-indigo-400/5",
-      border: "border-l-indigo-500",
-    },
-    {
-      label: "Active Invite Codes",
-      value: fmtNum(stats?.activeInviteCodes || 0),
-      icon: Ticket,
-      accent: "from-emerald-500/20 to-emerald-400/5",
-      border: "border-l-emerald-500",
-    },
-    {
-      label: "Pending Transactions",
+      key: "transactions",
+      label: "Pending transactions",
       value: fmtNum(stats?.pendingTransactions || 0),
+      hint: "Deposits & withdrawals",
       icon: Receipt,
-      accent: "from-amber-500/20 to-amber-400/5",
-      border: "border-l-amber-500",
     },
     {
-      label: "Mock Volume (24h)",
-      value: fmtUSD(stats?.mockVolume24h || 0),
-      icon: TrendingUp,
-      accent: "from-cyan-500/20 to-cyan-400/5",
-      border: "border-l-cyan-500",
+      key: "kyc",
+      label: "KYC to review",
+      value: fmtNum(stats?.pendingKyc || 0),
+      hint: "Identity documents",
+      icon: BadgeCheck,
     },
+    {
+      key: "aibot",
+      tab: "bots",
+      label: "AI lock requests",
+      value: fmtNum(stats?.pendingAiLocks || 0),
+      hint: "Approve or change days",
+      icon: Bot,
+    },
+    {
+      key: "control",
+      label: "Live trades",
+      value: fmtNum(stats?.liveTrades || 0),
+      hint: "Open Control Room",
+      icon: Crosshair,
+    },
+  ];
+  const snapshot = [
+    { label: "Users", value: fmtNum(stats?.totalUsers || 0), key: "users", icon: Users },
+    { label: "Invite codes", value: fmtNum(stats?.activeInviteCodes || 0), key: "codes", icon: Ticket },
+    { label: "Banned", value: fmtNum(stats?.bannedUsers || 0), key: "users", icon: Ban },
+    { label: "Admins", value: fmtNum(stats?.admins || 0), key: "managers", icon: UserCog },
   ];
 
   return (
@@ -316,131 +316,61 @@ const OverviewView = ({
       animate="show"
       exit="exit"
     >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Overview</h2>
+          <p className="text-[12px] text-slate-500">Work queue first. Click a card to open it.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          Refresh
+        </button>
+      </div>
+
       <GlobalTradingToggle
         enabled={globalTradingEnabled !== false}
         busy={tradingBusy}
         onToggle={onGlobalTradingToggle}
       />
 
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">
-            Platform Overview
-          </h2>
-          <p className="text-xs text-slate-500">
-            Real-time snapshot of the equiti network.
-          </p>
-        </div>
-        <button
-          onClick={onRefresh}
-          disabled={loading}
-          className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
-        >
-          {loading ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3 w-3" />
-          )}
-          Refresh
-        </button>
-      </div>
-
-      <motion.div
-        variants={listContainer}
-        initial="hidden"
-        animate="show"
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        {cards.map((c) => (
-          <motion.div
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {inbox.map((c) => (
+          <button
             key={c.label}
-            variants={listItem}
-            className={`relative overflow-hidden rounded-2xl border border-white/5 border-l-4 ${c.border} bg-slate-900/60 p-5 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
+            type="button"
+            onClick={() => onNavigate?.(c.key, c.tab)}
+            className="admin-card p-4 text-left transition hover:border-white/15 hover:bg-[#161c26]"
           >
-            <div
-              className={`pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br ${c.accent} blur-2xl`}
-            />
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              <c.icon className="h-3 w-3" /> {c.label}
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <c.icon className="h-3.5 w-3.5 text-[#00C2B3]" /> {c.label}
             </div>
-            <div className="mt-2 text-2xl font-bold tracking-tight">
-              {c.value}
-            </div>
-          </motion.div>
+            <div className="mt-2 text-2xl font-semibold tabular-nums text-white">{c.value}</div>
+            <div className="mt-1 text-[12px] text-slate-500">{c.hint}</div>
+          </button>
         ))}
-      </motion.div>
-
-      {/* Quick Actions */}
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <button
-          type="button"
-          className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-4 text-left transition hover:bg-white/[0.04]"
-        >
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/15 text-amber-300">
-            <BadgeCheck className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-white">KYC Pending</div>
-            <div className="text-[11px] text-slate-500">Review verifications</div>
-          </div>
-        </button>
-        <button
-          type="button"
-          className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-4 text-left transition hover:bg-white/[0.04]"
-        >
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-500/15 text-cyan-300">
-            <Receipt className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-white">Pending Tx</div>
-            <div className="text-[11px] text-slate-500">{fmtNum(stats?.pendingTransactions || 0)} awaiting review</div>
-          </div>
-        </button>
-        <button
-          type="button"
-          className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-4 text-left transition hover:bg-white/[0.04]"
-        >
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-500/15 text-indigo-300">
-            <CreditCard className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-white">User Details</div>
-            <div className="text-[11px] text-slate-500">Cards, wallets, profiles</div>
-          </div>
-        </button>
       </div>
 
-      <motion.div
-        variants={viewVariants}
-        className="mt-6 grid gap-4 lg:grid-cols-2"
-      >
-        <SectionCard icon={Users} title="Network Composition">
-          <ul className="space-y-2 text-sm">
-            <li className="flex items-center justify-between">
-              <span className="text-slate-300">Admins</span>
-              <span className="font-semibold">{fmtNum(stats?.admins || 0)}</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-slate-300">Banned accounts</span>
-              <span className="font-semibold text-rose-300">
-                {fmtNum(stats?.bannedUsers || 0)}
-              </span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-slate-300">Total invite codes</span>
-              <span className="font-semibold">
-                {fmtNum(stats?.totalInviteCodes || 0)}
-              </span>
-            </li>
-          </ul>
-        </SectionCard>
-        <SectionCard icon={AlertTriangle} title="System Notes">
-          <p className="text-sm text-slate-400">
-            Volume and trade counts are simulated for demonstration. Wire them
-            to your analytics pipeline in production.
-          </p>
-        </SectionCard>
-      </motion.div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {snapshot.map((c) => (
+          <button
+            key={c.label}
+            type="button"
+            onClick={() => onNavigate?.(c.key)}
+            className="admin-card flex items-center justify-between p-3 text-left hover:border-white/15"
+          >
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-slate-500">{c.label}</div>
+              <div className="mt-0.5 text-lg font-semibold tabular-nums">{c.value}</div>
+            </div>
+            <c.icon className="h-4 w-4 text-slate-600" />
+          </button>
+        ))}
+      </div>
     </motion.div>
   );
 };
@@ -1273,9 +1203,6 @@ const UsersView = ({
   query,
   onQueryChange,
   currentUserId,
-  globalTradingEnabled,
-  tradingBusy,
-  onGlobalTradingToggle,
   isSuperAdmin,
 }) => {
   const [userFilter, setUserFilter] = useState("all");
@@ -1294,12 +1221,6 @@ const UsersView = ({
       animate="show"
       exit="exit"
     >
-      <GlobalTradingToggle
-        enabled={globalTradingEnabled !== false}
-        busy={tradingBusy}
-        onToggle={onGlobalTradingToggle}
-      />
-
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">
@@ -1348,7 +1269,7 @@ const UsersView = ({
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-slate-900/60 backdrop-blur-sm">
+      <div className="overflow-hidden admin-card">
         <div className="grid grid-cols-12 gap-3 border-b border-white/[0.04] px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
           <div className="col-span-3">User</div>
           <div className="col-span-2">Phone · Country</div>
@@ -1446,7 +1367,7 @@ const TransactionsView = ({
       </div>
     </div>
 
-    <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-slate-900/60 backdrop-blur-sm">
+    <div className="overflow-hidden admin-card">
       <div className="grid grid-cols-12 gap-3 border-b border-white/[0.04] px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
         <div className="col-span-3">User</div>
         <div className="col-span-2">Type</div>
@@ -2214,7 +2135,7 @@ const KycView = ({
             variants={listItem}
             layout
             exit="exit"
-            className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-4 backdrop-blur-sm"
+            className="admin-card p-4"
           >
             <div className="mb-3 flex items-start gap-3">
               <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-400 text-[11px] font-bold text-white">
@@ -2608,6 +2529,8 @@ export default function AdminPanel({ user, onExit }) {
   const [controlRoomUserId, setControlRoomUserId] = useState(null);
   const [globalTradingEnabled, setGlobalTradingEnabled] = useState(true);
   const [tradingBusy, setTradingBusy] = useState(false);
+  const [aibotTab, setAibotTab] = useState("commission");
+  const [confirm, setConfirm] = useState(null);
 
   const say = useCallback((kind, message) => {
     if (!message) return;
@@ -2743,6 +2666,33 @@ export default function AdminPanel({ user, onExit }) {
     } finally {
       setTradingBusy(false);
     }
+  };
+
+  const requestGlobalTradingToggle = (enabled) => {
+    if (!enabled && globalTradingEnabled !== false) {
+      setConfirm({
+        title: "Pause trading for everyone?",
+        body: "Buy Long / Sell Short will be blocked on every account until you turn this back on.",
+        confirmLabel: "Pause trading",
+        danger: true,
+        action: "pause-trading",
+      });
+      return;
+    }
+    handleGlobalTradingToggle(enabled);
+  };
+
+  const goSection = (key, tab) => {
+    setControlRoomUserId(null);
+    if (key === "aibot" && tab) setAibotTab(tab);
+    if (key === "managers" && !isSuperAdminRole(user?.role)) return;
+    setSection(key);
+  };
+
+  const openYieldRules = (tab = "spot") => {
+    setControlRoomUserId(null);
+    setAibotTab(tab);
+    setSection("aibot");
   };
 
   const loadCodes = async () => {
@@ -3068,7 +3018,7 @@ export default function AdminPanel({ user, onExit }) {
       items: [
         { key: "platform", label: "Platform Modules", icon: Package },
         { key: "aibot", label: "AI Futures Strategy", icon: Bot },
-        { key: "copybots", label: "Smart Spot & Promo", icon: Ticket },
+        { key: "copybots", label: "Promo & Catalog", icon: Ticket },
         { key: "referral", label: "Referral & VIP", icon: Crown },
       ],
     },
@@ -3099,79 +3049,70 @@ export default function AdminPanel({ user, onExit }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      className="relative min-h-screen w-full overflow-hidden bg-nx-bg text-slate-100"
+      transition={{ duration: 0.2 }}
+      className="admin-console relative min-h-screen w-full text-slate-200"
     >
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-40"
-          style={{
-            backgroundImage:
-              "linear-gradient(180deg, rgba(6,8,15,0.92), rgba(6,8,15,0.96)), url('/bg/crypto-glow.jpg')",
-            backgroundSize: "cover",
-            backgroundPosition: "center top",
-          }}
-        />
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-teal-600/10 blur-3xl" />
-        <div className="absolute -right-24 top-1/3 h-[26rem] w-[26rem] rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 h-96 w-96 rounded-full bg-emerald-500/5 blur-3xl" />
-      </div>
-
       <Toast
         kind={toast.kind}
         message={toast.message}
         onClose={() => setToast({ kind: null, message: "" })}
       />
+      <AdminConfirm
+        open={Boolean(confirm)}
+        title={confirm?.title}
+        body={confirm?.body}
+        confirmLabel={confirm?.confirmLabel}
+        danger={confirm?.danger}
+        busy={tradingBusy}
+        onCancel={() => setConfirm(null)}
+        onConfirm={async () => {
+          if (confirm?.action === "pause-trading") {
+            await handleGlobalTradingToggle(false);
+          }
+          setConfirm(null);
+        }}
+      />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl">
-        {/* Sidebar */}
-        <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-slate-900/40 p-5 backdrop-blur-sm md:block">
-          <div className="mb-4">
+      <div className="flex min-h-screen w-full">
+        <aside className="admin-sidebar sticky top-0 hidden h-screen w-[232px] shrink-0 flex-col overflow-y-auto border-r p-4 md:flex">
+          <div className="mb-4 px-1">
             <BrandLogo />
-            <div className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">
-              Admin Console
+            <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Admin
             </div>
-            <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-cyan-400">
-              <ShieldCheck className="h-3 w-3" /> {roleLabel(user?.role) || "Admin"}
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+              <ShieldCheck className="h-3 w-3 text-[#00C2B3]" /> {roleLabel(user?.role) || "Admin"}
             </div>
           </div>
 
-          <nav>
+          <nav className="flex-1">
             {navGroups.map((group) => (
               <div key={group.label}>
-                <div className="mt-5 mb-2 px-3 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-600">
+                <div className="mt-4 mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
                   {group.label}
                 </div>
                 <div className="space-y-0.5">
                   {group.items.map((n) => {
                     const active = section === n.key;
                     return (
-                      <motion.button
+                      <button
                         key={n.key}
-                        onClick={() => {
-                          setControlRoomUserId(null);
-                          setSection(n.key);
-                        }}
-                        whileTap={{ scale: 0.98 }}
-                        className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${
+                        type="button"
+                        onClick={() => goSection(n.key)}
+                        className={`relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
                           active
-                            ? "bg-white/[0.04] text-white"
-                            : "text-slate-400 hover:text-slate-200"
+                            ? "bg-white/[0.06] text-white"
+                            : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                         }`}
                       >
                         {active && (
-                          <motion.span
-                            layoutId="admin-nav-pill"
-                            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-cyan-400"
-                          />
+                          <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full bg-[#00C2B3]" />
                         )}
                         <n.icon
-                          className={`relative h-4 w-4 ${
-                            active ? "text-cyan-400" : ""
-                          }`}
+                          className={`h-4 w-4 ${active ? "text-[#00C2B3]" : ""}`}
                         />
-                        <span className="relative">{n.label}</span>
-                      </motion.button>
+                        <span>{n.label}</span>
+                      </button>
                     );
                   })}
                 </div>
@@ -3179,37 +3120,28 @@ export default function AdminPanel({ user, onExit }) {
             ))}
           </nav>
 
-          <div className="mt-6 border-t border-white/5 pt-4">
+          <div className="mt-4 border-t border-white/[0.06] pt-3">
+            <div className="mb-3 flex items-center gap-2 px-1">
+              <div className="grid h-7 w-7 place-items-center rounded-md bg-[#00C2B3]/20 text-[10px] font-bold text-[#00C2B3]">
+                {user?.initials || user?.username?.[0]?.toUpperCase() || "A"}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-xs font-semibold">{user?.fullName}</div>
+                <div className="truncate text-[10px] text-slate-500">{roleLabel(user?.role)}</div>
+              </div>
+            </div>
             <button
               type="button"
               onClick={onExit}
-              className="flex w-full items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-xs font-medium text-slate-300 hover:bg-white/[0.05]"
+              className="flex w-full items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-white/[0.04]"
             >
               <LogOut className="h-3.5 w-3.5" /> Sign Out
             </button>
           </div>
-
-          <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-            <div className="flex items-center gap-2">
-              <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-400 text-[10px] font-bold text-white">
-                {user?.initials || user?.username?.[0]?.toUpperCase() || "A"}
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-xs font-semibold">
-                  {user?.fullName}
-                </div>
-                <div className="truncate text-[10px] text-slate-500">
-                  <UserCog className="mr-1 inline h-2.5 w-2.5" />
-                  {roleLabel(user?.role)}
-                </div>
-              </div>
-            </div>
-          </div>
         </aside>
 
-        {/* Main */}
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+        <main className="min-w-0 flex-1 px-4 py-4 sm:px-6">
+          <div className="mb-4 flex items-center gap-2">
             <NotificationBell
               userId={user?._id || user?.id}
               mode="staff"
@@ -3222,32 +3154,24 @@ export default function AdminPanel({ user, onExit }) {
                 }
               }}
             />
+            <select
+              value={section}
+              onChange={(e) => goSection(e.target.value)}
+              className="flex-1 rounded-lg border border-white/10 bg-[#12171f] px-3 py-2 text-sm text-white md:hidden"
+            >
+              {nav.map((n) => (
+                <option key={n.key} value={n.key}>
+                  {n.label}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={onExit}
-              className="flex items-center gap-1 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5 text-[11px] text-slate-300 md:hidden"
+              className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-2 text-xs text-slate-300 md:hidden"
             >
               <LogOut className="h-3 w-3" /> Sign Out
             </button>
-            {nav.map((n) => (
-              <button
-                key={n.key}
-                onClick={() => {
-                    setControlRoomUserId(null);
-                    setSection(n.key);
-                  }}
-                className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] md:hidden ${
-                  section === n.key
-                    ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
-                    : "border-white/5 bg-white/[0.02] text-slate-300"
-                }`}
-              >
-                <n.icon className="h-3 w-3" /> {n.label}
-              </button>
-            ))}
-            <div className="ml-auto hidden text-[11px] text-slate-500 md:block">
-              Alerts · chat & trades
-            </div>
           </div>
 
           <AnimatePresence mode="wait">
@@ -3265,7 +3189,8 @@ export default function AdminPanel({ user, onExit }) {
                   onRefresh={loadStats}
                   globalTradingEnabled={globalTradingEnabled}
                   tradingBusy={tradingBusy}
-                  onGlobalTradingToggle={handleGlobalTradingToggle}
+                  onGlobalTradingToggle={requestGlobalTradingToggle}
+                  onNavigate={goSection}
                 />
               </div>
             )}
@@ -3276,6 +3201,7 @@ export default function AdminPanel({ user, onExit }) {
                   userId={controlRoomUserId}
                   onBack={() => setControlRoomUserId(null)}
                   toast={say}
+                  onOpenGlobalSpot={() => openYieldRules("spot")}
                 />
               ) : (
                 <div key="control" className="space-y-4">
@@ -3284,9 +3210,8 @@ export default function AdminPanel({ user, onExit }) {
                       Control Room
                       {superAdmin ? " · Super Admin" : ""}
                     </h2>
-                    <p className="mt-1 text-sm text-slate-400">
-                      Live trades and per-user Force WIN/LOSS. Open any user below
-                      {superAdmin ? " across all admins" : ""}.
+                    <p className="mt-1 text-[13px] text-slate-500">
+                      Open a user to manage live trades, wallet, AI lock, and Smart Spot.
                     </p>
                   </div>
                   <ActiveTradesAlertBar
@@ -3310,9 +3235,6 @@ export default function AdminPanel({ user, onExit }) {
                     query={query}
                     onQueryChange={setQuery}
                     currentUserId={user?._id || user?.id}
-                    globalTradingEnabled={globalTradingEnabled}
-                    tradingBusy={tradingBusy}
-                    onGlobalTradingToggle={handleGlobalTradingToggle}
                     isSuperAdmin={isSuperAdminRole(user?.role)}
                   />
                 </div>
@@ -3338,6 +3260,7 @@ export default function AdminPanel({ user, onExit }) {
                   userId={controlRoomUserId}
                   onBack={() => setControlRoomUserId(null)}
                   toast={say}
+                  onOpenGlobalSpot={() => openYieldRules("spot")}
                 />
               ) : (
                 <UsersView
@@ -3359,9 +3282,6 @@ export default function AdminPanel({ user, onExit }) {
                   query={query}
                   onQueryChange={setQuery}
                   currentUserId={user?._id || user?.id}
-                  globalTradingEnabled={globalTradingEnabled}
-                  tradingBusy={tradingBusy}
-                  onGlobalTradingToggle={handleGlobalTradingToggle}
                   isSuperAdmin={isSuperAdminRole(user?.role)}
                 />
               ))}
@@ -3384,7 +3304,7 @@ export default function AdminPanel({ user, onExit }) {
             )}
             {section === "aibot" && (
               <ErrorBoundary>
-                <AdminAiBotAndMatrix key="aibot" toast={say} />
+                <AdminAiBotAndMatrix key="aibot" toast={say} initialTab={aibotTab} />
               </ErrorBoundary>
             )}
             {section === "copybots" && (
