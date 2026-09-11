@@ -324,17 +324,9 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
         </div>
       </section>
 
-      {/* Trust / recognition */}
+      {/* Legal documents — Equiti-style hub, Dolphin Corp LLC office unchanged */}
       <section>
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
-          Trust & recognition
-        </p>
-        <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
-          Built on verified operations
-        </h2>
-        <div className="mt-10">
-          <CertificateGallery onOpen={openCertificate} />
-        </div>
+        <CertificateGallery onOpen={openCertificate} />
       </section>
 
       {/* Mission */}

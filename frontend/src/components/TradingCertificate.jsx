@@ -5,6 +5,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, X } from "lucide-react";
 import { BRAND, COMPANY, AUTHORIZATION as AUTH } from "../lib/brand.js";
+import { LEGAL_DOCS, legalDocById } from "../lib/legalDocs.js";
 import BrandLogo from "./BrandLogo.jsx";
 
 export function openCertificate() {
@@ -86,6 +87,7 @@ function Corner({ className }) {
 export function OfficialCertificateDocument({
   title = AUTH.documentTitle,
   paragraphs,
+  docId = "auth",
 }) {
   const address = [COMPANY.legalName, ...COMPANY.addressLines, COMPANY.jurisdiction];
   const body = paragraphs || [
@@ -136,14 +138,14 @@ export function OfficialCertificateDocument({
 
         <div className="mt-8 grid grid-cols-2 gap-4 sm:gap-10">
           <SignBlock
-            stampId="left"
+            stampId={`${docId}-left`}
             stampRing="AUTHORIZED BY EQUITI · ST. VINCENT · "
             stampCenter="EQUITI"
             stampSub="EST. 2014"
             sign={AUTH.signLeft}
           />
           <SignBlock
-            stampId="right"
+            stampId={`${docId}-right`}
             stampRing="DOLPHIN CORP LLC · OFFICIAL SEAL · "
             stampCenter="LLC"
             stampSub={COMPANY.companyNo}
@@ -175,12 +177,104 @@ function SignBlock({ stampId, stampRing, stampCenter, stampSub, sign }) {
   );
 }
 
+export function CertificatePreview({ onOpen, title, paragraphs, docId = "auth" }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full overflow-hidden rounded-2xl border border-[#00C2B3]/25 text-left shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[#00C2B3]"
+      title="Click to verify official certificate"
+    >
+      <div className="origin-top scale-[0.98]">
+        <OfficialCertificateDocument
+          docId={docId}
+          title={title}
+          paragraphs={paragraphs}
+        />
+      </div>
+      <div className="bg-[#0b0e11] px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-[#00C2B3]">
+        Click to verify official certificate
+      </div>
+    </button>
+  );
+}
+
+export function CertificateGallery({
+  onOpen,
+  showIntro = true,
+  initialId = "auth",
+}) {
+  const [tab, setTab] = useState(initialId);
+  const current = legalDocById(tab);
+  const office = COMPANY.addressLines.join(", ");
+
+  return (
+    <div>
+      {showIntro ? (
+        <div className="text-center">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#00C2B3]">
+            Legal
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-extrabold sm:text-4xl">
+            Transparency in everything we do
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-white/55">
+            Sound corporate governance and operational controls are embedded into
+            every process on this desk — identity checks, deposits, withdrawals,
+            and Live Chat.
+          </p>
+          <p className="mx-auto mt-4 max-w-xl text-xs leading-relaxed text-white/45">
+            {COMPANY.legalName} · Company number {COMPANY.companyNo}
+            <br />
+            {office}
+            <br />
+            {COMPANY.jurisdiction}
+          </p>
+        </div>
+      ) : null}
+
+      <p className={`${showIntro ? "mt-8" : ""} mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40`}>
+        Legal documents
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {LEGAL_DOCS.map((c) => {
+          const active = c.id === tab;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setTab(c.id)}
+              className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                active
+                  ? "border-[#00C2B3] bg-[#00C2B3]/15 text-[#00C2B3]"
+                  : "border-white/10 bg-black/40 text-white/80 hover:border-white/25 hover:text-white"
+              }`}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-8">
+        <CertificatePreview
+          onOpen={onOpen}
+          docId={current.id}
+          title={current.title}
+          paragraphs={current.paragraphs}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function CertificatePage({ onBack, onContact }) {
   const [zoom, setZoom] = useState(false);
+  const [activeId, setActiveId] = useState("auth");
+  const current = legalDocById(activeId);
   const address = COMPANY.addressLines.join(", ");
 
   return (
-    <div className="mx-auto max-w-3xl pb-8">
+    <div className="mx-auto max-w-[1180px] pb-8">
       <div className="px-4 py-10 text-center sm:py-14">
         <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full border border-white/20">
           <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#00C2B3]" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -189,30 +283,65 @@ export function CertificatePage({ onBack, onContact }) {
           </svg>
         </div>
         <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/50">
-          {AUTH.heading}
+          Legal
         </div>
         <h1 className="mt-2 text-4xl font-extrabold tracking-tight sm:text-5xl">
-          {BRAND.name}
+          Transparency in everything we do
         </h1>
-        <p className="mt-3 text-sm text-white/60">
+        <p className="mx-auto mt-3 max-w-2xl text-sm text-white/60">
+          Sound corporate governance and operational controls are embedded into
+          all our processes and functions.
+        </p>
+        <p className="mt-4 text-sm font-semibold text-white/80">
+          {COMPANY.legalName}
+        </p>
+        <p className="text-sm text-white/60">
           Company number: {COMPANY.companyNo}
         </p>
         <p className="text-sm text-white/60">
           {address}
         </p>
+        <p className="text-sm text-white/60">{COMPANY.jurisdiction}</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40">
+        Legal documents
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {LEGAL_DOCS.map((c) => {
+          const active = c.id === activeId;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setActiveId(c.id)}
+              className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                active
+                  ? "border-[#00C2B3] bg-[#00C2B3]/15 text-[#00C2B3]"
+                  : "border-white/10 bg-black/40 text-white/80 hover:border-white/25 hover:text-white"
+              }`}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-8 overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
         <button
           type="button"
           onClick={() => setZoom(true)}
           className="block w-full text-left"
           title="Click to inspect official certificate"
         >
-          <OfficialCertificateDocument />
+          <OfficialCertificateDocument
+            docId={current.id}
+            title={current.title}
+            paragraphs={current.paragraphs}
+          />
         </button>
         <div className="bg-white pb-4 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-400">
-          Official certificate — click to verify
+          Official record — click to verify
         </div>
       </div>
 
@@ -294,112 +423,15 @@ export function CertificatePage({ onBack, onContact }) {
               className="mx-auto max-w-3xl overflow-hidden rounded-xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <OfficialCertificateDocument />
+              <OfficialCertificateDocument
+                docId={`${current.id}-zoom`}
+                title={current.title}
+                paragraphs={current.paragraphs}
+              />
             </div>
           </div>,
           document.body
         )}
-    </div>
-  );
-}
-
-export function CertificatePreview({ onOpen, title, paragraphs }) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="w-full overflow-hidden rounded-2xl border border-[#00C2B3]/25 text-left shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[#00C2B3]"
-      title="Click to verify official certificate"
-    >
-      <div className="origin-top scale-[0.98]">
-        <OfficialCertificateDocument title={title} paragraphs={paragraphs} />
-      </div>
-      <div className="bg-[#0b0e11] px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-[#00C2B3]">
-        Click to verify official certificate
-      </div>
-    </button>
-  );
-}
-
-export const DESK_CERTS = [
-  {
-    id: "auth",
-    label: "Business authorization",
-    title: AUTH.documentTitle,
-  },
-  {
-    id: "kyc",
-    label: "KYC desk checks",
-    title: "KYC DESK CONTROL CERTIFICATE",
-    paragraphs: [
-      `${COMPANY.legalName} maintains an internal identity-review desk for the ${BRAND.name} terminal. Client name, document type, document number, and selfie packs are reviewed before full withdrawal limits are enabled.`,
-      "This record confirms that KYC checks are performed by the authorized desk under published terms. It is an operational control certificate issued by the company — not a third-party regulator licence.",
-      `Valid ${AUTH.validFrom} — ${AUTH.validTo}. Issued from ${COMPANY.jurisdiction}.`,
-    ],
-  },
-  {
-    id: "feeds",
-    label: "Live market feeds",
-    title: "LIVE MARKET FEED ATTESTATION",
-    paragraphs: [
-      `${COMPANY.legalName} attests that the ${BRAND.name} desk streams live market charts for crypto, FX, stocks, and related contracts as presented on the terminal.`,
-      "Pricing displays are for desk execution on this platform. This attestation covers operational feed presentation by the authorized operator, not an exchange membership or regulatory market-data licence.",
-      `Valid ${AUTH.validFrom} — ${AUTH.validTo}.`,
-    ],
-  },
-  {
-    id: "invite",
-    label: "Invite-only network",
-    title: "INVITE-ONLY ACCESS CERTIFICATE",
-    paragraphs: [
-      `Access to the ${BRAND.name} terminal is invite-gated. ${COMPANY.legalName} issues and reviews invite codes so new accounts join through the authorized network.`,
-      "This certificate confirms the invite-only operating model of the desk. It does not represent a banking or securities licence.",
-      `Valid ${AUTH.validFrom} — ${AUTH.validTo}.`,
-    ],
-  },
-  {
-    id: "chat",
-    label: "24/7 Live Chat",
-    title: "SUPPORT DESK CERTIFICATE",
-    paragraphs: [
-      `${COMPANY.legalName} operates 24/7 Live Chat for the ${BRAND.name} brand, covering deposits, withdrawals, identity checks, and desk questions.`,
-      "Receipts and support threads stay with the authorized operator. This is an internal service certificate for the support desk.",
-      `Valid ${AUTH.validFrom} — ${AUTH.validTo}.`,
-    ],
-  },
-];
-
-export function CertificateGallery({ onOpen }) {
-  const [tab, setTab] = useState("auth");
-  const current = DESK_CERTS.find((c) => c.id === tab) || DESK_CERTS[0];
-  return (
-    <div>
-      <div className="flex flex-wrap justify-center gap-2">
-        {DESK_CERTS.map((c) => {
-          const active = c.id === tab;
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setTab(c.id)}
-              className={`rounded-full border px-3 py-2 text-[11px] font-semibold sm:px-4 sm:text-xs ${
-                active
-                  ? "border-[#00C2B3] bg-[#00C2B3]/15 text-[#00C2B3]"
-                  : "border-white/15 bg-black/40 text-white/70 hover:border-white/30 hover:text-white"
-              }`}
-            >
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
-      <div className="mt-8">
-        <CertificatePreview
-          onOpen={onOpen}
-          title={current.title}
-          paragraphs={current.paragraphs}
-        />
-      </div>
     </div>
   );
 }

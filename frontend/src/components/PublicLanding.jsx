@@ -302,7 +302,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
               </div>
             )}
             {view === "certificate" && (
-              <div className="mx-auto max-w-3xl">
+              <div className="mx-auto max-w-[1180px]">
               <CertificatePage
                 onBack={() => go("home")}
                 onContact={() => go("contact")}

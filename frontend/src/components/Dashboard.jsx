@@ -1489,7 +1489,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             </motion.div>
           )}
           {page === "certificate" && (
-            <motion.div key="certificate" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl">
+            <motion.div key="certificate" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-[1180px]">
               <CertificatePage
                 onBack={() => goPage("home")}
                 onContact={() => goPage("contact")}
