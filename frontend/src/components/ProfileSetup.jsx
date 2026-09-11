@@ -2,13 +2,58 @@
  * Profile — identity + live USDT trend. Wallet and password live on Account Setting.
  */
 import { useEffect, useRef, useState } from "react";
-import { Camera, Copy, UserRound } from "lucide-react";
+import {
+  Camera,
+  Copy,
+  UserRound,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Wallet,
+  Lock,
+  ShieldCheck,
+  CreditCard,
+  Gift,
+} from "lucide-react";
 import { AuthAPI } from "../lib/api.js";
 import { publicUid } from "../lib/userUid.js";
+import { displayUsdt, heldAiUsdt, spendableUsdt } from "../lib/walletDisplay.js";
 import BalanceTrendCard from "./BalanceTrendCard.jsx";
 import StrategyBalanceCards from "./StrategyBalanceCards.jsx";
 
+const PROFILE_MENU = [
+  { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
+  { key: "withdraw", label: "Withdraw", icon: ArrowUpFromLine },
+  { key: "assets", label: "Balances", icon: Wallet },
+  { key: "security", label: "Security", icon: Lock },
+  { key: "verification", label: "Verify", icon: ShieldCheck },
+  { key: "addresses", label: "Wallet", icon: Wallet },
+  { key: "payment", label: "Card", icon: CreditCard },
+  { key: "referral", label: "Invite", icon: Gift },
+];
+
 const AVATAR_MAX_BYTES = 900_000;
+
+function fmtUsd(n) {
+  return Number(n || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function MoneyTile({ label, value, hint }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#0d1424] px-4 py-4">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-cyan-400/80">
+        {label}
+      </div>
+      <div className="mt-1 text-2xl font-bold tabular-nums text-white">
+        ${fmtUsd(value)}
+        <span className="ml-1 text-sm font-medium text-slate-400">USDT</span>
+      </div>
+      {hint ? <p className="mt-1 text-[11px] text-slate-500">{hint}</p> : null}
+    </div>
+  );
+}
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -19,7 +64,13 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function ProfileSetup({ user, onSaved, toast, onOpenSettings }) {
+export default function ProfileSetup({
+  user,
+  onSaved,
+  toast,
+  onOpenSettings,
+  onOpenMenu,
+}) {
   const uid = publicUid(user);
   const [avatar, setAvatar] = useState(user?.avatar || null);
   const [saving, setSaving] = useState(false);
@@ -87,6 +138,11 @@ export default function ProfileSetup({ user, onSaved, toast, onOpenSettings }) {
       .slice(0, 2)
       .map((s) => s[0]?.toUpperCase())
       .join("");
+
+  const holding = heldAiUsdt(user);
+  const withdrawable = spendableUsdt(user);
+  const grand = displayUsdt(user);
+  const totalGrand = grand;
 
   return (
     <div className="space-y-4">
@@ -186,31 +242,58 @@ export default function ProfileSetup({ user, onSaved, toast, onOpenSettings }) {
             </div>
           </div>
         </div>
+      </div>
 
-        <dl className="mt-5 grid gap-2 sm:grid-cols-2">
-          {[
-            ["Name", user?.fullName || "—"],
-            ["Email", user?.email || "—"],
-            ["Phone", user?.phone || "—"],
-            ["Address", user?.address || "—"],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5"
-            >
-              <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                {label}
-              </dt>
-              <dd className="mt-0.5 break-words text-sm text-white">
-                {value}
-              </dd>
-            </div>
-          ))}
-        </dl>
+      <div className="rounded-2xl border border-white/10 bg-[#0c1222] p-3">
+        <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          Menu
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {PROFILE_MENU.map((m) => {
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => onOpenMenu?.(m.key)}
+                className="flex flex-col items-center gap-1.5 rounded-xl px-1 py-3 text-slate-200 active:bg-white/10"
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-cyan-300">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="text-center text-[10px] font-semibold leading-tight text-slate-300">
+                  {m.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <BalanceTrendCard user={user} />
       <StrategyBalanceCards user={user} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <MoneyTile
+          label="Holding balance"
+          value={holding}
+          hint="AI Futures locked principal"
+        />
+        <MoneyTile
+          label="Withdrawable balance"
+          value={withdrawable}
+          hint="Available in your Trading Wallet"
+        />
+        <MoneyTile
+          label="Grand balance"
+          value={grand}
+          hint="Holding + withdrawable"
+        />
+        <MoneyTile
+          label="Total Grand Balance"
+          value={totalGrand}
+          hint="Full account total in USDT"
+        />
+      </div>
     </div>
   );
 }

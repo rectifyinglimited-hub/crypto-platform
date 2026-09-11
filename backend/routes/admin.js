@@ -71,6 +71,7 @@ import {
   refreshSmartCopyCycle,
   SMART_COPY_SLOTS,
   USER_SMART_COPY_SELECT,
+  slotPersistShape,
 } from "../lib/smartCopy.js";
 import { recordLedger } from "../lib/ledger.js";
 import { resolveAiFuturesDailyYield } from "../lib/aiBotYield.js";
@@ -325,7 +326,9 @@ router.put(
           incoming.accuracy === undefined
             ? cur.accuracy
             : Math.min(100, Math.max(0, Math.round(Number(incoming.accuracy))));
-        return {
+        return slotPersistShape({
+          ...cur,
+          ...incoming,
           slot,
           enabled:
             incoming.enabled === undefined
@@ -335,7 +338,7 @@ router.put(
           accuracy: Number.isFinite(Number(accuracy))
             ? Number(accuracy)
             : meta.accuracy,
-        };
+        });
       });
       user.smartCopySlots = next;
     }

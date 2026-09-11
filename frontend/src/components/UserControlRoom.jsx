@@ -26,6 +26,11 @@ import { onSocketEvent } from "../lib/socket.js";
 import { sourceLabel } from "../lib/marketAssets.js";
 import { publicUid } from "../lib/userUid.js";
 import AdminConfirm from "./AdminConfirm.jsx";
+import SmartSpotSlotFields, {
+  DEFAULT_SPOT_SLOTS,
+  hydrateSpotSlot,
+  serializeSpotSlot,
+} from "./SmartSpotSlotFields.jsx";
 import {
   AI_FUTURES_LOCK_OPTIONS,
   dailyYieldForLockDays,
@@ -402,12 +407,7 @@ export default function UserControlRoom({ userId, onBack, toast, onOpenGlobalSpo
   const [vipLevelEdit, setVipLevelEdit] = useState("0");
   const [scMaxSlots, setScMaxSlots] = useState(1);
   const [scSlots, setScSlots] = useState(() =>
-    [0, 1, 2, 3].map((slot) => ({
-      slot,
-      enabled: true,
-      readyAt: "",
-      accuracy: String([94, 88, 70, 62][slot] || 70),
-    }))
+    DEFAULT_SPOT_SLOTS.map((s) => ({ ...s, enabled: true }))
   );
   const [scBusy, setScBusy] = useState(false);
   const [scAllBusy, setScAllBusy] = useState(false);
@@ -494,13 +494,14 @@ export default function UserControlRoom({ userId, onBack, toast, onOpenGlobalSpo
       [0, 1, 2, 3].map((slot) => {
         const s = (sc.slots || []).find((x) => Number(x.slot) === slot);
         return {
-          slot,
+          ...hydrateSpotSlot(
+            {
+              ...s,
+              readyAt: toLocalInput(s?.readyAt),
+            },
+            slot
+          ),
           enabled: s ? s.enabled !== false : true,
-          readyAt: toLocalInput(s?.readyAt),
-          accuracy:
-            s?.accuracy != null && Number.isFinite(Number(s.accuracy))
-              ? String(Math.round(Number(s.accuracy)))
-              : String([94, 88, 70, 62][slot] || 70),
         };
       })
     );
@@ -525,12 +526,7 @@ export default function UserControlRoom({ userId, onBack, toast, onOpenGlobalSpo
         maxSlots: max,
         commissionMode: scMode,
         commissionPct: Number(scCommission) || 0,
-        slots: scSlots.map((s) => ({
-          slot: s.slot,
-          enabled: Boolean(s.enabled),
-          readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
-          accuracy: Math.min(100, Math.max(0, Math.round(Number(s.accuracy) || 0))),
-        })),
+        slots: scSlots.map((s) => serializeSpotSlot(s)),
       });
       if (res?.smartCopy) hydrateSmartCopy(res.smartCopy);
       toastRef.current?.("success", res.message || "Smart Spot Trade saved.");
@@ -548,18 +544,11 @@ export default function UserControlRoom({ userId, onBack, toast, onOpenGlobalSpo
     setScAllBusy(true);
     try {
       const res = await CopyBotAPI.adminSaveSlotDefaults({
-        slots: scSlots.map((s) => ({
-          slot: s.slot,
-          accuracy: Math.min(
-            100,
-            Math.max(0, Math.round(Number(s.accuracy) || 0))
-          ),
-          readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
-        })),
+        slots: scSlots.map((s) => serializeSpotSlot(s)),
       });
       toastRef.current?.(
         "success",
-        res.message || "Accuracy and Opens at saved for all users."
+        res.message || "Smart Spot blocks saved for all users."
       );
       setConfirmAll(false);
       await load({ silent: true });
@@ -920,7 +909,7 @@ export default function UserControlRoom({ userId, onBack, toast, onOpenGlobalSpo
       <AdminConfirm
         open={confirmAll}
         title="Apply Smart Spot to all users?"
-        body="Accuracy and Opens at on these 4 blocks will overwrite every account."
+        body="Title, pair, accuracy, prediction, followers, and Opens at on these 4 blocks will overwrite every account."
         confirmLabel="Save for all users"
         danger
         busy={scAllBusy}
@@ -1413,72 +1402,16 @@ export default function UserControlRoom({ userId, onBack, toast, onOpenGlobalSpo
                         disabled={locked}
                       />
                     </div>
-                    <div className="mt-3">
-                      <span className="text-[10px] font-semibold uppercase text-slate-500">Accuracy</span>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <button type="button"
-                          onClick={() =>
-                            setScSlots((prev) =>
-                              prev.map((row) =>
-                                row.slot === s.slot
-                                  ? { ...row, accuracy: String(Math.max(0, Number(row.accuracy || 0) - 1)) }
-                                  : row
-                              )
-                            )
-                          }
-                          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/5">
-                          −
-                        </button>
-                        <input type="number" min={0} max={100} value={s.accuracy}
-                          onChange={(e) =>
-                            setScSlots((prev) =>
-                              prev.map((row) =>
-                                row.slot === s.slot ? { ...row, accuracy: e.target.value } : row
-                              )
-                            )
-                          }
-                          className="w-16 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1 text-center font-mono text-sm text-white outline-none focus:border-cyan-500/30" />
-                        <button type="button"
-                          onClick={() =>
-                            setScSlots((prev) =>
-                              prev.map((row) =>
-                                row.slot === s.slot
-                                  ? { ...row, accuracy: String(Math.min(100, Number(row.accuracy || 0) + 1)) }
-                                  : row
-                              )
-                            )
-                          }
-                          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/5">
-                          +
-                        </button>
-                        <span className="text-[11px] text-slate-500">%</span>
-                      </div>
-                    </div>
-                    <label className="mt-3 block">
-                      <span className="text-[10px] font-semibold uppercase text-slate-500">Opens at</span>
-                      <div className="mt-1 flex gap-1.5">
-                        <input type="datetime-local" value={s.readyAt}
-                          onChange={(e) =>
-                            setScSlots((prev) =>
-                              prev.map((row) =>
-                                row.slot === s.slot ? { ...row, readyAt: e.target.value } : row
-                              )
-                            )
-                          }
-                          className="min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1.5 font-mono text-[11px] text-white outline-none focus:border-cyan-500/30" />
-                        <button type="button"
-                          onClick={() =>
-                            setScSlots((prev) =>
-                              prev.map((row) =>
-                                row.slot === s.slot ? { ...row, readyAt: "" } : row
-                              )
-                            )
-                          }
-                          className="rounded-lg border border-white/10 px-2 text-[10px] text-slate-400 hover:bg-white/5">
-                          Now
-                        </button>
-                      </div>
-                    </label>
+                    <SmartSpotSlotFields
+                      slot={s}
+                      onPatch={(key, value) =>
+                        setScSlots((prev) =>
+                          prev.map((row) =>
+                            row.slot === s.slot ? { ...row, [key]: value } : row
+                          )
+                        )
+                      }
+                    />
                   </div>
                 );
               })}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Headphones,
   ShieldCheck,
@@ -13,8 +13,6 @@ import {
   RefreshCw,
   Network,
   ChevronDown,
-  Award,
-  Zap,
   BarChart3,
   GraduationCap,
   Gift,
@@ -24,11 +22,101 @@ import VideoBackdrop from "./VideoBackdrop.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import BrandLogo from "./BrandLogo.jsx";
 import { SOCIAL_LINKS, CRYPTO_VIDEO, CRYPTO_POSTER, COMPANY } from "../lib/brand.js";
-import { CertificatePreview, openCertificate } from "./TradingCertificate.jsx";
+import { CertificateGallery, openCertificate } from "./TradingCertificate.jsx";
 import { PlatformAPI } from "../lib/api.js";
 
 const LIME_BTN =
   "inline-flex items-center justify-center gap-2 rounded-md bg-[#00C2B3] px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a1400] shadow-[0_0_28px_rgba(0,194,179,0.45)] transition hover:bg-[#5EEAD4]";
+
+function AboutHeroVideo() {
+  const hostRef = useRef(null);
+  const playerRef = useRef(null);
+
+  useEffect(() => {
+    const videoId = "aQNq8ybAx0E";
+    let cancelled = false;
+    let poll = null;
+    let pauseTimer = null;
+
+    const mount = () => {
+      if (cancelled || !hostRef.current || !window.YT?.Player) return;
+      try {
+        playerRef.current?.destroy?.();
+      } catch {
+        /* ignore */
+      }
+      playerRef.current = new window.YT.Player(hostRef.current, {
+        videoId,
+        width: "100%",
+        height: "100%",
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          start: 0,
+          controls: 1,
+        },
+        events: {
+          onReady: (event) => {
+            try {
+              event.target.mute();
+              event.target.playVideo();
+            } catch {
+              /* ignore */
+            }
+            pauseTimer = window.setTimeout(() => {
+              try {
+                event.target.pauseVideo();
+              } catch {
+                /* ignore */
+              }
+            }, 10000);
+          },
+        },
+      });
+    };
+
+    if (window.YT?.Player) {
+      mount();
+    } else {
+      const existing = document.getElementById("yt-iframe-api");
+      if (!existing) {
+        const script = document.createElement("script");
+        script.id = "yt-iframe-api";
+        script.src = "https://www.youtube.com/iframe_api";
+        document.body.appendChild(script);
+      }
+      poll = window.setInterval(() => {
+        if (window.YT?.Player) {
+          window.clearInterval(poll);
+          poll = null;
+          mount();
+        }
+      }, 200);
+    }
+
+    return () => {
+      cancelled = true;
+      if (poll) window.clearInterval(poll);
+      if (pauseTimer) window.clearTimeout(pauseTimer);
+      try {
+        playerRef.current?.destroy?.();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
+
+  return (
+    <div className="mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] p-1.5 sm:max-w-none sm:rounded-3xl sm:p-2 lg:justify-self-end">
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-black sm:rounded-2xl lg:aspect-[5/6]">
+        <div ref={hostRef} className="absolute inset-0 h-full w-full" />
+      </div>
+    </div>
+  );
+}
 
 const ABOUT_IMGS = {
   desk: "/bg/trader-desk.png",
@@ -166,13 +254,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
             )}
           </div>
         </div>
-        <div className="mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] p-1.5 sm:max-w-none sm:rounded-3xl sm:p-2 lg:justify-self-end">
-          <img
-            src={ABOUT_IMGS.heroPortrait}
-            alt="equiti leadership"
-            className="aspect-[4/5] h-auto w-full rounded-xl object-cover object-top sm:rounded-2xl lg:aspect-[5/6]"
-          />
-        </div>
+        <AboutHeroVideo />
       </section>
 
       {/* Why choose */}
@@ -250,27 +332,8 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
         <h2 className="mt-2 text-center font-display text-2xl font-extrabold sm:text-4xl">
           Built on verified operations
         </h2>
-        <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {[
-            { icon: Award, label: "Business authorization" },
-            { icon: ShieldCheck, label: "KYC desk checks" },
-            { icon: Zap, label: "Live market feeds" },
-            { icon: Users, label: "Invite-only network" },
-            { icon: MessageCircle, label: "24/7 Live Chat" },
-          ].map((a) => (
-            <div
-              key={a.label}
-              className="flex flex-col items-center rounded-2xl border border-[#00C2B3]/20 bg-black/40 px-3 py-6 text-center"
-            >
-              <div className="grid h-16 w-16 place-items-center rounded-full border-2 border-[#00C2B3]/50 bg-[#00C2B3]/10">
-                <a.icon className="h-7 w-7 text-[#00C2B3]" />
-              </div>
-              <p className="mt-3 text-xs font-semibold text-white/80">{a.label}</p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-8">
-          <CertificatePreview onOpen={openCertificate} />
+        <div className="mt-10">
+          <CertificateGallery onOpen={openCertificate} />
         </div>
       </section>
 

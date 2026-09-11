@@ -360,8 +360,10 @@ export default function AdminChatManager() {
     if (!selected || sending) return;
     setSending(true);
     try {
-      const res = await ChatAPI.depositDetails({ userId: selected._id });
-      setMessages((prev) => mergeMessages(prev, res.message));
+      await ChatAPI.depositDetails({ userId: selected._id });
+      setActionBanner(
+        "Deposit form is already on the user Live Chat. No extra address message was posted."
+      );
     } catch (err) {
       setActionBanner(err?.message || "Could not send deposit details.");
     } finally {

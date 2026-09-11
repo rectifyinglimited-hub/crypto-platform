@@ -26,9 +26,18 @@ import { isStaffRole, isSuperAdminRole } from "../lib/roles.js";
 
 const router = Router();
 
-const VERIFICATION_HEADER = "Secure Payment Verification Channel";
-const VERIFICATION_INSTRUCTIONS =
-  "Please review the official TRC-20 settlement address below. Once your external transfer is complete, attach a clear photographic transaction receipt or hash snapshot using the attachment utility below for management validation.";
+function isDepositDetailsMessage(m) {
+  if (m?.meta?.kind === "deposit_details") return true;
+  const body = String(m?.body || "");
+  if (!body) return false;
+  if (body.includes("Please review the official TRC-20 settlement address")) {
+    return true;
+  }
+  return (
+    body.includes("Secure Payment Verification Channel") &&
+    body.includes("photographic transaction receipt")
+  );
+}
 
 const TOPIC_BRIEFINGS = {
   vip: [
@@ -442,63 +451,18 @@ router.post(
     }
 
     const gw = await GatewaySetting.getSingleton();
-    const lines = [VERIFICATION_HEADER, "", VERIFICATION_INSTRUCTIONS, ""];
+    const settings = {
+      usdtTrc20Address: gw.usdtTrc20Address,
+      usdtErc20Address: gw.usdtErc20Address,
+      instructions: gw.instructions,
+    };
 
-    const rails = Array.isArray(gw.rails) ? gw.rails : [];
-    const filledRails = rails.filter((r) => String(r?.value || "").trim());
-    if (filledRails.length) {
-      lines.push("Deposit details:");
-      for (const r of filledRails) {
-        lines.push(`${r.label}:\n${String(r.value).trim()}`);
-      }
-    } else if (gw.usdtTrc20Address) {
-      lines.push(`Official TRC-20 settlement address:\n${gw.usdtTrc20Address}`);
-      if (gw.usdtErc20Address) {
-        lines.push(`\nUSDT ERC-20 (secondary):\n${gw.usdtErc20Address}`);
-      }
-    } else {
-      lines.push(
-        "Official deposit rails are not configured yet. An administrator will provide them shortly."
-      );
-    }
-
-    if (gw.instructions) {
-      lines.push(`\nAdditional settlement notes:\n${gw.instructions}`);
-    }
-    if (Array.isArray(gw.uploads) && gw.uploads.length) {
-      lines.push(
-        `\nAttachments available in the Deposit tab (${gw.uploads.length} file${
-          gw.uploads.length === 1 ? "" : "s"
-        }).`
-      );
-    }
-
-    const targetUser = await User.findById(threadUserId).select("adminId");
-    const msg = await Message.create({
-      user: threadUserId,
-      adminId: targetUser?.adminId || null,
-      from: "admin",
-      body: lines.join("\n"),
-      messageType: "system",
-      adminAuthor: isAdmin ? req.auth.sub : null,
-      readByAdmin: true,
-      readByUser: false,
-      meta: {
-        kind: "deposit_details",
-        usdtTrc20Address: gw.usdtTrc20Address || null,
-      },
-    });
-
-    emitChatMessage(threadUserId, msg);
-
-    return res.status(201).json({
+    // Deposit uses the Live Chat form card only — do not post the old
+    // TRC-20 instruction bubble into the thread.
+    return res.json({
       success: true,
-      message: msg,
-      settings: {
-        usdtTrc20Address: gw.usdtTrc20Address,
-        usdtErc20Address: gw.usdtErc20Address,
-        instructions: gw.instructions,
-      },
+      message: null,
+      settings,
     });
   })
 );
@@ -615,8 +579,12 @@ router.get(
       .sort({ createdAt: 1 })
       .lean();
 
+    const visible = isAdmin
+      ? messages
+      : messages.filter((m) => !isDepositDetailsMessage(m));
+
     // Strip legacy placeholder / non-local decorative media from history
-    const cleaned = messages.map((m) => {
+    const cleaned = visible.map((m) => {
       const url = m.attachmentUrl || "";
       const isLocalUpload =
         typeof url === "string" &&

@@ -34,10 +34,10 @@ const MARKET_TABS = [
 ];
 
 const SLOT_FALLBACK = [
-  { slot: 0, defaultAsset: "BTC", defaultType: "crypto", accuracy: 94, prediction: "Bullish Breakout", followers: 12450, bar: "green" },
-  { slot: 1, defaultAsset: "XAUUSD", defaultType: "forex", accuracy: 88, prediction: "Support Retest", followers: 9120, bar: "cyan" },
-  { slot: 2, defaultAsset: "EURUSD", defaultType: "forex", accuracy: 70, prediction: "Ranging Market", followers: 3500, bar: "orange" },
-  { slot: 3, defaultAsset: "AAPL", defaultType: "stock", accuracy: 62, prediction: "Volatile Dip", followers: 1800, bar: "red" },
+  { slot: 0, title: "Bitcoin", defaultAsset: "BTC", defaultType: "crypto", accuracy: 94, prediction: "Bullish Breakout", followers: 12450, bar: "green" },
+  { slot: 1, title: "Gold", defaultAsset: "XAUUSD", defaultType: "forex", accuracy: 88, prediction: "Support Retest", followers: 9120, bar: "cyan" },
+  { slot: 2, title: "EUR/USD", defaultAsset: "EURUSD", defaultType: "forex", accuracy: 70, prediction: "Ranging Market", followers: 3500, bar: "orange" },
+  { slot: 3, title: "Apple", defaultAsset: "AAPL", defaultType: "stock", accuracy: 62, prediction: "Volatile Dip", followers: 1800, bar: "red" },
 ];
 
 function loadPicks() {
@@ -267,6 +267,9 @@ function SignalCard({
 }) {
   const name = displayName(pick.asset, pick.assetType);
   const pair = pairLabel(pick.asset, pick.assetType);
+  const heading = slot.title
+    ? `AI Prediction: ${slot.title}`
+    : `AI Prediction: ${name}`;
   const symbol = chartSymbol(pick.asset, pick.assetType);
   let actionLabel = "Ready to Copy";
   let tone = "ready";
@@ -324,7 +327,7 @@ function SignalCard({
               }
               className="text-left text-[15px] font-semibold tracking-wide text-white hover:text-cyan-200 sm:text-lg"
             >
-              AI Prediction: {name}
+              {heading}
             </button>
             <div className="mt-2">
               <CoinPicker

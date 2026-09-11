@@ -1956,14 +1956,26 @@ function TotalBalanceCard({ totalUsdt, hint }) {
   );
 }
 
+function CompactBalanceCard({ totalUsdt }) {
+  const total = Number(totalUsdt || 0);
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0c1222] px-4 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        Total balance
+      </div>
+      <div className="text-lg font-bold tabular-nums text-white">
+        {fmtUsd(total)}{" "}
+        <span className="text-sm font-medium text-slate-400">USDT</span>
+      </div>
+    </div>
+  );
+}
+
 function HistoryOverview({ totalUsdt }) {
   return (
     <div className="space-y-4">
-      <TotalBalanceCard
-        totalUsdt={totalUsdt}
-        hint="Your trading wallet. Pick a date and time below to see what you did."
-      />
       <LogsSection />
+      <CompactBalanceCard totalUsdt={totalUsdt} />
     </div>
   );
 }
@@ -3181,15 +3193,18 @@ export function AssetsHubPage({
   };
 
   const activeItem = ASSETS_MENU.find((m) => m.key === view);
-  const mobileOnMenu = view === "overview";
 
-  const viewBody = loading && !data ? (
+  const historyBody =
+    loading && !data ? (
+      <LoadingBlock />
+    ) : (
+      <HistoryOverview totalUsdt={totalUsdt} />
+    );
+
+  const toolBody = loading && !data ? (
     <LoadingBlock />
   ) : (
     <>
-      {view === "overview" && (
-        <HistoryOverview totalUsdt={totalUsdt} />
-      )}
       {view === "deposit" && (
         <div className="rounded-2xl border border-teal-400/20 bg-teal-500/10 p-5 text-sm text-teal-100">
           Deposit is in Live Chat. Enter the amount you sent and attach the receipt screenshot. Admin verifies, then your wallet is credited.
@@ -3231,93 +3246,44 @@ export function AssetsHubPage({
     </>
   );
 
+  const goBack = () => {
+    if (onOpenAccount) {
+      onOpenAccount();
+      return;
+    }
+    setView("overview");
+  };
+
   return (
     <div>
-      {/* Desktop header */}
-      <div className="hidden lg:block">
-        <PageHeader icon={History} title="History" subtitle="Total balance and everything you have done" />
-      </div>
-
-      {/* Mobile: app-style section menu */}
-      <div className="lg:hidden">
-        {mobileOnMenu ? (
-          <div className="space-y-4">
-            <div className="px-0.5">
-              <h1 className="text-lg font-bold tracking-tight text-white">History</h1>
-              <p className="text-xs text-slate-500">Total balance, activity, date & time</p>
-            </div>
-            {loading && !data ? (
-              <LoadingBlock />
-            ) : (
-              <TotalBalanceCard totalUsdt={totalUsdt} />
-            )}
-            <div className="rounded-2xl border border-white/10 bg-[#0c1222] p-3">
-              <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Menu
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {ASSETS_MENU.filter((m) => m.key !== "overview").map((m) => {
-                  const Icon = m.icon;
-                  return (
-                    <button
-                      key={m.key}
-                      type="button"
-                      onClick={() => goView(m.key)}
-                      className="flex flex-col items-center gap-1.5 rounded-xl px-1 py-3 text-slate-200 active:bg-white/10"
-                    >
-                      <span className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-cyan-300">
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <span className="text-center text-[10px] font-semibold leading-tight text-slate-300">
-                        {m.short || m.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {!(loading && !data) ? <LogsSection /> : null}
+      {view === "overview" ? (
+        <div className="space-y-4">
+          <div className="lg:hidden px-0.5">
+            <h1 className="text-lg font-bold tracking-tight text-white">History</h1>
+            <p className="text-xs text-slate-500">Activity, date & time</p>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => setView("overview")}
-              className="sticky top-14 z-20 -mx-1 flex items-center gap-2 rounded-xl border border-white/10 bg-[#06080f]/90 px-3 py-2.5 text-sm font-semibold text-white backdrop-blur-md"
-            >
-              <ChevronLeft className="h-4 w-4 text-cyan-300" />
-              {activeItem?.label || "History"}
-            </button>
-            {viewBody}
+          <div className="hidden lg:block">
+            <PageHeader
+              icon={History}
+              title="History"
+              subtitle="Trades, Smart Spot, and AI Futures — date and time"
+            />
           </div>
-        )}
-      </div>
-
-      {/* Desktop: side menu + content */}
-      <div className="hidden gap-4 lg:grid lg:grid-cols-[220px_minmax(0,1fr)]">
-        <Card className="!p-2 lg:sticky lg:top-20 lg:self-start">
-          <nav className="flex flex-col gap-1">
-            {ASSETS_MENU.map((m) => {
-              const Icon = m.icon;
-              const active = view === m.key;
-              return (
-                <button
-                  key={m.key}
-                  type="button"
-                  onClick={() => goView(m.key)}
-                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
-                    active ? "bg-cyan-500/15 text-cyan-300" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {m.label}
-                </button>
-              );
-            })}
-          </nav>
-        </Card>
-        <div className="min-w-0 space-y-4">{viewBody}</div>
-      </div>
+          {historyBody}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={goBack}
+            className="sticky top-14 z-20 -mx-1 flex items-center gap-2 rounded-xl border border-white/10 bg-[#06080f]/90 px-3 py-2.5 text-sm font-semibold text-white backdrop-blur-md"
+          >
+            <ChevronLeft className="h-4 w-4 text-cyan-300" />
+            {activeItem?.label || "Back"}
+          </button>
+          {toolBody}
+        </div>
+      )}
     </div>
   );
 }

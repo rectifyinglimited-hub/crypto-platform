@@ -1083,6 +1083,31 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
     openLiveChat("withdraw");
   }, [openLiveChat]);
 
+  const openAssetsHub = useCallback(
+    (view = "overview") => {
+      if (view === "deposit") {
+        openLiveChat("deposit");
+        return;
+      }
+      if (view === "verification") {
+        setKycOpen(true);
+        return;
+      }
+      if (view === "referral") {
+        setPage("referral");
+        return;
+      }
+      if (view === "withdraw") {
+        openWithdrawSection();
+        return;
+      }
+      setAssetsView(view);
+      setPage("assets");
+      setTab("wallet");
+    },
+    [openLiveChat, openWithdrawSection]
+  );
+
   useEffect(() => {
     const onOpenChat = (e) => {
       openLiveChat(e?.detail?.hint || "deposit");
@@ -1423,16 +1448,18 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
               onOpenLiveChat={(hint) => openLiveChat(hint || "deposit")}
               onOpenWithdraw={openWithdrawSection}
               onWalletUpdate={handleUserUpdate}
+              onOpenAccount={() => goPage("account")}
               initialView={assetsView}
             />
           )}
           {page === "account" && (
-            <motion.div key="account" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-3xl space-y-4">
+            <motion.div key="account" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-5xl space-y-4">
               <ProfileSetup
                 user={me}
                 toast={say}
                 onSaved={(u) => handleUserUpdate(u)}
                 onOpenSettings={() => goPage("settings")}
+                onOpenMenu={openAssetsHub}
               />
             </motion.div>
           )}

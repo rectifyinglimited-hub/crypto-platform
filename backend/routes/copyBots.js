@@ -650,6 +650,11 @@ router.get(
         slot: s.slot,
         accuracy: s.accuracy,
         readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
+        title: s.title,
+        prediction: s.prediction,
+        followers: s.followers,
+        defaultAsset: s.defaultAsset,
+        defaultType: s.defaultType,
       })),
     });
   })
@@ -665,6 +670,11 @@ router.put(
         slot: s.slot,
         accuracy: s.accuracy,
         readyAt: s.readyAt || null,
+        title: s.title,
+        prediction: s.prediction,
+        followers: s.followers,
+        defaultAsset: s.defaultAsset,
+        defaultType: s.defaultType,
       })),
     };
     platform.markModified("smartCopyDefaults");
@@ -676,6 +686,11 @@ router.put(
       enabled: true,
       accuracy: s.accuracy,
       readyAt: s.readyAt || null,
+      title: s.title,
+      prediction: s.prediction,
+      followers: s.followers,
+      defaultAsset: s.defaultAsset,
+      defaultType: s.defaultType,
     }));
     const updated = await User.updateMany(tenantUserFilter(req), {
       $set: { smartCopySlots: nextSlots },
@@ -688,6 +703,11 @@ router.put(
         slot: s.slot,
         accuracy: s.accuracy,
         readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
+        title: s.title,
+        prediction: s.prediction,
+        followers: s.followers,
+        defaultAsset: s.defaultAsset,
+        defaultType: s.defaultType,
       })),
     });
   })

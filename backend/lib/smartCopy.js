@@ -12,12 +12,7 @@ export const USER_SMART_COPY_SELECT =
 export async function persistSmartCopy(user) {
   if (!user?._id) return;
   normalizeSmartCopy(user);
-  const slots = (user.smartCopySlots || []).map((s) => ({
-    slot: Number(s.slot),
-    enabled: s.enabled !== false,
-    readyAt: s.readyAt || null,
-    accuracy: s.accuracy ?? null,
-  }));
+  const slots = (user.smartCopySlots || []).map((s) => slotPersistShape(s));
   await User.updateOne(
     { _id: user._id },
     {
@@ -73,6 +68,7 @@ export function smartCopyUnlocked(user) {
 export const SMART_COPY_SLOTS = [
   {
     slot: 0,
+    title: "Bitcoin",
     defaultAsset: "BTC",
     defaultType: "crypto",
     accuracy: 94,
@@ -82,6 +78,7 @@ export const SMART_COPY_SLOTS = [
   },
   {
     slot: 1,
+    title: "Gold",
     defaultAsset: "XAUUSD",
     defaultType: "forex",
     accuracy: 88,
@@ -91,6 +88,7 @@ export const SMART_COPY_SLOTS = [
   },
   {
     slot: 2,
+    title: "EUR/USD",
     defaultAsset: "EURUSD",
     defaultType: "forex",
     accuracy: 70,
@@ -100,6 +98,7 @@ export const SMART_COPY_SLOTS = [
   },
   {
     slot: 3,
+    title: "Apple",
     defaultAsset: "AAPL",
     defaultType: "stock",
     accuracy: 62,
@@ -108,6 +107,95 @@ export const SMART_COPY_SLOTS = [
     bar: "red",
   },
 ];
+
+function cleanSlotTitle(value, fallback = "") {
+  const t = String(value ?? "").trim().slice(0, 80);
+  return t || fallback;
+}
+
+function cleanSlotPrediction(value, fallback = "") {
+  const t = String(value ?? "").trim().slice(0, 80);
+  return t || fallback;
+}
+
+function cleanSlotAsset(value, fallback = "") {
+  const t = String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 16);
+  return t || fallback;
+}
+
+function cleanSlotType(value, fallback = "crypto") {
+  const t = String(value || "").toLowerCase();
+  return ["crypto", "forex", "stock"].includes(t) ? t : fallback;
+}
+
+function cleanSlotFollowers(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.round(n);
+}
+
+export function slotDisplayFrom(row, meta) {
+  const base = meta || SMART_COPY_SLOTS[0];
+  return {
+    title: cleanSlotTitle(row?.title, base.title || ""),
+    prediction: cleanSlotPrediction(row?.prediction, base.prediction),
+    followers: cleanSlotFollowers(row?.followers, base.followers),
+    defaultAsset: cleanSlotAsset(row?.defaultAsset, base.defaultAsset),
+    defaultType: cleanSlotType(row?.defaultType, base.defaultType),
+    bar: base.bar,
+  };
+}
+
+export function slotPersistShape(s) {
+  const display = slotDisplayFrom(s, SMART_COPY_SLOTS[Number(s?.slot)] || SMART_COPY_SLOTS[0]);
+  return {
+    slot: Number(s?.slot),
+    enabled: s?.enabled !== false,
+    readyAt: s?.readyAt || null,
+    accuracy: s?.accuracy ?? null,
+    title: display.title,
+    prediction: display.prediction,
+    followers: display.followers,
+    defaultAsset: display.defaultAsset,
+    defaultType: display.defaultType,
+  };
+}
+
+export function resolveSlotDisplay(slotDoc, g, meta) {
+  const base = meta || SMART_COPY_SLOTS[0];
+  const typeFrom = (row) => {
+    const t = String(row?.defaultType || "").toLowerCase();
+    return ["crypto", "forex", "stock"].includes(t) ? t : "";
+  };
+  const followersFrom = (row) => {
+    if (row?.followers == null || row.followers === "") return null;
+    const n = Number(row.followers);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+  };
+  return {
+    title:
+      cleanSlotTitle(slotDoc?.title) ||
+      cleanSlotTitle(g?.title) ||
+      base.title ||
+      "",
+    prediction:
+      cleanSlotPrediction(slotDoc?.prediction) ||
+      cleanSlotPrediction(g?.prediction) ||
+      base.prediction,
+    followers:
+      followersFrom(slotDoc) ?? followersFrom(g) ?? base.followers,
+    defaultAsset:
+      cleanSlotAsset(slotDoc?.defaultAsset) ||
+      cleanSlotAsset(g?.defaultAsset) ||
+      base.defaultAsset,
+    defaultType: typeFrom(slotDoc) || typeFrom(g) || base.defaultType,
+    bar: base.bar,
+  };
+}
 
 export function isSlotOpen(slotDoc, now = new Date()) {
   if (!slotDoc) return false;
@@ -160,6 +248,7 @@ export function normalizeSlotDefaults(raw) {
       if (!Number.isNaN(d.getTime())) readyAt = d;
     }
     const accRaw = found?.accuracy;
+    const display = slotDisplayFrom(found || {}, meta);
     return {
       slot,
       accuracy:
@@ -167,6 +256,11 @@ export function normalizeSlotDefaults(raw) {
           ? meta.accuracy
           : clampAccuracy(accRaw, meta.accuracy),
       readyAt,
+      title: display.title,
+      prediction: display.prediction,
+      followers: display.followers,
+      defaultAsset: display.defaultAsset,
+      defaultType: display.defaultType,
     };
   });
 }
@@ -184,12 +278,14 @@ export function mergeSlotState(slotDoc, slotDefaults, now = new Date()) {
       : g?.accuracy,
     g?.accuracy ?? meta.accuracy
   );
+  const display = resolveSlotDisplay(slotDoc, g, meta);
   return {
     ...(slotDoc || {}),
     slot,
     readyAt,
     accuracy,
     enabled: slotDoc?.enabled !== false,
+    ...display,
   };
 }
 
@@ -259,6 +355,7 @@ export function normalizeSmartCopy(user) {
     const found = prev.find((s) => Number(s.slot) === slot);
     const meta = SMART_COPY_SLOTS[slot] || SMART_COPY_SLOTS[0];
     const rawAcc = found?.accuracy;
+    const display = slotDisplayFrom(found || {}, meta);
     const openBySubscribe = Boolean(user?.aiBotActive) && slot < tier.slots;
     return {
       slot,
@@ -268,6 +365,11 @@ export function normalizeSmartCopy(user) {
         rawAcc == null || rawAcc === ""
           ? meta.accuracy
           : clampAccuracy(rawAcc, meta.accuracy),
+      title: display.title,
+      prediction: display.prediction,
+      followers: display.followers,
+      defaultAsset: display.defaultAsset,
+      defaultType: display.defaultType,
     };
   });
   return user;
@@ -314,6 +416,7 @@ export function serializeSmartCopy(user, copies = [], extra = {}) {
       const copied = copiedSlots.has(s.slot);
       const merged = mergeSlotState(s, extra.slotDefaults, now);
       const open = unlocked && s.slot < maxSlots && isSlotOpen(merged, now);
+      const display = resolveSlotDisplay(merged, extra.slotDefaults?.find((x) => Number(x.slot) === s.slot), meta);
       return {
         slot: s.slot,
         enabled: merged.enabled !== false,
@@ -322,11 +425,12 @@ export function serializeSmartCopy(user, copies = [], extra = {}) {
         copied,
         lockedByTier: !unlocked || s.slot >= maxSlots,
         accuracy: merged.accuracy,
-        prediction: meta.prediction,
-        followers: meta.followers,
-        bar: meta.bar,
-        defaultAsset: meta.defaultAsset,
-        defaultType: meta.defaultType,
+        prediction: display.prediction,
+        followers: display.followers,
+        bar: display.bar,
+        title: display.title,
+        defaultAsset: display.defaultAsset,
+        defaultType: display.defaultType,
       };
     }),
   };

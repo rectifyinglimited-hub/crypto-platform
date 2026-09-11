@@ -36,7 +36,20 @@ const OPEN_KEY = "nexus_chat_open";
 
 const VERIFICATION_HEADER = "Secure Payment Verification Channel";
 const VERIFICATION_INSTRUCTIONS =
-  "Copy the USDT address, send funds, then enter the amount and attach your receipt screenshot. Admin verifies and credits your Trading Wallet.";
+  "Copy the official USDT TRC-20 address, send the funds from your wallet, then enter the amount and attach your receipt screenshot. Admin reviews the proof and credits your Trading Wallet.";
+
+function isDepositDetailsMessage(m) {
+  if (m?.meta?.kind === "deposit_details") return true;
+  const body = String(m?.body || "");
+  if (!body) return false;
+  if (body.includes("Please review the official TRC-20 settlement address")) {
+    return true;
+  }
+  return (
+    body.includes("Secure Payment Verification Channel") &&
+    body.includes("photographic transaction receipt")
+  );
+}
 
 const timeAgo = (iso) => {
   const t = new Date(iso).getTime();
@@ -200,9 +213,9 @@ const mergeMessages = (prev, incoming) => {
       attachmentUrl: isPlaceholderMedia(m) ? null : m.attachmentUrl,
     });
   }
-  return Array.from(map.values()).sort(
-    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-  );
+  return Array.from(map.values())
+    .filter((m) => !isDepositDetailsMessage(m))
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 };
 
 const fileToDataUrl = (file) =>
@@ -262,7 +275,6 @@ export default function LiveChatWidget({
         );
         return;
       }
-      // Load rails + post deposit details into thread
       (async () => {
         try {
           const res = await GatewayAPI.current();
@@ -272,9 +284,6 @@ export default function LiveChatWidget({
         }
         try {
           const res = await ChatAPI.depositDetails();
-          if (res.message) {
-            setMessages((prev) => mergeMessages(prev, res.message));
-          }
           if (res.settings) setGateway(res.settings);
         } catch {
           /* local gateway panel still works */
@@ -468,9 +477,6 @@ export default function LiveChatWidget({
       await loadGateway();
       try {
         const res = await ChatAPI.depositDetails();
-        if (res.message) {
-          setMessages((prev) => mergeMessages(prev, res.message));
-        }
         if (res.settings) setGateway(res.settings);
       } catch {
         /* gateway panel still works locally */

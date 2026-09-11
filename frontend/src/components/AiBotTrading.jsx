@@ -635,10 +635,6 @@ export default function AiBotTradingPage({ user, onToast, onWalletUpdate, onGoDe
                 Min {fmtUsd(minLock)} · {RECOVER_DAYS}-day recover path · Pair{" "}
                 {TRADE_PAIR}
               </div>
-              <div className="mt-2 rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-[11px] text-cyan-100">
-                Your commission: AI {Number(aiDailyPct).toFixed(2)}% / day ·
-                Smart Spot {Number(spotDailyPct).toFixed(2)}% / day
-              </div>
             </label>
           </div>
           <button

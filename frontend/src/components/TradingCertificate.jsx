@@ -83,8 +83,17 @@ function Corner({ className }) {
   );
 }
 
-export function OfficialCertificateDocument() {
+export function OfficialCertificateDocument({
+  title = AUTH.documentTitle,
+  paragraphs,
+}) {
   const address = [COMPANY.legalName, ...COMPANY.addressLines, COMPANY.jurisdiction];
+  const body = paragraphs || [
+    `This Business Authorization Certificate is issued by ${COMPANY.legalName}, a limited liability company registered under the laws of ${COMPANY.jurisdiction} (registration number ${COMPANY.companyNo}), with its registered office at ${COMPANY.addressLines.join(", ")}.`,
+    `${COMPANY.legalName} hereby authorizes the exclusive operation of the ${BRAND.name} digital trading brand, including live market charts, seconds trading, crypto / FX / stocks / commodities contracts, client deposits and withdrawals, and 24/7 support, in accordance with the company’s published terms and risk disclosures.`,
+    "The authorized desk is responsible for maintaining platform integrity, fair presentation of trading conditions, and orderly handling of client funds and identity checks.",
+    `This certificate is valid from ${AUTH.validFrom} to ${AUTH.validTo}. Renewal is subject to the continued good standing of ${COMPANY.legalName}.`,
+  ];
 
   return (
     <div className="relative bg-white px-4 py-6 text-[#111] sm:px-8 sm:py-10">
@@ -101,7 +110,7 @@ export function OfficialCertificateDocument() {
             <BrandLogo variant="on-light" />
           </div>
           <div className="mt-2 text-[11px] font-extrabold uppercase tracking-[0.18em] sm:text-sm">
-            {AUTH.documentTitle}
+            {title}
           </div>
         </div>
 
@@ -120,30 +129,9 @@ export function OfficialCertificateDocument() {
         </div>
 
         <div className="mt-6 space-y-3 text-[12px] leading-relaxed text-[#222] sm:text-[13.5px]">
-          <p>
-            This Business Authorization Certificate is issued by{" "}
-            <strong>{COMPANY.legalName}</strong>, a limited liability company
-            registered under the laws of {COMPANY.jurisdiction} (registration
-            number {COMPANY.companyNo}), with its registered office at{" "}
-            {COMPANY.addressLines.join(", ")}.
-          </p>
-          <p>
-            {COMPANY.legalName} hereby authorizes the exclusive operation of the{" "}
-            <strong>{BRAND.name}</strong> digital trading brand, including live
-            market charts, seconds trading, crypto / FX / stocks / commodities
-            contracts, client deposits and withdrawals, and 24/7 support, in
-            accordance with the company’s published terms and risk disclosures.
-          </p>
-          <p>
-            The authorized desk is responsible for maintaining platform
-            integrity, fair presentation of trading conditions, and orderly
-            handling of client funds and identity checks.
-          </p>
-          <p>
-            This certificate is valid from <strong>{AUTH.validFrom}</strong> to{" "}
-            <strong>{AUTH.validTo}</strong>. Renewal is subject to the continued
-            good standing of {COMPANY.legalName}.
-          </p>
+          {body.map((p) => (
+            <p key={p.slice(0, 48)}>{p}</p>
+          ))}
         </div>
 
         <div className="mt-8 grid grid-cols-2 gap-4 sm:gap-10">
@@ -315,20 +303,103 @@ export function CertificatePage({ onBack, onContact }) {
   );
 }
 
-export function CertificatePreview({ onOpen }) {
+export function CertificatePreview({ onOpen, title, paragraphs }) {
   return (
     <button
       type="button"
       onClick={onOpen}
       className="w-full overflow-hidden rounded-2xl border border-[#00C2B3]/25 text-left shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[#00C2B3]"
-      title="Click to open official certificate"
+      title="Click to verify official certificate"
     >
       <div className="origin-top scale-[0.98]">
-        <OfficialCertificateDocument />
+        <OfficialCertificateDocument title={title} paragraphs={paragraphs} />
       </div>
       <div className="bg-[#0b0e11] px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-[#00C2B3]">
         Click to verify official certificate
       </div>
     </button>
+  );
+}
+
+export const DESK_CERTS = [
+  {
+    id: "auth",
+    label: "Business authorization",
+    title: AUTH.documentTitle,
+  },
+  {
+    id: "kyc",
+    label: "KYC desk checks",
+    title: "KYC DESK CONTROL CERTIFICATE",
+    paragraphs: [
+      `${COMPANY.legalName} maintains an internal identity-review desk for the ${BRAND.name} terminal. Client name, document type, document number, and selfie packs are reviewed before full withdrawal limits are enabled.`,
+      "This record confirms that KYC checks are performed by the authorized desk under published terms. It is an operational control certificate issued by the company — not a third-party regulator licence.",
+      `Valid ${AUTH.validFrom} — ${AUTH.validTo}. Issued from ${COMPANY.jurisdiction}.`,
+    ],
+  },
+  {
+    id: "feeds",
+    label: "Live market feeds",
+    title: "LIVE MARKET FEED ATTESTATION",
+    paragraphs: [
+      `${COMPANY.legalName} attests that the ${BRAND.name} desk streams live market charts for crypto, FX, stocks, and related contracts as presented on the terminal.`,
+      "Pricing displays are for desk execution on this platform. This attestation covers operational feed presentation by the authorized operator, not an exchange membership or regulatory market-data licence.",
+      `Valid ${AUTH.validFrom} — ${AUTH.validTo}.`,
+    ],
+  },
+  {
+    id: "invite",
+    label: "Invite-only network",
+    title: "INVITE-ONLY ACCESS CERTIFICATE",
+    paragraphs: [
+      `Access to the ${BRAND.name} terminal is invite-gated. ${COMPANY.legalName} issues and reviews invite codes so new accounts join through the authorized network.`,
+      "This certificate confirms the invite-only operating model of the desk. It does not represent a banking or securities licence.",
+      `Valid ${AUTH.validFrom} — ${AUTH.validTo}.`,
+    ],
+  },
+  {
+    id: "chat",
+    label: "24/7 Live Chat",
+    title: "SUPPORT DESK CERTIFICATE",
+    paragraphs: [
+      `${COMPANY.legalName} operates 24/7 Live Chat for the ${BRAND.name} brand, covering deposits, withdrawals, identity checks, and desk questions.`,
+      "Receipts and support threads stay with the authorized operator. This is an internal service certificate for the support desk.",
+      `Valid ${AUTH.validFrom} — ${AUTH.validTo}.`,
+    ],
+  },
+];
+
+export function CertificateGallery({ onOpen }) {
+  const [tab, setTab] = useState("auth");
+  const current = DESK_CERTS.find((c) => c.id === tab) || DESK_CERTS[0];
+  return (
+    <div>
+      <div className="flex flex-wrap justify-center gap-2">
+        {DESK_CERTS.map((c) => {
+          const active = c.id === tab;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setTab(c.id)}
+              className={`rounded-full border px-3 py-2 text-[11px] font-semibold sm:px-4 sm:text-xs ${
+                active
+                  ? "border-[#00C2B3] bg-[#00C2B3]/15 text-[#00C2B3]"
+                  : "border-white/15 bg-black/40 text-white/70 hover:border-white/30 hover:text-white"
+              }`}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-8">
+        <CertificatePreview
+          onOpen={onOpen}
+          title={current.title}
+          paragraphs={current.paragraphs}
+        />
+      </div>
+    </div>
   );
 }

@@ -15,6 +15,11 @@ import {
 import { AiBotAPI, CopyBotAPI } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
 import AdminConfirm from "./AdminConfirm.jsx";
+import SmartSpotSlotFields, {
+  DEFAULT_SPOT_SLOTS,
+  hydrateSpotSlot,
+  serializeSpotSlot,
+} from "./SmartSpotSlotFields.jsx";
 import {
   AI_FUTURES_LOCK_OPTIONS,
   DEFAULT_COMMISSION_TIERS,
@@ -34,12 +39,6 @@ function toLocalInput(iso) {
     d.getHours()
   )}:${pad(d.getMinutes())}`;
 }
-
-const DEFAULT_SPOT_SLOTS = [0, 1, 2, 3].map((slot) => ({
-  slot,
-  accuracy: String([94, 88, 70, 62][slot] || 70),
-  readyAt: "",
-}));
 
 export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }) {
   const say = toast || (() => {});
@@ -145,16 +144,15 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
       const res = await CopyBotAPI.adminSlotDefaults();
       const rows = Array.isArray(res?.slots) ? res.slots : [];
       setSpotSlots(
-        DEFAULT_SPOT_SLOTS.map((base) => {
-          const found = rows.find((s) => Number(s.slot) === base.slot);
-          return {
-            slot: base.slot,
-            accuracy:
-              found?.accuracy != null
-                ? String(Math.round(Number(found.accuracy)))
-                : base.accuracy,
-            readyAt: toLocalInput(found?.readyAt),
-          };
+        [0, 1, 2, 3].map((slot) => {
+          const found = rows.find((s) => Number(s.slot) === slot);
+          return hydrateSpotSlot(
+            {
+              ...found,
+              readyAt: toLocalInput(found?.readyAt),
+            },
+            slot
+          );
         })
       );
     } catch (err) {
@@ -351,11 +349,7 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
     setSpotSaving(true);
     try {
       const res = await CopyBotAPI.adminSaveSlotDefaults({
-        slots: spotSlots.map((s) => ({
-          slot: s.slot,
-          accuracy: Math.min(100, Math.max(0, Math.round(Number(s.accuracy) || 0))),
-          readyAt: s.readyAt ? new Date(s.readyAt).toISOString() : null,
-        })),
+        slots: spotSlots.map((s) => serializeSpotSlot(s)),
       });
       say("success", res.message || "Smart Spot blocks saved for all users.");
     } catch (err) {
@@ -460,7 +454,7 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
       <AdminConfirm
         open={confirmKind === "spot"}
         title="Apply Smart Spot blocks to all users?"
-        body="Accuracy and Opens at on these 4 blocks will overwrite every account."
+        body="Title, pair, accuracy, prediction, followers, and Opens at on these 4 blocks will overwrite every account."
         confirmLabel="Save for all users"
         danger
         busy={spotSaving}
@@ -650,8 +644,8 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
       {!loading && tab === "spot" && (
         <div className="space-y-4 admin-card p-4">
           <p className="text-xs text-slate-400">
-            Set each block’s accuracy % and Opens at time. One-click Save applies
-            to every user on Smart Spot Trade.
+            Set each block’s title, pair, accuracy, prediction, followers, and
+            Opens at. One-click Save applies to every user on Smart Spot Trade.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {spotSlots.map((s) => (
@@ -662,72 +656,10 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
                 <div className="text-xs font-semibold text-white">
                   Block {s.slot + 1}
                 </div>
-                <div className="mt-3">
-                  <span className="text-[10px] font-semibold uppercase text-slate-500">
-                    Accuracy
-                  </span>
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        patchSpot(
-                          s.slot,
-                          "accuracy",
-                          String(Math.max(0, Number(s.accuracy || 0) - 1))
-                        )
-                      }
-                      className="rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/5"
-                    >
-                      −
-                    </button>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={s.accuracy}
-                      onChange={(e) =>
-                        patchSpot(s.slot, "accuracy", e.target.value)
-                      }
-                      className="w-16 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1 text-center font-mono text-sm text-white outline-none focus:border-cyan-500/30"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        patchSpot(
-                          s.slot,
-                          "accuracy",
-                          String(Math.min(100, Number(s.accuracy || 0) + 1))
-                        )
-                      }
-                      className="rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/5"
-                    >
-                      +
-                    </button>
-                    <span className="text-[11px] text-slate-500">%</span>
-                  </div>
-                </div>
-                <label className="mt-3 block">
-                  <span className="text-[10px] font-semibold uppercase text-slate-500">
-                    Opens at
-                  </span>
-                  <div className="mt-1 flex gap-1.5">
-                    <input
-                      type="datetime-local"
-                      value={s.readyAt}
-                      onChange={(e) =>
-                        patchSpot(s.slot, "readyAt", e.target.value)
-                      }
-                      className="min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1.5 font-mono text-[11px] text-white outline-none focus:border-cyan-500/30"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => patchSpot(s.slot, "readyAt", "")}
-                      className="rounded-lg border border-white/10 px-2 py-1.5 text-[11px] text-slate-300"
-                    >
-                      Now
-                    </button>
-                  </div>
-                </label>
+                <SmartSpotSlotFields
+                  slot={s}
+                  onPatch={(key, value) => patchSpot(s.slot, key, value)}
+                />
               </div>
             ))}
           </div>

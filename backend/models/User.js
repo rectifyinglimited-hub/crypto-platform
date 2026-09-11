@@ -211,6 +211,11 @@ const UserSchema = new Schema(
           enabled: { type: Boolean, default: true },
           readyAt: { type: Date, default: null },
           accuracy: { type: Number, min: 0, max: 100, default: null },
+          title: { type: String, default: "" },
+          prediction: { type: String, default: "" },
+          followers: { type: Number, default: null },
+          defaultAsset: { type: String, default: "" },
+          defaultType: { type: String, default: "" },
         },
       ],
       default: () =>
