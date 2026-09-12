@@ -1931,7 +1931,7 @@ const ASSETS_MENU = [
   { key: "overview", label: "History", short: "History", icon: History },
   { key: "deposit", label: "Deposit", short: "Deposit", icon: ArrowDownToLine },
   { key: "withdraw", label: "Withdraw", short: "Withdraw", icon: ArrowUpFromLine },
-  { key: "assets", label: "Balances", short: "Balances", icon: Wallet },
+  { key: "assets", label: "Assists", short: "Assists", icon: Wallet },
   { key: "security", label: "Security", short: "Security", icon: Lock },
   { key: "verification", label: "Verification", short: "Verify", icon: ShieldCheck },
   { key: "addresses", label: "Wallet Address", short: "Wallet", icon: Wallet },
@@ -1944,7 +1944,7 @@ function TotalBalanceCard({ totalUsdt, hint }) {
   return (
     <Card>
       <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
-        Total balance
+        Total Assists
       </div>
       <div className="mt-1 text-3xl font-bold tabular-nums text-white">
         {fmtUsd(total)}{" "}
@@ -1962,7 +1962,7 @@ function CompactBalanceCard({ totalUsdt }) {
   return (
     <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0c1222] px-4 py-3">
       <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-        Total balance
+        Total Assists
       </div>
       <div className="text-lg font-bold tabular-nums text-white">
         {fmtUsd(total)}{" "}
@@ -2613,13 +2613,19 @@ export function ReferralSection({ user, onToast }) {
   const referredBy = me.referredBy || null;
 
   const ladder = useMemo(() => {
-    const rows = REFERRAL_LADDER.map((count) => ({
-      count,
-      bonus: count * (liveRate / 100) * REFERRAL_EXAMPLE_STAKE,
-    }));
+    const adminRows = Array.isArray(settings.bonusLadder) ? settings.bonusLadder : [];
+    const rows = adminRows.length
+      ? adminRows.map((r) => ({
+          count: Number(r.users) || 0,
+          bonus: Number(r.bonus) || 0,
+        }))
+      : REFERRAL_LADDER.map((count) => ({
+          count,
+          bonus: count * (liveRate / 100) * REFERRAL_EXAMPLE_STAKE,
+        }));
     const maxBonus = Math.max(...rows.map((r) => r.bonus), 1);
     return { rows, maxBonus };
-  }, [liveRate]);
+  }, [liveRate, settings.bonusLadder]);
 
   const copy = (text, ok = "Invite code copied.") => {
     try {

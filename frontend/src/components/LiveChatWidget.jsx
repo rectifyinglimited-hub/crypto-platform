@@ -439,11 +439,15 @@ export default function LiveChatWidget({
                     How can we help?
                   </div>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Deposit, Withdrawal, and Loan open those pages. Customer
-                    Service is live chat only.
+                    {userId
+                      ? "Deposit, Withdrawal, and Loan open those pages. Customer Service is live chat only."
+                      : "Sign in to open Deposit, Withdrawal, or Loan. Customer Service is available here."}
                   </p>
                   <div className="mt-3 grid gap-2">
-                    {MENU_OPTIONS.map(({ key, label, icon: Icon, tone }) => (
+                    {(userId
+                      ? MENU_OPTIONS
+                      : MENU_OPTIONS.filter((o) => o.key === "service")
+                    ).map(({ key, label, icon: Icon, tone }) => (
                       <button
                         key={key}
                         type="button"

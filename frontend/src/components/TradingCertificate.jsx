@@ -5,7 +5,8 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, FileText, X } from "lucide-react";
 import { BRAND, COMPANY, AUTHORIZATION as AUTH } from "../lib/brand.js";
-import { LEGAL_DOCS, legalDocById } from "../lib/legalDocs.js";
+import { LEGAL_DOCS, legalDocById, legalDocsWithEmail } from "../lib/legalDocs.js";
+import { useDeskBrand } from "../lib/deskBrand.js";
 import BrandLogo from "./BrandLogo.jsx";
 
 export function openCertificate() {
@@ -220,9 +221,9 @@ const DOC_GROUPS = [
   },
 ];
 
-function docsInGroup(ids) {
+function docsInGroup(ids, docs = LEGAL_DOCS) {
   return ids
-    .map((id) => LEGAL_DOCS.find((d) => d.id === id))
+    .map((id) => docs.find((d) => d.id === id))
     .filter(Boolean);
 }
 
@@ -231,14 +232,16 @@ export function CertificateGallery({
   showIntro = true,
   initialId = "auth",
 }) {
+  const { supportEmail } = useDeskBrand();
+  const docs = legalDocsWithEmail(supportEmail);
   const [tab, setTab] = useState(initialId);
   const [zoom, setZoom] = useState(false);
   const previewRef = useRef(null);
-  const current = legalDocById(tab);
+  const current = docs.find((d) => d.id === tab) || legalDocById(tab);
   const office = COMPANY.addressLines.join(", ");
   const index = Math.max(
     0,
-    LEGAL_DOCS.findIndex((d) => d.id === current.id)
+    docs.findIndex((d) => d.id === current.id)
   );
 
   const selectDoc = (id) => {
@@ -286,7 +289,7 @@ export function CertificateGallery({
               Document index
             </div>
             <p className="mt-1 text-[11px] text-white/45">
-              {LEGAL_DOCS.length} records · {index + 1} of {LEGAL_DOCS.length}
+              {docs.length} records · {index + 1} of {docs.length}
             </p>
           </div>
           <nav className="max-h-[min(52vh,420px)] overflow-y-auto p-2 lg:max-h-[min(70vh,640px)]">
@@ -296,7 +299,7 @@ export function CertificateGallery({
                   {group.title}
                 </div>
                 <div className="space-y-0.5">
-                  {docsInGroup(group.ids).map((doc) => {
+                  {docsInGroup(group.ids, docs).map((doc) => {
                     const active = doc.id === tab;
                     return (
                       <button

@@ -30,6 +30,51 @@ import {
   resolveAiFuturesDailyYield,
 } from "../lib/aiBotYield.js";
 
+const DEFAULT_STAKE_TIERS = [
+  {
+    id: "t10",
+    maxStake: "10",
+    pattern: "win,loss,loss,win,loss,loss,win,win,loss,loss,loss,win",
+  },
+  {
+    id: "t50",
+    maxStake: "50",
+    pattern: "loss,win,loss,loss,win,loss,loss,win,loss,loss,loss,win,win",
+  },
+  {
+    id: "t150",
+    maxStake: "150",
+    pattern: "loss,loss,win,win,win,loss,win,loss,loss,loss,win",
+  },
+  {
+    id: "t500",
+    maxStake: "999999999",
+    pattern: "loss,loss,loss,win,loss,loss,win,loss,win",
+  },
+];
+
+function hydrateStakeTiers(raw) {
+  const list = Array.isArray(raw) && raw.length ? raw : DEFAULT_STAKE_TIERS;
+  return list.map((t, i) => ({
+    id: t.id || `t${i + 1}`,
+    maxStake:
+      t.maxStake === Infinity || Number(t.maxStake) >= 999999999
+        ? "999999999"
+        : String(t.maxStake ?? ""),
+    pattern: Array.isArray(t.pattern)
+      ? t.pattern.join(",")
+      : String(t.pattern || ""),
+  }));
+}
+
+function emptyStakeTier() {
+  return {
+    id: `t${Date.now().toString(36)}`,
+    maxStake: "100",
+    pattern: "loss,loss,win",
+  };
+}
+
 function toLocalInput(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -48,6 +93,7 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
   const [searchUsers, setSearchUsers] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [matrix, setMatrix] = useState(null);
+  const [stakeTiers, setStakeTiers] = useState(() => hydrateStakeTiers());
   const [defaults, setDefaults] = useState(null);
   const [tiers, setTiers] = useState(() =>
     DEFAULT_COMMISSION_TIERS.map((t) => ({ ...t }))
@@ -122,6 +168,7 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
         lowPattern: (res.algoMatrix?.lowPattern || ["win", "loss", "loss", "loss"]).join(","),
         highPatternKey: res.algoMatrix?.highPatternKey || "A",
       });
+      setStakeTiers(hydrateStakeTiers(res.algoMatrix?.stakeTiers));
       setDefaults({
         defaultYieldPct: res.aiBotDefaults?.defaultYieldPct ?? 0.5,
         minPrincipal: res.aiBotDefaults?.minPrincipal ?? 50,
@@ -263,6 +310,15 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
             ? lowPattern
             : ["win", "loss", "loss", "win"],
           highPatternKey: matrix.highPatternKey || "A",
+          stakeTiers: stakeTiers.map((t, i) => ({
+            id: t.id || `t${i + 1}`,
+            maxStake: Number(t.maxStake) || 0,
+            pattern: String(t.pattern || "")
+              .split(",")
+              .map((s) => s.trim().toLowerCase())
+              .filter(Boolean)
+              .map((s) => (s.startsWith("w") ? "win" : "loss")),
+          })),
         },
         aiBotDefaults: {
           defaultYieldPct: Number(defaults.defaultYieldPct),
@@ -799,9 +855,9 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
       {!loading && tab === "matrix" && matrix && defaults && (
         <div className="space-y-4 admin-card p-4">
           <p className="text-xs text-slate-500">
-            Stake-tier sequences are fixed on the server (≤$10 / ≤$50 / ≤$150 / $500+).
-            Max/all-in stake always settles LOSS. Admin Force WIN/LOSS still overrides.
-            Toggle below enables/disables the auto matrix.
+            Edit win / loss sequences per stake cap. Use W or L (or win,loss).
+            999999999 means that tier and above. Max/all-in stake still settles
+            LOSS. Admin Force WIN/LOSS still overrides.
           </p>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -811,12 +867,65 @@ export default function AdminAiBotAndMatrix({ toast, initialTab = "commission" }
             />
             Algo matrix enabled
           </label>
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-slate-400">
-            <div>≤$10: W L L W → 2L+W / 2W+L / 3L+W (repeats)</div>
-            <div>≤$50: L W → 2L+W → 2L+W → 3L+2W (repeats)</div>
-            <div>≤$150: 2L+3W → 1L+1W → 3L+1W (repeats)</div>
-            <div>&gt;$150 / $500+: 3L+1W → 2L+1W → 1L+1W (repeats)</div>
-            <div className="mt-1 text-amber-200/80">Max wallet stake → LOSS</div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Win / loss stake rules
+              </div>
+              <button
+                type="button"
+                onClick={() => setStakeTiers((prev) => [...prev, emptyStakeTier()])}
+                className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2 py-1 text-[11px] font-semibold text-cyan-200"
+              >
+                <Plus className="h-3 w-3" /> Add rule
+              </button>
+            </div>
+            {stakeTiers.map((tier, i) => (
+              <div
+                key={tier.id || i}
+                className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-[140px_1fr_auto]"
+              >
+                <label className="text-[10px] text-slate-500">
+                  Max stake $
+                  <input
+                    value={tier.maxStake}
+                    onChange={(e) =>
+                      setStakeTiers((prev) =>
+                        prev.map((r, idx) =>
+                          idx === i ? { ...r, maxStake: e.target.value } : r
+                        )
+                      )
+                    }
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-[10px] text-slate-500">
+                  Sequence (W/L or win,loss)
+                  <input
+                    value={tier.pattern}
+                    onChange={(e) =>
+                      setStakeTiers((prev) =>
+                        prev.map((r, idx) =>
+                          idx === i ? { ...r, pattern: e.target.value } : r
+                        )
+                      )
+                    }
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 font-mono text-sm"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setStakeTiers((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                  className="self-end rounded-lg border border-rose-400/20 p-2 text-rose-300"
+                  aria-label="Remove stake rule"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            <p className="text-[11px] text-amber-200/80">Max wallet stake → LOSS</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field

@@ -18,10 +18,12 @@ import { ensureCatalogEnrichment } from "../lib/catalogEnrichment.js";
 import {
   loadSettingsForUser,
   commissionRateForLevel,
+  displayVipNumbers,
   volume30d,
   ensureReferralCode,
   progressToNextTier,
 } from "../lib/referralEngine.js";
+import SystemSettings from "../models/SystemSettings.js";
 import { heldAiUsdt, heldSmartSpotUsdt } from "../lib/aiBotYield.js";
 
 const router = Router();
@@ -286,6 +288,23 @@ async function ensureSeed(adminId = null) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /brand — public desk contact + news (no auth)
+// ---------------------------------------------------------------------------
+router.get(
+  "/brand",
+  requireDatabase,
+  asyncHandler(async (_req, res) => {
+    const doc = await SystemSettings.getForAdmin(null);
+    const settings = SystemSettings.serialize(doc);
+    return res.json({
+      success: true,
+      supportEmail: settings.supportEmail,
+      deskNews: settings.deskNews,
+    });
+  })
+);
+
+// ---------------------------------------------------------------------------
 // GET /settings — live VIP / referral rates for the signed-in tenant
 // ---------------------------------------------------------------------------
 router.get(
@@ -298,12 +317,13 @@ router.get(
       return res.status(404).json({ success: false, message: "User not found." });
     }
     const settings = await loadSettingsForUser(user);
-    const rate = commissionRateForLevel(settings, user.vipLevel);
+    const computed = commissionRateForLevel(settings, user.vipLevel);
+    const shown = displayVipNumbers(user, settings, computed);
     return res.json({
       success: true,
       settings,
       yourVipLevel: Number(user.vipLevel || 0),
-      yourCommissionRate: rate,
+      yourCommissionRate: shown.commission,
     });
   })
 );
@@ -320,7 +340,9 @@ router.get(
     await ensureReferralCode(user);
     const settings = await loadSettingsForUser(user);
     const vol = await volume30d(user._id);
-    const rate = commissionRateForLevel(settings, user.vipLevel);
+    const computedRate = commissionRateForLevel(settings, user.vipLevel);
+    const shown = displayVipNumbers(user, settings, computedRate);
+    const rate = shown.commission;
     const progress = progressToNextTier(settings, user.vipLevel, vol);
     const unlockDays = Number(settings.referralUnlockTradingDays) || 30;
     const referrals = await User.find({
@@ -341,16 +363,21 @@ router.get(
       );
       if (parent) {
         const parentSettings = await loadSettingsForUser(parent);
+        const parentComputed = commissionRateForLevel(
+          parentSettings,
+          parent.vipLevel
+        );
         referredBy = {
           username: parent.username,
           fullName: parent.fullName,
           vipLevel: Number(parent.vipLevel || 0),
           vipStatus: Boolean(parent.vipStatus),
           referralCode: parent.referralCode || null,
-          commissionRate: commissionRateForLevel(
+          commissionRate: displayVipNumbers(
+            parent,
             parentSettings,
-            parent.vipLevel
-          ),
+            parentComputed
+          ).commission,
         };
       }
     }
@@ -401,7 +428,7 @@ router.get(
         vipStatus: Boolean(user.vipStatus),
         commissionRate: rate,
         volume30d: vol,
-        referralEarnings: Number(user.referralEarnings || 0),
+        referralEarnings: shown.earned,
         activeTradingDays: (user.activeTradingDayKeys || []).length,
         unlockTradingDays: unlockDays,
         progress,

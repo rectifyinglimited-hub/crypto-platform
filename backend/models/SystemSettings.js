@@ -81,6 +81,53 @@ export const DEFAULT_VIP_TIERS = [
 
 export const DEFAULT_REFERRAL_COMMISSION_RATE = 15;
 export const DEFAULT_UNLOCK_TRADING_DAYS = 30;
+export const DEFAULT_SUPPORT_EMAIL = "support@equiti.com";
+
+export const DEFAULT_BONUS_LADDER = [
+  { id: "b1", users: 1, bonus: 10 },
+  { id: "b2", users: 3, bonus: 30 },
+  { id: "b3", users: 5, bonus: 50 },
+  { id: "b4", users: 10, bonus: 100 },
+  { id: "b5", users: 20, bonus: 200 },
+];
+
+export const DEFAULT_DESK_NEWS = [
+  {
+    id: "n1",
+    title: "Bitcoin holds key support as USDT rails stay busy",
+    source: "Market desk",
+    summary: "Spot desks watch the $ range while settlement windows stay open.",
+    body: "Bitcoin is holding its recent support band while USDT rails stay active. Desk flow is two-way: some books are adding on dips, others are taking profit into strength. No change to Equiti deposit or withdrawal windows.",
+  },
+  {
+    id: "n2",
+    title: "Ethereum volatility lifts Smart Spot copy books",
+    source: "Spot desk",
+    summary: "Intraday ranges widen; copy slots stay on the published open times.",
+    body: "ETH ranges have widened versus the prior session. Smart Spot copy blocks still open at the times shown on your desk. Size positions to your own lock and unlock schedule.",
+  },
+  {
+    id: "n3",
+    title: "USDT settlement windows unchanged",
+    source: "Operations",
+    summary: "TRC-20 deposits post after screenshot review. Same-day withdrawals follow verification.",
+    body: "TRC-20 USDT remains the settlement rail. Send the on-chain receipt in Live Chat after you transfer. Review times depend on screenshot quality and account verification status.",
+  },
+  {
+    id: "n4",
+    title: "Gold-linked pairs keep an overnight range",
+    source: "Macro",
+    summary: "XAU crosses are range-bound; watch the London reopen for a break.",
+    body: "Gold-linked pairs are trading a contained overnight band. Liquidity usually improves at the London reopen. Use the published seconds-trade window and your own risk limits.",
+  },
+  {
+    id: "n5",
+    title: "High-liquidity majors lead the session",
+    source: "Insights",
+    summary: "BTC, ETH, and XRP stay the most active books on the terminal.",
+    body: "Majors continue to lead ticket count. Thinner alts can gap around news. If you need a receipt or a payout status, open Customer Service after you sign in.",
+  },
+];
 
 const VipTierSchema = new Schema(
   {
@@ -117,6 +164,16 @@ const SystemSettingsSchema = new Schema(
       type: [VipTierSchema],
       default: () => DEFAULT_VIP_TIERS.map((t) => ({ ...t })),
     },
+    supportEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: DEFAULT_SUPPORT_EMAIL,
+    },
+    globalVipCommission: { type: Number, default: null },
+    globalVipEarned: { type: Number, default: null },
+    bonusLadder: { type: [Schema.Types.Mixed], default: () => DEFAULT_BONUS_LADDER.map((r) => ({ ...r })) },
+    deskNews: { type: [Schema.Types.Mixed], default: () => DEFAULT_DESK_NEWS.map((r) => ({ ...r })) },
     updatedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -145,6 +202,44 @@ function normalizeTiers(raw) {
   return cleaned.length ? cleaned : DEFAULT_VIP_TIERS.map((t) => ({ ...t }));
 }
 
+function normalizeEmail(raw) {
+  const v = String(raw || "").trim().toLowerCase();
+  if (!v || !v.includes("@") || v.length > 120) return DEFAULT_SUPPORT_EMAIL;
+  return v;
+}
+
+function normalizeBonusLadder(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const cleaned = list
+    .map((row, i) => ({
+      id: String(row?.id || `b${i + 1}`).slice(0, 40),
+      users: Math.max(0, Math.round(Number(row?.users) || 0)),
+      bonus: Math.max(0, Number(row?.bonus) || 0),
+    }))
+    .filter((row) => row.users > 0 || row.bonus > 0);
+  return cleaned.length ? cleaned : DEFAULT_BONUS_LADDER.map((r) => ({ ...r }));
+}
+
+function normalizeDeskNews(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const cleaned = list
+    .map((row, i) => ({
+      id: String(row?.id || `n${i + 1}`).slice(0, 40),
+      title: String(row?.title || "").trim().slice(0, 160),
+      source: String(row?.source || "Desk").trim().slice(0, 60),
+      summary: String(row?.summary || "").trim().slice(0, 240),
+      body: String(row?.body || row?.summary || "").trim().slice(0, 4000),
+    }))
+    .filter((row) => row.title);
+  return cleaned.length ? cleaned : DEFAULT_DESK_NEWS.map((r) => ({ ...r }));
+}
+
+function optionalNumber(raw) {
+  if (raw === "" || raw === undefined || raw === null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 function ensureFullVipLadder(raw) {
   const cleaned = normalizeTiers(raw);
   const byLevel = new Map(cleaned.map((t) => [Number(t.level), t]));
@@ -171,6 +266,11 @@ SystemSettingsSchema.statics.serialize = function (doc) {
     referralUnlockTradingDays:
       src.referralUnlockTradingDays ?? DEFAULT_UNLOCK_TRADING_DAYS,
     vipTierSettings: ensureFullVipLadder(src.vipTierSettings),
+    supportEmail: normalizeEmail(src.supportEmail),
+    globalVipCommission: optionalNumber(src.globalVipCommission),
+    globalVipEarned: optionalNumber(src.globalVipEarned),
+    bonusLadder: normalizeBonusLadder(src.bonusLadder),
+    deskNews: normalizeDeskNews(src.deskNews),
     updatedAt: src.updatedAt || null,
   };
 };
@@ -225,6 +325,21 @@ SystemSettingsSchema.statics.upsertForAdmin = async function (
   }
   if (patch.vipTierSettings !== undefined) {
     update.vipTierSettings = ensureFullVipLadder(patch.vipTierSettings);
+  }
+  if (patch.supportEmail !== undefined) {
+    update.supportEmail = normalizeEmail(patch.supportEmail);
+  }
+  if (patch.globalVipCommission !== undefined) {
+    update.globalVipCommission = optionalNumber(patch.globalVipCommission);
+  }
+  if (patch.globalVipEarned !== undefined) {
+    update.globalVipEarned = optionalNumber(patch.globalVipEarned);
+  }
+  if (patch.bonusLadder !== undefined) {
+    update.bonusLadder = normalizeBonusLadder(patch.bonusLadder);
+  }
+  if (patch.deskNews !== undefined) {
+    update.deskNews = normalizeDeskNews(patch.deskNews);
   }
   const doc = await this.findOneAndUpdate(
     oid ? { adminId: oid } : { adminId: null },

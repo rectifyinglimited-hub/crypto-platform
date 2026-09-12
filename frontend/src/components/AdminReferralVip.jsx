@@ -18,6 +18,20 @@ const TIER_DEFAULTS = [
   { level: 10, minVolume30d: 2000000, commissionRate: 35, perk: "Top-desk status and max referral cut" },
 ];
 
+const emptyLadderRow = () => ({
+  id: `b${Date.now().toString(36)}`,
+  users: 1,
+  bonus: 10,
+});
+
+const emptyNewsRow = () => ({
+  id: `n${Date.now().toString(36)}`,
+  title: "",
+  source: "Desk",
+  summary: "",
+  body: "",
+});
+
 const emptyTier = (level) => {
   const d = TIER_DEFAULTS.find((t) => t.level === level) || {
     minVolume30d: level * 250000,
@@ -42,6 +56,12 @@ export default function AdminReferralVip({ toast }) {
   const [unlockDays, setUnlockDays] = useState("30");
   const [tiers, setTiers] = useState(TIER_DEFAULTS.map((t) => emptyTier(t.level)));
   const [scope, setScope] = useState("tenant");
+  const [supportEmail, setSupportEmail] = useState("support@equiti.com");
+  const [vipCommission, setVipCommission] = useState("");
+  const [vipEarned, setVipEarned] = useState("");
+  const [ladder, setLadder] = useState([]);
+  const [news, setNews] = useState([]);
+  const [applying, setApplying] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +75,13 @@ export default function AdminReferralVip({ toast }) {
           ? s.vipTierSettings
           : TIER_DEFAULTS.map((t) => emptyTier(t.level))
       );
+      setSupportEmail(s.supportEmail || "support@equiti.com");
+      setVipCommission(
+        s.globalVipCommission == null ? "" : String(s.globalVipCommission)
+      );
+      setVipEarned(s.globalVipEarned == null ? "" : String(s.globalVipEarned));
+      setLadder(Array.isArray(s.bonusLadder) ? s.bonusLadder : []);
+      setNews(Array.isArray(s.deskNews) ? s.deskNews : []);
       setScope(res.scope || "tenant");
     } catch (err) {
       say("error", err?.message || "Failed to load VIP settings.");
@@ -67,28 +94,68 @@ export default function AdminReferralVip({ toast }) {
     load();
   }, [load]);
 
+  const deskPayload = () => ({
+    defaultReferralCommissionRate: Number(defaultRate),
+    referralUnlockTradingDays: Number(unlockDays),
+    vipTierSettings: tiers.map((t, i) => ({
+      level: Number(t.level) || i + 1,
+      name: t.name || `VIP ${i + 1}`,
+      minVolume30d: Number(t.minVolume30d) || 0,
+      commissionRate: Number(t.commissionRate) || 0,
+      perk: t.perk || "",
+    })),
+    supportEmail,
+    globalVipCommission: vipCommission === "" ? null : Number(vipCommission),
+    globalVipEarned: vipEarned === "" ? null : Number(vipEarned),
+    bonusLadder: ladder.map((row, i) => ({
+      id: row.id || `b${i + 1}`,
+      users: Number(row.users) || 0,
+      bonus: Number(row.bonus) || 0,
+    })),
+    deskNews: news.map((row, i) => ({
+      id: row.id || `n${i + 1}`,
+      title: row.title || "",
+      source: row.source || "Desk",
+      summary: row.summary || "",
+      body: row.body || row.summary || "",
+    })),
+  });
+
+  const applyLoaded = (s) => {
+    if (!s) return;
+    setTiers(s.vipTierSettings || tiers);
+    setSupportEmail(s.supportEmail || supportEmail);
+    setVipCommission(
+      s.globalVipCommission == null ? "" : String(s.globalVipCommission)
+    );
+    setVipEarned(s.globalVipEarned == null ? "" : String(s.globalVipEarned));
+    setLadder(Array.isArray(s.bonusLadder) ? s.bonusLadder : ladder);
+    setNews(Array.isArray(s.deskNews) ? s.deskNews : news);
+  };
+
   const save = async () => {
     setSaving(true);
     try {
-      const res = await AdminAPI.saveReferralVip({
-        defaultReferralCommissionRate: Number(defaultRate),
-        referralUnlockTradingDays: Number(unlockDays),
-        vipTierSettings: tiers.map((t, i) => ({
-          level: Number(t.level) || i + 1,
-          name: t.name || `VIP ${i + 1}`,
-          minVolume30d: Number(t.minVolume30d) || 0,
-          commissionRate: Number(t.commissionRate) || 0,
-          perk: t.perk || "",
-        })),
-      });
+      const res = await AdminAPI.saveReferralVip(deskPayload());
       say("success", res.message || "Settings saved.");
-      if (res.settings) {
-        setTiers(res.settings.vipTierSettings || tiers);
-      }
+      applyLoaded(res.settings);
     } catch (err) {
       say("error", err?.message || "Save failed.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const applyAll = async () => {
+    setApplying(true);
+    try {
+      const res = await AdminAPI.applyReferralVipAll(deskPayload());
+      say("success", res.message || "Once all saved.");
+      applyLoaded(res.settings);
+    } catch (err) {
+      say("error", err?.message || "Once all failed.");
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -167,6 +234,210 @@ export default function AdminReferralVip({ toast }) {
                 className="w-full rounded-lg border border-white/10 bg-[#070a12] px-2.5 py-2 text-sm"
               />
             </label>
+            <label className="block text-xs sm:col-span-2">
+              <span className="mb-1 block text-slate-500">
+                Support email (footer, contact, certificates, chat)
+              </span>
+              <input
+                type="email"
+                value={supportEmail}
+                onChange={(e) => setSupportEmail(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-[#070a12] px-2.5 py-2 text-sm"
+              />
+            </label>
+          </div>
+
+          <div className="rounded-xl border border-[#00C2B3]/25 bg-[#00C2B3]/5 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-[#00C2B3]">
+              Manual VIP commission & earn
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              These numbers show on VIP and Invite pages. Once all writes them
+              to every user account.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs">
+                <span className="mb-1 block text-slate-500">Commission %</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="any"
+                  value={vipCommission}
+                  onChange={(e) => setVipCommission(e.target.value)}
+                  placeholder="e.g. 10"
+                  className="w-full rounded-lg border border-white/10 bg-[#070a12] px-2.5 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs">
+                <span className="mb-1 block text-slate-500">Earn total USDT</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={vipEarned}
+                  onChange={(e) => setVipEarned(e.target.value)}
+                  placeholder="e.g. 250"
+                  className="w-full rounded-lg border border-white/10 bg-[#070a12] px-2.5 py-2 text-sm"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Bonus ladder
+              </div>
+              <button
+                type="button"
+                onClick={() => setLadder((prev) => [...prev, emptyLadderRow()])}
+                className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2 py-1 text-[11px] font-semibold text-cyan-200"
+              >
+                <Plus className="h-3 w-3" /> Add bar
+              </button>
+            </div>
+            {ladder.map((row, i) => (
+              <div
+                key={row.id || i}
+                className="grid gap-2 rounded-xl border border-white/10 bg-[#0c1222] p-3 sm:grid-cols-[1fr_1fr_auto]"
+              >
+                <label className="text-[10px] text-slate-500">
+                  Users
+                  <input
+                    type="number"
+                    min={0}
+                    value={row.users}
+                    onChange={(e) =>
+                      setLadder((prev) =>
+                        prev.map((r, idx) =>
+                          idx === i ? { ...r, users: e.target.value } : r
+                        )
+                      )
+                    }
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-[10px] text-slate-500">
+                  Bonus USDT
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={row.bonus}
+                    onChange={(e) =>
+                      setLadder((prev) =>
+                        prev.map((r, idx) =>
+                          idx === i ? { ...r, bonus: e.target.value } : r
+                        )
+                      )
+                    }
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLadder((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                  className="self-end rounded-lg border border-rose-400/20 p-2 text-rose-300"
+                  aria-label="Remove ladder bar"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Market insights & news
+              </div>
+              <button
+                type="button"
+                onClick={() => setNews((prev) => [...prev, emptyNewsRow()])}
+                className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2 py-1 text-[11px] font-semibold text-cyan-200"
+              >
+                <Plus className="h-3 w-3" /> Add note
+              </button>
+            </div>
+            {news.map((row, i) => (
+              <div
+                key={row.id || i}
+                className="space-y-2 rounded-xl border border-white/10 bg-[#0c1222] p-3"
+              >
+                <div className="grid gap-2 sm:grid-cols-[1fr_160px_auto]">
+                  <label className="text-[10px] text-slate-500">
+                    Title
+                    <input
+                      value={row.title}
+                      onChange={(e) =>
+                        setNews((prev) =>
+                          prev.map((r, idx) =>
+                            idx === i ? { ...r, title: e.target.value } : r
+                          )
+                        )
+                      }
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                    />
+                  </label>
+                  <label className="text-[10px] text-slate-500">
+                    Source
+                    <input
+                      value={row.source}
+                      onChange={(e) =>
+                        setNews((prev) =>
+                          prev.map((r, idx) =>
+                            idx === i ? { ...r, source: e.target.value } : r
+                          )
+                        )
+                      }
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNews((prev) => prev.filter((_, idx) => idx !== i))
+                    }
+                    className="self-end rounded-lg border border-rose-400/20 p-2 text-rose-300"
+                    aria-label="Remove news"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <label className="block text-[10px] text-slate-500">
+                  Summary
+                  <input
+                    value={row.summary || ""}
+                    onChange={(e) =>
+                      setNews((prev) =>
+                        prev.map((r, idx) =>
+                          idx === i ? { ...r, summary: e.target.value } : r
+                        )
+                      )
+                    }
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="block text-[10px] text-slate-500">
+                  Full text
+                  <textarea
+                    value={row.body || ""}
+                    onChange={(e) =>
+                      setNews((prev) =>
+                        prev.map((r, idx) =>
+                          idx === i ? { ...r, body: e.target.value } : r
+                        )
+                      )
+                    }
+                    rows={3}
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-sm"
+                  />
+                </label>
+              </div>
+            ))}
           </div>
 
           <div className="space-y-2">
@@ -269,6 +540,19 @@ export default function AdminReferralVip({ toast }) {
                 <Save className="h-4 w-4" />
               )}
               Save live rates
+            </button>
+            <button
+              type="button"
+              disabled={applying}
+              onClick={applyAll}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#00C2B3] px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-50"
+            >
+              {applying ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              Once all
             </button>
             <button
               type="button"

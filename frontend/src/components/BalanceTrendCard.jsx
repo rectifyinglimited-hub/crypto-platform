@@ -3,6 +3,7 @@
  * Line rises when USDT goes up, falls when it goes down.
  */
 import { useEffect, useId, useMemo, useState } from "react";
+import { Lock } from "lucide-react";
 import { WalletAPI } from "../lib/api.js";
 import { displayUsdt } from "../lib/walletDisplay.js";
 import {
@@ -152,13 +153,19 @@ export default function BalanceTrendCard({ user }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
-            Total balance
+            Total Assists
           </div>
           <div className="mt-1 flex flex-wrap items-end gap-2">
             <div className="text-3xl font-bold tabular-nums text-white">
               ${fmtUsd(last)}
             </div>
             <span className="mb-1 text-sm font-medium text-slate-400">USDT</span>
+            <span
+              className="mb-1 grid h-5 w-5 place-items-center rounded-md border border-cyan-400/30 bg-cyan-500/10 text-cyan-300"
+              title="Assists lock"
+            >
+              <Lock className="h-3 w-3" />
+            </span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span

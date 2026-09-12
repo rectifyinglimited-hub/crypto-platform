@@ -106,12 +106,43 @@ export function defaultAlgoMatrix() {
   };
 }
 
-export function pickStakeTier(stake) {
+const CATCH_ALL_STAKE = 999999999;
+
+export function serializeStakeTiers(raw) {
+  const source = Array.isArray(raw) && raw.length ? raw : STAKE_TIERS;
+  const cleaned = source
+    .map((tier, i) => {
+      const pattern = Array.isArray(tier?.pattern)
+        ? tier.pattern.map((x) => (String(x).toLowerCase().startsWith("w") ? "win" : "loss"))
+        : [];
+      if (!pattern.length) return null;
+      const maxRaw = Number(tier?.maxStake);
+      const maxStake =
+        Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : CATCH_ALL_STAKE;
+      return {
+        id: String(tier?.id || `t${i + 1}`).slice(0, 40),
+        maxStake: maxStake >= CATCH_ALL_STAKE ? CATCH_ALL_STAKE : maxStake,
+        pattern,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.maxStake - b.maxStake);
+  return cleaned.length
+    ? cleaned
+    : STAKE_TIERS.map((tier, i) => ({
+        id: tier.id || `t${i + 1}`,
+        maxStake: Number.isFinite(tier.maxStake) ? tier.maxStake : CATCH_ALL_STAKE,
+        pattern: [...tier.pattern],
+      }));
+}
+
+export function pickStakeTier(stake, tiers) {
   const amt = Number(stake) || 0;
-  for (const tier of STAKE_TIERS) {
+  const list = serializeStakeTiers(tiers);
+  for (const tier of list) {
     if (amt <= tier.maxStake) return tier;
   }
-  return STAKE_TIERS[STAKE_TIERS.length - 1];
+  return list[list.length - 1];
 }
 
 function normalizeCursor(cursor = {}) {
@@ -156,7 +187,7 @@ export function resolveAlgoOutcome({
 
   const useTiers = matrix.useStakeTiers !== false;
   if (useTiers) {
-    const tier = pickStakeTier(stake);
+    const tier = pickStakeTier(stake, matrix.stakeTiers);
     const pattern = tier.pattern;
     const idx = Number(state.tiers[tier.id]) || 0;
     const slot = idx % pattern.length;

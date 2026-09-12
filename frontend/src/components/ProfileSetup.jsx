@@ -16,14 +16,15 @@ import {
 } from "lucide-react";
 import { AuthAPI } from "../lib/api.js";
 import { publicUid } from "../lib/userUid.js";
-import { displayUsdt, heldAiUsdt, heldSmartSpotUsdt, spendableUsdt } from "../lib/walletDisplay.js";
+import { displayUsdt, spendableUsdt } from "../lib/walletDisplay.js";
 import BalanceTrendCard from "./BalanceTrendCard.jsx";
 import StrategyBalanceCards from "./StrategyBalanceCards.jsx";
+import MarketInsightsNews from "./MarketInsightsNews.jsx";
 
 const PROFILE_MENU = [
   { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
   { key: "withdraw", label: "Withdraw", icon: ArrowUpFromLine },
-  { key: "assets", label: "Balances", icon: Wallet },
+  { key: "assets", label: "Assists", icon: Wallet },
   { key: "security", label: "Security", icon: Lock },
   { key: "verification", label: "Verify", icon: ShieldCheck },
   { key: "addresses", label: "Wallet", icon: Wallet },
@@ -139,10 +140,8 @@ export default function ProfileSetup({
       .map((s) => s[0]?.toUpperCase())
       .join("");
 
-  const holding = heldAiUsdt(user) + heldSmartSpotUsdt(user);
   const withdrawable = spendableUsdt(user);
   const grand = displayUsdt(user);
-  const totalGrand = grand;
 
   return (
     <div className="space-y-4">
@@ -274,26 +273,17 @@ export default function ProfileSetup({
       <StrategyBalanceCards user={user} />
       <div className="grid gap-3 sm:grid-cols-2">
         <MoneyTile
-          label="Holding balance"
-          value={holding}
-          hint="AI Futures + Smart Spot locked"
-        />
-        <MoneyTile
-          label="Withdrawable balance"
+          label="Available assist"
           value={withdrawable}
-          hint="Available in your Trading Wallet"
+          hint="That Assist is Withdrawable"
         />
-        <MoneyTile
-          label="Grand balance"
-          value={grand}
-          hint="Holding + withdrawable"
-        />
-        <MoneyTile
-          label="Total Grand Balance"
-          value={totalGrand}
-          hint="Full account total in USDT"
-        />
+        <MarketInsightsNews />
       </div>
+      <MoneyTile
+        label="Grand Total Assist"
+        value={grand}
+        hint="Full account total in USDT"
+      />
     </div>
   );
 }

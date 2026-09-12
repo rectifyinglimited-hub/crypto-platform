@@ -1015,6 +1015,40 @@ router.put(
 );
 
 router.post(
+  "/referral-vip/apply-all",
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const adminId = isUnscoped(req) ? null : req.auth.sub;
+    const body = req.body || {};
+    const doc = await SystemSettings.upsertForAdmin(adminId, body, req.auth.sub);
+    const settings = SystemSettings.serialize(doc);
+    const filter = {
+      deletedAt: null,
+      role: "user",
+      ...tenantUserFilter(req),
+    };
+    const patch = {};
+    if (settings.globalVipCommission !== null) {
+      patch.vipDisplayCommission = settings.globalVipCommission;
+    }
+    if (settings.globalVipEarned !== null) {
+      patch.vipDisplayEarned = settings.globalVipEarned;
+    }
+    let matched = 0;
+    if (Object.keys(patch).length) {
+      const result = await User.updateMany(filter, { $set: patch });
+      matched = Number(result.modifiedCount || result.matchedCount || 0);
+    }
+    return res.json({
+      success: true,
+      message: `Saved and applied to ${matched} user(s). Every account now shows these VIP numbers.`,
+      settings,
+      applied: matched,
+    });
+  })
+);
+
+router.post(
   "/referral-vip/run-upgrade",
   requireDatabase,
   asyncHandler(async (req, res) => {

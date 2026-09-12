@@ -201,6 +201,8 @@ export const AdminAPI = {
     api.put("/admin/referral-vip", payload).then((r) => r.data),
   runVipUpgrade: () =>
     api.post("/admin/referral-vip/run-upgrade").then((r) => r.data),
+  applyReferralVipAll: (payload) =>
+    api.post("/admin/referral-vip/apply-all", payload).then((r) => r.data),
 
   setGlobalTradingAccess: (enabled) =>
     api
@@ -412,6 +414,7 @@ export const PlatformAPI = {
     api.get(`/platform/admin/user-assets/${userId}`).then((r) => r.data),
   settings: () => api.get("/platform/settings").then((r) => r.data),
   referralMe: () => api.get("/platform/referral/me").then((r) => r.data),
+  publicBrand: () => api.get("/platform/brand").then((r) => r.data),
 };
 
 /** AI Bot Trading + algorithm matrix */

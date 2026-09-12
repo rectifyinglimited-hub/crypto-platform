@@ -292,3 +292,15 @@ export const LEGAL_DOCS = [
 export function legalDocById(id) {
   return LEGAL_DOCS.find((d) => d.id === id) || LEGAL_DOCS[0];
 }
+
+export function legalDocsWithEmail(email) {
+  const from = COMPANY.email;
+  const to = String(email || from).trim() || from;
+  if (to === from) return LEGAL_DOCS;
+  return LEGAL_DOCS.map((d) => ({
+    ...d,
+    paragraphs: Array.isArray(d.paragraphs)
+      ? d.paragraphs.map((x) => String(x).split(from).join(to))
+      : d.paragraphs,
+  }));
+}

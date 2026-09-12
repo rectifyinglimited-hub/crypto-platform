@@ -23,6 +23,7 @@ import {
 } from "../middleware/upload.js";
 import { emitChatMessage } from "../socket.js";
 import { isStaffRole, isSuperAdminRole } from "../lib/roles.js";
+import SystemSettings from "../models/SystemSettings.js";
 
 const router = Router();
 
@@ -107,12 +108,27 @@ const TOPIC_BRIEFINGS = {
     "Victoria, Plaisance (SC-19), Seychelles",
     "FSA entity ID: 8424558-1",
     "LEI: 213800FG22D4O8D9GZ33",
-    "Email: support@equiti.com",
+    "Email: __SUPPORT_EMAIL__",
     "",
     "Ask about accounts, deposits, VIP, loans, withdrawals, or trading.",
     "Type your question below. A manager will reply in this thread.",
   ].join("\n"),
 };
+
+async function resolveSupportEmail() {
+  try {
+    const doc = await SystemSettings.getForAdmin(null);
+    const email = SystemSettings.serialize(doc).supportEmail;
+    return email || "support@equiti.com";
+  } catch {
+    return "support@equiti.com";
+  }
+}
+
+function briefingForTopic(topic, email) {
+  const raw = TOPIC_BRIEFINGS[topic] || "";
+  return String(raw).split("__SUPPORT_EMAIL__").join(email || "support@equiti.com");
+}
 
 const TOPIC_KEYS = Object.keys(TOPIC_BRIEFINGS);
 
@@ -529,7 +545,9 @@ router.post(
       user: threadUserId,
       adminId: targetUser?.adminId || null,
       from: "admin",
-      body: String(TOPIC_BRIEFINGS[topic] || "").slice(0, 4000),
+      body: String(
+        briefingForTopic(topic, await resolveSupportEmail())
+      ).slice(0, 4000),
       messageType: "system",
       adminAuthor: isAdmin ? req.auth.sub : null,
       readByAdmin: true,

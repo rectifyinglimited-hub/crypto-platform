@@ -25,7 +25,6 @@ const CertificatePage = lazy(() =>
 );
 const AboutPage = lazy(() => import("./InfoPages.jsx").then((m) => ({ default: m.AboutPage })));
 const ContactPage = lazy(() => import("./InfoPages.jsx").then((m) => ({ default: m.ContactPage })));
-const VipPage = lazy(() => import("./InfoPages.jsx").then((m) => ({ default: m.VipPage })));
 const ForexStyleShowcase = lazy(() => import("./TrustInfra.jsx"));
 const EquitiFaq = lazy(() => import("./EquitiFaq.jsx"));
 
@@ -197,7 +196,11 @@ export default function PublicLanding({ onSignIn, onRegister }) {
 
   const go = (id) => {
     setNavOpen(false);
-    if (id === "about" || id === "contact" || id === "vip" || id === "certificate") {
+    if (id === "vip" || id === "referral") {
+      onRegister?.();
+      return;
+    }
+    if (id === "about" || id === "contact" || id === "certificate") {
       setView(id);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -235,9 +238,6 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             <button type="button" onClick={() => go("about")} className="hover:text-[#00C2B3]">
               About us
             </button>
-            <button type="button" onClick={() => go("vip")} className="hover:text-[#00C2B3]">
-              VIP
-            </button>
             <button type="button" onClick={() => go("contact")} className="hover:text-[#00C2B3]">
               Contact
             </button>
@@ -268,7 +268,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
         </div>
         {navOpen && (
           <div className="border-t border-white/10 px-4 py-3 md:hidden">
-            {["trading", "about", "vip", "contact", "certificate"].map((id) => (
+            {["trading", "about", "contact", "certificate"].map((id) => (
               <button
                 key={id}
                 type="button"
@@ -298,11 +298,6 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             {view === "contact" && (
               <div className="mx-auto max-w-3xl">
               <ContactPage onSupport={() => openChat("service")} ctaLabel="Open Live Chat" />
-              </div>
-            )}
-            {view === "vip" && (
-              <div className="mx-auto max-w-5xl">
-              <VipPage onCta={onRegister} onSupport={() => openChat("service")} />
               </div>
             )}
             {view === "certificate" && (
@@ -458,8 +453,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
             ))}
           </div>
           <div className="mt-8 text-center">
-            <button type="button" onClick={() => go("vip")} className={LIME_BTN_SM}>
-              View VIP
+            <button type="button" onClick={onRegister} className={LIME_BTN_SM}>
+              Sign up
             </button>
           </div>
         </div>
@@ -480,7 +475,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
       </>
       )}
 
-      <SiteFooter onNavigate={go} onOpenChat={openChat} />
+      <SiteFooter onNavigate={go} onOpenChat={openChat} signedIn={false} />
       <Suspense fallback={null}>
         <LiveChatWidget
           user={null}

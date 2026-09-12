@@ -25,6 +25,7 @@ const PlatformConfigSchema = new Schema(
           enum: ["A", "B", "C"],
           default: "A",
         },
+        stakeTiers: { type: [Schema.Types.Mixed], default: [] },
       },
       default: () => ({
         enabled: true,
@@ -33,6 +34,7 @@ const PlatformConfigSchema = new Schema(
         winPercentage: 25,
         lowPattern: ["win", "loss", "loss", "win"],
         highPatternKey: "A",
+        stakeTiers: [],
       }),
     },
     /** Defaults for AI Bot Trading contracts */

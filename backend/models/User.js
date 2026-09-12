@@ -272,6 +272,10 @@ const UserSchema = new Schema(
     },
     lastTradeAt: { type: Date, default: null },
     referralEarnings: { type: Number, default: 0, min: 0 },
+    /** Admin display override for VIP commission % (Once all). */
+    vipDisplayCommission: { type: Number, default: null },
+    /** Admin display override for VIP / referral earned total. */
+    vipDisplayEarned: { type: Number, default: null },
     /** Profile picture as data URL (base64) or absolute image URL */
     avatar: {
       type: String,

@@ -1,5 +1,6 @@
 import { MapPin, Mail, MessageCircle } from "lucide-react";
 import { SOCIAL_LINKS, BRAND, COMPANY } from "../lib/brand.js";
+import { useDeskBrand } from "../lib/deskBrand.js";
 import BrandLogo from "./BrandLogo.jsx";
 import { openCertificate } from "./TradingCertificate.jsx";
 
@@ -57,7 +58,9 @@ const ICONS = {
   tiktok: TikTokIcon,
 };
 
-export default function SiteFooter({ onNavigate, onOpenChat }) {
+export default function SiteFooter({ onNavigate, onOpenChat, signedIn = false }) {
+  const { supportEmail } = useDeskBrand();
+  const email = supportEmail || COMPANY.email;
   const go = (id) => onNavigate?.(id);
   const openSupport = () => {
     if (onOpenChat) onOpenChat("info");
@@ -103,16 +106,20 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
                 About us
               </button>
             </li>
-            <li>
-              <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("referral")}>
-                Invite & Earn
-              </button>
-            </li>
-            <li>
-              <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("vip")}>
-                VIP
-              </button>
-            </li>
+            {signedIn ? (
+              <>
+                <li>
+                  <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("referral")}>
+                    Invite & Earn
+                  </button>
+                </li>
+                <li>
+                  <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("vip")}>
+                    VIP
+                  </button>
+                </li>
+              </>
+            ) : null}
             <li>
               <button type="button" className="block w-full py-2 text-left underline-offset-2 hover:text-white hover:underline" onClick={() => go("certificate")}>
                 Certificate
@@ -130,11 +137,11 @@ export default function SiteFooter({ onNavigate, onOpenChat }) {
             Contacts
           </div>
           <a
-            href={`mailto:${COMPANY.email}`}
+            href={`mailto:${email}`}
             className="mt-3 flex items-center gap-2 text-sm text-white/80 hover:text-[#00C2B3]"
           >
             <Mail className="h-3.5 w-3.5 text-[#00C2B3]" />
-            {COMPANY.email}
+            {email}
           </a>
           <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white/70">
             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00C2B3]" />

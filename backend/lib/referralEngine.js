@@ -26,6 +26,31 @@ export async function loadSettingsForUser(user) {
   return SystemSettings.serialize(doc);
 }
 
+export function pickDisplayNumber(primary, fallback, last = 0) {
+  if (primary !== undefined && primary !== null && Number.isFinite(Number(primary))) {
+    return Number(primary);
+  }
+  if (fallback !== undefined && fallback !== null && Number.isFinite(Number(fallback))) {
+    return Number(fallback);
+  }
+  return Number(last) || 0;
+}
+
+export function displayVipNumbers(user, settings, computedRate) {
+  return {
+    commission: pickDisplayNumber(
+      settings?.globalVipCommission,
+      user?.vipDisplayCommission,
+      computedRate
+    ),
+    earned: pickDisplayNumber(
+      settings?.globalVipEarned,
+      user?.vipDisplayEarned,
+      user?.referralEarnings || 0
+    ),
+  };
+}
+
 export function commissionRateForLevel(settings, vipLevel) {
   const level = Number(vipLevel) || 0;
   const tiers = [...(settings.vipTierSettings || [])].sort(

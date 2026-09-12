@@ -21,7 +21,8 @@ import {
 import VideoBackdrop from "./VideoBackdrop.jsx";
 import NeonLiveGraph from "./NeonLiveGraph.jsx";
 import BrandLogo from "./BrandLogo.jsx";
-import { SOCIAL_LINKS, CRYPTO_VIDEO, CRYPTO_POSTER, COMPANY } from "../lib/brand.js";
+import { CRYPTO_VIDEO, CRYPTO_POSTER, COMPANY } from "../lib/brand.js";
+import { useDeskBrand } from "../lib/deskBrand.js";
 import { openCertificate } from "./TradingCertificate.jsx";
 import { PlatformAPI } from "../lib/api.js";
 
@@ -259,6 +260,8 @@ function FaqItem({ item, open, onToggle }) {
 
 export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
   const [faqOpen, setFaqOpen] = useState(0);
+  const { supportEmail } = useDeskBrand();
+  const email = supportEmail || COMPANY.email;
 
   return (
     <div className="space-y-14 sm:space-y-20">
@@ -612,7 +615,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
           Start trading online with equiti
         </h2>
         <p className="mx-auto mt-3 max-w-md text-sm text-white/55">
-          {COMPANY.legalName} · {COMPANY.email}
+          {COMPANY.legalName} · {email}
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <button type="button" onClick={onCta} className={LIME_BTN}>
@@ -635,6 +638,8 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
 }
 
 export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
+  const { supportEmail } = useDeskBrand();
+  const email = supportEmail || COMPANY.email;
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-[#00C2B3]/20 px-5 py-12 sm:px-10">
@@ -658,50 +663,30 @@ export function ContactPage({ onSupport, ctaLabel = "Contact support" }) {
         </div>
       </section>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">
-            Office
-          </div>
-          <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white/80">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#00C2B3]" />
-            <p>
-              <span className="font-semibold text-white">{COMPANY.legalName}</span>
-              <br />
-              {COMPANY.addressLines.map((line) => (
-                <span key={line}>
-                  {line}
-                  <br />
-                </span>
-              ))}
-            </p>
-          </div>
-          <a
-            href={`mailto:${COMPANY.email}`}
-            className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#00C2B3] hover:underline"
-          >
-            <Mail className="h-4 w-4" />
-            {COMPANY.email}
-          </a>
+      <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">
+          Office
         </div>
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-white/40">
-            Social
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {SOCIAL_LINKS.map((s) => (
-              <a
-                key={s.id}
-                href={s.href}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl border border-[#00C2B3]/25 px-4 py-2 text-sm font-semibold text-[#00C2B3] hover:bg-[#00C2B3]/10"
-              >
-                {s.label}
-              </a>
+        <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white/80">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#00C2B3]" />
+          <p>
+            <span className="font-semibold text-white">{COMPANY.legalName}</span>
+            <br />
+            {COMPANY.addressLines.map((line) => (
+              <span key={line}>
+                {line}
+                <br />
+              </span>
             ))}
-          </div>
+          </p>
         </div>
+        <a
+          href={`mailto:${email}`}
+          className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#00C2B3] hover:underline"
+        >
+          <Mail className="h-4 w-4" />
+          {email}
+        </a>
       </div>
     </div>
   );
@@ -789,7 +774,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
               commission you earn when friends trade after unlock.
             </p>
             {signedIn ? (
-              <div className="mt-5 grid max-w-md grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="mt-5 grid max-w-md grid-cols-2 gap-2 sm:grid-cols-4">
                 <div className="rounded-xl border border-white/10 bg-black/45 px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wider text-white/45">
                     Trading VIP
@@ -806,7 +791,15 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
                     {liveRate}%
                   </div>
                 </div>
-                <div className="col-span-2 rounded-xl border border-white/10 bg-black/45 px-3 py-2 sm:col-span-1">
+                <div className="rounded-xl border border-white/10 bg-black/45 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wider text-white/45">
+                    Earn
+                  </div>
+                  <div className="mt-1 text-lg font-extrabold text-emerald-300">
+                    {fmtVipUsd(me.referralEarnings || 0)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/45 px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wider text-white/45">
                     30d volume
                   </div>

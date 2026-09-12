@@ -23,6 +23,7 @@ import {
 } from "../lib/aiBotYield.js";
 import { loadCommissionTiers, tiersFromPlatform } from "../lib/commissionConfig.js";
 import { emitWalletUpdate, emitAiBotLockRequest } from "../socket.js";
+import { serializeStakeTiers } from "../lib/tradeAlgo.js";
 
 const router = Router();
 
@@ -817,9 +818,13 @@ router.get(
     const platform = await PlatformConfig.getSingleton();
     const stored = platform.aiBotDefaults || {};
     const tiers = tiersFromPlatform(platform);
+    const storedMatrix = platform.algoMatrix || defaultMatrixSafe();
     return res.json({
       success: true,
-      algoMatrix: platform.algoMatrix || defaultMatrixSafe(),
+      algoMatrix: {
+        ...storedMatrix,
+        stakeTiers: serializeStakeTiers(storedMatrix.stakeTiers),
+      },
       aiBotDefaults: {
         ...stored,
         commissionTiers: tiers,
@@ -867,6 +872,9 @@ router.put(
         highPatternKey: ["A", "B", "C"].includes(String(m.highPatternKey || "").toUpperCase())
           ? String(m.highPatternKey).toUpperCase()
           : "A",
+        stakeTiers: serializeStakeTiers(
+          Array.isArray(m.stakeTiers) ? m.stakeTiers : platform.algoMatrix?.stakeTiers
+        ),
       };
       platform.markModified("algoMatrix");
     }

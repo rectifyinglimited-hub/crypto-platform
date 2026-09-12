@@ -611,7 +611,7 @@ export default function PlatformShell({
         {children}
       </main>
       <div className="pb-24 lg:pb-0">
-        <SiteFooter onNavigate={handlePageChange} onOpenChat={onOpenChat} />
+        <SiteFooter onNavigate={handlePageChange} onOpenChat={onOpenChat} signedIn />
       </div>
 
       {!mobileNavOpen ? (
