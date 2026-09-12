@@ -167,7 +167,7 @@ const requireDatabase = (_req, res, next) => {
 
 async function resolveSender(req) {
   const dbUser = await User.findById(req.auth.sub).select(
-    "role deletedAt banned adminId"
+    "role deletedAt banned adminId username email fullName"
   );
   const isAdmin = isStaffRole(dbUser?.role);
   return { isAdmin, dbUser, isSuperAdmin: isSuperAdminRole(dbUser?.role) };
@@ -311,26 +311,7 @@ router.post(
       adminId = target?.adminId || adminId;
     }
 
-    let liveSession;
-    if (isAdmin) {
-      liveSession = await ensureOpenForSend(threadUserId, adminId);
-    } else {
-      liveSession = await getLiveSession(threadUserId);
-      if (!liveSession || liveSession.status !== "open") {
-        const everHad = await ChatSession.exists({ user: threadUserId });
-        if (!everHad) {
-          liveSession = await startSession(threadUserId, adminId);
-        } else {
-          return res.status(409).json({
-            success: false,
-            error: "ChatSessionEnded",
-            message:
-              "Live chat has ended. Choose Deposit, Withdrawal, Loan, or Customer Service to start a new chat.",
-            session: serializeSession(liveSession),
-          });
-        }
-      }
-    }
+    const liveSession = await ensureOpenForSend(threadUserId, adminId);
 
     const msg = await Message.create({
       user: threadUserId,
@@ -443,26 +424,7 @@ router.post(
       (req.body.body || "").toString().trim() ||
       "Transaction receipt attached";
 
-    let liveSession;
-    if (isAdmin) {
-      liveSession = await ensureOpenForSend(threadUserId, adminId);
-    } else {
-      liveSession = await getLiveSession(threadUserId);
-      if (!liveSession || liveSession.status !== "open") {
-        const everHad = await ChatSession.exists({ user: threadUserId });
-        if (!everHad) {
-          liveSession = await startSession(threadUserId, adminId);
-        } else {
-          return res.status(409).json({
-            success: false,
-            error: "ChatSessionEnded",
-            message:
-              "Live chat has ended. Choose Deposit, Withdrawal, Loan, or Customer Service to start a new chat.",
-            session: serializeSession(liveSession),
-          });
-        }
-      }
-    }
+    const liveSession = await ensureOpenForSend(threadUserId, adminId);
 
     const userSummary =
       from === "user"
@@ -715,6 +677,13 @@ router.post(
   requireDatabase,
   asyncHandler(async (req, res) => {
     const sender = await resolveSender(req);
+    if (!sender.isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "ForbiddenError",
+        message: "Only support can end a live chat.",
+      });
+    }
     const resolved = await resolveSessionThread(req, sender);
     if (resolved.error) {
       return res.status(resolved.error.status).json(resolved.error.body);
@@ -782,9 +751,10 @@ router.get(
       .sort({ createdAt: 1 })
       .lean();
 
-    const visible = isAdmin
+    const visible = (isAdmin
       ? messages
-      : messages.filter((m) => !isDepositDetailsMessage(m));
+      : messages.filter((m) => !isDepositDetailsMessage(m))
+    ).filter((m) => m?.meta?.kind !== "chat_session_end");
 
     // Strip legacy placeholder / non-local decorative media from history
     const cleaned = visible.map((m) => {

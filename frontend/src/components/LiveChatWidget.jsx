@@ -15,7 +15,6 @@ import {
   Headphones,
   Upload,
   Landmark,
-  PhoneOff,
 } from "lucide-react";
 
 import { ChatAPI, assetUrl } from "../lib/api.js";
@@ -59,7 +58,11 @@ function isInjectedDeskCopy(m) {
   );
 }
 
-const isSessionNote = (m) => m?.meta?.kind === "chat_session_end";
+const isSessionNote = (m) => {
+  if (m?.meta?.kind === "chat_session_end") return true;
+  const body = String(m?.body || "");
+  return body.includes("Live chat ended") && body.includes("History is saved");
+};
 
 const formatRemain = (ms) => {
   const total = Math.max(0, Math.floor(Number(ms || 0) / 1000));
@@ -133,7 +136,12 @@ const mergeMessages = (prev, incoming) => {
     });
   }
   return Array.from(map.values())
-    .filter((m) => !isDepositDetailsMessage(m) && !isInjectedDeskCopy(m))
+    .filter(
+      (m) =>
+        !isDepositDetailsMessage(m) &&
+        !isInjectedDeskCopy(m) &&
+        !isSessionNote(m)
+    )
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 };
 
@@ -174,7 +182,6 @@ export default function LiveChatWidget({
   const [menuStep, setMenuStep] = useState("menu"); // menu | service | info | vip | loan
   const [statusBanner, setStatusBanner] = useState(null);
   const [session, setSession] = useState(null);
-  const [ending, setEnding] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
   const listRef = useRef(null);
   const lastOpenSignal = useRef(0);
@@ -228,7 +235,8 @@ export default function LiveChatWidget({
       const list = (res.messages || []).filter(
         (m) =>
           !isPlaceholderMedia(m) &&
-          (!isInjectedDeskCopy(m) || isSessionNote(m))
+          !isInjectedDeskCopy(m) &&
+          !isSessionNote(m)
       );
       setMessages(list);
       if (res.session) {
@@ -261,13 +269,13 @@ export default function LiveChatWidget({
       if (payload.userId && String(payload.userId) !== String(userId)) return;
       if (
         isPlaceholderMedia(payload.message) ||
-        (isInjectedDeskCopy(payload.message) && !isSessionNote(payload.message))
+        isInjectedDeskCopy(payload.message) ||
+        isSessionNote(payload.message)
       ) {
         return;
       }
       setMessages((prev) => mergeMessages(prev, payload.message));
       if (open) ChatAPI.markRead().catch(() => {});
-      if (isSessionNote(payload.message)) return;
       // Popup when admin / support replies
       if (payload.message.from === "admin" || payload.message.from === "system") {
         const preview = payload.message.attachmentUrl
@@ -304,7 +312,9 @@ export default function LiveChatWidget({
       if (payload?.userId && String(payload.userId) !== String(userId)) return;
       if (!payload?.session) return;
       setSession(payload.session);
-      if (payload.session.status === "open") setMenuStep("service");
+      if (payload.session.status === "open") {
+        setMenuStep((prev) => (prev === "menu" ? prev : "service"));
+      }
     });
     return () => {
       offMsg();
@@ -359,10 +369,11 @@ export default function LiveChatWidget({
 
   const canChat = CHAT_STEPS.includes(menuStep);
   const sessionOpen = session?.status === "open";
+  const sessionEnded = session?.status === "ended";
   const remainingMs = sessionOpen
     ? Math.max(0, new Date(session.expiresAt).getTime() - nowTick)
     : 0;
-  const canCompose = canChat && (!userId || sessionOpen);
+  const canCompose = Boolean(userId) || canChat;
 
   const beginSession = async () => {
     if (!userId) return null;
@@ -376,23 +387,8 @@ export default function LiveChatWidget({
     }
   };
 
-  const endLiveChat = async () => {
-    if (!userId || ending || !sessionOpen) return;
-    setEnding(true);
-    try {
-      const res = await ChatAPI.sessionEnd();
-      if (res?.session) setSession(res.session);
-      await load();
-    } catch (err) {
-      setStatusBanner(err?.message || "Could not end live chat.");
-    } finally {
-      setEnding(false);
-    }
-  };
-
   const selectMenu = async (key) => {
     setStatusBanner(null);
-    if (userId) await beginSession();
     if (key === "deposit") {
       if (onOpenDeposit) onOpenDeposit();
       else onNeedAuth?.();
@@ -414,6 +410,7 @@ export default function LiveChatWidget({
       setMenuStep("menu");
       return;
     }
+    if (userId) await beginSession();
     setMenuStep(key);
   };
 
@@ -432,6 +429,7 @@ export default function LiveChatWidget({
       const res = await ChatAPI.send({ body });
       setMessages((prev) => mergeMessages(prev, res.message));
       if (res.session) setSession(res.session);
+      setMenuStep("service");
       setDraft("");
     } catch (err) {
       if (err?.session) setSession(err.session);
@@ -473,6 +471,7 @@ export default function LiveChatWidget({
       if (res?.session) setSession(res.session);
       if (res?.message) {
         setMessages((prev) => mergeMessages(prev, res.message));
+        setMenuStep("service");
         setDraft("");
       }
     } catch (err) {
@@ -505,22 +504,13 @@ export default function LiveChatWidget({
                   <div className="text-[10px] uppercase tracking-widest text-slate-400">
                     {sessionOpen
                       ? `Live · ${formatRemain(remainingMs)} left`
-                      : "Online · Encrypted channel"}
+                      : sessionEnded
+                        ? "Chat ended"
+                        : "Online · Encrypted channel"}
                   </div>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {sessionOpen && (
-                  <button
-                    type="button"
-                    onClick={endLiveChat}
-                    disabled={ending}
-                    className="inline-flex items-center gap-1 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 py-1 text-[10px] font-semibold text-rose-100 disabled:opacity-50"
-                  >
-                    <PhoneOff className="h-3 w-3" />
-                    {ending ? "Ending…" : "End chat"}
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
@@ -597,24 +587,16 @@ export default function LiveChatWidget({
                 </div>
               )}
 
-              {userId && session?.status === "ended" && canChat && (
-                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] text-slate-300">
-                  Live chat ended. History stays saved. Choose a menu option to
-                  start a new chat.
-                  <button
-                    type="button"
-                    onClick={() => setMenuStep("menu")}
-                    className="mt-2 block text-[10px] font-semibold uppercase tracking-wider text-[#00C2B3]"
-                  >
-                    Start new chat
-                  </button>
+              {userId && sessionEnded && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-center text-[11px] font-semibold text-slate-300">
+                  Chat ended
                 </div>
               )}
 
               <AnimatePresence initial={false}>
                 {messages.map((m) => {
                   const systemNote =
-                    m.messageType === "system" || isSessionNote(m);
+                    m.messageType === "system" && !isSessionNote(m);
                   return (
                     <motion.div
                       key={m._id}
@@ -713,17 +695,6 @@ export default function LiveChatWidget({
                 )}
               </motion.button>
             </form>
-            ) : userId && canChat && !sessionOpen ? (
-              <div className="border-t border-white/5 bg-black/20 px-3 py-2.5 text-center text-[11px] text-slate-400">
-                Live chat is ended. History is saved.
-                <button
-                  type="button"
-                  onClick={() => setMenuStep("menu")}
-                  className="ml-1 font-semibold text-[#00C2B3]"
-                >
-                  Start new chat
-                </button>
-              </div>
             ) : null}
           </motion.div>
         )}

@@ -1,7 +1,6 @@
 import ChatSession, { CHAT_SESSION_MS } from "../models/ChatSession.js";
-import Message from "../models/Message.js";
 import User from "../models/User.js";
-import { emitChatMessage, emitChatSession } from "../socket.js";
+import { emitChatSession } from "../socket.js";
 
 export function serializeSession(doc) {
   if (!doc) return null;
@@ -80,26 +79,9 @@ export async function endSession(sessionOrUserId, endedBy, adminId = null) {
   session.status = "ended";
   session.endedAt = new Date();
   session.endedBy = endedBy;
+  if (adminId && !session.adminId) session.adminId = adminId;
   await session.save();
 
-  const note =
-    endedBy === "timeout"
-      ? "Live chat ended after 30 minutes. History is saved. Start a new chat from the menu when you need us again."
-      : endedBy === "admin"
-        ? "Live chat ended by support. History is saved. Start a new chat from the menu when you need us again."
-        : "Live chat ended. History is saved. Start a new chat from the menu when you need us again.";
-
-  const msg = await Message.create({
-    user: session.user,
-    adminId: session.adminId || adminId || null,
-    from: "admin",
-    body: note,
-    messageType: "system",
-    meta: { kind: "chat_session_end", endedBy },
-    readByAdmin: true,
-    readByUser: false,
-  });
-  emitChatMessage(session.user, msg, { adminId: session.adminId });
   emitChatSession(session.user, serializeSession(session), {
     adminId: session.adminId,
   });

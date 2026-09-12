@@ -109,8 +109,8 @@ function DepositActions({
 }
 
 function MessageBubble({ m, busy, onApprove, onDecline, reviewedIds }) {
-  const systemNote =
-    m.messageType === "system" || m?.meta?.kind === "chat_session_end";
+  if (m?.meta?.kind === "chat_session_end") return null;
+  const systemNote = m.messageType === "system";
   if (systemNote) {
     return (
       <motion.div
