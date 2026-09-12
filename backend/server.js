@@ -51,6 +51,7 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 let DB_READY = false;
 
 const app = express();
+app.set("trust proxy", 1);
 
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(morgan(NODE_ENV === "production" ? "combined" : "dev"));
@@ -96,7 +97,7 @@ app.get("/", (_req, res) => {
   res.status(200).json({
     message: "Nexus API is online.",
     docs: "/health",
-    version: "1.6.16",
+    version: "1.6.17",
   });
 });
 

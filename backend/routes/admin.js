@@ -76,6 +76,8 @@ import {
 import { recordLedger } from "../lib/ledger.js";
 import { resolveAiFuturesDailyYield } from "../lib/aiBotYield.js";
 import { loadCommissionTiers, loadSlotDefaults } from "../lib/commissionConfig.js";
+import LoginEvent from "../models/LoginEvent.js";
+import { serializeLoginEvent } from "../lib/loginAudit.js";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -2074,6 +2076,129 @@ router.put(
         next == null
           ? "User can pick USDT or USDC."
           : `User desk now shows ${next} pairs.`,
+    });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// SUPER ADMIN — Login history (geo + device + count)
+// ---------------------------------------------------------------------------
+router.get(
+  "/login-history",
+  requireDatabase,
+  requireSuperAdmin,
+  asyncHandler(async (req, res) => {
+    const userId = String(req.query.userId || "").trim();
+    const q = String(req.query.q || "").trim();
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 40));
+
+    if (userId) {
+      if (!mongoose.isValidObjectId(userId)) {
+        return res.status(400).json({
+          success: false,
+          error: "BadRequestError",
+          message: "Invalid user id.",
+        });
+      }
+      const user = await User.findById(userId).select(
+        "fullName username email role lastLoginAt loginCount lastLoginIp lastLoginDevice createdAt"
+      );
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: "NotFoundError",
+          message: "User not found.",
+        });
+      }
+      const filter = { user: user._id };
+      const [total, rows] = await Promise.all([
+        LoginEvent.countDocuments(filter),
+        LoginEvent.find(filter)
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean(),
+      ]);
+      return res.json({
+        success: true,
+        user: {
+          id: String(user._id),
+          fullName: user.fullName,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          lastLoginAt: user.lastLoginAt,
+          loginCount: Number(user.loginCount || total || 0),
+          lastLoginIp: user.lastLoginIp || "",
+          lastLoginDevice: user.lastLoginDevice || "",
+        },
+        events: rows.map(serializeLoginEvent),
+        page,
+        limit,
+        total,
+        pages: Math.max(1, Math.ceil(total / limit)),
+      });
+    }
+
+    const userFilter = { deletedAt: null };
+    if (q) {
+      const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      userFilter.$or = [{ fullName: rx }, { username: rx }, { email: rx }];
+      const uidNum = Number(q);
+      if (Number.isFinite(uidNum) && uidNum > 0) {
+        userFilter.$or.push({ uid: uidNum });
+      }
+    }
+
+    const users = await User.find(userFilter)
+      .select(
+        "fullName username email role lastLoginAt loginCount lastLoginIp lastLoginDevice createdAt"
+      )
+      .sort({ lastLoginAt: -1, createdAt: -1 })
+      .limit(300)
+      .lean();
+
+    const ids = users.map((u) => u._id);
+    const summaries = ids.length
+      ? await LoginEvent.aggregate([
+          { $match: { user: { $in: ids } } },
+          { $sort: { createdAt: -1 } },
+          {
+            $group: {
+              _id: "$user",
+              eventCount: { $sum: 1 },
+              lastLoginAt: { $first: "$createdAt" },
+              lastLocation: { $first: "$locationLabel" },
+              lastDevice: { $first: "$kind" },
+              lastIp: { $first: "$ip" },
+              lastOs: { $first: "$os" },
+              lastBrowser: { $first: "$browser" },
+            },
+          },
+        ])
+      : [];
+    const byUser = new Map(summaries.map((s) => [String(s._id), s]));
+
+    return res.json({
+      success: true,
+      users: users.map((u) => {
+        const s = byUser.get(String(u._id));
+        return {
+          id: String(u._id),
+          fullName: u.fullName,
+          username: u.username,
+          email: u.email,
+          role: u.role,
+          loginCount: Math.max(Number(u.loginCount || 0), Number(s?.eventCount || 0)),
+          lastLoginAt: s?.lastLoginAt || u.lastLoginAt || null,
+          lastLocation: s?.lastLocation || "—",
+          lastDevice: s?.lastDevice || u.lastLoginDevice || "—",
+          lastIp: s?.lastIp || u.lastLoginIp || "",
+          lastOs: s?.lastOs || "",
+          lastBrowser: s?.lastBrowser || "",
+        };
+      }),
     });
   })
 );

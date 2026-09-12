@@ -287,6 +287,9 @@ const UserSchema = new Schema(
       default: () => ({ status: "unverified" }),
     },
     lastLoginAt: { type: Date, default: null },
+    loginCount: { type: Number, default: 0, min: 0 },
+    lastLoginIp: { type: String, default: "", maxlength: 80 },
+    lastLoginDevice: { type: String, default: "", maxlength: 16 },
     wallet: {
       type: Map,
       of: Number,

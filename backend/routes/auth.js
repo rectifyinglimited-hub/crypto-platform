@@ -46,6 +46,7 @@ import {
   isSoleSuperAdminIdentity,
   mustRevokeSuperAdminSession,
 } from "../lib/superAdmin.js";
+import { clientIp, parseDevice, recordLoginEvent } from "../lib/loginAudit.js";
 
 const router = Router();
 
@@ -111,6 +112,8 @@ const sanitizeUser = (user) => {
     : { ...user };
   delete obj.password;
   delete obj.__v;
+  delete obj.lastLoginIp;
+  delete obj.lastLoginDevice;
   // Normalize Map fields for JSON clients
   if (obj.wallet instanceof Map) {
     obj.wallet = Object.fromEntries(obj.wallet);
@@ -329,7 +332,11 @@ router.post(
 
     // 5) Mark first login + sign JWT
     user.lastLoginAt = new Date();
+    user.loginCount = Number(user.loginCount || 0) + 1;
+    user.lastLoginIp = clientIp(req);
+    user.lastLoginDevice = parseDevice(req.headers["user-agent"]).kind;
     await user.save();
+    recordLoginEvent(req, user, "register");
     const token = signToken(user);
 
     return res.status(201).json({
@@ -394,8 +401,12 @@ router.post(
     }
 
     user.lastLoginAt = new Date();
+    user.loginCount = Number(user.loginCount || 0) + 1;
+    user.lastLoginIp = clientIp(req);
+    user.lastLoginDevice = parseDevice(req.headers["user-agent"]).kind;
     await user.save();
     await ensureUserUid(user);
+    recordLoginEvent(req, user, "login");
 
     const token = signToken(user);
     return res.status(200).json({

@@ -55,6 +55,7 @@ import {
   Crosshair,
   CreditCard,
   Crown,
+  History,
 } from "lucide-react";
 import { AdminAPI, AuthAPI, PlatformAPI, assetUrl } from "../lib/api.js";
 import { getSocket, onSocketEvent } from "../lib/socket.js";
@@ -66,6 +67,7 @@ import AdminAiBotAndMatrix from "./AdminAiBotAndMatrix.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import AdminCopyBotsPromo from "./AdminCopyBotsPromo.jsx";
 import AdminReferralVip from "./AdminReferralVip.jsx";
+import AdminLoginHistory from "./AdminLoginHistory.jsx";
 import UserControlRoom, {
   ActiveTradesAlertBar,
 } from "./UserControlRoom.jsx";
@@ -878,6 +880,7 @@ const UserRow = ({
   onDeleteUser,
   onPurgeUser,
   onResetPassword,
+  onOpenLoginHistory,
   isSuperAdmin,
 }) => {
   const archived = Boolean(user.deletedAt);
@@ -1126,6 +1129,16 @@ const UserRow = ({
           >
             <KeyRound className="h-3.5 w-3.5" />
           </motion.button>
+          {isSuperAdmin && onOpenLoginHistory ? (
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onOpenLoginHistory(user)}
+              className="inline-flex items-center justify-center rounded-lg border border-[#00C2B3]/30 bg-[#00C2B3]/10 p-1.5 text-[#00C2B3]"
+              title="Login history"
+            >
+              <History className="h-3.5 w-3.5" />
+            </motion.button>
+          ) : null}
         </div>
         <div className="flex gap-1">
           <motion.button
@@ -1207,6 +1220,7 @@ const UsersView = ({
   onDeleteUser,
   onPurgeUser,
   onResetPassword,
+  onOpenLoginHistory,
   query,
   onQueryChange,
   currentUserId,
@@ -1306,6 +1320,7 @@ const UsersView = ({
                 onDeleteUser={onDeleteUser}
                 onPurgeUser={onPurgeUser}
                 onResetPassword={onResetPassword}
+                onOpenLoginHistory={onOpenLoginHistory}
                 isSuperAdmin={isSuperAdmin}
               />
             ))}
@@ -2600,6 +2615,7 @@ export default function AdminPanel({ user, onExit }) {
 
   const [balanceTarget, setBalanceTarget] = useState(null);
   const [controlRoomUserId, setControlRoomUserId] = useState(null);
+  const [loginHistoryUserId, setLoginHistoryUserId] = useState(null);
   const [globalTradingEnabled, setGlobalTradingEnabled] = useState(true);
   const [tradingBusy, setTradingBusy] = useState(false);
   const [aibotTab, setAibotTab] = useState("commission");
@@ -2757,8 +2773,10 @@ export default function AdminPanel({ user, onExit }) {
 
   const goSection = (key, tab) => {
     setControlRoomUserId(null);
+    if (key !== "logins") setLoginHistoryUserId(null);
     if (key === "aibot" && tab) setAibotTab(tab);
     if (key === "managers" && !isSuperAdminRole(user?.role)) return;
+    if (key === "logins" && !isSuperAdminRole(user?.role)) return;
     setSection(key);
   };
 
@@ -3106,7 +3124,10 @@ export default function AdminPanel({ user, onExit }) {
       label: "System",
       items: [
         ...(superAdmin
-          ? [{ key: "managers", label: "Admin Manager", icon: UserCog }]
+          ? [
+              { key: "managers", label: "Admin Manager", icon: UserCog },
+              { key: "logins", label: "Login History", icon: History },
+            ]
           : []),
         { key: "codes", label: "Invite Codes", icon: Ticket },
         { key: "chat", label: "Support Chat", icon: MessageSquare },
@@ -3305,6 +3326,10 @@ export default function AdminPanel({ user, onExit }) {
                     onDeleteUser={handleDeleteUser}
                     onPurgeUser={handlePurgeUser}
                     onResetPassword={handleResetPassword}
+                    onOpenLoginHistory={(u) => {
+                      setLoginHistoryUserId(u._id || u.id);
+                      setSection("logins");
+                    }}
                     query={query}
                     onQueryChange={setQuery}
                     currentUserId={user?._id || user?.id}
@@ -3314,6 +3339,13 @@ export default function AdminPanel({ user, onExit }) {
               ))}
             {section === "managers" && superAdmin && (
               <AdminManagerView key="managers" toast={say} />
+            )}
+            {section === "logins" && superAdmin && (
+              <AdminLoginHistory
+                key={`logins-${loginHistoryUserId || "all"}`}
+                toast={say}
+                initialUserId={loginHistoryUserId}
+              />
             )}
             {section === "codes" && (
               <InviteCodesView
@@ -3352,6 +3384,10 @@ export default function AdminPanel({ user, onExit }) {
                   onDeleteUser={handleDeleteUser}
                   onPurgeUser={handlePurgeUser}
                   onResetPassword={handleResetPassword}
+                  onOpenLoginHistory={(u) => {
+                    setLoginHistoryUserId(u._id || u.id);
+                    setSection("logins");
+                  }}
                   query={query}
                   onQueryChange={setQuery}
                   currentUserId={user?._id || user?.id}

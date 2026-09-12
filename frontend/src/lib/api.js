@@ -203,6 +203,8 @@ export const AdminAPI = {
     api.post("/admin/referral-vip/run-upgrade").then((r) => r.data),
   applyReferralVipAll: (payload) =>
     api.post("/admin/referral-vip/apply-all", payload).then((r) => r.data),
+  loginHistory: (params = {}) =>
+    api.get("/admin/login-history", { params }).then((r) => r.data),
 
   setGlobalTradingAccess: (enabled) =>
     api
