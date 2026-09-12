@@ -35,6 +35,11 @@ const SCREEN = {
 
 const SPLASH_MS = 1750;
 
+if (typeof window !== "undefined" && getToken()) {
+  void import("./components/Dashboard.jsx");
+  void import("./components/AdminPanel.jsx");
+}
+
 function BootShell({ label = "Opening exchange…" }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black px-6 text-center text-white">
@@ -45,6 +50,7 @@ function BootShell({ label = "Opening exchange…" }) {
 }
 
 export default function App() {
+  const [sessionReady, setSessionReady] = useState(() => !getToken());
   const [screen, setScreen] = useState(SCREEN.LANDING);
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("signin");
@@ -56,9 +62,19 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    const finish = (nextScreen) => {
+      if (cancelled) return;
+      if (nextScreen) setScreen(nextScreen);
+      setSessionReady(true);
+    };
     const boot = async () => {
       const token = getToken();
-      if (!token) return;
+      if (!token) {
+        finish(SCREEN.LANDING);
+        return;
+      }
+      void import("./components/Dashboard.jsx");
+      void import("./components/AdminPanel.jsx");
       try {
         const { AuthAPI, clearToken: wipe } = await import("./lib/api.js");
         const res = await AuthAPI.me();
@@ -66,15 +82,23 @@ export default function App() {
         if (res?.user) {
           if (!isAuthorizedSuperAdmin(res.user)) {
             wipe();
+            setUser(null);
+            finish(SCREEN.LANDING);
             return;
           }
           setUser(res.user);
-          setScreen(isStaffRole(res.user.role) ? SCREEN.ADMIN : SCREEN.DASHBOARD);
+          finish(isStaffRole(res.user.role) ? SCREEN.ADMIN : SCREEN.DASHBOARD);
         } else {
           wipe();
+          setUser(null);
+          finish(SCREEN.LANDING);
         }
       } catch {
         clearToken();
+        if (!cancelled) {
+          setUser(null);
+          finish(SCREEN.LANDING);
+        }
       }
     };
     boot();
@@ -91,6 +115,7 @@ export default function App() {
       }
       setUser(null);
       setScreen(SCREEN.LANDING);
+      setSessionReady(true);
     };
     window.addEventListener("nexus:unauthenticated", handler);
     return () => window.removeEventListener("nexus:unauthenticated", handler);
@@ -110,6 +135,7 @@ export default function App() {
       return;
     }
     void import("./components/Dashboard.jsx");
+    void import("./components/AdminPanel.jsx");
     setUser(u);
     setScreen(SCREEN.SPLASH);
     if (splashTimer.current) clearTimeout(splashTimer.current);
@@ -140,6 +166,10 @@ export default function App() {
       if (isStaffRole(user?.role)) setScreen(SCREEN.ADMIN);
     }
   };
+
+  if (!sessionReady) {
+    return <BootShell />;
+  }
 
   return (
     <Suspense fallback={<BootShell />}>
