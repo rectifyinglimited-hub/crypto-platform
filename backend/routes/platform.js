@@ -27,6 +27,7 @@ import SystemSettings from "../models/SystemSettings.js";
 import { heldAiUsdt, heldSmartSpotUsdt } from "../lib/aiBotYield.js";
 import { publicBankCards, adminBankCards } from "../lib/bankCards.js";
 import { emitBankCardAdded } from "../socket.js";
+import { attachLoanView, loanSnapshot } from "../lib/loanMath.js";
 
 const router = Router();
 
@@ -47,6 +48,70 @@ function requireDatabase(req, res, next) {
 function walletObj(w) {
   if (w instanceof Map) return Object.fromEntries(w);
   return { ...(w || {}) };
+}
+
+async function creditTradingUsdt(user, amount) {
+  ensureAccounts(user);
+  if (!(user.wallet instanceof Map)) user.wallet = new Map();
+  const n = Number(amount || 0);
+  if (!Number.isFinite(n) || n === 0) return user;
+  const usdt = Number(user.wallet.get("USDT") || 0);
+  user.wallet.set("USDT", Number((usdt + n).toFixed(8)));
+  user.accountBalances.set("delivery", Number(user.wallet.get("USDT") || 0));
+  user.markModified("wallet");
+  user.markModified("accountBalances");
+  await user.save();
+  return user;
+}
+
+async function debitTradingUsdt(user, amount) {
+  ensureAccounts(user);
+  if (!(user.wallet instanceof Map)) user.wallet = new Map();
+  const n = Number(amount || 0);
+  const usdt = Number(user.wallet.get("USDT") || 0);
+  if (!Number.isFinite(n) || n <= 0) {
+    const err = new Error("Invalid amount.");
+    err.status = 422;
+    throw err;
+  }
+  if (n > usdt + 1e-8) {
+    const err = new Error(
+      "Insufficient Trading Wallet balance to repay this loan."
+    );
+    err.status = 422;
+    throw err;
+  }
+  user.wallet.set("USDT", Number((usdt - n).toFixed(8)));
+  user.accountBalances.set("delivery", Number(user.wallet.get("USDT") || 0));
+  user.markModified("wallet");
+  user.markModified("accountBalances");
+  await user.save();
+  return user;
+}
+
+async function resolveLoanPlan() {
+  let plan = await PlatformCatalog.findOne({
+    kind: "loan_plan",
+    enabled: { $ne: false },
+  }).sort({ sortOrder: 1, createdAt: 1 });
+  if (!plan) {
+    plan = await PlatformCatalog.create({
+      kind: "loan_plan",
+      title: "Standard Loan",
+      subtitle: "Admin-set daily interest",
+      price: 0,
+      enabled: true,
+      meta: {
+        dailyInterestPct: 1.25,
+        interestFreeDays: 0,
+        minAmount: 50,
+        maxAmount: 50000,
+        maxDays: 90,
+      },
+      sortOrder: 1,
+    });
+  }
+  return plan;
 }
 
 function accountsObj(a) {
@@ -186,7 +251,7 @@ const DEFAULT_SEED = [
     title: "Standard Loan",
     subtitle: "Flexible term · KYC required",
     price: 0,
-    meta: { dailyInterestPct: 0.15, interestFreeDays: 0, minAmount: 50, maxAmount: 50000, maxDays: 90 },
+    meta: { dailyInterestPct: 1.25, interestFreeDays: 0, minAmount: 50, maxAmount: 50000, maxDays: 90 },
     sortOrder: 1,
   },
   {
@@ -762,6 +827,48 @@ router.post(
           message: "Complete borrower verification before requesting a loan.",
         });
       }
+      const plan = catalogId && mongoose.isValidObjectId(catalogId)
+        ? await PlatformCatalog.findById(catalogId)
+        : await resolveLoanPlan();
+      const dailyPct = Number(plan?.meta?.dailyInterestPct ?? 0);
+      const minAmount = Number(plan?.meta?.minAmount ?? 0);
+      const maxAmount = Number(plan?.meta?.maxAmount ?? 50000);
+      const maxDays = Number(plan?.meta?.maxDays ?? 90);
+      const days = Math.max(1, Math.min(maxDays, Number(meta.days || 1)));
+      if (!Number.isFinite(amount) || amount < minAmount || amount > maxAmount) {
+        return res.status(422).json({
+          success: false,
+          message: `Loan amount must be between ${minAmount} and ${maxAmount} USDT.`,
+        });
+      }
+      const snap = loanSnapshot({
+        principal: amount,
+        dailyPct,
+        days,
+        startedAt: null,
+      });
+      const order = await PlatformOrder.create({
+        user: user._id,
+        adminId: user.adminId || null,
+        kind: "loan",
+        catalog: plan?._id || null,
+        amount,
+        status: "pending",
+        meta: {
+          days,
+          dailyPct,
+          catalogTitle: plan?.title || "Loan",
+          interest: snap.termInterest,
+          totalRepay: Number((amount + snap.termInterest).toFixed(8)),
+        },
+      });
+      return res.status(201).json({
+        success: true,
+        message: "Loan request submitted for review.",
+        order: attachLoanView(order.toObject()),
+        accounts: accountsObj(user.accountBalances),
+        wallet: walletObj(user.wallet),
+      });
     }
 
     let catalog = null;
@@ -901,7 +1008,10 @@ router.get(
       .limit(100)
       .populate("catalog", "title kind price meta imageUrl")
       .lean();
-    return res.json({ success: true, orders });
+    return res.json({
+      success: true,
+      orders: orders.map((o) => attachLoanView(o)),
+    });
   })
 );
 
@@ -1195,6 +1305,81 @@ router.delete(
   })
 );
 
+router.post(
+  "/admin/loan-interest/apply-all",
+  requireAuth,
+  requireAdmin,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const dailyInterestPct = Math.max(0, Number(req.body.dailyInterestPct ?? 0));
+    const interestFreeDays = Math.max(0, Number(req.body.interestFreeDays ?? 0));
+    const minAmount = Math.max(0, Number(req.body.minAmount ?? 50));
+    const maxAmount = Math.max(minAmount, Number(req.body.maxAmount ?? 50000));
+    const maxDays = Math.max(1, Number(req.body.maxDays ?? 90));
+    const scope = tenantDocFilter(req);
+    await ensureSeed(null);
+    const scoped = await PlatformCatalog.find({ ...scope, kind: "loan_plan" });
+    const globalPlans = await PlatformCatalog.find({
+      adminId: null,
+      kind: "loan_plan",
+    });
+    const planMap = new Map();
+    for (const plan of [...globalPlans, ...scoped]) {
+      planMap.set(String(plan._id), plan);
+    }
+    let plans = [...planMap.values()];
+    if (!plans.length) {
+      const created = await resolveLoanPlan();
+      plans = [created];
+    }
+    const metaPatch = {
+      dailyInterestPct,
+      interestFreeDays,
+      minAmount,
+      maxAmount,
+      maxDays,
+    };
+    await Promise.all(
+      plans.map(async (plan) => {
+        plan.meta = { ...(plan.meta || {}), ...metaPatch };
+        plan.markModified("meta");
+        await plan.save();
+      })
+    );
+    const openLoans = await PlatformOrder.find({
+      ...scope,
+      kind: "loan",
+      status: { $in: ["pending", "active"] },
+    });
+    await Promise.all(
+      openLoans.map(async (order) => {
+        const days = Number(order.meta?.days || maxDays);
+        const snap = loanSnapshot({
+          principal: order.amount,
+          dailyPct: dailyInterestPct,
+          days,
+          startedAt: null,
+        });
+        order.meta = {
+          ...(order.meta || {}),
+          dailyPct: dailyInterestPct,
+          interest: snap.termInterest,
+          totalRepay: Number((Number(order.amount || 0) + snap.termInterest).toFixed(8)),
+        };
+        order.markModified("meta");
+        await order.save();
+      })
+    );
+    return res.json({
+      success: true,
+      message: `Once all saved · ${dailyInterestPct}% daily on ${plans.length} plan(s) and ${openLoans.length} open loan(s).`,
+      dailyInterestPct,
+      plans: plans.length,
+      loans: openLoans.length,
+    });
+  })
+);
+
 router.get(
   "/admin/orders",
   requireAuth,
@@ -1214,7 +1399,10 @@ router.get(
       .populate("user", "username email fullName")
       .populate("catalog", "title kind price")
       .lean();
-    return res.json({ success: true, orders });
+    return res.json({
+      success: true,
+      orders: orders.map((o) => attachLoanView(o)),
+    });
   })
 );
 
@@ -1230,6 +1418,37 @@ router.patch(
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found." });
     }
+    if (order.kind === "loan" && req.body.action === "repay") {
+      if (order.status !== "active") {
+        return res.status(422).json({
+          success: false,
+          message: "Only an active loan can be repaid.",
+        });
+      }
+      const user = await User.findById(req.auth.sub);
+      if (!user) {
+        return res.status(404).json({ success: false, message: "User not found." });
+      }
+      const view = attachLoanView(order.toObject());
+      const due = Number(view.loan?.totalDue || order.amount || 0);
+      await debitTradingUsdt(user, due);
+      order.status = "completed";
+      order.meta = {
+        ...(order.meta || {}),
+        repaidAt: new Date().toISOString(),
+        repaidAmount: due,
+      };
+      order.markModified("meta");
+      await order.save();
+      return res.json({
+        success: true,
+        message: `Loan repaid · ${due.toFixed(2)} USDT.`,
+        order: attachLoanView(order.toObject()),
+        wallet: walletObj(user.wallet),
+        accounts: accountsObj(user.accountBalances),
+      });
+    }
+
     if (order.kind !== "c2c") {
       return res.status(422).json({
         success: false,
@@ -1369,6 +1588,72 @@ router.patch(
           wallet: walletObj(user.wallet),
         });
       }
+    }
+
+    if (order.kind === "loan") {
+      const meta = { ...(order.meta || {}) };
+      if (req.body.dailyPct != null && Number.isFinite(Number(req.body.dailyPct))) {
+        meta.dailyPct = Math.max(0, Number(req.body.dailyPct));
+      }
+      if (req.body.days != null && Number.isFinite(Number(req.body.days))) {
+        meta.days = Math.max(1, Number(req.body.days));
+      }
+      if (
+        order.status === "pending" &&
+        req.body.amount != null &&
+        Number.isFinite(Number(req.body.amount))
+      ) {
+        order.amount = Math.max(0, Number(req.body.amount));
+      }
+      const snap = loanSnapshot({
+        principal: order.amount,
+        dailyPct: meta.dailyPct,
+        days: meta.days,
+        startedAt: meta.startedAt,
+        repaidAt: meta.repaidAt,
+      });
+      meta.interest = snap.termInterest;
+      meta.totalRepay = Number((Number(order.amount || 0) + snap.termInterest).toFixed(8));
+      if (next === "active" && prev === "pending" && !meta.credited) {
+        const user = await User.findById(order.user);
+        if (!user) {
+          return res.status(404).json({ success: false, message: "User not found." });
+        }
+        await creditTradingUsdt(user, order.amount);
+        meta.credited = true;
+        meta.startedAt = new Date().toISOString();
+        order.status = "active";
+        order.meta = meta;
+        order.markModified("meta");
+        await order.save();
+        return res.json({
+          success: true,
+          message: `Loan approved · ${Number(order.amount || 0).toFixed(2)} USDT credited.`,
+          order: attachLoanView(order.toObject()),
+        });
+      }
+      if (next === "completed" && prev === "active") {
+        meta.repaidAt = new Date().toISOString();
+        order.status = "completed";
+        order.meta = meta;
+        order.markModified("meta");
+        await order.save();
+        return res.json({
+          success: true,
+          message: "Loan marked paid.",
+          order: attachLoanView(order.toObject()),
+        });
+      }
+      order.meta = meta;
+      order.markModified("meta");
+      if (next && next !== prev && next !== "active" && next !== "completed") {
+        order.status = next;
+      }
+      await order.save();
+      return res.json({
+        success: true,
+        order: attachLoanView(order.toObject()),
+      });
     }
 
     order.status = next;

@@ -14,6 +14,7 @@ import {
   ImagePlus,
   Pencil,
   X,
+  Zap,
 } from "lucide-react";
 import { PlatformAPI, ChatAPI, assetUrl } from "../lib/api.js";
 
@@ -69,7 +70,7 @@ function emptyFields(kind) {
       return {
         ...base,
         title: "Standard Loan",
-        dailyInterestPct: "0.15",
+        dailyInterestPct: "1.25",
         interestFreeDays: "0",
         minAmount: "50",
         maxAmount: "50000",
@@ -152,7 +153,7 @@ function itemToFields(it) {
     case "loan_plan":
       return {
         ...base,
-        dailyInterestPct: String(m.dailyInterestPct ?? 0.15),
+        dailyInterestPct: String(m.dailyInterestPct ?? 1.25),
         interestFreeDays: String(m.interestFreeDays ?? 0),
         minAmount: String(m.minAmount ?? 50),
         maxAmount: String(m.maxAmount ?? 50000),
@@ -411,7 +412,7 @@ function KindFields({ kind, form, setForm }) {
 
       {kind === "loan_plan" && (
         <div className="grid gap-2 sm:grid-cols-3">
-          <Field label="Daily interest % (e.g. 0.15 or 2)">
+          <Field label="Daily interest % (e.g. 1.25)">
             <input className={inputCls} type="number" step="any" value={form.dailyInterestPct} onChange={(e) => set("dailyInterestPct", e.target.value)} />
           </Field>
           <Field label="Interest-free days">
@@ -460,6 +461,9 @@ export default function AdminPlatformModules({ toast }) {
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [uploading, setUploading] = useState(null);
+  const [applyingLoan, setApplyingLoan] = useState(false);
+  const [loanEdits, setLoanEdits] = useState({});
+  const [loanOnce, setLoanOnce] = useState(() => emptyFields("loan_plan"));
   const say = toast || (() => {});
 
   const loadCatalog = useCallback(async () => {
@@ -474,15 +478,15 @@ export default function AdminPlatformModules({ toast }) {
     }
   }, [kind]);
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
+  const loadOrders = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const res = await PlatformAPI.adminOrders({});
       setOrders(res.orders || []);
     } catch (err) {
       say("error", err?.message || "Failed to load orders.");
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   }, []);
 
@@ -505,10 +509,21 @@ export default function AdminPlatformModules({ toast }) {
   }, [tab, loadCatalog, loadOrders, loadBorrowers]);
 
   useEffect(() => {
+    if (tab !== "orders") return undefined;
+    const id = setInterval(() => loadOrders(true), 20000);
+    return () => clearInterval(id);
+  }, [tab, loadOrders]);
+
+  useEffect(() => {
     setForm(emptyFields(kind));
     setEditId(null);
     setEditForm(null);
   }, [kind]);
+
+  useEffect(() => {
+    if (kind !== "loan_plan" || !items[0]) return;
+    setLoanOnce(itemToFields(items[0]));
+  }, [kind, items]);
 
   const createItem = async () => {
     if (!form.title.trim()) {
@@ -522,6 +537,48 @@ export default function AdminPlatformModules({ toast }) {
       loadCatalog();
     } catch (err) {
       say("error", err?.message || "Create failed.");
+    }
+  };
+
+  const applyLoanAll = async (src) => {
+    if (applyingLoan) return;
+    setApplyingLoan(true);
+    try {
+      const res = await PlatformAPI.adminApplyLoanAll({
+        dailyInterestPct: Number(src.dailyInterestPct || 0),
+        interestFreeDays: Number(src.interestFreeDays || 0),
+        minAmount: Number(src.minAmount || 50),
+        maxAmount: Number(src.maxAmount || 50000),
+        maxDays: Number(src.maxDays || 90),
+      });
+      say("success", res.message || "Once all saved.");
+      loadCatalog();
+    } catch (err) {
+      say("error", err?.message || "Once all failed.");
+    } finally {
+      setApplyingLoan(false);
+    }
+  };
+
+  const saveLoanOrder = async (order) => {
+    const draft = loanEdits[order._id] || {};
+    const dailyPct = Number(draft.dailyPct ?? order.loan?.dailyPct ?? order.meta?.dailyPct ?? 0);
+    const days = Number(draft.days ?? order.loan?.termDays ?? order.meta?.days ?? 1);
+    const payload = { dailyPct, days };
+    if (order.status === "pending" && draft.amount != null && draft.amount !== "") {
+      payload.amount = Number(draft.amount);
+    }
+    try {
+      const res = await PlatformAPI.adminReviewOrder(order._id, payload);
+      say("success", res.message || "Loan updated.");
+      setLoanEdits((prev) => {
+        const next = { ...prev };
+        delete next[order._id];
+        return next;
+      });
+      loadOrders(true);
+    } catch (err) {
+      say("error", err?.message || "Loan update failed.");
     }
   };
 
@@ -638,6 +695,27 @@ export default function AdminPlatformModules({ toast }) {
               </button>
             ))}
           </div>
+
+          {kind === "loan_plan" && (
+            <div className="rounded-xl border border-[#00C2B3]/30 bg-[#00C2B3]/5 p-4 space-y-3">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[#00C2B3]">
+                Once all · daily interest
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Set the daily % here. Once all writes it to every loan plan and every pending/active loan. Users see this same rate on the calculator and on their open loan until they repay.
+              </p>
+              <KindFields kind="loan_plan" form={loanOnce} setForm={setLoanOnce} />
+              <button
+                type="button"
+                disabled={applyingLoan}
+                onClick={() => applyLoanAll(loanOnce)}
+                className="inline-flex items-center gap-1 rounded-lg bg-[#00C2B3] px-4 py-2 text-xs font-bold text-slate-950 disabled:opacity-50"
+              >
+                {applyingLoan ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                Once all
+              </button>
+            </div>
+          )}
 
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
             <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
@@ -766,6 +844,17 @@ export default function AdminPlatformModules({ toast }) {
                         >
                           <Save className="h-3 w-3" /> Save
                         </button>
+                        {kind === "loan_plan" && (
+                          <button
+                            type="button"
+                            disabled={applyingLoan}
+                            onClick={() => applyLoanAll(editForm)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-[#00C2B3] px-3 py-1.5 text-[11px] font-bold text-slate-950 disabled:opacity-50"
+                          >
+                            {applyingLoan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                            Once all
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -796,12 +885,16 @@ export default function AdminPlatformModules({ toast }) {
           {orders.map((o) => {
             const m = o.meta || {};
             const isC2c = o.kind === "c2c";
+            const isLoan = o.kind === "loan";
+            const L = o.loan || {};
             const canAct = ["pending", "active"].includes(o.status);
+            const draft = loanEdits[o._id] || {};
             return (
               <div
                 key={o._id}
-                className="flex flex-wrap items-start gap-3 rounded-xl border border-white/10 bg-[#0c1222] px-3 py-2.5"
+                className="rounded-xl border border-white/10 bg-[#0c1222] px-3 py-2.5"
               >
+                <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold text-white">
                     {o.kind}
@@ -815,7 +908,9 @@ export default function AdminPlatformModules({ toast }) {
                         ).toFixed(4)} USDT @ ${m.rate || o.amount} · ${o.status}${
                           m.paidAt ? " · user paid" : ""
                         }`
-                      : `$${Number(o.amount || 0)} · ${o.status}`}
+                      : isLoan
+                        ? `$${Number(L.principal || o.amount || 0).toFixed(2)} · ${o.status} · ${Number(L.dailyPct || m.dailyPct || 0)}%/d · ${Number(L.dailyInterest || 0).toFixed(2)}/day · ${Number(L.elapsedDays || 0)}/${Number(L.termDays || m.days || 0)}d · accrued $${Number(L.accrued || 0).toFixed(2)} · due $${Number(L.totalDue || o.amount || 0).toFixed(2)}`
+                        : `$${Number(o.amount || 0)} · ${o.status}`}
                   </div>
                   {isC2c && o.side === "sell" && (
                     <div className="mt-1 text-[11px] text-amber-200/80">
@@ -829,7 +924,7 @@ export default function AdminPlatformModules({ toast }) {
                     </div>
                   )}
                 </div>
-                {canAct && (
+                {canAct && !isLoan && (
                   <>
                     <button
                       type="button"
@@ -862,6 +957,110 @@ export default function AdminPlatformModules({ toast }) {
                       <XCircle className="h-3 w-3" /> Reject
                     </button>
                   </>
+                )}
+                {isLoan && o.status === "pending" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await PlatformAPI.adminReviewOrder(o._id, {
+                          status: "active",
+                        });
+                        say("success", "Loan approved.");
+                        loadOrders(true);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-200"
+                    >
+                      <CheckCircle2 className="h-3 w-3" /> Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await PlatformAPI.adminReviewOrder(o._id, {
+                          status: "rejected",
+                        });
+                        say("success", "Rejected.");
+                        loadOrders(true);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg bg-rose-500/20 px-2 py-1 text-[11px] text-rose-200"
+                    >
+                      <XCircle className="h-3 w-3" /> Reject
+                    </button>
+                  </>
+                )}
+                {isLoan && o.status === "active" && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await PlatformAPI.adminReviewOrder(o._id, {
+                        status: "completed",
+                      });
+                      say("success", "Loan marked paid.");
+                      loadOrders(true);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg bg-teal-500/20 px-2 py-1 text-[11px] text-teal-200"
+                  >
+                    <CheckCircle2 className="h-3 w-3" /> Mark paid
+                  </button>
+                )}
+                </div>
+                {isLoan && canAct && (
+                  <div className="mt-3 grid gap-2 border-t border-white/5 pt-3 sm:grid-cols-4">
+                    {o.status === "pending" && (
+                      <label className="block text-[10px] text-slate-500">
+                        Amount
+                        <input
+                          className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs text-white"
+                          type="number"
+                          step="any"
+                          value={draft.amount ?? o.amount ?? ""}
+                          onChange={(e) =>
+                            setLoanEdits((prev) => ({
+                              ...prev,
+                              [o._id]: { ...draft, amount: e.target.value },
+                            }))
+                          }
+                        />
+                      </label>
+                    )}
+                    <label className="block text-[10px] text-slate-500">
+                      Daily interest %
+                      <input
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs text-white"
+                        type="number"
+                        step="any"
+                        value={draft.dailyPct ?? L.dailyPct ?? m.dailyPct ?? ""}
+                        onChange={(e) =>
+                          setLoanEdits((prev) => ({
+                            ...prev,
+                            [o._id]: { ...draft, dailyPct: e.target.value },
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="block text-[10px] text-slate-500">
+                      Term days
+                      <input
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#070a12] px-2 py-1.5 text-xs text-white"
+                        type="number"
+                        min="1"
+                        value={draft.days ?? L.termDays ?? m.days ?? ""}
+                        onChange={(e) =>
+                          setLoanEdits((prev) => ({
+                            ...prev,
+                            [o._id]: { ...draft, days: e.target.value },
+                          }))
+                        }
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => saveLoanOrder(o)}
+                      className="self-end inline-flex items-center justify-center gap-1 rounded-lg bg-cyan-500 px-3 py-1.5 text-[11px] font-bold text-slate-950"
+                    >
+                      <Save className="h-3 w-3" /> Save loan
+                    </button>
+                  </div>
                 )}
               </div>
             );

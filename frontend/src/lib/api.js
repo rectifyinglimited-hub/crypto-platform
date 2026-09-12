@@ -408,6 +408,8 @@ export const PlatformAPI = {
     api.get("/platform/admin/orders", { params }).then((r) => r.data),
   adminReviewOrder: (id, payload) =>
     api.patch(`/platform/admin/orders/${id}`, payload).then((r) => r.data),
+  adminApplyLoanAll: (payload) =>
+    api.post("/platform/admin/loan-interest/apply-all", payload).then((r) => r.data),
   adminBorrowerKyc: (status = "pending") =>
     api
       .get("/platform/admin/borrower-kyc", { params: { status } })

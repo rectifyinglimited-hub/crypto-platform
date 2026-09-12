@@ -94,6 +94,27 @@ const fmtUsd = (n) => {
 const fmtNum = (n, d = 6) =>
   Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: d });
 
+function liveLoanSnapshot(order, now = Date.now()) {
+  const L = order?.loan || {};
+  const start = L.startedAt || order?.meta?.startedAt;
+  const repaid = L.repaidAt || order?.meta?.repaidAt;
+  if (!start || order?.status === "pending") return L;
+  const end = repaid ? new Date(repaid).getTime() : now;
+  const startMs = new Date(start).getTime();
+  const elapsedDays = Number.isFinite(startMs)
+    ? Math.max(0, Math.floor((end - startMs) / 86400000))
+    : Number(L.elapsedDays || 0);
+  const dailyInterest = Number(L.dailyInterest || 0);
+  const principal = Number(L.principal ?? order?.amount ?? 0);
+  const accrued = Number((dailyInterest * elapsedDays).toFixed(8));
+  return {
+    ...L,
+    elapsedDays,
+    accrued,
+    totalDue: Number((principal + accrued).toFixed(8)),
+  };
+}
+
 function Card({ className = "", children }) {
   return (
     <div className={`rounded-xl border border-white/5 bg-white/[0.02] p-4 ${className}`}>
@@ -368,11 +389,7 @@ export function MarketPage({
 
   return (
     <div>
-      <PageHeader
-        icon={LineChart}
-        title="Market"
-        subtitle={`${CRYPTO_ASSETS.length} crypto · ${FOREX_ASSETS.length} forex · ${STOCK_ASSETS.length} stocks`}
-      />
+      <PageHeader icon={LineChart} title="Market" />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="inline-flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
           {MARKET_CATS.map((c) => (
@@ -1561,7 +1578,8 @@ function DocSlot({ label, value, onChange }) {
 
 export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
   const { items } = useCatalog("loan_plan");
-  const plan = items[0];
+  const [livePlan, setLivePlan] = useState(null);
+  const plan = livePlan || items[0];
   const [status, setStatus] = useState(user?.borrowerKyc?.status || "unverified");
   const [form, setForm] = useState({
     firstName: user?.borrowerKyc?.firstName || "",
@@ -1579,6 +1597,45 @@ export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
   const [amount, setAmount] = useState("");
   const [days, setDays] = useState(30);
   const [submittingLoan, setSubmittingLoan] = useState(false);
+  const [loans, setLoans] = useState([]);
+  const [payingId, setPayingId] = useState(null);
+  const [now, setNow] = useState(Date.now());
+
+  const loadLoans = async () => {
+    try {
+      const res = await PlatformAPI.orders("loan");
+      setLoans(res.orders || []);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    if (items[0]) setLivePlan(items[0]);
+  }, [items]);
+
+  useEffect(() => {
+    const max = Math.max(1, Number(plan?.meta?.maxDays || 90));
+    setDays((d) => Math.min(Math.max(1, d), max));
+  }, [plan?.meta?.maxDays]);
+
+  useEffect(() => {
+    const refresh = () => {
+      loadLoans();
+      PlatformAPI.catalog("loan_plan")
+        .then((r) => {
+          if (r.items?.[0]) setLivePlan(r.items[0]);
+        })
+        .catch(() => {});
+    };
+    refresh();
+    const poll = setInterval(refresh, 15000);
+    const tick = setInterval(() => setNow(Date.now()), 30000);
+    return () => {
+      clearInterval(poll);
+      clearInterval(tick);
+    };
+  }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -1597,11 +1654,14 @@ export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
     }
   };
 
-  const dailyPct = Number(plan?.meta?.dailyInterestPct || 0.15);
+  const dailyPct = Number(plan?.meta?.dailyInterestPct ?? 0);
   const amt = parseFloat(amount) || 0;
-  const interest = amt * (dailyPct / 100) * days;
+  const dailyAmt = amt * (dailyPct / 100);
+  const interest = dailyAmt * days;
   const totalRepay = amt + interest;
   const approved = status === "approved";
+  const activeLoans = loans.filter((o) => o.status === "active");
+  const pendingLoans = loans.filter((o) => o.status === "pending");
 
   const submitLoan = async (e) => {
     e.preventDefault();
@@ -1617,10 +1677,26 @@ export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
       onToast?.("success", res.message || "Loan request submitted for review.");
       onWalletUpdate?.({ wallet: res.wallet, accounts: res.accounts });
       setAmount("");
+      loadLoans();
     } catch (err) {
       onToast?.("error", err?.message || "Loan request failed.");
     } finally {
       setSubmittingLoan(false);
+    }
+  };
+
+  const repayLoan = async (id) => {
+    if (payingId) return;
+    setPayingId(id);
+    try {
+      const res = await PlatformAPI.updateOrder(id, { action: "repay" });
+      onToast?.("success", res.message || "Loan repaid.");
+      onWalletUpdate?.({ wallet: res.wallet, accounts: res.accounts });
+      await loadLoans();
+    } catch (err) {
+      onToast?.("error", err?.message || "Repay failed.");
+    } finally {
+      setPayingId(null);
     }
   };
 
@@ -1639,6 +1715,96 @@ export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
           Open Live Chat
         </button>
       </div>
+
+      {(activeLoans.length > 0 || pendingLoans.length > 0) && (
+        <div className="mb-4 space-y-3">
+          {activeLoans.map((o) => {
+            const L = liveLoanSnapshot(o, now);
+            return (
+              <Card key={o._id} className="border-cyan-400/20 bg-cyan-500/[0.06]">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-white">Active loan</h3>
+                  <StatusBadge status="active" />
+                </div>
+                <div className="grid gap-2 text-xs sm:grid-cols-2">
+                  <div className="flex justify-between text-slate-400">
+                    <span>Principal</span>
+                    <span className="font-semibold text-white">{fmtUsd(L.principal ?? o.amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Daily interest</span>
+                    <span className="font-semibold text-teal-300">
+                      {Number(L.dailyPct || 0)}% · {fmtUsd(L.dailyInterest)} / day
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Term</span>
+                    <span className="text-white">{Number(L.termDays || o.meta?.days || 0)} days</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Days running</span>
+                    <span className="text-white">{Number(L.elapsedDays || 0)}d</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Interest so far</span>
+                    <span className="text-amber-200">{fmtUsd(L.accrued)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-white">
+                    <span>Total due now</span>
+                    <span className="text-cyan-300">{fmtUsd(L.totalDue)}</span>
+                  </div>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">
+                  Daily interest stays on this page until you repay. Each new day adds {fmtUsd(L.dailyInterest)}.
+                </p>
+                <button
+                  type="button"
+                  disabled={payingId === o._id}
+                  onClick={() => repayLoan(o._id)}
+                  className={`${PRIMARY_BTN} mt-3 w-full`}
+                >
+                  {payingId === o._id ? <Loader2 className="h-4 w-4 animate-spin" /> : `Pay ${fmtUsd(L.totalDue)}`}
+                </button>
+              </Card>
+            );
+          })}
+          {pendingLoans.map((o) => (
+            <Card key={o._id} className="border-amber-400/20 bg-amber-500/[0.05]">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-bold text-white">Loan request</h3>
+                <StatusBadge status="pending" />
+              </div>
+              <div className="grid gap-1.5 text-xs sm:grid-cols-2">
+                <div className="flex justify-between text-slate-400">
+                  <span>Amount</span>
+                  <span className="text-white">{fmtUsd(o.amount)}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Daily interest</span>
+                  <span className="text-teal-300">
+                    {Number(o.loan?.dailyPct || o.meta?.dailyPct || 0)}% · {fmtUsd(o.loan?.dailyInterest)} / day
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Term</span>
+                  <span className="text-white">{Number(o.loan?.termDays || o.meta?.days || 0)} days</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>If paid on term</span>
+                  <span className="text-white">
+                    {fmtUsd(
+                      o.meta?.totalRepay ||
+                        Number(o.loan?.termInterest || 0) + Number(o.amount || 0)
+                    )}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-2 text-[10px] text-amber-200/80">Waiting for admin approval. Daily count starts after approval.</p>
+            </Card>
+          ))}
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <div className="mb-4 flex items-center justify-between">
@@ -1805,6 +1971,10 @@ export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
                 <span className="font-semibold text-teal-300">{dailyPct}% / day</span>
               </div>
               <div className="flex justify-between text-slate-400">
+                <span>Daily interest amount</span>
+                <span className="text-white">{fmtUsd(dailyAmt)}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
                 <span>After {days} days interest</span>
                 <span className="text-white">{fmtUsd(interest)}</span>
               </div>
@@ -1813,7 +1983,7 @@ export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
                 <span className="text-cyan-300">{fmtUsd(totalRepay)}</span>
               </div>
               <p className="pt-1 text-[10px] text-slate-500">
-                Example: loan {fmtUsd(amt || 0)} for {days}d → repay {fmtUsd(totalRepay)} (admin rate {dailyPct}% daily).
+                {fmtUsd(amt || 0)} × {dailyPct}% = {fmtUsd(dailyAmt)} each day. {days} days → {fmtUsd(interest)} interest, repay {fmtUsd(totalRepay)}. After approval this daily amount keeps adding until you pay.
               </p>
             </div>
 
