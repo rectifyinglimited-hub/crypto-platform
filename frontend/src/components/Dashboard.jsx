@@ -1478,7 +1478,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             />
           )}
           {page === "account" && (
-            <motion.div key="account" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto w-full max-w-[430px] space-y-4">
+            <motion.div key="account" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
               <ProfileSetup
                 user={me}
                 toast={say}

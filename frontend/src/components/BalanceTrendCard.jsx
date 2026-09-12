@@ -149,14 +149,14 @@ export default function BalanceTrendCard({ user, compact = false }) {
   }));
 
   return (
-    <div className={`rounded-2xl border border-white/10 bg-[#0d1424] ${compact ? "p-4" : "p-5"}`}>
+    <div className={`h-full rounded-2xl border border-white/10 bg-[#0d1424] ${compact ? "p-4 md:p-5" : "p-5"}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
             Total Assists
           </div>
           <div className="mt-1 flex flex-wrap items-end gap-2">
-            <div className={`font-bold tabular-nums text-white ${compact ? "text-[28px] leading-none" : "text-3xl"}`}>
+            <div className={`font-bold tabular-nums text-white ${compact ? "text-[28px] leading-none md:text-3xl" : "text-3xl"}`}>
               ${fmtUsd(last)}
             </div>
             <span className="mb-1 text-sm font-medium text-slate-400">USDT</span>
@@ -214,7 +214,7 @@ export default function BalanceTrendCard({ user, compact = false }) {
 
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className={`mt-3 w-full ${compact ? "h-32" : "h-44"}`}
+        className={`mt-3 w-full ${compact ? "h-32 md:h-40 lg:h-48" : "h-44"}`}
         role="img"
         aria-label="Account balance trend"
       >

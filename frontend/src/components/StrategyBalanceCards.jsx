@@ -62,7 +62,7 @@ function DeskPanel({ icon: Icon, title, balance, commission, daily, displayPct }
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-amber-400/25 bg-amber-400/10">
           <Lock className="h-3.5 w-3.5 text-amber-300" strokeWidth={2.4} />
         </span>
-        <div className="text-xl font-bold tabular-nums text-white">
+            <div className="text-xl font-bold tabular-nums text-white lg:text-2xl">
           ${fmtUsd(balance)}
         </div>
       </div>
@@ -94,7 +94,7 @@ function LockTimer({ endAt, now, lockDays, progress }) {
     { n: t.secs, l: "Sec" },
   ];
   return (
-    <div className="border-t border-white/10 bg-black/20 px-4 py-4 sm:px-5">
+    <div className="mt-auto border-t border-white/10 bg-black/20 px-4 py-4 sm:px-5">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[10px] font-semibold uppercase tracking-wider text-cyan-300/80">
           Lock timer
@@ -287,7 +287,7 @@ export default function StrategyBalanceCards({ user }) {
   const active = Boolean(ai.active || spot.active);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d1424]">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d1424]">
       <div className="flex items-center justify-between gap-3 border-b border-white/8 px-4 py-3 sm:px-5">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
           Strategy wallets

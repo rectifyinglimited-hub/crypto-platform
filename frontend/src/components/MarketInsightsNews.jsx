@@ -14,7 +14,7 @@ export default function MarketInsightsNews() {
   const seconds = Math.max(18, items.length * 6);
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/10 bg-[#0d1424] px-3 py-3">
+    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/10 bg-[#0d1424] px-3 py-3 md:px-4 md:py-4">
       <style>{`
         @keyframes equiti-news-rise {
           0% { transform: translateY(0); }
@@ -33,7 +33,7 @@ export default function MarketInsightsNews() {
       <div className="text-[10px] font-semibold uppercase tracking-wider text-cyan-400/80">
         Market Insights & News
       </div>
-      <div className="relative mt-2 h-[104px] overflow-hidden">
+      <div className="relative mt-2 h-[104px] overflow-hidden md:h-[148px] lg:h-[200px]">
         {items.length ? (
           <div
             className="equiti-news-rise absolute inset-x-0 top-0"
