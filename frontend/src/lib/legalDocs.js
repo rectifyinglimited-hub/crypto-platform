@@ -132,7 +132,7 @@ export const LEGAL_DOCS = [
         `${COMPANY.legalName} runs the ${BRAND.name} brand as a single authorized operator. The desk reviews deposits, withdrawals, KYC, and support in one control room.`
       ),
       p(
-        "Staff must not trade against a named client file or leak Live Chat receipts. Product rules and wallet credits are applied as configured by the administrator for that account."
+        "Staff must not trade against a named client file or leak Live Chat receipts. Product rules and wallet credits are applied as configured by the desk for that account."
       ),
       p(
         `If a conflict cannot be managed, the desk will disclose it to the client in Live Chat. Registered office: ${office}.`

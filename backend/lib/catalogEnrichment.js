@@ -293,7 +293,7 @@ export async function ensureCatalogEnrichment(adminId = null) {
       changed = true;
     }
     if (!doc.meta.bio) {
-      doc.meta.bio = `${doc.title || "Desk"} — admin-managed copy strategy.`;
+      doc.meta.bio = `${doc.title || "Desk"} — desk-managed copy strategy.`;
       changed = true;
     }
     if (changed) {

@@ -226,7 +226,7 @@ const ABOUT_FAQ = [
   },
   {
     q: "How do deposits and withdrawals work?",
-    a: "Deposits use merchant rails with screenshot proof in Live Chat. Withdrawals are reviewed by the admin desk after identity checks — so payouts stay protected.",
+    a: "Deposits use merchant rails with screenshot proof in Live Chat. Withdrawals are reviewed by the desk after identity checks — so payouts stay protected.",
   },
   {
     q: "Is support available 24/7?",
@@ -316,7 +316,7 @@ export function AboutPage({ onCta, onSupport, ctaLabel = "Open an account" }) {
             {
               icon: Percent,
               title: "Clear costs",
-              body: "Transparent desk rules, invite-gated access, and admin-reviewed deposits so you know how funds move.",
+              body: "Transparent desk rules, invite-gated access, and desk-reviewed deposits so you know how funds move.",
             },
             {
               icon: RefreshCw,
@@ -769,7 +769,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
               VIP lounge + trading VIP
             </h1>
             <p className="mt-3 text-sm text-white/70 sm:text-base">
-              Two layers: lounge VIP (desk priority from your admin) and trading
+              Two layers: lounge VIP (desk priority from your manager) and trading
               VIP (auto from 30-day volume). Trading VIP raises the referral
               commission you earn when friends trade after unlock.
             </p>
@@ -859,7 +859,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
             Lounge VIP
           </h3>
           <p className="mt-2 text-sm text-white/55">
-            Granted by your administrator in Control Room. Unlocks this lounge,
+            Granted by the desk. Unlocks this lounge,
             personal manager routing, and faster review on verified payouts.
           </p>
           <p className="mt-3 text-xs text-white/40">
@@ -886,7 +886,7 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
         <h2 className="text-lg font-extrabold">Trading VIP 1–10</h2>
         <p className="mt-1 mb-3 text-sm text-white/50">
           Ten volume tiers. More 30-day volume moves you up and can raise the
-          referral commission you keep. Lounge VIP is still granted by your admin.
+          referral commission you keep. Lounge VIP is still granted by the desk.
         </p>
         <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
           {tiers.map((t) => {
@@ -973,8 +973,8 @@ export function VipPage({ user, onCta, onSupport, onReferral }) {
 
       <div className="grid gap-3 md:grid-cols-3">
         {[
-          { icon: UserRound, title: "Personal manager", body: "Priority Live Chat with your assigned admin." },
-          { icon: Gift, title: "Copy AI Bot yield", body: "Lock funds into admin-assigned contracts with target yield." },
+          { icon: UserRound, title: "Personal manager", body: "Priority Live Chat with your assigned manager." },
+          { icon: Gift, title: "Copy AI Bot yield", body: "Lock funds into desk-assigned contracts with target yield." },
           { icon: ShieldCheck, title: "Priority withdrawal", body: "Verified bank cards and wallets move faster through review." },
         ].map(({ icon: Icon, title, body }) => (
           <div

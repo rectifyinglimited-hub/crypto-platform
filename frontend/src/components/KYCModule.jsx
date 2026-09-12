@@ -484,7 +484,7 @@ export default function KYCModule({ user, open, onClose, onUpdated }) {
                       </span>
                     </>
                   ) : (
-                    <>Please wait for the admin team to complete the review.</>
+                    <>Please wait for the desk to complete the review.</>
                   )}
                 </div>
               )}

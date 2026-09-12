@@ -102,7 +102,7 @@ export default function WithdrawSection({
     } else {
       const picked = approvedCards.find((c) => String(c._id) === String(cardId));
       if (!picked) {
-        toast?.("error", "Select an approved bank card. Admin must verify it first.");
+        toast?.("error", "Select an approved bank card. The desk must verify it first.");
         return;
       }
       dest = picked.cardNumber || picked.accountNumber;
@@ -120,7 +120,7 @@ export default function WithdrawSection({
         method,
         cardName,
       });
-      toast?.("success", res.message || "Withdrawal pending admin approval.");
+      toast?.("success", res.message || "Withdrawal pending desk approval.");
       if (res.wallet) {
         setWalletBal(res.wallet);
         onWalletUpdate?.({ wallet: res.wallet });
@@ -139,7 +139,7 @@ export default function WithdrawSection({
         <ArrowUpFromLine className="h-4 w-4 text-indigo-300" /> Withdraw
       </h3>
       <p className="mb-4 text-[11px] text-slate-500">
-        Funds are held immediately and released only after admin approval. Use a
+        Funds are held immediately and released only after desk approval. Use a
         verified wallet address or bank card from Assets.
       </p>
 
@@ -282,7 +282,7 @@ export default function WithdrawSection({
             {approvedCards.length === 0 ? (
               <p className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
                 No verified bank card yet. Add one in Assets → Payment and wait
-                for admin approval.
+                for desk approval.
               </p>
             ) : (
               <select

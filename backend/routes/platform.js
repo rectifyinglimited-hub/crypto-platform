@@ -98,7 +98,7 @@ async function resolveLoanPlan() {
     plan = await PlatformCatalog.create({
       kind: "loan_plan",
       title: "Standard Loan",
-      subtitle: "Admin-set daily interest",
+      subtitle: "Desk-set daily interest",
       price: 0,
       enabled: true,
       meta: {
@@ -1144,7 +1144,7 @@ router.post(
     });
     return res.json({
       success: true,
-      message: "Card added — pending admin verification.",
+      message: "Card added — pending verification.",
       bankCards: publicBankCards(user.bankCards),
     });
   })
@@ -1179,7 +1179,7 @@ router.post(
     await user.save();
     return res.json({
       success: true,
-      message: "Wallet address submitted — pending admin verification.",
+      message: "Wallet address submitted — pending verification.",
       withdrawAddresses: user.withdrawAddresses,
     });
   })
@@ -1781,7 +1781,7 @@ router.post(
     await user.save();
     return res.json({
       success: true,
-      message: "Details submitted — pending admin verification.",
+      message: "Details submitted — pending verification.",
       pendingDetails: user.pendingDetails,
     });
   })

@@ -62,7 +62,7 @@ const INVITE_REQUIRED_MESSAGE =
   "Valid Invitation Code is required to create an account.";
 /** Single-use policy — once redeemed, nobody else can register with it */
 const INVITE_USED_MESSAGE =
-  "This invitation code has already been used. Please request a new invitation code from your admin.";
+  "This invitation code has already been used. Please request a new invitation code from support.";
 
 // ---------------------------------------------------------------------------
 // Helpers

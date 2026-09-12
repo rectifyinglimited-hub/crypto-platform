@@ -43,7 +43,7 @@ const CORP_PILLARS = [
   {
     icon: Activity,
     title: "AI Bot & earn products",
-    body: "Contract-bound AI Futures Strategy locks and Smart Spot Trade signals — with admin-controlled yields.",
+    body: "Contract-bound AI Futures Strategy locks and Smart Spot Trade signals — with desk-controlled yields.",
   },
   {
     icon: ShieldCheck,
@@ -89,7 +89,7 @@ const FEATURES = [
   {
     icon: Zap,
     title: "Smart Spot Trade",
-    body: "Pick any crypto, forex, or stock on a signal block and copy when admin opens Ready to Copy.",
+    body: "Pick any crypto, forex, or stock on a signal block and copy when the desk opens Ready to Copy.",
   },
   {
     icon: Globe2,

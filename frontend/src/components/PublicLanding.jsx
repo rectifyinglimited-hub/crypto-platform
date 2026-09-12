@@ -138,7 +138,7 @@ const BENEFITS = [
   {
     icon: ShieldCheck,
     title: "Verified payouts",
-    body: "Deposits and withdrawals stay pending until the admin desk signs them off.",
+    body: "Deposits and withdrawals stay pending until the desk signs them off.",
   },
   {
     icon: Headphones,
@@ -148,11 +148,11 @@ const BENEFITS = [
 ];
 
 const FAQ = [
-  { q: "How do I open an account?", a: "Sign up with a valid invite code, complete your profile, then wait for any admin checks that apply." },
+  { q: "How do I open an account?", a: "Sign up with a valid invite code, complete your profile, then wait for any desk checks that apply." },
   { q: "Which markets can I trade?", a: "Live seconds desks on ETH, XRP, SOL, SHIB and more pairs streamed from the public market feed." },
-  { q: "How do deposits work?", a: "Submit the deposit with proof in Live Chat. Funds stay pending until the admin desk verifies." },
+  { q: "How do deposits work?", a: "Submit the deposit with proof in Live Chat. Funds stay pending until the desk verifies." },
   { q: "How do withdrawals work?", a: "Request a withdrawal from Assets. Staff review the wallet or bank card before any payout." },
-  { q: "What is Copy AI Bot?", a: "You lock capital into an admin-assigned contract with a disclosed target yield. Nothing runs until you confirm." },
+  { q: "What is Copy AI Bot?", a: "You lock capital into a desk-assigned contract with a disclosed target yield. Nothing runs until you confirm." },
   { q: "What devices can I use?", a: "equiti runs in the browser on desktop and mobile. No extra terminal install." },
   { q: "How does Live Chat support work?", a: "Open the thread for deposit, withdraw, VIP, or loan. Instructions appear first, then a manager replies." },
   { q: "Is there public pricing?", a: "No VPS-style pricing table. Trading, VIP, and loans follow the conditions shown inside your account." },
@@ -172,7 +172,7 @@ const STEPS = [
   {
     n: "3",
     title: "Deposit",
-    body: "Fund via Deposit, then withdraw profits after admin verify.",
+    body: "Fund via Deposit, then withdraw profits after desk verify.",
   },
 ];
 
@@ -363,7 +363,7 @@ export default function PublicLanding({ onSignIn, onRegister }) {
                 "Technical support available 24/7",
                 "Invite-only trader network",
                 "Desk stays online around the clock",
-                "Admin-verified deposits & withdrawals",
+                "Desk-verified deposits & withdrawals",
                 "Compatible with Copy AI Bot locks",
               ].map((line) => (
                 <li key={line} className="flex items-start gap-2">
@@ -441,8 +441,8 @@ export default function PublicLanding({ onSignIn, onRegister }) {
           </h2>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {[
-              { icon: UserRound, title: "Personal manager", body: "Priority Live Chat with your assigned admin." },
-              { icon: Gift, title: "Copy AI Bot yield", body: "Lock funds into admin-assigned contracts." },
+              { icon: UserRound, title: "Personal manager", body: "Priority Live Chat with your assigned manager." },
+              { icon: Gift, title: "Copy AI Bot yield", body: "Lock funds into desk-assigned contracts." },
               { icon: Headphones, title: "Priority withdrawal", body: "Verified cards and wallets move faster through review." },
             ].map(({ icon: Icon, title, body }) => (
               <div key={title} className="border border-white/10 p-6">

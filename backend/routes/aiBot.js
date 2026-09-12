@@ -299,7 +299,7 @@ async function activateNow(req, res) {
   if (!lockOptions.includes(lockDays)) {
     return res.status(422).json({
       success: false,
-      message: `Choose a lock duration from the admin table: ${lockOptions.join(", ")} days.`,
+      message: `Choose a lock duration from the available options: ${lockOptions.join(", ")} days.`,
     });
   }
 
@@ -691,7 +691,7 @@ router.post(
       request.status = "rejected";
       request.reviewedBy = req.auth.sub;
       request.reviewedAt = new Date();
-      request.reviewNote = String(req.body.note || "Rejected by admin");
+      request.reviewNote = String(req.body.note || "Rejected by the desk");
       await request.save();
       await refundHeldPrincipal(
         user,

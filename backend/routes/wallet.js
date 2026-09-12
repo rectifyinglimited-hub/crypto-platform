@@ -143,7 +143,7 @@ router.post(
       message:
         promoBonus > 0
           ? `Deposit submitted with promo ${promoCode} (+$${promoBonus.toFixed(2)} on approval).`
-          : "Deposit submitted — Pending Verification / Awaiting Admin Approval.",
+          : "Deposit submitted — Pending Verification / Awaiting Desk Approval.",
       transaction: tx,
       promoBonus,
     });
@@ -212,7 +212,7 @@ router.post(
       user: req.auth.sub,
       adminId: tenantId,
       from: "user",
-      body: `Settlement receipt submitted · $${amount.toFixed(2)} ${symbol} (${network})\nStatus: Pending Verification / Awaiting Admin Approval`,
+      body: `Settlement receipt submitted · $${amount.toFixed(2)} ${symbol} (${network})\nStatus: Pending Verification / Awaiting Desk Approval`,
       messageType: "deposit_proof",
       attachmentUrl: proofUrl,
       meta: { transactionId: tx._id.toString(), amount, symbol, network },
@@ -225,7 +225,7 @@ router.post(
     return res.status(201).json({
       success: true,
       message:
-        "Screenshot received. Deposit is Pending Verification / Awaiting Admin Approval.",
+        "Screenshot received. Deposit is Pending Verification / Awaiting Desk Approval.",
       transaction: tx,
       chatMessage: msg,
     });

@@ -55,7 +55,7 @@ export default function CopyTradeModule({
       <PageHeader
         icon={Copy}
         title="Copy Trade"
-        subtitle="Follow admin-managed desks — review history & equity before you follow"
+        subtitle="Follow live desks — review history & equity before you follow"
       />
       {loading ? (
         <LoadingBlock />
@@ -152,7 +152,7 @@ export default function CopyTradeModule({
               </div>
               <div className="mb-3 rounded-xl border border-white/10 bg-black/30 p-3">
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Equity curve (admin data)
+                  Equity curve (desk data)
                 </div>
                 <MiniEquity series={detail.meta?.equityHistory} />
               </div>

@@ -1841,7 +1841,7 @@ const SignUpForm = ({
           style={{ color: t.amber }}
         >
           <ShieldAlert className="h-2.5 w-2.5" />
-          <span>* Required to create account — provided by an administrator</span>
+          <span>* Required to create account — provided by the desk</span>
         </div>
       </div>
 

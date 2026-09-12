@@ -218,7 +218,7 @@ export function sourceLabel(source, kind, note = "") {
   if (s === "deposit") return "Deposit";
   if (s === "withdrawal") return "Withdraw";
   if (s === "referral") return "Invite & Earn";
-  if (s === "admin_credit") return "Admin credit";
+  if (s === "admin_credit") return "Desk credit";
   const n = String(note || "");
   if (/smart copy|smart spot/i.test(n)) return "Smart Spot Trade";
   if (/ai bot/i.test(n)) return "AI Futures Strategy";

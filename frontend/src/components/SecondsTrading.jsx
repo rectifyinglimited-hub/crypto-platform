@@ -766,7 +766,7 @@ export default function SecondsTrading({
           </div>
           {adminQuote && (
             <div className="mt-1 text-[10px] text-amber-200/70">
-              Admin locked this desk to {adminQuote}.
+              This desk is locked to {adminQuote}.
             </div>
           )}
         </div>

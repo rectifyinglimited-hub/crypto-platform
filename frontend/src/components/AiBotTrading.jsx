@@ -37,15 +37,15 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "2. Nature of the Service",
-    body: `Funds allocated move to Hold when you confirm. They stay in your main account total, but cannot be withdrawn or traded until the lock ends (or you cancel). Target yield is the daily commission your admin saved for your balance and lock days.`,
+    body: `Funds allocated move to Hold when you confirm. They stay in your main account total, but cannot be withdrawn or traded until the lock ends (or you cancel). Target yield is the daily commission saved for your balance and lock days.`,
   },
   {
     title: "3. Lock Periods",
-    body: `You choose lock days. Confirming starts the lock immediately if your Trading Wallet has at least $300. Administrators may later increase or decrease the days on an active contract. Once active you cannot change principal or trade pair.`,
+    body: `You choose lock days. Confirming starts the lock immediately if your Trading Wallet has at least $300. The desk may later increase or decrease the days on an active contract. Once active you cannot change principal or trade pair.`,
   },
   {
     title: "4. Yield & Daily Profit Display",
-    body: `Daily commission is the exact % your admin saved for your lock amount and days. Accrued amounts become claimable only after the lock end date if the contract remains active.`,
+    body: `Daily commission is the exact % saved for your lock amount and days. Accrued amounts become claimable only after the lock end date if the contract remains active.`,
   },
   {
     title: "5. Early Cancellation Penalty",

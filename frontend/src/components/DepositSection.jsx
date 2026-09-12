@@ -148,7 +148,7 @@ export default function DepositSection({ toast, onOpenLiveChat, onSubmitted }) {
       const res = await WalletAPI.depositProof(fd);
       toast?.(
         "success",
-        res.message || "Deposit submitted — pending admin review."
+        res.message || "Deposit submitted — pending desk review."
       );
       setAmount("");
       setTxHash("");
@@ -180,7 +180,7 @@ export default function DepositSection({ toast, onOpenLiveChat, onSubmitted }) {
             </h1>
             <p className="mt-1 text-[13px] text-slate-400">
               Send USDT to the official desk address, then submit your receipt.
-              Balance credits after admin verification.
+              Balance credits after desk verification.
             </p>
           </div>
           <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200">

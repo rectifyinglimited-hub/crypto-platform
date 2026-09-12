@@ -583,7 +583,7 @@ const DepositPanel = ({ toast }) => {
 
       {!gwLoading && !hasAnyRail && (
         <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-200">
-          The admin hasn't configured any payment rails yet. Please use the
+          Payment rails are not listed yet. Please use the
           chat below to request deposit instructions.
         </div>
       )}
@@ -672,7 +672,7 @@ const DepositPanel = ({ toast }) => {
         <MessageCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
         <span>
           After transferring funds, please use the live chat widget below to
-          instantly notify the administrator with your transaction receipt.
+          instantly notify support with your transaction receipt.
         </span>
       </div>
 
@@ -789,7 +789,7 @@ const WithdrawPanel = ({ wallet, user, toast, onWalletUpdate }) => {
       </h3>
       <p className="mb-3 text-[11px] text-slate-500">
         Request any amount up to your available balance. Funds are held as
-        Pending Approval until admin reviews.
+        Pending Approval until the desk reviews.
       </p>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
@@ -1559,7 +1559,7 @@ export default function Dashboard({ user, onLogout, onOpenAdmin }) {
             loadTx();
             say(
               "success",
-              "Deposit Pending Verification — awaiting admin approval."
+              "Deposit Pending Verification — awaiting desk approval."
             );
           }}
         />

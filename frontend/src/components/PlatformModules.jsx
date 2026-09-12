@@ -913,7 +913,7 @@ export function C2CPage({ onToast, onWalletUpdate }) {
       <PageHeader
         icon={Users}
         title="C2C"
-        subtitle="P2P desk — pay via bank / wallet shown on the ad, admin sets rates"
+        subtitle="P2P desk — pay via bank / wallet shown on the ad, desk sets rates"
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -946,8 +946,8 @@ export function C2CPage({ onToast, onWalletUpdate }) {
               icon={Users}
               label={
                 tab === "buy"
-                  ? "No buy ads yet — admin will post rates."
-                  : "No sell ads yet — admin will post rates."
+                  ? "No buy ads yet — the desk will post rates."
+                  : "No sell ads yet — the desk will post rates."
               }
             />
           ) : (
@@ -1799,7 +1799,7 @@ export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
                   </span>
                 </div>
               </div>
-              <p className="mt-2 text-[10px] text-amber-200/80">Waiting for admin approval. Daily count starts after approval.</p>
+              <p className="mt-2 text-[10px] text-amber-200/80">Waiting for approval. Daily count starts after approval.</p>
             </Card>
           ))}
         </div>
@@ -1967,7 +1967,7 @@ export function LoanPage({ onToast, user, onWalletUpdate, onOpenLiveChat }) {
             </div>
             <div className="space-y-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs">
               <div className="flex justify-between text-slate-400">
-                <span>Daily interest (admin set)</span>
+                <span>Daily interest (desk rate)</span>
                 <span className="font-semibold text-teal-300">{dailyPct}% / day</span>
               </div>
               <div className="flex justify-between text-slate-400">
@@ -2208,7 +2208,7 @@ function AddressesSection({ addresses, onToast, onChanged }) {
     setSubmitting(true);
     try {
       const res = await PlatformAPI.addWithdrawAddress(form);
-      onToast?.("success", res.message || "Wallet address submitted for admin verification.");
+      onToast?.("success", res.message || "Wallet address submitted for verification.");
       onChanged?.();
       setForm({ name: "", network: "TRC20", address: "", asset: "USDT" });
     } catch (err) {
@@ -2349,7 +2349,7 @@ function PaymentSection({ cards, onToast, onChanged }) {
     setSubmitting(true);
     try {
       const res = await PlatformAPI.addBankCard(form);
-      onToast?.("success", res.message || "Card added — pending admin verification.");
+      onToast?.("success", res.message || "Card added — pending verification.");
       onChanged?.();
       setForm({
         holderName: "",
@@ -3084,7 +3084,7 @@ export function ReferralSection({ user, onToast }) {
           VIP 1–10 & commission
         </h3>
         <p className="mb-3 text-[11px] text-slate-500">
-          Live rates from admin settings. Trade more in 30 days to move up.
+          Live rates from desk settings. Trade more in 30 days to move up.
         </p>
         <div className="overflow-x-auto rounded-2xl border border-white/10">
           <table className="min-w-full text-left text-xs">
@@ -3246,7 +3246,7 @@ function SecuritySection({ user, pendingDetails, onToast, onChanged }) {
         phone,
         country,
       });
-      onToast?.("success", res.message || "Details sent for admin verification.");
+      onToast?.("success", res.message || "Details sent for verification.");
       onChanged?.();
     } catch (err) {
       onToast?.("error", err?.message || "Failed to submit details.");
@@ -3284,7 +3284,7 @@ function SecuritySection({ user, pendingDetails, onToast, onChanged }) {
       <Card>
         <h3 className="mb-1 text-sm font-bold text-white">Name & details</h3>
         <p className="mb-3 text-[11px] text-slate-500">
-          Changes go to admin for verification before they apply on your account.
+          Changes go for verification before they apply on your account.
         </p>
         {pendingDetails?.status === "pending" && (
           <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
