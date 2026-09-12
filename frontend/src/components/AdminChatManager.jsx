@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   ArrowLeft,
   XCircle,
+  PhoneOff,
+  PhoneCall,
 } from "lucide-react";
 
 import { AdminAPI, ChatAPI, assetUrl } from "../lib/api.js";
@@ -107,6 +109,25 @@ function DepositActions({
 }
 
 function MessageBubble({ m, busy, onApprove, onDecline, reviewedIds }) {
+  const systemNote =
+    m.messageType === "system" || m?.meta?.kind === "chat_session_end";
+  if (systemNote) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="flex justify-center"
+      >
+        <div className="max-w-[90%] rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-center text-[11px] text-slate-400">
+          <div className="whitespace-pre-wrap break-words">{m.body}</div>
+          <div className="mt-1 text-[9px] uppercase tracking-widest text-slate-500">
+            {timeAgo(m.createdAt)}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
   const isAdmin = m.from === "admin";
   const txId = m?.meta?.transactionId;
   const isProof =
@@ -183,6 +204,9 @@ export default function AdminChatManager() {
   const [threadsLoading, setThreadsLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const [session, setSession] = useState(null);
+  const [sessionBusy, setSessionBusy] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const listRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -212,6 +236,7 @@ export default function AdminChatManager() {
       const res = await ChatAPI.history(userId);
       const list = (res.messages || []).filter((m) => !isPlaceholderMedia(m));
       setMessages(list);
+      setSession(res.session || null);
       const done = new Set();
       for (const m of list) {
         if (
@@ -241,6 +266,16 @@ export default function AdminChatManager() {
 
   useEffect(() => {
     getSocket();
+    const offSession = onSocketEvent("chat:session", (payload) => {
+      if (!payload?.session) return;
+      loadThreads();
+      if (
+        selected?._id &&
+        String(payload.userId) === String(selected._id)
+      ) {
+        setSession(payload.session);
+      }
+    });
     const offMsg = onSocketEvent("chat:message", (payload) => {
       if (!payload?.message) return;
       loadThreads();
@@ -261,7 +296,10 @@ export default function AdminChatManager() {
         }
       }
     });
-    return () => offMsg();
+    return () => {
+      offMsg();
+      offSession();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?._id]);
 
@@ -301,6 +339,36 @@ export default function AdminChatManager() {
     return null;
   }, [messages, reviewedIds]);
 
+  useEffect(() => {
+    if (session?.status !== "open") return undefined;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [session?.status, session?.expiresAt]);
+
+  const sessionOpen = session?.status === "open";
+  const remainingMs = sessionOpen
+    ? Math.max(0, new Date(session.expiresAt).getTime() - nowTick)
+    : 0;
+
+  const changeSession = async (action) => {
+    if (!selected?._id || sessionBusy) return;
+    setSessionBusy(true);
+    setActionBanner(null);
+    try {
+      const res =
+        action === "end"
+          ? await ChatAPI.sessionEnd({ userId: selected._id })
+          : await ChatAPI.sessionStart({ userId: selected._id });
+      if (res?.session) setSession(res.session);
+      await loadHistory(selected._id);
+      loadThreads();
+    } catch (err) {
+      setActionBanner(err?.message || "Could not update live chat.");
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     const body = draft.trim();
@@ -309,6 +377,7 @@ export default function AdminChatManager() {
     try {
       const res = await ChatAPI.send({ body, userId: selected._id });
       setMessages((prev) => mergeMessages(prev, res.message));
+      if (res.session) setSession(res.session);
       setDraft("");
       loadThreads();
     } catch (err) {
@@ -344,6 +413,7 @@ export default function AdminChatManager() {
           body: draft.trim() || undefined,
         });
       }
+      if (res?.session) setSession(res.session);
       if (res?.message) {
         setMessages((prev) => mergeMessages(prev, res.message));
         setDraft("");
@@ -467,6 +537,16 @@ export default function AdminChatManager() {
                           <div className="truncate text-xs font-semibold">
                             {t.user?.fullName}
                           </div>
+                          {t.session?.status === "open" && (
+                            <span className="shrink-0 rounded border border-emerald-400/30 bg-emerald-500/15 px-1 text-[8px] font-semibold uppercase text-emerald-200">
+                              Live
+                            </span>
+                          )}
+                          {t.session?.status === "ended" && (
+                            <span className="shrink-0 rounded border border-white/10 bg-white/[0.04] px-1 text-[8px] font-semibold uppercase text-slate-400">
+                              Ended
+                            </span>
+                          )}
                           {t.user?.deletedAt && (
                             <span className="shrink-0 rounded border border-amber-400/30 bg-amber-500/15 px-1 text-[8px] font-semibold uppercase text-amber-200">
                               Archived
@@ -504,7 +584,7 @@ export default function AdminChatManager() {
       <section className={`flex flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur-sm md:col-span-2 ${selected ? "flex" : "hidden md:flex"}`}>
         {selected ? (
           <>
-            <div className="flex items-center justify-between gap-2 border-b border-white/5 px-3 py-3 sm:px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-3 py-3 sm:px-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <button
                   type="button"
@@ -528,18 +608,48 @@ export default function AdminChatManager() {
                   <div className="text-[10px] uppercase tracking-widest text-slate-500">
                     @{selected.username} · {selected.email}
                     {selected.deletedAt ? " · Archived (kept for Super Admin)" : ""}
+                    {sessionOpen
+                      ? ` · Live ${Math.floor(remainingMs / 60000)}:${String(
+                          Math.floor((remainingMs / 1000) % 60)
+                        ).padStart(2, "0")}`
+                      : session?.status === "ended"
+                        ? " · Chat ended"
+                        : ""}
                   </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={sendDepositDetails}
-                disabled={sending}
-                className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-semibold text-emerald-200 disabled:opacity-50"
-              >
-                <span className="sm:hidden">Deposit</span>
-                <span className="hidden sm:inline">Send deposit details</span>
-              </button>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {sessionOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => changeSession("end")}
+                    disabled={sessionBusy}
+                    className="inline-flex items-center gap-1 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2.5 py-2 text-[10px] font-semibold text-rose-100 disabled:opacity-50"
+                  >
+                    <PhoneOff className="h-3 w-3" />
+                    {sessionBusy ? "Ending…" : "End chat"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => changeSession("start")}
+                    disabled={sessionBusy}
+                    className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-semibold text-emerald-100 disabled:opacity-50"
+                  >
+                    <PhoneCall className="h-3 w-3" />
+                    {sessionBusy ? "Starting…" : "Start chat"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={sendDepositDetails}
+                  disabled={sending}
+                  className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-semibold text-emerald-200 disabled:opacity-50"
+                >
+                  <span className="sm:hidden">Deposit</span>
+                  <span className="hidden sm:inline">Send deposit details</span>
+                </button>
+              </div>
             </div>
 
             {/* Persistent deposit action hub */}

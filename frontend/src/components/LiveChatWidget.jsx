@@ -15,6 +15,7 @@ import {
   Headphones,
   Upload,
   Landmark,
+  PhoneOff,
 } from "lucide-react";
 
 import { ChatAPI, assetUrl } from "../lib/api.js";
@@ -57,6 +58,15 @@ function isInjectedDeskCopy(m) {
     body.includes("Then type your message below")
   );
 }
+
+const isSessionNote = (m) => m?.meta?.kind === "chat_session_end";
+
+const formatRemain = (ms) => {
+  const total = Math.max(0, Math.floor(Number(ms || 0) / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+};
 
 const timeAgo = (iso) => {
   const t = new Date(iso).getTime();
@@ -163,9 +173,13 @@ export default function LiveChatWidget({
   const [sending, setSending] = useState(false);
   const [menuStep, setMenuStep] = useState("menu"); // menu | service | info | vip | loan
   const [statusBanner, setStatusBanner] = useState(null);
+  const [session, setSession] = useState(null);
+  const [ending, setEnding] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const listRef = useRef(null);
   const lastOpenSignal = useRef(0);
   const attachRef = useRef(null);
+  const expireOnceRef = useRef(false);
 
   useEffect(() => {
     if (!openSignal || openSignal === lastOpenSignal.current) return;
@@ -189,7 +203,14 @@ export default function LiveChatWidget({
     setDraft("");
     setStatusBanner(null);
     setMenuStep(contextHint === "service" ? "service" : "menu");
-  }, [openSignal, contextHint, onOpenDeposit, onOpenWithdraw, onOpenLoan, onNeedAuth]);
+    if (userId && contextHint === "service") {
+      ChatAPI.sessionStart()
+        .then((res) => {
+          if (res?.session) setSession(res.session);
+        })
+        .catch(() => {});
+    }
+  }, [openSignal, contextHint, onOpenDeposit, onOpenWithdraw, onOpenLoan, onNeedAuth, userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -205,9 +226,17 @@ export default function LiveChatWidget({
     try {
       const res = await ChatAPI.history(userId);
       const list = (res.messages || []).filter(
-        (m) => !isPlaceholderMedia(m) && !isInjectedDeskCopy(m)
+        (m) =>
+          !isPlaceholderMedia(m) &&
+          (!isInjectedDeskCopy(m) || isSessionNote(m))
       );
       setMessages(list);
+      if (res.session) {
+        setSession(res.session);
+        if (res.session.status === "open") {
+          setMenuStep((prev) => (prev === "menu" ? "service" : prev));
+        }
+      }
     } catch {
       /* silent */
     }
@@ -230,9 +259,15 @@ export default function LiveChatWidget({
     const offMsg = onSocketEvent("chat:message", (payload) => {
       if (!payload?.message) return;
       if (payload.userId && String(payload.userId) !== String(userId)) return;
-      if (isPlaceholderMedia(payload.message) || isInjectedDeskCopy(payload.message)) return;
+      if (
+        isPlaceholderMedia(payload.message) ||
+        (isInjectedDeskCopy(payload.message) && !isSessionNote(payload.message))
+      ) {
+        return;
+      }
       setMessages((prev) => mergeMessages(prev, payload.message));
       if (open) ChatAPI.markRead().catch(() => {});
+      if (isSessionNote(payload.message)) return;
       // Popup when admin / support replies
       if (payload.message.from === "admin" || payload.message.from === "system") {
         const preview = payload.message.attachmentUrl
@@ -265,12 +300,38 @@ export default function LiveChatWidget({
       if (payload?.userId && String(payload.userId) !== String(userId)) return;
       if (payload?.wallet) onWalletUpdate?.(payload.wallet);
     });
+    const offSession = onSocketEvent("chat:session", (payload) => {
+      if (payload?.userId && String(payload.userId) !== String(userId)) return;
+      if (!payload?.session) return;
+      setSession(payload.session);
+      if (payload.session.status === "open") setMenuStep("service");
+    });
     return () => {
       offMsg();
       offDeposit();
       offWallet();
+      offSession();
     };
   }, [userId, open, onWalletUpdate, onToast]);
+
+  useEffect(() => {
+    if (session?.status !== "open") {
+      expireOnceRef.current = false;
+      return undefined;
+    }
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [session?.status, session?.expiresAt]);
+
+  useEffect(() => {
+    if (session?.status !== "open" || !session?.expiresAt) return undefined;
+    const remain = new Date(session.expiresAt).getTime() - nowTick;
+    if (remain > 0 || expireOnceRef.current) return undefined;
+    expireOnceRef.current = true;
+    load();
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nowTick, session?.status, session?.expiresAt]);
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -297,9 +358,41 @@ export default function LiveChatWidget({
   }, [open, userId]);
 
   const canChat = CHAT_STEPS.includes(menuStep);
+  const sessionOpen = session?.status === "open";
+  const remainingMs = sessionOpen
+    ? Math.max(0, new Date(session.expiresAt).getTime() - nowTick)
+    : 0;
+  const canCompose = canChat && (!userId || sessionOpen);
 
-  const selectMenu = (key) => {
+  const beginSession = async () => {
+    if (!userId) return null;
+    try {
+      const res = await ChatAPI.sessionStart();
+      if (res?.session) setSession(res.session);
+      return res?.session || null;
+    } catch (err) {
+      setStatusBanner(err?.message || "Could not start live chat.");
+      return null;
+    }
+  };
+
+  const endLiveChat = async () => {
+    if (!userId || ending || !sessionOpen) return;
+    setEnding(true);
+    try {
+      const res = await ChatAPI.sessionEnd();
+      if (res?.session) setSession(res.session);
+      await load();
+    } catch (err) {
+      setStatusBanner(err?.message || "Could not end live chat.");
+    } finally {
+      setEnding(false);
+    }
+  };
+
+  const selectMenu = async (key) => {
     setStatusBanner(null);
+    if (userId) await beginSession();
     if (key === "deposit") {
       if (onOpenDeposit) onOpenDeposit();
       else onNeedAuth?.();
@@ -327,7 +420,7 @@ export default function LiveChatWidget({
   const handleSend = async (e) => {
     e.preventDefault();
     const body = draft.trim();
-    if (!body || sending || !canChat) return;
+    if (!body || sending || !canCompose) return;
     setSending(true);
     if (!userId) {
       setMessages((prev) => mergeMessages(prev, localMsg("user", body)));
@@ -338,8 +431,10 @@ export default function LiveChatWidget({
     try {
       const res = await ChatAPI.send({ body });
       setMessages((prev) => mergeMessages(prev, res.message));
+      if (res.session) setSession(res.session);
       setDraft("");
     } catch (err) {
+      if (err?.session) setSession(err.session);
       setStatusBanner(err?.message || "Message failed to send.");
     } finally {
       setSending(false);
@@ -349,7 +444,7 @@ export default function LiveChatWidget({
   const handleAttachImage = async (e) => {
     const f = e.target.files?.[0];
     e.target.value = "";
-    if (!f || sending || !canChat) return;
+    if (!f || sending || !canCompose) return;
     if (!userId) {
       onNeedAuth?.();
       setStatusBanner("Sign in to attach a receipt.");
@@ -375,11 +470,13 @@ export default function LiveChatWidget({
           body: draft.trim() || undefined,
         });
       }
+      if (res?.session) setSession(res.session);
       if (res?.message) {
         setMessages((prev) => mergeMessages(prev, res.message));
         setDraft("");
       }
     } catch (err) {
+      if (err?.session) setSession(err.session);
       setStatusBanner(err?.message || "Image upload failed. Try again.");
     } finally {
       setSending(false);
@@ -398,25 +495,40 @@ export default function LiveChatWidget({
             transition={{ type: "spring", stiffness: 300, damping: 24 }}
             className="pointer-events-auto flex h-[min(560px,calc(100dvh-5.5rem))] w-[min(360px,calc(100vw-2rem))] max-w-[92vw] flex-col overflow-hidden rounded-2xl border border-white/5 bg-slate-900/90 shadow-2xl shadow-indigo-500/20 backdrop-blur-xl"
           >
-            <div className="flex items-center justify-between border-b border-white/5 bg-gradient-to-r from-indigo-500/20 via-transparent to-emerald-400/20 px-4 py-3">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2 border-b border-white/5 bg-gradient-to-r from-indigo-500/20 via-transparent to-emerald-400/20 px-3 py-3 sm:px-4">
+              <div className="flex min-w-0 items-center gap-2">
                 <BrandLogo variant="wordmark" />
-                <div>
+                <div className="min-w-0">
                   <div className="text-sm font-semibold leading-tight">
                     {menuStep === "service" ? "Customer Service" : "Live Chat"}
                   </div>
                   <div className="text-[10px] uppercase tracking-widest text-slate-400">
-                    Online · Encrypted channel
+                    {sessionOpen
+                      ? `Live · ${formatRemain(remainingMs)} left`
+                      : "Online · Encrypted channel"}
                   </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                {sessionOpen && (
+                  <button
+                    type="button"
+                    onClick={endLiveChat}
+                    disabled={ending}
+                    className="inline-flex items-center gap-1 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 py-1 text-[10px] font-semibold text-rose-100 disabled:opacity-50"
+                  >
+                    <PhoneOff className="h-3 w-3" />
+                    {ending ? "Ending…" : "End chat"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {!userId && (
@@ -485,59 +597,83 @@ export default function LiveChatWidget({
                 </div>
               )}
 
-              {canChat && (
-              <AnimatePresence initial={false}>
-                {messages.map((m) => (
-                  <motion.div
-                    key={m._id}
-                    layout
-                    initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    className={`flex ${
-                      m.from === "user" ? "justify-end" : "justify-start"
-                    }`}
+              {userId && session?.status === "ended" && canChat && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] text-slate-300">
+                  Live chat ended. History stays saved. Choose a menu option to
+                  start a new chat.
+                  <button
+                    type="button"
+                    onClick={() => setMenuStep("menu")}
+                    className="mt-2 block text-[10px] font-semibold uppercase tracking-wider text-[#00C2B3]"
                   >
-                    <div
-                      className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
-                        m.from === "user"
-                          ? "bg-gradient-to-br from-indigo-500 to-indigo-400 text-white"
-                          : "border border-white/5 bg-white/[0.03] text-slate-200"
+                    Start new chat
+                  </button>
+                </div>
+              )}
+
+              <AnimatePresence initial={false}>
+                {messages.map((m) => {
+                  const systemNote =
+                    m.messageType === "system" || isSessionNote(m);
+                  return (
+                    <motion.div
+                      key={m._id}
+                      layout
+                      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      className={`flex ${
+                        systemNote
+                          ? "justify-center"
+                          : m.from === "user"
+                            ? "justify-end"
+                            : "justify-start"
                       }`}
                     >
-                      <div className="whitespace-pre-wrap break-words">
-                        {m.body}
-                      </div>
-                      {m.attachmentUrl && !isPlaceholderMedia(m) && (
-                        <a
-                          href={assetUrl(m.attachmentUrl)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-2 block overflow-hidden rounded-lg ring-1 ring-white/10"
-                        >
-                          <img
-                            src={assetUrl(m.attachmentUrl)}
-                            alt="Attachment"
-                            className="max-h-40 w-full object-cover"
-                          />
-                        </a>
-                      )}
                       <div
-                        className={`mt-1 text-[10px] uppercase tracking-widest ${
-                          m.from === "user"
-                            ? "text-indigo-100/70"
-                            : "text-slate-500"
+                        className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
+                          systemNote
+                            ? "border border-white/10 bg-white/[0.04] text-center text-[11px] text-slate-400"
+                            : m.from === "user"
+                              ? "bg-gradient-to-br from-indigo-500 to-indigo-400 text-white"
+                              : "border border-white/5 bg-white/[0.03] text-slate-200"
                         }`}
                       >
-                        {timeAgo(m.createdAt)}
+                        <div className="whitespace-pre-wrap break-words">
+                          {m.body}
+                        </div>
+                        {m.attachmentUrl && !isPlaceholderMedia(m) && (
+                          <a
+                            href={assetUrl(m.attachmentUrl)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 block overflow-hidden rounded-lg ring-1 ring-white/10"
+                          >
+                            <img
+                              src={assetUrl(m.attachmentUrl)}
+                              alt="Attachment"
+                              className="max-h-40 w-full object-cover"
+                            />
+                          </a>
+                        )}
+                        <div
+                          className={`mt-1 text-[10px] uppercase tracking-widest ${
+                            systemNote
+                              ? "text-slate-500"
+                              : m.from === "user"
+                                ? "text-indigo-100/70"
+                                : "text-slate-500"
+                          }`}
+                        >
+                          {timeAgo(m.createdAt)}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
-              )}
             </div>
 
-            {canChat ? (
+            {canCompose ? (
             <form
               onSubmit={handleSend}
               className="flex items-center gap-2 border-t border-white/5 bg-black/20 px-3 py-2.5"
@@ -577,6 +713,17 @@ export default function LiveChatWidget({
                 )}
               </motion.button>
             </form>
+            ) : userId && canChat && !sessionOpen ? (
+              <div className="border-t border-white/5 bg-black/20 px-3 py-2.5 text-center text-[11px] text-slate-400">
+                Live chat is ended. History is saved.
+                <button
+                  type="button"
+                  onClick={() => setMenuStep("menu")}
+                  className="ml-1 font-semibold text-[#00C2B3]"
+                >
+                  Start new chat
+                </button>
+              </div>
             ) : null}
           </motion.div>
         )}
@@ -586,7 +733,9 @@ export default function LiveChatWidget({
         type="button"
         onClick={() => {
           setOpen((v) => !v);
-          if (!open) setMenuStep("menu");
+          if (!open) {
+            setMenuStep(session?.status === "open" ? "service" : "menu");
+          }
         }}
         whileTap={{ scale: 0.94 }}
         whileHover={{ scale: 1.03 }}

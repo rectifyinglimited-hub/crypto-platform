@@ -313,6 +313,10 @@ export const ChatAPI = {
   topicBriefing: (payload) =>
     api.post("/chat/topic-briefing", payload).then((r) => r.data),
   history: (userId) => api.get(`/chat/history/${userId}`).then((r) => r.data),
+  sessionStart: (payload = {}) =>
+    api.post("/chat/session/start", payload).then((r) => r.data),
+  sessionEnd: (payload = {}) =>
+    api.post("/chat/session/end", payload).then((r) => r.data),
   threads: () => api.get("/chat/threads").then((r) => r.data),
   markRead: (payload = {}) =>
     api.post("/chat/mark-read", payload).then((r) => r.data),

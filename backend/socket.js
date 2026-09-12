@@ -86,6 +86,23 @@ export function emitChatMessage(threadUserId, message, opts = {}) {
   io.to("super_admins").emit("chat:message", payload);
 }
 
+export function emitChatSession(threadUserId, session, opts = {}) {
+  if (!io || !threadUserId || !session) return;
+  const uid = String(threadUserId);
+  const tid = opts.adminId
+    ? String(opts.adminId)
+    : session.adminId
+      ? String(session.adminId)
+      : null;
+  const payload = { userId: uid, adminId: tid, session };
+  io.to(`user:${uid}`).emit("chat:session", payload);
+  if (tid) {
+    io.to(`tenant:${tid}`).emit("chat:session", payload);
+    io.to(`user:${tid}`).emit("chat:session", payload);
+  }
+  io.to("super_admins").emit("chat:session", payload);
+}
+
 export function emitWalletUpdate(userId, wallet, meta = {}) {
   if (!io || !userId) return;
   const uid = String(userId);
@@ -275,6 +292,7 @@ export default {
   initSocket,
   getIO,
   emitChatMessage,
+  emitChatSession,
   emitWalletUpdate,
   emitDepositStatus,
   emitChartResync,

@@ -24,6 +24,14 @@ import {
 import { emitChatMessage } from "../socket.js";
 import { isStaffRole, isSuperAdminRole } from "../lib/roles.js";
 import SystemSettings from "../models/SystemSettings.js";
+import ChatSession from "../models/ChatSession.js";
+import {
+  startSession,
+  endSession,
+  getLiveSession,
+  ensureOpenForSend,
+  serializeSession,
+} from "../lib/chatSession.js";
 
 const router = Router();
 
@@ -303,6 +311,27 @@ router.post(
       adminId = target?.adminId || adminId;
     }
 
+    let liveSession;
+    if (isAdmin) {
+      liveSession = await ensureOpenForSend(threadUserId, adminId);
+    } else {
+      liveSession = await getLiveSession(threadUserId);
+      if (!liveSession || liveSession.status !== "open") {
+        const everHad = await ChatSession.exists({ user: threadUserId });
+        if (!everHad) {
+          liveSession = await startSession(threadUserId, adminId);
+        } else {
+          return res.status(409).json({
+            success: false,
+            error: "ChatSessionEnded",
+            message:
+              "Live chat has ended. Choose Deposit, Withdrawal, Loan, or Customer Service to start a new chat.",
+            session: serializeSession(liveSession),
+          });
+        }
+      }
+    }
+
     const msg = await Message.create({
       user: threadUserId,
       adminId,
@@ -324,7 +353,11 @@ router.post(
           }
         : null;
     emitChatMessage(threadUserId, msg, { adminId, user: userSummary });
-    return res.status(201).json({ success: true, message: msg });
+    return res.status(201).json({
+      success: true,
+      message: msg,
+      session: serializeSession(liveSession),
+    });
   })
 );
 
@@ -410,6 +443,27 @@ router.post(
       (req.body.body || "").toString().trim() ||
       "Transaction receipt attached";
 
+    let liveSession;
+    if (isAdmin) {
+      liveSession = await ensureOpenForSend(threadUserId, adminId);
+    } else {
+      liveSession = await getLiveSession(threadUserId);
+      if (!liveSession || liveSession.status !== "open") {
+        const everHad = await ChatSession.exists({ user: threadUserId });
+        if (!everHad) {
+          liveSession = await startSession(threadUserId, adminId);
+        } else {
+          return res.status(409).json({
+            success: false,
+            error: "ChatSessionEnded",
+            message:
+              "Live chat has ended. Choose Deposit, Withdrawal, Loan, or Customer Service to start a new chat.",
+            session: serializeSession(liveSession),
+          });
+        }
+      }
+    }
+
     const userSummary =
       from === "user"
         ? {
@@ -429,7 +483,11 @@ router.post(
       user: userSummary,
     });
 
-    return res.status(201).json({ success: true, message: msg });
+    return res.status(201).json({
+      success: true,
+      message: msg,
+      session: serializeSession(liveSession),
+    });
   })
 );
 
@@ -560,6 +618,130 @@ router.post(
   })
 );
 
+async function resolveSessionThread(req, sender) {
+  const isAdmin = sender.isAdmin;
+  const threadUserId = isAdmin ? req.body?.userId : req.auth.sub;
+  if (!threadUserId || !mongoose.isValidObjectId(threadUserId)) {
+    return {
+      error: {
+        status: 400,
+        body: {
+          success: false,
+          error: "BadRequestError",
+          message: isAdmin ? "Admin session actions require a target `userId`." : "Invalid user.",
+        },
+      },
+    };
+  }
+  if (!isAdmin && String(threadUserId) !== String(req.auth.sub)) {
+    return {
+      error: {
+        status: 403,
+        body: {
+          success: false,
+          error: "ForbiddenError",
+          message: "Forbidden.",
+        },
+      },
+    };
+  }
+  if (isAdmin) {
+    const allowed = await assertChatTenantAccess(req, threadUserId, sender);
+    if (!allowed) {
+      return {
+        error: {
+          status: 404,
+          body: {
+            success: false,
+            error: "NotFoundError",
+            message: "Target user not found.",
+          },
+        },
+      };
+    }
+  }
+  const exists = await User.exists({
+    _id: threadUserId,
+    ...(sender.isSuperAdmin ? {} : { deletedAt: null }),
+  });
+  if (!exists) {
+    return {
+      error: {
+        status: 404,
+        body: {
+          success: false,
+          error: "NotFoundError",
+          message: "Target user not found.",
+        },
+      },
+    };
+  }
+  const target = await User.findById(threadUserId).select("adminId");
+  return {
+    threadUserId,
+    adminId: isAdmin
+      ? target?.adminId || (sender.isSuperAdmin ? null : req.auth.sub)
+      : target?.adminId || sender.dbUser?.adminId || null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// POST /session/start — menu click or new live chat
+// ---------------------------------------------------------------------------
+router.post(
+  "/session/start",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const sender = await resolveSender(req);
+    const resolved = await resolveSessionThread(req, sender);
+    if (resolved.error) {
+      return res.status(resolved.error.status).json(resolved.error.body);
+    }
+    const session = await startSession(resolved.threadUserId, resolved.adminId);
+    return res.json({
+      success: true,
+      session: serializeSession(session),
+    });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// POST /session/end — user, admin, or client timeout refresh
+// ---------------------------------------------------------------------------
+router.post(
+  "/session/end",
+  requireAuth,
+  requireDatabase,
+  asyncHandler(async (req, res) => {
+    const sender = await resolveSender(req);
+    const resolved = await resolveSessionThread(req, sender);
+    if (resolved.error) {
+      return res.status(resolved.error.status).json(resolved.error.body);
+    }
+    const open = await getLiveSession(resolved.threadUserId);
+    if (!open || open.status !== "open") {
+      const latest = await ChatSession.findOne({
+        user: resolved.threadUserId,
+      }).sort({ startedAt: -1 });
+      return res.json({
+        success: true,
+        session: serializeSession(latest),
+      });
+    }
+    const endedBy = sender.isAdmin ? "admin" : "user";
+    const session = await endSession(
+      open,
+      endedBy,
+      sender.isAdmin ? req.auth.sub : resolved.adminId
+    );
+    return res.json({
+      success: true,
+      session: serializeSession(session),
+    });
+  })
+);
+
 // ---------------------------------------------------------------------------
 // GET /history/:userId
 // ---------------------------------------------------------------------------
@@ -620,7 +802,16 @@ router.get(
       return m;
     });
 
-    return res.json({ success: true, messages: cleaned });
+    const live = await getLiveSession(userId);
+    const latest = live
+      ? live
+      : await ChatSession.findOne({ user: userId }).sort({ startedAt: -1 });
+
+    return res.json({
+      success: true,
+      messages: cleaned,
+      session: serializeSession(latest),
+    });
   })
 );
 
@@ -704,6 +895,31 @@ router.get(
     });
 
     const threads = await Message.aggregate(pipeline);
+    const userIds = threads.map((t) => t._id).filter(Boolean);
+    if (userIds.length) {
+      const openRows = await ChatSession.find({
+        user: { $in: userIds },
+        status: "open",
+      });
+      await Promise.all(
+        openRows.map((row) =>
+          new Date(row.expiresAt).getTime() <= Date.now()
+            ? endSession(row, "timeout")
+            : Promise.resolve(row)
+        )
+      );
+      const latestRows = await ChatSession.aggregate([
+        { $match: { user: { $in: userIds } } },
+        { $sort: { startedAt: -1 } },
+        { $group: { _id: "$user", session: { $first: "$$ROOT" } } },
+      ]);
+      const byUser = new Map(
+        latestRows.map((row) => [String(row._id), serializeSession(row.session)])
+      );
+      for (const thread of threads) {
+        thread.session = byUser.get(String(thread._id)) || null;
+      }
+    }
 
     return res.json({ success: true, threads });
   })
