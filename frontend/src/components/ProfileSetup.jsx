@@ -43,15 +43,15 @@ function fmtUsd(n) {
 
 function MoneyTile({ label, value, hint }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0d1424] px-4 py-4">
+    <div className="rounded-2xl border border-white/10 bg-[#0d1424] px-3 py-3">
       <div className="text-[10px] font-semibold uppercase tracking-wider text-cyan-400/80">
         {label}
       </div>
-      <div className="mt-1 text-2xl font-bold tabular-nums text-white">
+      <div className="mt-1 text-lg font-bold tabular-nums leading-tight text-white">
         ${fmtUsd(value)}
-        <span className="ml-1 text-sm font-medium text-slate-400">USDT</span>
+        <span className="ml-1 text-[11px] font-medium text-slate-400">USDT</span>
       </div>
-      {hint ? <p className="mt-1 text-[11px] text-slate-500">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-[10px] leading-snug text-slate-500">{hint}</p> : null}
     </div>
   );
 }
@@ -144,9 +144,9 @@ export default function ProfileSetup({
   const grand = displayUsdt(user);
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-5 sm:p-6">
-        <div className="mb-5 flex items-center justify-between gap-2">
+    <div className="mx-auto w-full max-w-[400px] space-y-3">
+      <div className="rounded-2xl border border-white/10 bg-[#0d1424] p-4">
+        <div className="mb-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-semibold text-white">
             <UserRound className="h-4 w-4 text-cyan-300" />
             Profile
@@ -162,9 +162,9 @@ export default function ProfileSetup({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3.5">
           <div className="relative shrink-0">
-            <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-500/30 to-emerald-500/20 text-2xl font-bold text-cyan-100 ring-2 ring-white/10">
+            <div className="grid h-[72px] w-[72px] place-items-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-500/30 to-emerald-500/20 text-2xl font-bold text-cyan-100 ring-2 ring-white/10">
               {avatar ? (
                 <img
                   src={avatar}
@@ -179,10 +179,10 @@ export default function ProfileSetup({
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={saving}
-              className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full bg-cyan-500 text-slate-950 shadow-lg disabled:opacity-60"
-              aria-label="Upload profile picture"
+              className="absolute -bottom-0.5 -right-0.5 grid h-7 w-7 place-items-center rounded-full bg-cyan-500 text-slate-950 shadow-lg disabled:opacity-60"
+              aria-label="Change profile picture"
             >
-              <Camera className="h-3.5 w-3.5" />
+              <Camera className="h-3 w-3" />
             </button>
             <input
               ref={fileRef}
@@ -193,41 +193,37 @@ export default function ProfileSetup({
             />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-xl font-bold tracking-tight text-white">
+            <div className="text-[22px] font-bold leading-tight tracking-tight text-white">
               {user?.fullName || "Trader"}
             </div>
             {user?.username ? (
-              <div className="mt-0.5 text-sm text-slate-500">@{user.username}</div>
+              <div className="mt-0.5 text-[13px] text-slate-500">@{user.username}</div>
             ) : null}
             {uid ? (
-              <div className="mt-2.5 flex items-center gap-2">
-                <span className="rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-2.5 py-1 font-mono text-xs font-semibold tabular-nums text-cyan-200">
-                  UID {uid}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    try {
-                      navigator.clipboard?.writeText(String(uid));
-                      toast?.("success", "UID copied.");
-                    } catch {
-                      toast?.("error", "Could not copy UID.");
-                    }
-                  }}
-                  className="rounded-lg border border-white/10 p-1.5 text-slate-400 hover:text-white"
-                  aria-label="Copy UID"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    navigator.clipboard?.writeText(String(uid));
+                    toast?.("success", "UID copied.");
+                  } catch {
+                    toast?.("error", "Could not copy UID.");
+                  }
+                }}
+                className="mt-1 flex items-center gap-1 font-mono text-[12px] tabular-nums text-slate-400"
+                aria-label="Copy UID"
+              >
+                UID {uid}
+                <Copy className="h-3 w-3" />
+              </button>
             ) : null}
-            <div className="mt-3 flex flex-wrap gap-3">
+            <div className="mt-1.5 flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 className="text-[11px] font-semibold text-cyan-300"
               >
-                Upload Profile Picture
+                Change Profile Picture
               </button>
               {avatar ? (
                 <button
@@ -243,11 +239,11 @@ export default function ProfileSetup({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#0c1222] p-3">
-        <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+      <div className="rounded-2xl border border-white/10 bg-[#0c1222] px-2 py-3">
+        <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
           Menu
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1">
           {PROFILE_MENU.map((m) => {
             const Icon = m.icon;
             return (
@@ -255,10 +251,10 @@ export default function ProfileSetup({
                 key={m.key}
                 type="button"
                 onClick={() => onOpenMenu?.(m.key)}
-                className="flex flex-col items-center gap-1.5 rounded-xl px-1 py-3 text-slate-200 active:bg-white/10"
+                className="flex flex-col items-center gap-1 rounded-xl px-0.5 py-2 text-slate-200 active:bg-white/10"
               >
-                <span className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-cyan-300">
-                  <Icon className="h-5 w-5" />
+                <span className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-cyan-300">
+                  <Icon className="h-4 w-4" />
                 </span>
                 <span className="text-center text-[10px] font-semibold leading-tight text-slate-300">
                   {m.label}
@@ -269,21 +265,23 @@ export default function ProfileSetup({
         </div>
       </div>
 
-      <BalanceTrendCard user={user} />
+      <BalanceTrendCard user={user} compact />
       <StrategyBalanceCards user={user} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <MoneyTile
-          label="Available assist"
-          value={withdrawable}
-          hint="That Assist is Withdrawable"
-        />
+      <div className="grid grid-cols-2 items-stretch gap-2.5">
+        <div className="flex min-h-0 flex-col gap-2.5">
+          <MoneyTile
+            label="Available assist"
+            value={withdrawable}
+            hint="That Assist is Withdrawable"
+          />
+          <MoneyTile
+            label="Grand Total Assist"
+            value={grand}
+            hint="Full account total in USDT"
+          />
+        </div>
         <MarketInsightsNews />
       </div>
-      <MoneyTile
-        label="Grand Total Assist"
-        value={grand}
-        hint="Full account total in USDT"
-      />
     </div>
   );
 }

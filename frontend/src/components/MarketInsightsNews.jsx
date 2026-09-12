@@ -1,68 +1,76 @@
 import { useMemo, useState } from "react";
-import { Newspaper, X } from "lucide-react";
+import { Globe2, Newspaper, TrendingUp, X } from "lucide-react";
 import { useDeskBrand } from "../lib/deskBrand.js";
+
+const ICONS = [Globe2, TrendingUp, Newspaper];
 
 export default function MarketInsightsNews() {
   const { deskNews } = useDeskBrand();
   const items = Array.isArray(deskNews) && deskNews.length ? deskNews : [];
-  const loop = useMemo(() => [...items, ...items], [items]);
+  const loop = useMemo(() => (items.length ? [...items, ...items] : []), [items]);
   const [openId, setOpenId] = useState(null);
   const [listOpen, setListOpen] = useState(false);
   const selected = items.find((n) => n.id === openId) || null;
+  const seconds = Math.max(18, items.length * 6);
 
   return (
-    <div className="flex h-full min-h-[168px] flex-col rounded-2xl border border-white/10 bg-[#0d1424] px-4 py-4">
+    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/10 bg-[#0d1424] px-3 py-3">
       <style>{`
         @keyframes equiti-news-rise {
           0% { transform: translateY(0); }
           100% { transform: translateY(-50%); }
         }
         .equiti-news-rise {
-          animation: equiti-news-rise 26s linear infinite;
+          animation: equiti-news-rise var(--news-s, 24s) linear infinite;
         }
         .equiti-news-rise:hover {
           animation-play-state: paused;
         }
+        @media (prefers-reduced-motion: reduce) {
+          .equiti-news-rise { animation: none; }
+        }
       `}</style>
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-cyan-400/80">
-        <Newspaper className="h-3.5 w-3.5" />
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-cyan-400/80">
         Market Insights & News
       </div>
-      <div className="relative mt-3 min-h-[96px] flex-1 overflow-hidden">
+      <div className="relative mt-2 h-[104px] overflow-hidden">
         {items.length ? (
-          <div className="equiti-news-rise space-y-2">
-            {loop.map((item, i) => (
-              <button
-                key={`${item.id}-${i}`}
-                type="button"
-                onClick={() => setOpenId(item.id)}
-                className="block w-full rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-left hover:bg-white/[0.06]"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-cyan-500/15 text-[10px] text-cyan-200">
-                    ●
+          <div
+            className="equiti-news-rise absolute inset-x-0 top-0"
+            style={{ "--news-s": `${seconds}s` }}
+          >
+            {loop.map((item, i) => {
+              const Icon = ICONS[i % ICONS.length];
+              return (
+                <button
+                  key={`${item.id}-${i}`}
+                  type="button"
+                  onClick={() => setOpenId(item.id)}
+                  className="flex w-full items-center gap-2.5 py-2 text-left"
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-cyan-300">
+                    <Icon className="h-3.5 w-3.5" />
                   </span>
-                  <div className="min-w-0">
-                    <div className="truncate text-[12px] font-semibold text-white">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[12px] font-semibold leading-tight text-white">
                       {item.title}
-                    </div>
-                    <div className="truncate text-[10px] text-slate-500">
-                      {item.source}
-                      {item.summary ? ` · ${item.summary}` : ""}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            ))}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[10px] text-slate-500">
+                      {item.source || "Desk"}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         ) : (
-          <p className="text-xs text-slate-500">No desk notes yet.</p>
+          <p className="text-[11px] text-slate-500">No desk notes yet.</p>
         )}
       </div>
       <button
         type="button"
         onClick={() => setListOpen(true)}
-        className="mt-3 text-left text-[11px] font-semibold text-cyan-300 hover:text-cyan-200"
+        className="mt-auto pt-1 text-left text-[11px] font-semibold text-cyan-300"
       >
         View all news
       </button>

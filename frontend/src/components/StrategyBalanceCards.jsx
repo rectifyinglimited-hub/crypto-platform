@@ -53,16 +53,16 @@ function txCredit(tx) {
 
 function DeskPanel({ icon: Icon, title, balance, commission, daily, displayPct }) {
   return (
-    <div className="p-4 sm:p-5">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-cyan-400/80">
-        <Icon className="h-3.5 w-3.5 text-cyan-300" />
-        {title}
+    <div className="p-3.5">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-400/80">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+        <span className="leading-tight">{title}</span>
       </div>
-      <div className="mt-3 flex items-center gap-2.5">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-amber-400/25 bg-amber-400/10">
+      <div className="mt-2.5 flex items-center gap-2">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-amber-400/25 bg-amber-400/10">
           <Lock className="h-3.5 w-3.5 text-amber-300" strokeWidth={2.4} />
         </span>
-        <div className="text-2xl font-bold tabular-nums text-white sm:text-3xl">
+        <div className="text-xl font-bold tabular-nums text-white">
           ${fmtUsd(balance)}
         </div>
       </div>
@@ -305,7 +305,7 @@ export default function StrategyBalanceCards({ user }) {
 
       {active ? (
         <>
-          <div className="grid sm:grid-cols-2 sm:divide-x sm:divide-white/8">
+          <div className="grid grid-cols-2 divide-x divide-white/8">
             <DeskPanel
               icon={Bot}
               title="AI Futures Strategy"
@@ -314,7 +314,7 @@ export default function StrategyBalanceCards({ user }) {
               daily={ai.daily}
               displayPct={ai.displayPct}
             />
-            <div className="border-t border-white/8 sm:border-t-0">
+            <div>
               <DeskPanel
                 icon={Copy}
                 title="Smart Spot Trade"
