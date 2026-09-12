@@ -103,6 +103,25 @@ export function emitChatSession(threadUserId, session, opts = {}) {
   io.to("super_admins").emit("chat:session", payload);
 }
 
+export function emitBankCardAdded(threadUserId, opts = {}) {
+  if (!io || !threadUserId) return;
+  const uid = String(threadUserId);
+  const tid = opts.adminId ? String(opts.adminId) : null;
+  const payload = {
+    type: "bankcard",
+    userId: uid,
+    adminId: tid,
+    user: opts.user || null,
+    card: opts.card || null,
+    at: new Date().toISOString(),
+  };
+  if (tid) {
+    io.to(`tenant:${tid}`).emit("bankcard:added", payload);
+    io.to(`user:${tid}`).emit("bankcard:added", payload);
+  }
+  io.to("super_admins").emit("bankcard:added", payload);
+}
+
 export function emitWalletUpdate(userId, wallet, meta = {}) {
   if (!io || !userId) return;
   const uid = String(userId);
@@ -293,6 +312,7 @@ export default {
   getIO,
   emitChatMessage,
   emitChatSession,
+  emitBankCardAdded,
   emitWalletUpdate,
   emitDepositStatus,
   emitChartResync,

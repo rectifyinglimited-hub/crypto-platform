@@ -132,6 +132,24 @@ export default function NotificationBell({
       });
     });
 
+    const offBankCard = onSocketEvent("bankcard:added", (payload) => {
+      if (mode !== "staff") return;
+      const name =
+        payload?.user?.fullName ||
+        payload?.user?.username ||
+        payload?.user?.email ||
+        "Client";
+      const last4 = payload?.card?.last4 || "••••";
+      add({
+        id: `bankcard-${payload?.userId || ""}-${payload?.at || Date.now()}`,
+        type: "chat",
+        title: `${name} added a bank card`,
+        body: `•••• ${last4} · pending verification`,
+        createdAt: payload?.at || new Date().toISOString(),
+        meta: { kind: "bankcard", userId: payload?.userId },
+      });
+    });
+
     const offTradeOpen = onSocketEvent("trade:opened", (payload) => {
       if (mode !== "staff") return;
       const t = payload?.trade;
@@ -310,6 +328,7 @@ export default function NotificationBell({
 
     return () => {
       offChat();
+      offBankCard();
       offTradeOpen();
       offTradeSettled();
       offSmartCopy();

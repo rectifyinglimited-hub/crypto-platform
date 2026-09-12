@@ -25,6 +25,8 @@ import {
 } from "../lib/referralEngine.js";
 import SystemSettings from "../models/SystemSettings.js";
 import { heldAiUsdt, heldSmartSpotUsdt } from "../lib/aiBotYield.js";
+import { publicBankCards, adminBankCards } from "../lib/bankCards.js";
+import { emitBankCardAdded } from "../socket.js";
 
 const router = Router();
 
@@ -496,7 +498,7 @@ router.get(
       heldUsdt: held,
       accounts,
       wallet: walletObj(user.wallet),
-      bankCards: user.bankCards || [],
+      bankCards: publicBankCards(user.bankCards),
       withdrawAddresses: user.withdrawAddresses || [],
       kyc: user.kyc,
       borrowerKyc: user.borrowerKyc,
@@ -966,39 +968,74 @@ router.post(
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
-    const card = {
-      holderName: String(req.body.holderName || req.body.accountName || "").trim(),
-      billingAddress: String(req.body.billingAddress || "").trim(),
-      cardNumber: String(req.body.cardNumber || req.body.accountNumber || "").replace(/\s+/g, ""),
-      expMonth: String(req.body.expMonth || "").trim(),
-      expYear: String(req.body.expYear || "").trim(),
-      cvv: String(req.body.cvv || "").trim(),
-      bankName: String(req.body.bankName || "Card").trim(),
-      accountName: String(req.body.holderName || req.body.accountName || "").trim(),
-      accountNumber: String(req.body.cardNumber || req.body.accountNumber || "").replace(/\s+/g, ""),
-      iban: String(req.body.iban || "").trim(),
-      currency: String(req.body.currency || "USD").trim(),
-      status: "pending",
-      createdAt: new Date(),
-    };
-    if (!card.holderName || !card.cardNumber || !card.expMonth || !card.expYear || !card.cvv) {
+    const holderName = String(req.body.holderName || req.body.accountName || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 80);
+    const billingAddress = String(req.body.billingAddress || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+    const cardNumber = String(req.body.cardNumber || req.body.accountNumber || "").replace(/\D/g, "");
+    const expMonth = String(req.body.expMonth || "").replace(/\D/g, "").slice(0, 2);
+    const expYear = String(req.body.expYear || "").replace(/\D/g, "").slice(0, 4);
+    const cvv = String(req.body.cvv || "").replace(/\D/g, "").slice(0, 4);
+    const monthNum = Number(expMonth);
+    if (!holderName || !cardNumber || !expMonth || !expYear || !cvv) {
       return res.status(422).json({
         success: false,
         message: "Name, card number, expiry and CVV are required.",
       });
     }
-    if (card.cardNumber.length < 12 || card.cvv.length < 3) {
+    if (cardNumber.length < 12 || cardNumber.length > 19 || cvv.length < 3) {
       return res.status(422).json({
         success: false,
         message: "Enter a valid card number and CVV.",
       });
     }
+    if (!monthNum || monthNum < 1 || monthNum > 12) {
+      return res.status(422).json({
+        success: false,
+        message: "Enter a valid expiry month (01–12).",
+      });
+    }
+    const card = {
+      holderName,
+      billingAddress,
+      cardNumber,
+      expMonth: expMonth.padStart(2, "0"),
+      expYear,
+      cvv,
+      bankName: "Card",
+      accountName: holderName,
+      accountNumber: cardNumber,
+      iban: "",
+      currency: "USD",
+      status: "pending",
+      createdAt: new Date(),
+    };
     user.bankCards = [...(user.bankCards || []), card];
     await user.save();
+    emitBankCardAdded(user._id, {
+      adminId: user.adminId,
+      user: {
+        id: String(user._id),
+        username: user.username || null,
+        email: user.email || null,
+        fullName: user.fullName || null,
+      },
+      card: {
+        last4: cardNumber.slice(-4),
+        holderName,
+        expMonth: card.expMonth,
+        expYear,
+        status: "pending",
+      },
+    });
     return res.json({
       success: true,
-      message: "Bank card submitted — pending admin verification.",
-      bankCards: user.bankCards,
+      message: "Card added — pending admin verification.",
+      bankCards: publicBankCards(user.bankCards),
     });
   })
 );
@@ -1421,7 +1458,7 @@ router.get(
         fullName: user.fullName,
         wallet: walletObj(user.wallet),
         accounts: accountsObj(user.accountBalances),
-        bankCards: user.bankCards,
+        bankCards: adminBankCards(user.bankCards),
         withdrawAddresses: user.withdrawAddresses,
         kyc: user.kyc,
         borrowerKyc: user.borrowerKyc,

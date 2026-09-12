@@ -2121,6 +2121,47 @@ function AddressesSection({ addresses, onToast, onChanged }) {
   );
 }
 
+function cardLast4(c) {
+  const raw = String(c?.last4 || c?.cardNumber || c?.accountNumber || "").replace(/\D/g, "");
+  return raw.slice(-4) || "••••";
+}
+
+function AddedBankCard({ card }) {
+  const name = String(card?.holderName || card?.accountName || "Card")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 28);
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#123347] via-[#0d1424] to-[#071018] p-5 ring-1 ring-cyan-400/25">
+      <div className="mb-5 flex items-center justify-between gap-2">
+        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
+          Card added
+        </div>
+        <StatusBadge status={card.status || "pending"} />
+      </div>
+      <div className="font-mono text-[17px] tracking-[0.22em] text-white">
+        •••• •••• •••• {cardLast4(card)}
+      </div>
+      <div className="mt-5 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+            Name
+          </div>
+          <div className="truncate text-sm font-semibold text-white">{name || "Card"}</div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+            Expires
+          </div>
+          <div className="font-mono text-sm text-white">
+            {card.expMonth || "—"}/{card.expYear || "—"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PaymentSection({ cards, onToast, onChanged }) {
   const [form, setForm] = useState({
     holderName: "",
@@ -2138,7 +2179,7 @@ function PaymentSection({ cards, onToast, onChanged }) {
     setSubmitting(true);
     try {
       const res = await PlatformAPI.addBankCard(form);
-      onToast?.("success", res.message || "Bank card submitted for admin verification.");
+      onToast?.("success", res.message || "Card added — pending admin verification.");
       onChanged?.();
       setForm({
         holderName: "",
@@ -2155,12 +2196,6 @@ function PaymentSection({ cards, onToast, onChanged }) {
     }
   };
 
-  const mask = (n) => {
-    const s = String(n || "").replace(/\s/g, "");
-    if (s.length < 4) return "••••";
-    return `•••• ${s.slice(-4)}`;
-  };
-
   return (
     <>
       <Card>
@@ -2168,21 +2203,10 @@ function PaymentSection({ cards, onToast, onChanged }) {
         {cards.length === 0 ? (
           <EmptyState icon={CreditCard} label="No bank cards added." />
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {cards.map((c) => (
-              <li key={c._id || c.cardNumber} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-white">
-                    {c.holderName || c.accountName || "Card"}
-                  </div>
-                  <StatusBadge status={c.status || "pending"} />
-                </div>
-                <div className="mt-1 text-[11px] text-slate-500">
-                  {mask(c.cardNumber || c.accountNumber)} · Exp {c.expMonth || "—"}/{c.expYear || "—"}
-                </div>
-                {c.billingAddress && (
-                  <div className="mt-0.5 text-[11px] text-slate-600">{c.billingAddress}</div>
-                )}
+              <li key={c._id || c.cardNumber}>
+                <AddedBankCard card={c} />
               </li>
             ))}
           </ul>
@@ -2195,6 +2219,7 @@ function PaymentSection({ cards, onToast, onChanged }) {
             value={form.holderName}
             onChange={(e) => setForm((f) => ({ ...f, holderName: e.target.value }))}
             placeholder="Name"
+            maxLength={80}
             className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
             required
           />
@@ -2202,39 +2227,65 @@ function PaymentSection({ cards, onToast, onChanged }) {
             value={form.billingAddress}
             onChange={(e) => setForm((f) => ({ ...f, billingAddress: e.target.value }))}
             placeholder="Address"
+            maxLength={160}
             className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
             required
           />
           <input
             value={form.cardNumber}
-            onChange={(e) => setForm((f) => ({ ...f, cardNumber: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                cardNumber: e.target.value.replace(/\D/g, "").slice(0, 19),
+              }))
+            }
             placeholder="Card number"
             inputMode="numeric"
+            autoComplete="cc-number"
             className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
             required
           />
           <div className="grid grid-cols-3 gap-2">
             <input
               value={form.expMonth}
-              onChange={(e) => setForm((f) => ({ ...f, expMonth: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  expMonth: e.target.value.replace(/\D/g, "").slice(0, 2),
+                }))
+              }
               placeholder="Exp MM"
+              inputMode="numeric"
               maxLength={2}
               className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
               required
             />
             <input
               value={form.expYear}
-              onChange={(e) => setForm((f) => ({ ...f, expYear: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  expYear: e.target.value.replace(/\D/g, "").slice(0, 4),
+                }))
+              }
               placeholder="Exp YY"
+              inputMode="numeric"
               maxLength={4}
               className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
               required
             />
             <input
               value={form.cvv}
-              onChange={(e) => setForm((f) => ({ ...f, cvv: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  cvv: e.target.value.replace(/\D/g, "").slice(0, 4),
+                }))
+              }
               placeholder="CVV"
+              inputMode="numeric"
               maxLength={4}
+              autoComplete="cc-csc"
               className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
               required
             />

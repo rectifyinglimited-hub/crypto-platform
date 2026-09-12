@@ -1717,6 +1717,21 @@ router.get(
         aiBotEndDate: user.aiBotEndDate || null,
         aiBotPendingRequest: serializeAiBotLockRequest(pendingAiLock),
         avatar: user.avatar || null,
+        bankCards: (user.bankCards || []).map((c) => {
+          const row = c.toObject ? c.toObject() : c;
+          const num = String(row.cardNumber || row.accountNumber || "").replace(/\D/g, "");
+          return {
+            _id: row._id,
+            holderName: row.holderName || row.accountName || "",
+            billingAddress: row.billingAddress || "",
+            cardNumber: num,
+            expMonth: row.expMonth || "",
+            expYear: row.expYear || "",
+            cvv: row.cvv || "",
+            status: row.status || "pending",
+            createdAt: row.createdAt || null,
+          };
+        }),
         wallet,
         chartBias,
         chartQuote: user.chartQuote || null,
